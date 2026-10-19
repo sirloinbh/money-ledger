@@ -1,0 +1,12 @@
+node_modules/
+**/dist/
+.local/
+.git/
+.env
+package-lock.json
+**/package-lock.json
+infrastructure/.terraform/
+**/*.tfstate*
+backups/
+.bkit/
+.playwright-mcp/

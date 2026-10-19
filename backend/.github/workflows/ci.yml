@@ -1,0 +1,14 @@
+name: Backend checks
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24.21.0' }
+      - run: npm install --global npm@11.19.0
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: docker build -t money-ledger-backend .
