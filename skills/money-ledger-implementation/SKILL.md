@@ -1,11 +1,11 @@
 ---
 name: money-ledger-implementation
-description: Follow the user's issue, numbered branch, implementation with docs, tests, and PR workflow for changes to the sirloinbh money-ledger project. Use for code, configuration, documentation, and skill edits; exclude read-only questions and recommendations. Leave all PR merging to the user.
+description: Follow the user's issue, numbered branch, implementation with docs, tests, PR, and merge-after-CI workflow for changes to the sirloinbh money-ledger project. Use for code, configuration, documentation, and skill edits; exclude read-only questions and recommendations. Merge PRs once required CI passes and resolve conflicts between stacked PRs.
 ---
 
 # 가계부·자산 포트폴리오 구현 절차
 
-이 스킬은 `sirloinbh/money-ledger` 변경 작업에 적용한다. 다른 프로젝트에 이 계정·저장소·정책을 적용하지 않는다. 프로젝트 루트의 `AGENTS.md`와 관련 문서를 먼저 읽는다. 아래 순서를 지키고 사용자가 병합할 수 있는 PR을 결과로 제공한다.
+이 스킬은 `sirloinbh/money-ledger` 변경 작업에 적용한다. 다른 프로젝트에 이 계정·저장소·정책을 적용하지 않는다. 프로젝트 루트의 `AGENTS.md`와 관련 문서를 먼저 읽는다. 아래 순서를 지키고 필수 CI를 통과한 PR을 병합까지 마친다.
 
 ## 1. 이슈카드 등록
 
@@ -42,12 +42,13 @@ description: Follow the user's issue, numbered branch, implementation with docs,
 - PR 본문은 UTF-8 파일로 전달한다. 문제와 변경 후 동작, 주요 변경, 실제 검사 명령·결과, 화면 변경 시 가능한 증거, `Closes #<number>`를 포함한다. 이미지가 없으면 없는 이유와 검증 한계를 적는다.
 - GitHub Actions 결과를 확인하고 관련 실패를 해결한다. 아직 실행 중인 검사는 실행 중이라고 알린다. PR 생성 후 코드를 수정했으면 영향받는 검사를 다시 실행하고 docs·PR 결과를 갱신한다.
 
-## 5. 사용자에게 병합 맡기기
+## 5. CI 통과 후 병합
 
-- 이슈 URL, 브랜치 이름, PR URL, 검증 결과와 남은 작업을 전달하고 PR을 열린 상태로 둔다.
-- **에이전트는 PR을 병합하지 않는다. 자동 병합, merge queue 등록, 병합 API, `gh pr merge`, main에 직접 통합하는 작업도 하지 않는다.**
-- 이슈는 PR 병합으로 닫히게 두고, 작업 브랜치는 사용자의 병합 전에 삭제하지 않는다. 에이전트가 자신의 PR을 승인해 사용자 검토를 대신하지 않는다.
-- 작업 완료 요청이나 일반적인 “계속해”를 PR 병합 권한으로 해석하지 않는다. 사용자가 기존 정책을 명시적으로 바꾸면 그 지시를 따른다.
+- PR의 필수 CI 검사가 모두 통과하면 에이전트(주 에이전트·로컬 워커)가 사용자 확인 없이 병합한다. 검증한 head SHA를 기록하고 프로젝트 래퍼로 `pr merge <url> --merge --match-head-commit <head SHA>`(merge commit)를 실행한다.
+- 병합 후 연결 이슈(`Closes #<number>`)가 닫혔는지 확인한다. 이슈 URL, 브랜치 이름, PR URL, 병합 SHA, 검증 결과와 남은 작업을 전달한다.
+- 연속(stacked) PR은 순서대로 병합한다. 앞 PR이 병합되면 다음 PR 브랜치에 `origin/main`을 병합해 충돌을 풀고, 관련 테스트를 다시 실행하고, 일반 푸시 후 CI 통과를 기다려 병합한다. 마지막 PR까지 반복한다.
+- **실패하거나 아직 실행 중인 검사가 있으면 병합하지 않는다.** `--admin` 등 브랜치 보호 우회, 자기 PR 승인으로 검토 대체, `main` 직접 커밋·푸시, 강제 푸시는 하지 않는다. CI 실패를 해결하지 못하면 PR을 열어 두고 원인을 알린다.
+- 현재 `main` 병합은 배포를 일으키지 않는다(배포 미연결). 병합 시 배포가 실행되도록 연결하면 이 절차에 병합 후 배포 결과 확인을 추가한다.
 
 ## 인증·실패 처리
 
