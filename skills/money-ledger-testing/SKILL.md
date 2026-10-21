@@ -5,7 +5,7 @@ description: Write or update behavior-focused tests with money-ledger implementa
 
 # 가계부·자산 포트폴리오 테스트 작성과 실행
 
-프로젝트의 AGENTS.md와 money-ledger-implementation 절차를 함께 따른다. 이 스킬은 테스트 작성·실행 기준이며 이슈·브랜치·docs·PR 절차와 사용자 전용 병합 정책을 유지한다.
+프로젝트의 AGENTS.md와 money-ledger-implementation 절차를 함께 따른다. 이 스킬은 테스트 작성·실행 기준이며 이슈·브랜치·docs·PR 절차와 PR 후 자동 코드 리뷰(최대 2회)·CI 통과 후 병합 정책을 유지한다.
 
 ## 구현·수정과 함께 작성
 
@@ -30,4 +30,5 @@ description: Write or update behavior-focused tests with money-ledger implementa
 - PR에 추가·수정한 테스트, 실행 명령, pass/fail/skip, 미실행 이유를 기록한다. DB 환경변수 미설정으로 건너뛴 통합 테스트는 성공으로 계산하지 않는다.
 - PR 이후 코드·테스트를 고치면 영향받는 검사를 다시 실행하고 docs·PR 결과를 갱신한다. CI 실패도 해결한다.
 - 문서·스킬·포맷만 바뀌고 앱 동작 변경이 없으면 그 산출물의 검증기·포맷·링크 검사로 검증하고 앱 테스트를 추가하지 않은 이유를 적는다. 실행 코드·검사 스크립트의 동작 변경은 관련 테스트 또는 실행 검증을 포함한다.
-- PR 병합과 자동 병합은 사용자가 수행한다.
+- 자동 코드 리뷰 지적을 반영한 보완 커밋에도 관련 테스트를 함께 담고, 마지막 커밋 기준으로 관련 테스트를 다시 실행한다.
+- 필수 CI가 모두 통과한 뒤에만 PR을 병합한다. 실패·실행 중 검사가 있으면 병합하지 않는다.
