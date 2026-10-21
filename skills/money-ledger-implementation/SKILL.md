@@ -1,11 +1,11 @@
 ---
 name: money-ledger-implementation
-description: Follow the user's issue, numbered branch, implementation with docs, tests, PR, and merge-after-CI workflow for changes to the sirloinbh money-ledger project. Use for code, configuration, documentation, and skill edits; exclude read-only questions and recommendations. Merge PRs once required CI passes and resolve conflicts between stacked PRs.
+description: Follow the user's issue, numbered branch, implementation with docs, tests, PR, up to two automated review rounds, and merge-after-CI workflow for changes to the sirloinbh money-ledger project. Use for code, configuration, documentation, and skill edits; exclude read-only questions and recommendations. Review each PR at most twice with fix commits, split large fixes into new issues, merge with a merge commit once required CI passes, and resolve conflicts between stacked PRs.
 ---
 
 # 가계부·자산 포트폴리오 구현 절차
 
-이 스킬은 `sirloinbh/money-ledger` 변경 작업에 적용한다. 다른 프로젝트에 이 계정·저장소·정책을 적용하지 않는다. 프로젝트 루트의 `AGENTS.md`와 관련 문서를 먼저 읽는다. 아래 순서를 지키고 필수 CI를 통과한 PR을 병합까지 마친다.
+이 스킬은 `sirloinbh/money-ledger` 변경 작업에 적용한다. 다른 프로젝트에 이 계정·저장소·정책을 적용하지 않는다. 프로젝트 루트의 `AGENTS.md`와 관련 문서를 먼저 읽는다. 아래 순서를 지키고 PR 후 자동 코드 리뷰(최대 2회)를 거쳐 필수 CI를 통과한 PR을 병합까지 마친다.
 
 ## 1. 이슈카드 등록
 
@@ -42,8 +42,28 @@ description: Follow the user's issue, numbered branch, implementation with docs,
 - PR 본문은 UTF-8 파일로 전달한다. 문제와 변경 후 동작, 주요 변경, 실제 검사 명령·결과, 화면 변경 시 가능한 증거, `Closes #<number>`를 포함한다. 이미지가 없으면 없는 이유와 검증 한계를 적는다.
 - GitHub Actions 결과를 확인하고 관련 실패를 해결한다. 아직 실행 중인 검사는 실행 중이라고 알린다. PR 생성 후 코드를 수정했으면 영향받는 검사를 다시 실행하고 docs·PR 결과를 갱신한다.
 
-## 5. CI 통과 후 병합
+## 5. PR 후 자동 코드 리뷰(최대 2회)
 
+PR을 올린 뒤 자동 코드 리뷰를 최대 2회 거친다. 보완점이 없으면 바로 CI 확인과 병합으로 넘어간다.
+
+1. **1차 리뷰**: PR을 올린 뒤 작성 문맥과 분리된 읽기 전용 리뷰를 실행한다(별도 에이전트, 리뷰 도구 등). 이슈 완료 기준과 PR 전체 diff를 기준으로 정확성·회귀·보안·누락된 테스트·docs 기록을 본다.
+2. **보완점이 없으면** 리뷰를 끝내고 CI 확인과 병합으로 넘어간다.
+3. **보완점이 있으면** 이 PR 범위에서 고칠 지적만 반영한다. 관련 테스트와 docs 기록을 함께 담아 추가 커밋을 만들고 push한다.
+4. **2차 리뷰**: 1차 지적이 반영됐는지와 추가 diff를 확인한다. 최종 PR 전체 diff도 함께 본다. 보완점이 없으면 CI로 넘어간다.
+5. **2차 보완**: 2차 지적은 추가 커밋으로 반영한다. 리뷰는 최대 2회이므로 3차 리뷰는 하지 않고 CI로 넘어간다.
+6. **큰 수정은 분리**: 다음에 해당하는 지적은 이 PR에서 고치지 않는다. 대신 `sirloinbh/money-ledger`에 새 이슈카드(문제·범위·완료 기준 포함)를 만든다. PR 코멘트와 docs 기록에 이슈 링크를 남기고 이 PR은 계속 진행한다.
+   - 요청 범위 밖의 기능
+   - 설계·데이터 구조 변경
+   - 여러 모듈에 걸친 수정
+   - 별도 검증이 필요한 작업
+7. **병합 보류**: 다음 결함이 남아 있으면 병합하지 않고 사용자에게 알린다.
+   - 분리하면 main이 깨지는 결함
+   - 보안·데이터 손상 위험이 있는 결함
+8. **기록**: 각 리뷰 차수의 결과를 PR 코멘트와 `docs/changes/<number>-<slug>.md`에 남긴다. 지적 사항, 반영한 커밋, 분리한 이슈, 보완점 없음 여부를 적는다.
+
+## 6. CI 통과 후 병합
+
+- 마지막 커밋 기준으로 관련 테스트를 다시 실행한다. 리뷰 중 새 커밋이 생기면 이전 CI 결과로 병합하지 않고, 최종 head의 필수 CI 결과를 기준으로 한다.
 - PR의 필수 CI 검사가 모두 통과하면 에이전트(주 에이전트·로컬 워커)가 사용자 확인 없이 병합한다. 검증한 head SHA를 기록하고 프로젝트 래퍼로 `pr merge <url> --merge --match-head-commit <head SHA>`(merge commit)를 실행한다.
 - 병합 후 연결 이슈(`Closes #<number>`)가 닫혔는지 확인한다. 이슈 URL, 브랜치 이름, PR URL, 병합 SHA, 검증 결과와 남은 작업을 전달한다.
 - 연속(stacked) PR은 순서대로 병합한다. 앞 PR이 병합되면 다음 PR 브랜치에 `origin/main`을 병합해 충돌을 풀고, 관련 테스트를 다시 실행하고, 일반 푸시 후 CI 통과를 기다려 병합한다. 마지막 PR까지 반복한다.
