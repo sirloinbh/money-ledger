@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-money}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env and set password}
       TZ: Asia/Seoul
-    ports: ['127.0.0.1:55445:5432']
+    ports: ['127.0.0.1:15405:5432']
     volumes:
       - money-ledger-data:/var/lib/postgresql/data
       - ./database/migrations:/docker-entrypoint-initdb.d:ro
@@ -20,14 +20,14 @@ services:
     build: ./backend
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-money}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-money}
-      PORT: 3015
+      PORT: 3105
       TZ: Asia/Seoul
     depends_on:
       db: { condition: service_healthy }
     restart: unless-stopped
   web:
     build: ./frontend
-    ports: ['127.0.0.1:8095:80']
+    ports: ['127.0.0.1:8105:80']
     depends_on: [api]
     restart: unless-stopped
 volumes:
