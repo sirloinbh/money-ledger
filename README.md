@@ -15,7 +15,7 @@ Copy-Item .env.example .env
 docker compose up --build -d
 ```
 
-접속: http://localhost:8095 . `.env`의 비밀번호를 바꾼 뒤 실행하세요. 데이터는 `money-ledger-data` 볼륨에 저장되며 `docker compose down -v`는 데이터를 삭제합니다.
+접속: http://localhost:8105 . `.env`의 비밀번호를 바꾼 뒤 실행하세요. 데이터는 `money-ledger-data` 볼륨에 저장되며 `docker compose down -v`는 데이터를 삭제합니다.
 
 개발 실행:
 
@@ -24,7 +24,7 @@ docker compose up -d db
 npm run dev
 ```
 
-Vite http://localhost:5175, API http://localhost:3015/api/health, 호스트 DB 포트 55445.
+Vite http://localhost:5205, API http://localhost:3105/api/health, 호스트 DB 포트 15405.
 
 ## 검증
 
