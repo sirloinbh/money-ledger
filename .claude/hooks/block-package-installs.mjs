@@ -1,0 +1,371 @@
+// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/common/.claude/hooks/에서
+// Claude Code and Codex PreToolUse hook (#162, #180, docs/agent-guardrails.md): reads the Bash
+// or PowerShell command, splits it into simple commands, and exits 2 (block) when one of them
+// installs, removes, or runs packages. It complements the Claude Code permissions.deny prefix
+// rules and the Codex rules, which miss `npm --silent install`, `sh -c "npm i"`, and full paths
+// such as `C:\nodejs\npm.cmd install`.
+// Node built-ins only. It is a guard against mistakes, not a security boundary.
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// npm's command list and aliases (npm 11, lib/utils/cmd-list.js). npm also accepts any
+// unambiguous prefix and camelCase names, so `npm upd` and `npm installTest` resolve too.
+const NPM_COMMANDS = [
+  'access', 'adduser', 'approve-scripts', 'audit', 'bugs', 'cache', 'ci', 'completion', 'config', 'dedupe',
+  'deny-scripts', 'deprecate', 'diff', 'dist-tag', 'docs', 'doctor', 'edit', 'exec', 'explain', 'explore',
+  'find-dupes', 'fund', 'get', 'help', 'help-search', 'init', 'install', 'install-ci-test', 'install-scripts',
+  'install-test', 'link', 'll', 'login', 'logout', 'ls', 'org', 'outdated', 'owner', 'pack', 'ping', 'pkg',
+  'prefix', 'profile', 'prune', 'publish', 'query', 'rebuild', 'repo', 'restart', 'root', 'run', 'sbom',
+  'search', 'set', 'shrinkwrap', 'stage', 'star', 'stars', 'start', 'stop', 'team', 'test', 'token', 'trust',
+  'undeprecate', 'uninstall', 'unpublish', 'unstar', 'update', 'version', 'view', 'whoami',
+];
+const NPM_ALIASES = {
+  author: 'owner', home: 'docs', issues: 'bugs', info: 'view', show: 'view', find: 'search', add: 'install',
+  unlink: 'uninstall', remove: 'uninstall', rm: 'uninstall', r: 'uninstall', un: 'uninstall', rb: 'rebuild',
+  list: 'ls', ln: 'link', create: 'init', i: 'install', it: 'install-test', cit: 'install-ci-test', u: 'update',
+  up: 'update', c: 'config', s: 'search', se: 'search', tst: 'test', t: 'test', ddp: 'dedupe', v: 'view',
+  'run-script': 'run', 'clean-install': 'ci', 'clean-install-test': 'install-ci-test', x: 'exec', why: 'explain',
+  la: 'll', verison: 'version', ic: 'ci', innit: 'init', in: 'install', ins: 'install', inst: 'install',
+  insta: 'install', instal: 'install', isnt: 'install', isnta: 'install', isntal: 'install', isntall: 'install',
+  'install-clean': 'ci', 'isntall-clean': 'ci', hlep: 'help', 'dist-tags': 'dist-tag', upgrade: 'update',
+  udpate: 'update', rum: 'run', sit: 'install-ci-test', urn: 'run', ogr: 'org', 'add-user': 'adduser',
+};
+// npm commands that install, remove, or run packages (`audit` only with `fix`).
+const NPM_BLOCKED = new Set(['install', 'ci', 'install-test', 'install-ci-test', 'update', 'uninstall', 'exec', 'init', 'rebuild', 'dedupe', 'link']);
+// Other package managers and runners are not used in these repositories: every call is blocked.
+const RUNNERS = new Set(['npx', 'pnpm', 'pnpx', 'yarn', 'yarnpkg', 'bun', 'bunx', 'corepack']);
+// npm options whose value is the next word, e.g. `npm -w app install`.
+const NPM_VALUE_OPTIONS = new Set(['-w', '--workspace', '--prefix', '-C', '--loglevel', '--registry', '--cache', '--userconfig', '--globalconfig', '--tag', '--otp', '--scope', '--before', '--omit', '--include', '--install-strategy', '--script-shell', '--location', '-L', '--access', '--color']);
+const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh', 'mksh', 'ash', 'fish']);
+const POWERSHELLS = new Set(['pwsh', 'powershell', 'powershell_ise']);
+const MAX_DEPTH = 6;
+
+/** Resolves an npm command word the way npm does, or returns undefined. */
+export function npmCommand(word) {
+  let name = word;
+  if (/[A-Z]/.test(name)) name = name.replace(/([A-Z])/g, (m) => '-' + m.toLowerCase());
+  if (NPM_COMMANDS.includes(name)) return name;
+  if (NPM_ALIASES[name]) return NPM_ALIASES[name];
+  const names = [...NPM_COMMANDS, ...Object.keys(NPM_ALIASES)].filter((n) => n.startsWith(name));
+  if (!name || names.length !== 1) return undefined;
+  return NPM_ALIASES[names[0]] ?? names[0];
+}
+
+/**
+ * Splits a Bash or PowerShell command into simple commands (arrays of words, quotes removed).
+ * It understands both shells only as far as needed here: quotes, separators, comments,
+ * here-documents and here-strings. Backslashes outside quotes are kept so Windows paths survive.
+ */
+export function splitCommands(text) {
+  const commands = [];
+  let words = [];
+  let word = '';
+  let inWord = false;
+  const pendingHeredocs = [];
+  const endWord = () => {
+    if (inWord) words.push(word);
+    word = '';
+    inWord = false;
+  };
+  const endCommand = () => {
+    endWord();
+    if (words.length) commands.push(words);
+    words = [];
+  };
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (ch === '\n') {
+      endCommand();
+      i++;
+      // Skip the bodies of here-documents started on this line.
+      for (const { delimiter, strip } of pendingHeredocs.splice(0)) {
+        while (i < text.length) {
+          const end = text.indexOf('\n', i);
+          const line = text.slice(i, end === -1 ? text.length : end);
+          i = end === -1 ? text.length : end + 1;
+          if ((strip ? line.replace(/^\t+/, '') : line).replace(/\r$/, '') === delimiter) break;
+        }
+      }
+      continue;
+    }
+    if (ch === "'" || (ch === '$' && next === "'")) {
+      if (ch === '$') i++;
+      const end = text.indexOf("'", i + 1);
+      word += text.slice(i + 1, end === -1 ? text.length : end);
+      inWord = true;
+      i = end === -1 ? text.length : end + 1;
+      continue;
+    }
+    if (ch === '"') {
+      i++;
+      while (i < text.length && text[i] !== '"') {
+        if ((text[i] === '\\' && '"\\$`'.includes(text[i + 1] ?? '')) || (text[i] === '`' && i + 1 < text.length)) i++;
+        word += text[i];
+        i++;
+      }
+      inWord = true;
+      i++;
+      continue;
+    }
+    // PowerShell here-strings: @' ... '@ and @" ... "@ (the closing mark starts a line).
+    if (ch === '@' && (next === "'" || next === '"') && /^[ \t]*\r?\n/.test(text.slice(i + 2))) {
+      const close = text.indexOf(`\n${next}@`, i + 2);
+      word += text.slice(text.indexOf('\n', i) + 1, close === -1 ? text.length : close);
+      inWord = true;
+      i = close === -1 ? text.length : close + 3;
+      continue;
+    }
+    if (ch === '#' && !inWord) {
+      while (i < text.length && text[i] !== '\n') i++;
+      continue;
+    }
+    if (ch === '<' && next === '<' && text[i + 2] !== '<') {
+      endWord();
+      let j = i + 2;
+      const strip = text[j] === '-';
+      if (strip) j++;
+      while (text[j] === ' ' || text[j] === '\t') j++;
+      const match = /^(['"]?)([^\s'";&|<>()]+)\1/.exec(text.slice(j));
+      if (match) {
+        pendingHeredocs.push({ delimiter: match[2], strip });
+        i = j + match[0].length;
+        continue;
+      }
+      i += 2;
+      continue;
+    }
+    if (ch === '$' && next === '(') {
+      endCommand();
+      i += 2;
+      continue;
+    }
+    if (';&|(){}`<>\r'.includes(ch)) {
+      endCommand();
+      i++;
+      continue;
+    }
+    if (ch === '\\' && (next === ' ' || next === '\t')) {
+      word += next;
+      inWord = true;
+      i += 2;
+      continue;
+    }
+    if (ch === ' ' || ch === '\t') {
+      endWord();
+      i++;
+      continue;
+    }
+    word += ch;
+    inWord = true;
+    i++;
+  }
+  endCommand();
+  return commands;
+}
+
+/** Lower-case program name without directory or Windows extension: `C:\nodejs\NPM.cmd` -> `npm`. */
+export function programName(word) {
+  const base = word.split(/[\\/]/).pop() ?? '';
+  return base.toLowerCase().replace(/\.(cmd|exe|ps1|bat|com)$/, '');
+}
+
+const isOption = (word) => /^-/.test(word);
+const isAssignment = (word) => /^[A-Za-z_][A-Za-z0-9_]*=/.test(word);
+
+// Skips leading options; `withValue` lists options whose value is the next word.
+function skipOptions(args, withValue = []) {
+  let i = 0;
+  while (i < args.length && isOption(args[i])) {
+    if (args[i] === '--') return i + 1;
+    if (withValue.includes(args[i])) i++;
+    i++;
+  }
+  return i;
+}
+
+function checkNpm(args, viaXargs) {
+  let positional = 0;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--') break;
+    if (isOption(args[i])) {
+      if (NPM_VALUE_OPTIONS.has(args[i])) i++;
+      continue;
+    }
+    positional++;
+    const command = npmCommand(args[i]);
+    // A word that is not a command is the value of an option such as `--prefix dir`.
+    if (!command) continue;
+    if (command === 'audit') return args.slice(i + 1).includes('fix') ? 'npm audit fix' : null;
+    return NPM_BLOCKED.has(command) ? `npm ${command}` : null;
+  }
+  // `xargs npm` takes the subcommand from its input, so the hook cannot see it.
+  return viaXargs && positional === 0 ? 'xargs npm' : null;
+}
+
+function powershellCommand(args) {
+  const valueOptions = ['executionpolicy', 'ep', 'ex', 'workingdirectory', 'wd', 'windowstyle', 'w', 'outputformat', 'of', 'o', 'inputformat', 'if', 'configurationname', 'config', 'settingsfile', 'custompipename', 'psconsolefile', 'version', 'v'];
+  for (let i = 0; i < args.length; i++) {
+    const option = /^[-/]/.test(args[i]) ? args[i].slice(1).toLowerCase() : null;
+    if (option === null) return args.slice(i).join(' ');
+    if (option.startsWith('c') && 'command'.startsWith(option)) return args.slice(i + 1).join(' ');
+    if (option === 'e' || option === 'ec' || (option.startsWith('en') && 'encodedcommand'.startsWith(option))) {
+      try {
+        return Buffer.from(args[i + 1] ?? '', 'base64').toString('utf16le');
+      } catch {
+        return '';
+      }
+    }
+    if (option.startsWith('f') && 'file'.startsWith(option)) return '';
+    if (valueOptions.includes(option) || valueOptions.some((name) => name.length > 3 && option.length >= 3 && name.startsWith(option))) i++;
+  }
+  return '';
+}
+
+function startProcess(args) {
+  let file = '';
+  const rest = [];
+  for (let i = 0; i < args.length; i++) {
+    if (isOption(args[i])) {
+      const option = args[i].slice(1).toLowerCase();
+      if (option.length >= 2 && 'filepath'.startsWith(option)) file = args[++i] ?? '';
+      else if ('argumentlist'.startsWith(option) || option === 'args' || option === 'al') rest.push(args[++i] ?? '');
+      else if (!['wait', 'nonewwindow', 'passthru', 'usenewenvironment', 'loaduserprofile', 'nnw'].includes(option)) i++;
+    } else if (!file) file = args[i];
+    else rest.push(args[i]);
+  }
+  return file ? [file, ...rest.flatMap((arg) => arg.split(/[\s,]+/)).filter(Boolean)] : [];
+}
+
+/** Returns what was blocked (e.g. `npm install`) for one simple command, or null. */
+function checkWords(words, depth, viaXargs = false) {
+  let i = 0;
+  while (i < words.length && isAssignment(words[i])) i++;
+  if (i >= words.length) return null;
+  const name = programName(words[i]);
+  const unescaped = programName(words[i].replace(/\\/g, ''));
+  const args = words.slice(i + 1);
+  const program = [name, unescaped].find((n) => n === 'npm' || RUNNERS.has(n)) ?? name;
+
+  if (program === 'npm') return checkNpm(args, viaXargs);
+  if (RUNNERS.has(program)) return program;
+
+  const nested = (command) => (command ? findInstall(command, depth + 1) : null);
+  const wrapped = (rest, xargs = viaXargs) => checkWords(rest, depth, xargs);
+
+  switch (program) {
+    case 'env': {
+      let j = 0;
+      while (j < args.length && (isOption(args[j]) || isAssignment(args[j]))) {
+        if (['-S', '--split-string'].includes(args[j])) return nested(args.slice(j + 1).join(' '));
+        if (args[j] === '--') { j++; break; }
+        if (['-u', '--unset', '-C', '--chdir'].includes(args[j])) j++;
+        j++;
+      }
+      return wrapped(args.slice(j));
+    }
+    case 'sudo':
+    case 'doas':
+      return wrapped(args.slice(skipOptions(args, ['-u', '-g', '-h', '-p', '-C', '-D', '-r', '-t', '-U'])));
+    case 'timeout': {
+      const j = skipOptions(args, ['-s', '--signal', '-k', '--kill-after']);
+      return wrapped(args.slice(j + 1));
+    }
+    case 'nice':
+    case 'ionice':
+    case 'stdbuf':
+      return wrapped(args.slice(skipOptions(args, ['-n', '--adjustment', '-c', '-i', '-o', '-e'])));
+    case 'nohup':
+    case 'time':
+    case 'exec':
+    case 'setsid':
+    case 'builtin':
+    case 'call':
+    case 'cross-env':
+    case 'cross-env-shell': {
+      let j = skipOptions(args);
+      while (j < args.length && isAssignment(args[j])) j++;
+      return wrapped(args.slice(j));
+    }
+    case 'command':
+      // `command -v npm` only looks the program up.
+      return args.some((arg) => /^-[a-zA-Z]*[vV]/.test(arg)) ? null : wrapped(args.slice(skipOptions(args)));
+    case 'xargs':
+      return wrapped(args.slice(skipOptions(args, ['-I', '-L', '-n', '-P', '-d', '-E', '-s', '-a', '--arg-file', '--delimiter', '--max-args', '--max-procs'])), true);
+    case 'volta':
+      return args[0] === 'run' ? wrapped(args.slice(1 + skipOptions(args.slice(1), ['--node', '--npm', '--pnpm', '--yarn', '--env']))) : null;
+    case 'wsl':
+      return wrapped(args.slice(skipOptions(args, ['-d', '--distribution', '-u', '--user', '--cd'])));
+    case 'node': {
+      const j = skipOptions(args, ['-r', '--require', '--import', '--loader', '--experimental-loader', '-C', '--conditions', '--input-type']);
+      if (args.slice(0, j).some((arg) => /^(-e|-p|--eval|--print)$/.test(arg))) return null;
+      const script = programName(args[j] ?? '');
+      if (script === 'npm-cli.js') return checkNpm(args.slice(j + 1), viaXargs);
+      if (script === 'npx-cli.js') return 'npx';
+      return null;
+    }
+    case 'cmd': {
+      const j = args.findIndex((arg) => /^\/[ckr]$/i.test(arg));
+      return j === -1 ? null : nested(args.slice(j + 1).join(' '));
+    }
+    case 'eval':
+    case 'iex':
+    case 'invoke-expression':
+      return nested(args.filter((arg) => !/^-command$/i.test(arg)).join(' '));
+    case 'start-process':
+    case 'saps':
+    case 'start':
+      return wrapped(startProcess(args));
+    default:
+      break;
+  }
+  if (SHELLS.has(program) || program === 'busybox') {
+    const j = args.findIndex((arg) => /^-[a-zA-Z]*c[a-zA-Z]*$/.test(arg));
+    return j === -1 ? null : nested(args[j + 1]);
+  }
+  if (POWERSHELLS.has(program)) return nested(powershellCommand(args));
+  return null;
+}
+
+/** Returns what was blocked in a full Bash or PowerShell command line, or null when it may run. */
+export function findInstall(command, depth = 0) {
+  if (depth > MAX_DEPTH) return null;
+  for (const words of splitCommands(command)) {
+    const found = checkWords(words, depth);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * Reads one PreToolUse event from stdin and exits 2 (reason on stderr) to block it.
+ * Claude Code sends `Bash` or `PowerShell`; Codex sends `Bash` for every shell command,
+ * also on Windows where the command is PowerShell (#180). Both use `tool_input.command`.
+ */
+export async function main() {
+  let input = '';
+  process.stdin.setEncoding('utf8');
+  for await (const chunk of process.stdin) input += chunk;
+  let event;
+  try {
+    event = JSON.parse(input);
+  } catch {
+    process.stderr.write('패키지 설치 차단 훅이 입력을 읽지 못해 명령을 막았습니다.\n');
+    process.exit(2);
+  }
+  const command = event?.tool_input?.command;
+  if (!['Bash', 'PowerShell'].includes(event?.tool_name) || typeof command !== 'string') process.exit(0);
+  const found = findInstall(command);
+  if (!found) process.exit(0);
+  process.stderr.write(
+    `패키지 설치·삭제·실행 명령이라 막았습니다(${found}). 에이전트는 패키지를 설치하지 않습니다. ` +
+      '설치가 필요하면 사용자에게 요청하세요. 자세한 내용: docs/agent-guardrails.md (sirloinbh/project-standards)\n',
+  );
+  process.exit(2);
+}
+
+// Claude Code runs this file (`node <this file>`). Codex imports it and calls main() from
+// `node -e` in .codex/hooks.json, because Codex has no project-directory placeholder (#180).
+// Tests import the functions above.
+if (process.argv[1] && path.resolve(process.argv[1]).toLowerCase() === fileURLToPath(import.meta.url).toLowerCase()) await main();

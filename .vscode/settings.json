@@ -6,10 +6,10 @@
     "GITHUB_TOKEN": null
   },
   "terminal.integrated.profiles.windows": {
-    "Workout Memo PowerShell": {
+    "sirloinbh PowerShell": {
       "path": "${env:WINDIR}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-      "args": ["-NoExit", "-File", "${env:LOCALAPPDATA}\\gh-workout-memo\\project-terminal.ps1"]
+      "args": ["-NoExit", "-File", "${env:LOCALAPPDATA}\\sirloinbh-tools\\project-terminal.ps1"]
     }
   },
-  "terminal.integrated.defaultProfile.windows": "Workout Memo PowerShell"
+  "terminal.integrated.defaultProfile.windows": "sirloinbh PowerShell"
 }

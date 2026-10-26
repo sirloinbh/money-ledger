@@ -1,3 +1,4 @@
+# Managed file. Edit it in sirloinbh/project-standards templates/app/scripts/
 param(
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$GhArguments

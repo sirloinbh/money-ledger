@@ -1,3 +1,4 @@
+// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/scripts/에서
 // Mirrors the project skills (source of truth: skills/) into .claude/skills/
 // so Claude Code loads the same procedures Codex uses.
 import fs from 'node:fs';
