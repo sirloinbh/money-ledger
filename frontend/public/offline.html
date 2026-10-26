@@ -1,0 +1,25 @@
+<!-- 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/frontend/public/에서 -->
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
+    <title>가계부·자산 포트폴리오 · 오프라인</title>
+    <style>
+      :root { color-scheme: light dark; --bg: #ffffff; --fg: #0a0a0a; --muted: #737373; }
+      @media (prefers-color-scheme: dark) { :root { --bg: #0a0a0a; --fg: #fafafa; --muted: #a3a3a3; } }
+      body { margin: 0; min-height: 100dvh; display: grid; place-items: center; padding: 1rem; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; text-align: center; }
+      p { color: var(--muted); }
+      button { min-height: 44px; padding: 0 1.25rem; border: 1px solid currentColor; border-radius: 0.5rem; background: none; color: inherit; font: inherit; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>인터넷에 연결되어 있지 않습니다</h1>
+      <p>가계부·자산 포트폴리오은(는) 연결되면 다시 열 수 있습니다.</p>
+      <button type="button" onclick="location.reload()">다시 시도</button>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,12 @@
+# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
+[Unit]
+Description=Check origin/main of money-ledger for a new CI-passed commit every 2 minutes
+
+[Timer]
+# The boot delay grows by 10 seconds per registry slot (slot 5) so apps do not all check at once (ADR-0009).
+OnBootSec=3min 50s
+OnUnitActiveSec=2min
+AccuracySec=15s
+
+[Install]
+WantedBy=timers.target

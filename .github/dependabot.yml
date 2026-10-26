@@ -1,0 +1,26 @@
+# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/.github/에서
+# Dependabot은 보안 업데이트만 쓴다. 버전 업 PR은 열지 않는다(open-pull-requests-limit: 0).
+# 보안 업데이트는 리포 설정(Settings → Code security → Dependabot security updates)에서 켠다.
+# 버전 업은 중앙 리포의 동기화 PR로만 한다(docs/design.md 4장).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+  - package-ecosystem: npm
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
