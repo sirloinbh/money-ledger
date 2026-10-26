@@ -1,31 +1,21 @@
-name: Verify application
-on: [push, pull_request]
-jobs:
-  verify:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env: { POSTGRES_USER: money, POSTGRES_PASSWORD: test, POSTGRES_DB: money }
-        ports: ['5432:5432']
-        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: '24.21.0', cache: npm }
-      - run: npm install --global npm@11.19.0
-      - run: npm ci
-      - run: |
-          for migration in database/migrations/*.sql; do
-            psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration" || exit 1
-          done
-        env: { TEST_DATABASE_URL: 'postgres://money:test@localhost:5432/money' }
-      - run: npm run check
-        env: { TEST_DATABASE_URL: 'postgres://money:test@localhost:5432/money' }
+# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/.github/workflows/에서
+# 중앙 공통 CI(reusable-app-ci)를 동기화한 중앙 커밋으로 고정해 호출한다. 값은 중앙 레지스트리와 versions.json에서 온다.
+name: ci
 
-  docker-build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: docker build -t money-ledger-frontend:ci ./frontend
-      - run: docker build -t money-ledger-backend:ci ./backend
+on: [push, pull_request]
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  ci:
+    uses: sirloinbh/project-standards/.github/workflows/reusable-app-ci.yml@978bfed0c73ea6b89de35f5c507b296835a8e381
+    with:
+      node-version: '24.21.0'
+      npm-version: '11.19.0'
+      postgres-image: 'postgres:17-alpine'
+      db-name: 'money_test'
+      e2e: false
+      e2e-visual: false
+      playwright-image: 'mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27'

@@ -1,28 +1,11 @@
+// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/에서
+// 규칙 원본은 @sirloinbh/eslint-config 패키지다. 이 파일은 앱이 설치한 플러그인을 넘기기만 한다.
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
 import prettier from 'eslint-config-prettier';
+import { createConfig } from '@sirloinbh/eslint-config';
 
-export default tseslint.config(
-  { ignores: ['**/node_modules/**', '**/dist/**', '.local/**', 'infrastructure/.terraform/**'] },
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
-  {
-    files: ['**/*.{ts,tsx,js,mjs}'],
-    languageOptions: { globals: globals.node },
-    rules: {
-      '@typescript-eslint/no-unused-vars': [
-        'error',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
-      ],
-    },
-  },
-  {
-    files: ['frontend/src/**/*.{ts,tsx}'],
-    languageOptions: { globals: globals.browser },
-    plugins: { 'react-hooks': reactHooks },
-    rules: { 'react-hooks/rules-of-hooks': 'error', 'react-hooks/exhaustive-deps': 'error' },
-  },
-  prettier,
-);
+// .standards/ holds central scripts copied as they are; the central repository checks them.
+export default createConfig({ js, tseslint, globals, reactHooks, prettier }, { ignores: ['.standards/**'] });
