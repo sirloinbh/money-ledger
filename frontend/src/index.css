@@ -1,0 +1,4 @@
+/* Common design system (project-standards #126): Tailwind CSS 4, tw-animate-css and the shared tokens. */
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '@sirloinbh/design-tokens/tailwind.css';
