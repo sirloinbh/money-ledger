@@ -1,3 +1,4 @@
+# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/에서
 node_modules/
 **/dist/
 .local/
@@ -10,3 +11,34 @@ infrastructure/.terraform/
 backups/
 .bkit/
 .playwright-mcp/
+# 중앙 관리 파일: 중앙이 해시로 검사하므로 앱에서 포맷하지 않는다
+.standards/
+AGENTS.md
+CLAUDE.md
+skills/std-*/
+.claude/skills/std-*/
+.github/ISSUE_TEMPLATE/
+.github/pull_request_template.md
+.github/dependabot.yml
+.github/workflows/ci.yml
+.prettierrc.json
+.vscode/settings.json
+.claude/settings.json
+.claude/hooks/
+.codex/hooks.json
+eslint.config.mjs
+frontend/tsconfig.json
+backend/tsconfig.json
+scripts/claude-skills.mjs
+frontend/public/sw.js
+frontend/public/offline.html
+frontend/public/manifest.webmanifest
+frontend/src/components/ui/
+frontend/src/lib/utils.ts
+frontend/src/lib/theme.ts
+frontend/src/lib/theme.test.ts
+frontend/src/components/layout/
+frontend/public/theme-init.js
+playwright.config.ts
+frontend/vitest.config.ts
+# --- project ---

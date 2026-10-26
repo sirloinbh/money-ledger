@@ -1,3 +1,4 @@
+# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/common/에서
 node_modules/
 dist/
 .env
@@ -9,3 +10,4 @@ backups/
 .local/
 .bkit/
 .playwright-mcp/
+# --- project ---

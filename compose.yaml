@@ -17,7 +17,7 @@ services:
       retries: 15
     restart: unless-stopped
   api:
-    build: ./backend
+    build: { context: ./backend, secrets: [npm_token] }
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-money}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-money}
       PORT: 3105
@@ -26,9 +26,13 @@ services:
       db: { condition: service_healthy }
     restart: unless-stopped
   web:
-    build: ./frontend
+    build: { context: ./frontend, secrets: [npm_token] }
     ports: ['127.0.0.1:8105:80']
     depends_on: [api]
     restart: unless-stopped
 volumes:
   money-ledger-data:
+# The Dockerfiles read the GitHub Packages token as a BuildKit secret, so it never lands in an image layer.
+secrets:
+  npm_token:
+    environment: NODE_AUTH_TOKEN
