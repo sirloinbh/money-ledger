@@ -28,6 +28,17 @@ if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
   NODE_AUTH_TOKEN=$(sed -n 's/^NODE_AUTH_TOKEN=//p' .env 2>/dev/null | tail -n 1 | tr -d "\"'\r")
 fi
 export NODE_AUTH_TOKEN="${NODE_AUTH_TOKEN:-}"
+# Claude API key (ADR-0010): apps with features.claude read it from AWS SSM on every deploy
+# and pass it to compose through the environment, so the server .env holds no copy. Without
+# the server key pair, or when SSM cannot be read, a value already in .env stays in use.
+if [ "false" = true ] && grep -q '^SECRETS_AWS_ACCESS_KEY_ID=.' .env 2>/dev/null; then
+  if claude_key=$(bash deploy/ssm-get.sh /sirloinbh/anthropic-api-key); then
+    export ANTHROPIC_API_KEY="$claude_key"
+  else
+    echo "warning: could not read the Claude API key from SSM; using the .env value if there is one" >&2
+  fi
+  unset claude_key
+fi
 
 health() {
   for _ in $(seq 1 30); do
@@ -43,17 +54,11 @@ start() {
   IMAGE_TAG="$1" docker compose up -d --wait db
   IMAGE_TAG="$1" docker compose up -d
 }
-# Pre-deploy dump: the server's backup command when the infrastructure installed one,
-# otherwise a dump in backups/ (kept 14 days, ignored by Git).
+# Pre-deploy dump with the same script as the nightly one (deploy/backup.sh, #262): kept with
+# the nightly dumps for 14 days and copied to S3 when the server .env names a bucket.
 backup() {
-  if [ -x /usr/local/bin/money-backup ]; then
-    /usr/local/bin/money-backup
-    return
-  fi
-  mkdir -p backups
-  docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"' |
-    gzip > "backups/predeploy-$(date +%Y%m%d-%H%M%S).sql.gz"
-  find backups -name 'predeploy-*.sql.gz' -mtime +14 -delete
+  # 3 means only the S3 copy failed; the local dump exists, so the deploy goes on.
+  IMAGE_TAG="$current" bash deploy/backup.sh dump predeploy || [ $? -eq 3 ]
 }
 
 current=$(cat .deployed 2>/dev/null || true)

@@ -2,23 +2,27 @@
 # Dependabot은 보안 업데이트만 쓴다. 버전 업 PR은 열지 않는다(open-pull-requests-limit: 0).
 # 보안 업데이트는 리포 설정(Settings → Code security → Dependabot security updates)에서 켠다.
 # 버전 업은 중앙 리포의 동기화 PR로만 한다(docs/design.md 4장).
+# 앱마다 lockfile이 3개(루트, frontend, backend)라 디렉터리를 하나로 묶고, 보안 업데이트를
+# 마이너·패치 묶음과 메이저 묶음 두 PR로만 연다(#267). 메이저는 코드 확인이 필요해 따로 둔다.
 version: 2
 updates:
   - package-ecosystem: npm
-    directory: /
+    directories:
+      - /
+      - /frontend
+      - /backend
     schedule:
       interval: weekly
     open-pull-requests-limit: 0
-  - package-ecosystem: npm
-    directory: /frontend
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 0
-  - package-ecosystem: npm
-    directory: /backend
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 0
+    groups:
+      security-minor-patch:
+        applies-to: security-updates
+        patterns: ['*']
+        update-types: [minor, patch]
+      security-major:
+        applies-to: security-updates
+        patterns: ['*']
+        update-types: [major]
   - package-ecosystem: github-actions
     directory: /
     schedule:

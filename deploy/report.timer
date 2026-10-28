@@ -1,0 +1,12 @@
+# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
+[Unit]
+Description=Send the daily money-ledger server report
+
+[Timer]
+# 04:00 Seoul, after the nightly dumps.
+OnCalendar=*-*-* 04:00:00 Asia/Seoul
+Persistent=true
+AccuracySec=5min
+
+[Install]
+WantedBy=timers.target
