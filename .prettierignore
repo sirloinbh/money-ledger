@@ -31,6 +31,7 @@ skills/std-*/
 eslint.config.mjs
 frontend/tsconfig.json
 backend/tsconfig.json
+backend/src/standard/
 scripts/claude-skills.mjs
 frontend/public/sw.js
 frontend/public/offline.html
@@ -39,6 +40,10 @@ frontend/src/components/ui/
 frontend/src/lib/utils.ts
 frontend/src/lib/theme.ts
 frontend/src/lib/theme.test.ts
+frontend/src/lib/api.ts
+frontend/src/lib/api.test.ts
+frontend/src/lib/use-notice.ts
+frontend/src/health.ts
 frontend/src/components/layout/
 frontend/public/theme-init.js
 playwright.config.ts

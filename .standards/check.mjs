@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { compareWorkspaceLockfile, workspaceLockfiles } from './lib/lockfiles.mjs';
 import { checkManifest, MANIFEST_PATH } from './lib/manifest.mjs';
 
 const CENTRAL = 'sirloinbh/project-standards';
@@ -105,6 +106,59 @@ export function checkApi(sources) {
   return warnings;
 }
 
+// End index of the parenthesized group whose "(" is just before `start`.
+function closeParen(text, start) {
+  let depth = 1;
+  let i = start;
+  while (i < text.length && depth > 0) {
+    if (text[i] === '(') depth++;
+    else if (text[i] === ')') depth--;
+    i++;
+  }
+  return i;
+}
+
+// A zod array with no length limit lets one large request raise an issue per element until memory runs out
+// (GHSA-mrhx-c7xc-m3w5, #326). Follows the method chain after `.array(...)` across lines for .max()/.length().
+export function checkZodArrays(sources) {
+  const warnings = [];
+  for (const source of sources) {
+    if (!/from ['"]zod(\/v[34])?['"]/.test(source.text)) continue;
+    for (const m of source.text.matchAll(/\.array\(/g)) {
+      let i = closeParen(source.text, m.index + m[0].length);
+      const chain = [];
+      for (let next; (next = source.text.slice(i).match(/^\s*\.(\w+)\(/)); ) {
+        chain.push(next[1]);
+        i = closeParen(source.text, i + next[0].length);
+      }
+      if (chain.includes('max') || chain.includes('length')) continue;
+      const line = source.text.slice(0, m.index).split('\n').length;
+      warnings.push(`${source.file}:${line}: 배열 스키마에 길이 제한이 없습니다. .max(<개수>)를 붙입니다(zod 보안 권고 GHSA-mrhx-c7xc-m3w5).`);
+    }
+  }
+  return warnings;
+}
+
+// Frontend file names are lowercase words joined by hyphens; dots only separate kinds (docs/conventions/code.md, #312).
+const FILE_NAME = /^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+(-[a-z0-9]+)*)*$/;
+export function checkFileNames(files) {
+  const bad = files.filter((rel) => /\.(ts|tsx)$/.test(rel) && !FILE_NAME.test(rel.split('/').pop()));
+  if (!bad.length) return [];
+  const shown = bad.slice(0, 5).join(', ');
+  return [`frontend/src: 파일 이름은 소문자와 하이픈으로 씁니다(docs/conventions/code.md). ${bad.length}개: ${shown}${bad.length > 5 ? ' 외' : ''}`];
+}
+
+function frontendFiles(root) {
+  const dir = path.join(root, 'frontend/src');
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir, { recursive: true })
+    .map((rel) => String(rel).split(path.sep).join('/'))
+    .filter((rel) => !rel.split('/').includes('node_modules') && fs.statSync(path.join(dir, rel)).isFile())
+    .sort()
+    .map((rel) => `frontend/src/${rel}`);
+}
+
 function apiSources(root) {
   const dir = path.join(root, 'backend/src');
   if (!fs.existsSync(dir)) return [];
@@ -132,6 +186,31 @@ function checkPackages(packages, read, problems) {
   }
 }
 
+// CI installs from the root lockfile and the Docker builds from frontend/ and backend/ lockfiles (#303).
+function checkLockfiles(read, problems) {
+  const rootPackage = read('package.json');
+  const rootLock = read('package-lock.json');
+  if (rootPackage === null || rootLock === null) return;
+  const lock = JSON.parse(rootLock);
+  for (const workspace of workspaceLockfiles(JSON.parse(rootPackage), (rel) => read(rel) !== null)) {
+    const file = `${workspace}/package-lock.json`;
+    let differences;
+    try {
+      differences = compareWorkspaceLockfile(lock, workspace, JSON.parse(read(file)));
+    } catch (error) {
+      problems.push({ group: '하위 lockfile', path: file, message: error.message });
+      continue;
+    }
+    if (!differences.length) continue;
+    const shown = differences.slice(0, 5).map((d) => `${d.name} ${d.workspace.join('·') || '없음'} (루트 ${d.root.join('·') || '없음'})`);
+    problems.push({
+      group: '하위 lockfile',
+      path: file,
+      message: `루트 package-lock.json과 버전이 다른 패키지 ${differences.length}개: ${shown.join(', ')}${differences.length > 5 ? ' 외' : ''}. node .standards/lockfiles.mjs --write로 맞춥니다`,
+    });
+  }
+}
+
 /** Returns { problems: [{ group, path, message }], warnings: [string], manifest }. */
 export function runCheck(root) {
   const read = (rel) => {
@@ -149,7 +228,11 @@ export function runCheck(root) {
   }
   checkPackages(manifest.packages, read, problems);
   if (manifest.registry) checkRegistry(manifest.registry, read, problems, warnings);
-  warnings.push(...checkApi(apiSources(root)));
+  checkLockfiles(read, problems);
+  const backend = apiSources(root);
+  warnings.push(...checkApi(backend));
+  warnings.push(...checkZodArrays(backend));
+  warnings.push(...checkFileNames(frontendFiles(root)));
   const compose = read('compose.yaml');
   if (compose !== null && (manifest.files['frontend/Dockerfile'] || manifest.files['backend/Dockerfile'])) {
     for (const message of checkComposeSecrets(compose)) problems.push({ group: '빌드 secret', path: 'compose.yaml', message });

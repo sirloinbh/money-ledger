@@ -17,7 +17,8 @@
     "format:check": "prettier --check .",
     "lint": "eslint . --max-warnings 0",
     "typecheck": "npm run typecheck --workspaces",
-    "standards:check": "node .standards/check.mjs"
+    "standards:check": "node .standards/check.mjs",
+    "lockfiles:sync": "node .standards/lockfiles.mjs --write"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -28,7 +29,7 @@
     "globals": "16.5.0",
     "prettier": "3.9.10",
     "typescript-eslint": "8.71.2",
-    "@sirloinbh/eslint-config": "1.0.0",
+    "@sirloinbh/eslint-config": "1.1.0",
     "@sirloinbh/prettier-config": "1.0.0"
   },
   "allowScripts": {
