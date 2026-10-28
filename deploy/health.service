@@ -1,0 +1,13 @@
+# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
+[Unit]
+Description=가계부·자산 포트폴리오 health check signal for healthchecks.io
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/money-ledger
+# Copied first: a deploy may check out a new commit while this script runs.
+ExecStart=/bin/bash -c 'cp /opt/money-ledger/deploy/notify.sh /tmp/money-notify.sh && exec /bin/bash /tmp/money-notify.sh health'
+TimeoutStartSec=2min

@@ -1,0 +1,12 @@
+# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
+[Unit]
+Description=Restore the newest money-ledger dump into a throwaway database every week
+
+[Timer]
+# Sunday 04:30 Seoul, after the nightly dumps. The result is in journalctl -u money-restore-check.
+OnCalendar=Sun *-*-* 04:30:00 Asia/Seoul
+Persistent=true
+AccuracySec=5min
+
+[Install]
+WantedBy=timers.target

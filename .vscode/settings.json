@@ -11,5 +11,13 @@
       "args": ["-NoExit", "-File", "${env:LOCALAPPDATA}\\sirloinbh-tools\\project-terminal.ps1"]
     }
   },
-  "terminal.integrated.defaultProfile.windows": "sirloinbh PowerShell"
+  "terminal.integrated.defaultProfile.windows": "sirloinbh PowerShell",
+  "prettier.requireConfig": true,
+  "[javascript][typescript][typescriptreact][json][jsonc][css][html][markdown][yaml]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  }
 }

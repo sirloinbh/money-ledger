@@ -1,0 +1,15 @@
+# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
+[Unit]
+Description=가계부·자산 포트폴리오 daily database dump (and S3 copy when configured)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=docker
+WorkingDirectory=/opt/money-ledger
+# Copied first: a deploy may check out a new commit while this script runs.
+ExecStart=/bin/bash -c 'cp /opt/money-ledger/deploy/backup.sh /tmp/money-backup.sh && exec /bin/bash /tmp/money-backup.sh dump'
+TimeoutStartSec=30min
+Nice=10

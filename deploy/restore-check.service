@@ -1,0 +1,14 @@
+# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
+[Unit]
+Description=가계부·자산 포트폴리오 weekly restore check of the newest database dump
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=docker
+WorkingDirectory=/opt/money-ledger
+ExecStart=/bin/bash -c 'cp /opt/money-ledger/deploy/backup.sh /tmp/money-restore-check.sh && exec /bin/bash /tmp/money-restore-check.sh verify'
+TimeoutStartSec=30min
+Nice=10

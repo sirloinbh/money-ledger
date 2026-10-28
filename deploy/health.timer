@@ -1,0 +1,11 @@
+# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
+[Unit]
+Description=Check /api/health of money-ledger every 5 minutes and signal healthchecks.io
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

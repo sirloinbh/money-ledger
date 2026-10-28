@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   ci:
-    uses: sirloinbh/project-standards/.github/workflows/reusable-app-ci.yml@978bfed0c73ea6b89de35f5c507b296835a8e381
+    uses: sirloinbh/project-standards/.github/workflows/reusable-app-ci.yml@f80624f0cb3fa9a891cd95fca1fbcf9d3db28091
     with:
       node-version: '24.21.0'
       npm-version: '11.19.0'
