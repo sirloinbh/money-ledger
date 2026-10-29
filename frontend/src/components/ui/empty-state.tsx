@@ -1,5 +1,6 @@
 // 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/ui/frontend/src/components/ui/에서
 import type * as React from 'react';
+
 import { cn } from '../../lib/utils';
 
 // Shown when a list or page has nothing yet. Give the next step as `action` (usually a Button).

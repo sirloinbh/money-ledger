@@ -1,6 +1,7 @@
 // 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/ui/frontend/src/components/ui/에서
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { expect, test } from 'vitest';
+
 import { Button } from './button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './dialog';
 

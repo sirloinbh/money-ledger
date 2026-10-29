@@ -2,6 +2,7 @@
 import { render, screen } from '@testing-library/react';
 import { InboxIcon } from 'lucide-react';
 import { expect, test } from 'vitest';
+
 import { Button } from './button';
 import { EmptyState } from './empty-state';
 

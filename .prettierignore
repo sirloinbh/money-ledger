@@ -21,7 +21,8 @@ skills/std-*/
 .github/pull_request_template.md
 .github/dependabot.yml
 .github/workflows/ci.yml
-.prettierrc.json
+prettier.config.mjs
+knip.json
 .vscode/extensions.json
 .vscode/settings.json
 .claude/settings.json

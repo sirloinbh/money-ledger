@@ -1,6 +1,7 @@
 // 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/ui/frontend/src/components/ui/에서
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeAll, expect, test, vi } from 'vitest';
+
 import { Label } from './label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 

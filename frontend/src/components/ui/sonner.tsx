@@ -37,4 +37,5 @@ function Toaster(props: ToasterProps) {
 }
 
 export { Toaster };
+// eslint-disable-next-line react-refresh/only-export-components -- apps import toast and Toaster from one place.
 export { toast } from 'sonner';

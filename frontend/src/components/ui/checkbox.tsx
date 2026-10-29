@@ -2,6 +2,7 @@
 import { CheckIcon } from 'lucide-react';
 import { Checkbox as CheckboxPrimitive } from 'radix-ui';
 import type * as React from 'react';
+
 import { cn } from '../../lib/utils';
 
 // The box stays 16px; on touch screens an invisible ::after area makes it 44×44px to tap.

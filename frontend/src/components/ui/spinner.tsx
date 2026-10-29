@@ -2,6 +2,7 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Loader2Icon } from 'lucide-react';
 import type * as React from 'react';
+
 import { cn } from '../../lib/utils';
 
 // Spinner for short waits and buttons that are saving. Three sizes only (docs/design-system.md).
@@ -27,4 +28,5 @@ function Spinner({
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- shadcn/ui exports the variants next to the component.
 export { Spinner, spinnerVariants };

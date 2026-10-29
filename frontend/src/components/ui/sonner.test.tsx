@@ -1,6 +1,7 @@
 // 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/ui/frontend/src/components/ui/에서
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, expect, test } from 'vitest';
+
 import { toast, Toaster } from './sonner';
 
 // jsdom has no matchMedia; sonner reads it to follow the system theme.

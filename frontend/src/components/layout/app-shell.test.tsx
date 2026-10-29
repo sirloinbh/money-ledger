@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { HomeIcon, NotebookPenIcon } from 'lucide-react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, expect, test } from 'vitest';
+
 import { AppShell, type NavItem } from './app-shell';
 
 const nav: NavItem[] = [

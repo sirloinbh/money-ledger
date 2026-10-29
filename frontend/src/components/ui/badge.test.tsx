@@ -1,6 +1,7 @@
 // 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/ui/frontend/src/components/ui/에서
 import { render, screen } from '@testing-library/react';
 import { expect, test } from 'vitest';
+
 import { Badge } from './badge';
 
 test('badge variants use the shared colour tokens', () => {

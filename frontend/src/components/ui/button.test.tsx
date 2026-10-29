@@ -1,6 +1,7 @@
 // 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/ui/frontend/src/components/ui/에서
 import { fireEvent, render, screen } from '@testing-library/react';
 import { expect, test, vi } from 'vitest';
+
 import { Button } from './button';
 
 test('a button is reachable by its name and reports clicks', () => {
