@@ -1,5 +1,5 @@
-import { defineConfig } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
+import { defineConfig } from 'vite';
 // Ports come from the central registry (slot 05).
 export default defineConfig({
   plugins: [tailwindcss()],

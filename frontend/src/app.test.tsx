@@ -1,11 +1,12 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { expect, test, vi } from 'vitest';
+
 import { App } from './app';
 
 const health = (body: object, status = 200) =>
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () => new Response(JSON.stringify(body), { status })),
+    vi.fn(() => Promise.resolve(new Response(JSON.stringify(body), { status }))),
   );
 
 test('shows the server date from /api/health on the overview', async () => {
