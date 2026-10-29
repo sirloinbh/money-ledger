@@ -1,5 +1,5 @@
 {
-  "centralSha": "e91112cfb495b6f5d832c638660adc621b9f39ae",
+  "centralSha": "7a47662beb53746a4bb08b2d2c7e708165eb2f70",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -80,12 +80,12 @@
     },
     ".github/workflows/ci.yml": {
       "mode": "full",
-      "sha256": "f7995e62d35171cb15c10881668368cbcf9b8a07f449ad905c9d8e0e22a35b19",
+      "sha256": "958a1af294a2251218fea1cfc22f3f9409bfcb2881084b200615e2bcebed08f7",
       "source": "templates/app/.github/workflows/ci.yml.tmpl"
     },
     ".gitignore": {
       "mode": "section",
-      "sha256": "ece91dab1dd481eca64581c25c4f17440d1c4f6fd25c7d52f0639208045b12a6",
+      "sha256": "fbb342668d3fd142c5d5d688d59d63662961df951a92e0b0359af586e74b3328",
       "source": "templates/common/.gitignore.tmpl"
     },
     ".node-version": {
@@ -105,7 +105,7 @@
     },
     ".prettierignore": {
       "mode": "section",
-      "sha256": "12332e4212412b198cad757607a42cd418c02dbac9f1131b255156c990bb40a2",
+      "sha256": "e0e53bf51277e6bed103ce485a53844e28c00efa1d86e9d5a4fccf0e97a88b9d",
       "source": "templates/app/.prettierignore.tmpl"
     },
     ".standards/blocked-packages.json": {
@@ -601,7 +601,7 @@
     },
     "knip.json": {
       "mode": "full",
-      "sha256": "a8790f019e8e9ff327b4ccdf57fe4890516f4fd6bbd54110ae462ee11563f34e",
+      "sha256": "2daa22b9f4d1fae152acda1d84c7aabb6559ff5c44a2281a6c4f43dbb6f9e5d4",
       "source": "templates/app/knip.json"
     },
     "package.json": {

@@ -16,5 +16,6 @@ test-results/
 playwright-report/
 blob-report/
 coverage/
+.lighthouseci/
 *.tsbuildinfo
 # --- project ---
