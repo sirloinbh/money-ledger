@@ -1,5 +1,5 @@
 {
-  "centralSha": "d220df52e066dd25cfe9078de4e383e1d9d9ae34",
+  "centralSha": "e91112cfb495b6f5d832c638660adc621b9f39ae",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -632,7 +632,7 @@
     },
     "prettier.config.mjs": {
       "mode": "full",
-      "sha256": "54818a650e0a270b2501821d158fcad14412f7cd370e8082400ba8595f0c25c8",
+      "sha256": "af2c2b43d8c717338293fd397f08d35da8afd3a2fc151c533977e07c4110547b",
       "source": "templates/app/prettier.config.mjs.tmpl"
     },
     "scripts/backup.ps1": {
