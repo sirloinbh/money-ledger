@@ -1,5 +1,5 @@
 {
-  "centralSha": "696badf2715535fcbf01b760c1081f2319f9b942",
+  "centralSha": "f60232d51da09b14ed7f4a580245643e6835c99a",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -17,6 +17,11 @@
       "mode": "full",
       "sha256": "5fc503c93357a8fef8e8887135cb3a3649a04e9be779a14f84312a3ee5e50425",
       "source": "templates/common/skills/std-backlog/SKILL.md"
+    },
+    ".claude/skills/std-communication/SKILL.md": {
+      "mode": "full",
+      "sha256": "1a3ad4cdb7776523a79f7eb32347ff387c63758e8991c83b7380e01da113fd13",
+      "source": "templates/common/skills/std-communication/SKILL.md"
     },
     ".claude/skills/std-foundation/SKILL.md": {
       "mode": "full",
@@ -80,7 +85,7 @@
     },
     ".gitignore": {
       "mode": "section",
-      "sha256": "a6a0663693db0b3ff0ffe77e08855e2bb44f4b8831e7a146ab7952de9f9d64f0",
+      "sha256": "ece91dab1dd481eca64581c25c4f17440d1c4f6fd25c7d52f0639208045b12a6",
       "source": "templates/common/.gitignore.tmpl"
     },
     ".node-version": {
@@ -100,7 +105,7 @@
     },
     ".prettierignore": {
       "mode": "section",
-      "sha256": "28a38514ee87b25e980223d404b406bedd5dc1f85745bf8e6adb6f8b159357aa",
+      "sha256": "9e0c22e5fdcacc31368e181c2dffbfcc889fbe252e29616500f556747ce475f3",
       "source": "templates/app/.prettierignore.tmpl"
     },
     ".prettierrc.json": {
@@ -115,7 +120,7 @@
     },
     ".standards/check.mjs": {
       "mode": "full",
-      "sha256": "6f820dff4a626a543b32e0b468f7a0a2b569d3a4ee2b3eaf946d54b92802618b",
+      "sha256": "d3d3356442229cc93a42efc20fd9d0fce74b8028e2257f478aeeac6f9e211147",
       "source": "scripts/standards-check.mjs"
     },
     ".standards/ioc-scan.mjs": {
@@ -128,6 +133,11 @@
       "sha256": "73e91203e9ce8952449ffcc3cfbe724892ba043a39cf1f075bf7533985122b98",
       "source": "scripts/lib/hash.mjs"
     },
+    ".standards/lib/lockfiles.mjs": {
+      "mode": "full",
+      "sha256": "61fe8fc2f09559d2d11cdbd60289030bb380b4c129958936396255cdde7bfdd2",
+      "source": "scripts/lib/lockfiles.mjs"
+    },
     ".standards/lib/manifest.mjs": {
       "mode": "full",
       "sha256": "1ecfad3d22b333c774185bd6bb5e31bce3f578aa7c341b9e22878ed4e9b16ec9",
@@ -137,6 +147,11 @@
       "mode": "full",
       "sha256": "60531b0741e0406f4229d7ccfb6b2b2d38b4c6ed421446871862b36db91fb72b",
       "source": "scripts/lib/render.mjs"
+    },
+    ".standards/lockfiles.mjs": {
+      "mode": "full",
+      "sha256": "0e2d11edd148e4b2ba1acae4e75869ddc71dd52be06a0eed85625eb12950d195",
+      "source": "scripts/lockfiles.mjs"
     },
     ".standards/secret-scan.mjs": {
       "mode": "full",
@@ -155,7 +170,7 @@
     },
     "AGENTS.md": {
       "mode": "full",
-      "sha256": "8f94e165fa0adbd1950e7d36b097aaeafac60b6038fb6aeaac4cbe8ca2346b34",
+      "sha256": "e4184898f461786cd5647bc110184379e0b3cac01e573290092ba1026ec5115e",
       "source": "templates/app/AGENTS.md.tmpl"
     },
     "backend/.npmrc": {
@@ -174,9 +189,22 @@
         "packageManager": "npm@11.19.0",
         "engines.node": "24.21.0",
         "engines.npm": "11.19.0",
-        "devDependencies.@sirloinbh/tsconfig": "1.0.0"
+        "devDependencies.@sirloinbh/tsconfig": "1.0.0",
+        "dependencies.express": "5.3.0",
+        "dependencies.pg": "8.23.1",
+        "dependencies.zod": "3.25.76",
+        "devDependencies.@types/express": "5.0.6",
+        "devDependencies.@types/node": "24.19.2",
+        "devDependencies.@types/pg": "8.23.1",
+        "devDependencies.tsx": "4.23.15",
+        "devDependencies.typescript": "5.9.3"
       },
       "source": "templates/index.json"
+    },
+    "backend/src/standard/http.ts": {
+      "mode": "full",
+      "sha256": "0affd441a71279f817fa657b9c8acf480536cdf4c1412f646194d1e7f6e67fd7",
+      "source": "templates/app/backend/src/standard/http.ts"
     },
     "backend/tsconfig.json": {
       "mode": "full",
@@ -305,7 +333,29 @@
         "engines.node": "24.21.0",
         "engines.npm": "11.19.0",
         "dependencies.@sirloinbh/design-tokens": "1.0.0",
-        "devDependencies.@sirloinbh/tsconfig": "1.0.0"
+        "devDependencies.@sirloinbh/tsconfig": "1.0.0",
+        "dependencies.class-variance-authority": "0.7.1",
+        "dependencies.clsx": "2.1.1",
+        "dependencies.lucide-react": "1.52.0",
+        "dependencies.radix-ui": "1.7.0",
+        "dependencies.react": "19.3.0",
+        "dependencies.react-dom": "19.3.0",
+        "dependencies.react-router": "8.4.0",
+        "dependencies.sonner": "2.0.8",
+        "dependencies.tailwind-merge": "3.7.0",
+        "dependencies.tw-animate-css": "1.4.0",
+        "dependencies.vaul": "1.1.2",
+        "devDependencies.@tailwindcss/vite": "4.3.3",
+        "devDependencies.@testing-library/dom": "10.4.2",
+        "devDependencies.@testing-library/jest-dom": "7.0.1",
+        "devDependencies.@testing-library/react": "16.3.3",
+        "devDependencies.@types/react": "19.3.0",
+        "devDependencies.@types/react-dom": "19.3.0",
+        "devDependencies.jsdom": "30.1.2",
+        "devDependencies.tailwindcss": "4.3.3",
+        "devDependencies.typescript": "5.9.3",
+        "devDependencies.vite": "6.4.4",
+        "devDependencies.vitest": "5.0.3"
       },
       "source": "templates/index.json"
     },
@@ -384,6 +434,16 @@
       "sha256": "570576c4dfb7b317ee9b635204a84b0bb7f159d2e496b45cb7f416f31c93bf81",
       "source": "templates/ui/frontend/src/components/ui/checkbox.tsx"
     },
+    "frontend/src/components/ui/confirm-dialog.test.tsx": {
+      "mode": "full",
+      "sha256": "8bba0a95f1bfe52e1bd4caf69dc0178e017ca37f9f466d4a7bc4abd5676c42a6",
+      "source": "templates/ui/frontend/src/components/ui/confirm-dialog.test.tsx"
+    },
+    "frontend/src/components/ui/confirm-dialog.tsx": {
+      "mode": "full",
+      "sha256": "f0d4c71a4ab446bc9d229de25792bcec4a38e80f90f09397f0a25f833f840b2d",
+      "source": "templates/ui/frontend/src/components/ui/confirm-dialog.tsx"
+    },
     "frontend/src/components/ui/dialog.test.tsx": {
       "mode": "full",
       "sha256": "c5e403463f809333579511bc6ad43bc07aaf3f7634ed277895f317879e7e76a4",
@@ -439,6 +499,16 @@
       "sha256": "af727683d1ad4defa511db9c7e14e76dafb44cb286b1dc1d791b28bf921dbafa",
       "source": "templates/ui/frontend/src/components/ui/label.tsx"
     },
+    "frontend/src/components/ui/notice.test.tsx": {
+      "mode": "full",
+      "sha256": "61ddcd84e954a99d389a3e8be81cd1a8c4caaa6be5d173ddbb02e16ea735c9ed",
+      "source": "templates/ui/frontend/src/components/ui/notice.test.tsx"
+    },
+    "frontend/src/components/ui/notice.tsx": {
+      "mode": "full",
+      "sha256": "3a0738a822798b1fe401bbe8b91ca594d861965770e15af4ef5e3c929de9991c",
+      "source": "templates/ui/frontend/src/components/ui/notice.tsx"
+    },
     "frontend/src/components/ui/select.test.tsx": {
       "mode": "full",
       "sha256": "b0197c7dedd5f6def65844aaaf6d313571518f15ac71639521637226a22b0ce3",
@@ -489,6 +559,21 @@
       "sha256": "16653d6e493a48d9e1ff4dc48820a5df41f78813c3efa16cbdd069ce5894e53c",
       "source": "templates/ui/frontend/src/components/ui/spinner.tsx"
     },
+    "frontend/src/health.ts": {
+      "mode": "full",
+      "sha256": "b8953539c401577a6ee8e516b5bb75e978d711a603c48841ca1f44e6548734bd",
+      "source": "templates/ui/frontend/src/health.ts"
+    },
+    "frontend/src/lib/api.test.ts": {
+      "mode": "full",
+      "sha256": "9af14fa713c17960fbebd5d505f0a949eafca91d1c00d8ebe336395edf1dd167",
+      "source": "templates/ui/frontend/src/lib/api.test.ts"
+    },
+    "frontend/src/lib/api.ts": {
+      "mode": "full",
+      "sha256": "ff3746f0a57138e46f1801a839f4b2f46a121157593a4900f6dc894416cc662a",
+      "source": "templates/ui/frontend/src/lib/api.ts"
+    },
     "frontend/src/lib/theme.test.ts": {
       "mode": "full",
       "sha256": "9097efec1306a66d97f464f7960877fd045ccb2515eb0383b77096ac5bf755ef",
@@ -498,6 +583,11 @@
       "mode": "full",
       "sha256": "9c6f587544b5ad082540d395107f20098bf0ee8c79b23e0a71fec6e434c70ad2",
       "source": "templates/ui/frontend/src/lib/theme.ts"
+    },
+    "frontend/src/lib/use-notice.ts": {
+      "mode": "full",
+      "sha256": "53805c5dbe7f8a47dc71b1b7e1f3acc55287c31d307193c92e9620add3456ec1",
+      "source": "templates/ui/frontend/src/lib/use-notice.ts"
     },
     "frontend/src/lib/utils.ts": {
       "mode": "full",
@@ -521,8 +611,16 @@
         "engines.node": "24.21.0",
         "engines.npm": "11.19.0",
         "scripts.standards:check": "node .standards/check.mjs",
-        "devDependencies.@sirloinbh/eslint-config": "1.0.0",
-        "devDependencies.@sirloinbh/prettier-config": "1.0.0"
+        "scripts.lockfiles:sync": "node .standards/lockfiles.mjs --write",
+        "devDependencies.@sirloinbh/eslint-config": "1.1.0",
+        "devDependencies.@sirloinbh/prettier-config": "1.0.0",
+        "devDependencies.@eslint/js": "10.0.1",
+        "devDependencies.eslint": "10.12.0",
+        "devDependencies.eslint-config-prettier": "10.1.8",
+        "devDependencies.eslint-plugin-react-hooks": "7.1.1",
+        "devDependencies.globals": "16.5.0",
+        "devDependencies.prettier": "3.9.10",
+        "devDependencies.typescript-eslint": "8.71.2"
       },
       "source": "templates/index.json"
     },
@@ -551,6 +649,11 @@
       "sha256": "5fc503c93357a8fef8e8887135cb3a3649a04e9be779a14f84312a3ee5e50425",
       "source": "templates/common/skills/std-backlog/SKILL.md"
     },
+    "skills/std-communication/SKILL.md": {
+      "mode": "full",
+      "sha256": "1a3ad4cdb7776523a79f7eb32347ff387c63758e8991c83b7380e01da113fd13",
+      "source": "templates/common/skills/std-communication/SKILL.md"
+    },
     "skills/std-foundation/SKILL.md": {
       "mode": "full",
       "sha256": "7bc531eb1ea40b482190af0a2b541842dc5d558e480f350b7ec5e3a79602df5d",
@@ -573,7 +676,7 @@
     }
   },
   "packages": {
-    "@sirloinbh/eslint-config": "1.0.0",
+    "@sirloinbh/eslint-config": "1.1.0",
     "@sirloinbh/prettier-config": "1.0.0",
     "@sirloinbh/tsconfig": "1.0.0",
     "@sirloinbh/design-tokens": "1.0.0"

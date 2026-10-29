@@ -7,7 +7,7 @@
 
 ## 구현 작업 절차
 
-기능 추가·수정·리팩터링·설정·문서·스킬 변경 요청에는 [std-implementation](skills/std-implementation/SKILL.md)을 읽고 적용한다. 요구사항을 이슈로 나누고 다음 작업을 고를 때는 [std-backlog](skills/std-backlog/SKILL.md), 이슈·브랜치·커밋·PR을 쓸 때는 [std-git-writing](skills/std-git-writing/SKILL.md)을 따른다.
+기능 추가·수정·리팩터링·설정·문서·스킬 변경 요청에는 [std-implementation](skills/std-implementation/SKILL.md)을 읽고 적용한다. 요구사항을 이슈로 나누고 다음 작업을 고를 때는 [std-backlog](skills/std-backlog/SKILL.md), 이슈·브랜치·커밋·PR을 쓸 때는 [std-git-writing](skills/std-git-writing/SKILL.md)을 따른다. 사용자에게 하는 설명은 [std-communication](skills/std-communication/SKILL.md)대로 한국어로 쓴다.
 
 1. `sirloinbh/money-ledger`에 이슈를 등록한다. 사용자가 지정한 기존 이슈가 있으면 재사용한다.
 2. 이슈 번호를 포함한 작업 브랜치를 만든다: `<type>/<issue-number>-<slug>`.
@@ -38,7 +38,7 @@
 
 ## 스킬과 문서
 
-- 공통 스킬(중앙 관리): [std-implementation](skills/std-implementation/SKILL.md), [std-testing](skills/std-testing/SKILL.md), [std-foundation](skills/std-foundation/SKILL.md), [std-backlog](skills/std-backlog/SKILL.md), [std-git-writing](skills/std-git-writing/SKILL.md).
+- 공통 스킬(중앙 관리): [std-implementation](skills/std-implementation/SKILL.md), [std-testing](skills/std-testing/SKILL.md), [std-foundation](skills/std-foundation/SKILL.md), [std-backlog](skills/std-backlog/SKILL.md), [std-git-writing](skills/std-git-writing/SKILL.md), [std-communication](skills/std-communication/SKILL.md).
 - 고유 스킬은 `skills/` 아래 `std-`로 시작하지 않는 폴더이며 [AGENTS.project.md](AGENTS.project.md)에 목록이 있다.
 - 스킬 원본은 `skills/`이다. Claude Code용 복제본 `.claude/skills/`는 직접 수정하지 않고 `npm run skills:sync`로 갱신한다.
 - 작업 기록: `docs/changes/`. 일일 총정리: `docs/daily/YYYY-MM-DD.md`(목록은 `docs/daily/README.md`). 최신 다음 작업: `docs/next-steps/README.md`.
