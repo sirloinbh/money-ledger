@@ -6,7 +6,7 @@ import { ZodError } from 'zod';
 // DATE columns stay YYYY-MM-DD strings so the service time zone never shifts them.
 types.setTypeParser(1082, (value) => value);
 
-export const serviceTimeZone = 'Asia/Seoul';
+const serviceTimeZone = 'Asia/Seoul';
 
 // "Today" follows the service time zone, not the server clock's zone.
 export function serviceDate(now = new Date()) {
