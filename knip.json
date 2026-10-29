@@ -2,9 +2,9 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "ignore": [
     ".standards/**",
+    ".claude/**",
+    "backend/src/standard/**",
     "frontend/public/**",
-    "frontend/src/components/ui/**",
-    "frontend/src/components/layout/**",
-    "frontend/src/lib/{utils,theme,api,use-notice}.ts"
+    "frontend/src/components/ui/**"
   ]
 }

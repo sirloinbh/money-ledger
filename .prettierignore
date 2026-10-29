@@ -23,6 +23,9 @@ skills/std-*/
 .github/workflows/ci.yml
 prettier.config.mjs
 knip.json
+lighthouserc.json
+frontend/src/test/contract-api.ts
+frontend/src/test/contract-api.test.ts
 .vscode/extensions.json
 .vscode/settings.json
 .claude/settings.json
