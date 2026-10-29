@@ -2,6 +2,7 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Slot } from 'radix-ui';
 import type * as React from 'react';
+
 import { cn } from '../../lib/utils';
 
 // Touch screens get at least 44×44px (--touch-target) through the pointer-coarse variant.
@@ -40,4 +41,5 @@ function Button({
   return <Comp data-slot="button" className={cn(buttonVariants({ variant, size, className }))} {...props} />;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- shadcn/ui exports the variants next to the component.
 export { Button, buttonVariants };

@@ -29,9 +29,10 @@ if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
 fi
 export NODE_AUTH_TOKEN="${NODE_AUTH_TOKEN:-}"
 # Claude API key (ADR-0010): apps with features.claude read it from AWS SSM on every deploy
-# and pass it to compose through the environment, so the server .env holds no copy. Without
-# the server key pair, or when SSM cannot be read, a value already in .env stays in use.
-if [ "false" = true ] && grep -q '^SECRETS_AWS_ACCESS_KEY_ID=.' .env 2>/dev/null; then
+# and pass it to compose through the environment, so the server .env holds no copy. The SSM
+# key pair is in the shared server file /opt/project-standards/.env (or the app .env). Without
+# it, or when SSM cannot be read, a value already in .env stays in use.
+if [ "false" = true ] && grep -qs '^SECRETS_AWS_ACCESS_KEY_ID=.' "${STANDARDS_ENV_FILE:-/opt/project-standards/.env}" .env; then
   if claude_key=$(bash deploy/ssm-get.sh /sirloinbh/anthropic-api-key); then
     export ANTHROPIC_API_KEY="$claude_key"
   else

@@ -1,6 +1,7 @@
 // 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/ui/frontend/src/components/layout/에서
 import { MonitorIcon, MoonIcon, SunIcon } from 'lucide-react';
 import { useState } from 'react';
+
 import { applyTheme, readTheme, type ThemeChoice } from '../../lib/theme';
 import { Button } from '../ui/button';
 import {

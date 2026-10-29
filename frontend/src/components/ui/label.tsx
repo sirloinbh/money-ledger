@@ -1,6 +1,7 @@
 // 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/ui/frontend/src/components/ui/에서
 import { Label as LabelPrimitive } from 'radix-ui';
 import type * as React from 'react';
+
 import { cn } from '../../lib/utils';
 
 function Label({ className, ...props }: React.ComponentProps<typeof LabelPrimitive.Root>) {

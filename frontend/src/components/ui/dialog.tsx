@@ -2,6 +2,7 @@
 import { XIcon } from 'lucide-react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import type * as React from 'react';
+
 import { cn } from '../../lib/utils';
 
 // Modal dialog. Focus stays inside while open; Escape and the close button close it.

@@ -1,6 +1,8 @@
-import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
 import { Pool } from 'pg';
+
 import { withApi } from './helpers.js';
 
 const url = process.env.TEST_DATABASE_URL;

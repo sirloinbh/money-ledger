@@ -1,5 +1,6 @@
 // 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/ui/frontend/src/lib/에서
 import { afterEach, expect, test } from 'vitest';
+
 import { applyTheme, readTheme, THEME_KEY } from './theme';
 
 afterEach(() => {

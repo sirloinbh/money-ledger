@@ -1,6 +1,8 @@
-import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
 import type { Pool } from 'pg';
+
 import { serviceDate } from '../src/app.js';
 import { withApi } from './helpers.js';
 

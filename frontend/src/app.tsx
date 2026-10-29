@@ -1,13 +1,14 @@
 import { LayoutDashboard, Settings2 } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+
 import { AppShell, type NavItem } from './components/layout/app-shell';
 import { EmptyState } from './components/ui/empty-state';
 import { Toaster } from './components/ui/sonner';
-import { healthText, type Health } from './health';
+import { type Health, healthText } from './health';
 
 // Every page URL lives here (central docs/directory-rules.md).
-export const pages = { overview: '/', settings: '/settings' } as const;
+const pages = { overview: '/', settings: '/settings' } as const;
 
 // Main menu (LNB) items, in display order.
 const nav: NavItem[] = [

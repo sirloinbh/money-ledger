@@ -1,6 +1,7 @@
 // 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/ui/frontend/src/components/ui/에서
 import { render, screen } from '@testing-library/react';
 import { expect, test } from 'vitest';
+
 import { Skeleton, SkeletonCard, SkeletonList, SkeletonText } from './skeleton';
 
 test('skeletons are hidden from screen readers and stop moving for reduced motion', () => {

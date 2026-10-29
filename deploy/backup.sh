@@ -19,6 +19,15 @@ mkdir -p "$dir"
 export IMAGE_TAG=${IMAGE_TAG:-$(cat .deployed 2>/dev/null || echo none)}
 
 env_value() { sed -n "s/^$1=//p" .env 2>/dev/null | tail -n 1 | tr -d "\"'\r"; }
+# Keys every app shares (the S3 backup pair) live in one server file outside the apps
+# (ADR-0010). A value in the app .env is the fallback.
+shared_env=${STANDARDS_ENV_FILE:-/opt/project-standards/.env}
+shared_value() {
+  local v=""
+  if [ -r "$shared_env" ]; then v=$(sed -n "s/^$1=//p" "$shared_env" | tail -n 1 | tr -d "\"'\r"); fi
+  if [ -z "$v" ]; then v=$(env_value "$1"); fi
+  printf '%s' "$v"
+}
 
 # One exit handler: removes the restore-check container and sends the healthchecks.io signal
 # (deploy/notify.sh, #284) for the nightly dump and the weekly restore check.
@@ -50,17 +59,17 @@ COUNT_SQL="select table_schema || '.' || table_name || '|' ||
 # The key pair goes to curl on standard input and never appears in the process list or the log.
 upload() {
   local file=$1 bucket region id secret
-  bucket=$(env_value BACKUP_S3_BUCKET)
+  bucket=$(shared_value BACKUP_S3_BUCKET)
   if [ -z "$bucket" ]; then
-    echo "S3 upload skipped: BACKUP_S3_BUCKET is not set in .env"
+    echo "S3 upload skipped: BACKUP_S3_BUCKET is not set in $shared_env or .env"
     return 0
   fi
-  region=$(env_value BACKUP_S3_REGION)
+  region=$(shared_value BACKUP_S3_REGION)
   region=${region:-ap-northeast-2}
-  id=$(env_value BACKUP_AWS_ACCESS_KEY_ID)
-  secret=$(env_value BACKUP_AWS_SECRET_ACCESS_KEY)
+  id=$(shared_value BACKUP_AWS_ACCESS_KEY_ID)
+  secret=$(shared_value BACKUP_AWS_SECRET_ACCESS_KEY)
   if [ -z "$id" ] || [ -z "$secret" ]; then
-    echo "S3 upload failed: BACKUP_AWS_ACCESS_KEY_ID or BACKUP_AWS_SECRET_ACCESS_KEY is missing in .env" >&2
+    echo "S3 upload failed: BACKUP_AWS_ACCESS_KEY_ID or BACKUP_AWS_SECRET_ACCESS_KEY is missing in $shared_env and .env" >&2
     return 1
   fi
   printf 'user = "%s:%s"\n' "$id" "$secret" |
