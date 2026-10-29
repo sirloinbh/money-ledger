@@ -1,5 +1,5 @@
 {
-  "centralSha": "7a47662beb53746a4bb08b2d2c7e708165eb2f70",
+  "centralSha": "f5bcc28609146d357c3af225bedc3f77868c27aa",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -80,7 +80,7 @@
     },
     ".github/workflows/ci.yml": {
       "mode": "full",
-      "sha256": "958a1af294a2251218fea1cfc22f3f9409bfcb2881084b200615e2bcebed08f7",
+      "sha256": "9ad786a9761c697ddeac39bdd11bb2d986a2af97a5789f4490dd98205178eb96",
       "source": "templates/app/.github/workflows/ci.yml.tmpl"
     },
     ".gitignore": {
