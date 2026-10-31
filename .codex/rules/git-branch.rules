@@ -1,0 +1,73 @@
+# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/common/.codex/rules/에서
+# Lets Codex run the git branch commands in the std-git-writing skill without asking (#361, docs/agent-guardrails.md).
+# Codex rules compare words from the start of a command, and the strictest matching rule wins.
+prefix_rule(
+    pattern = ["git", "switch"],
+    decision = "allow",
+    justification = "std-git-writing의 브랜치 전환 명령입니다.",
+    match = [["git", "switch", "main"], ["git", "switch", "--create", "feat/1-x", "origin/main"]],
+)
+prefix_rule(
+    pattern = ["git", "pull", "--ff-only"],
+    decision = "allow",
+    justification = "std-git-writing의 main 최신화 명령입니다.",
+    match = [["git", "pull", "--ff-only"]],
+    not_match = [["git", "pull"]],
+)
+prefix_rule(
+    pattern = ["git", "branch", "--delete"],
+    decision = "allow",
+    justification = "병합된 로컬 브랜치만 지웁니다.",
+    match = [["git", "branch", "--delete", "feat/1-x"]],
+    not_match = [["git", "branch", "-D", "feat/1-x"]],
+)
+prefix_rule(
+    pattern = ["git", "fetch", ["origin", "--prune"]],
+    decision = "allow",
+    justification = "원격 상태만 가져옵니다.",
+    match = [["git", "fetch", "origin"], ["git", "fetch", "--prune", "origin"]],
+)
+prefix_rule(
+    pattern = ["git", "switch", ["-f", "-C", "--force", "--force-create", "--discard-changes"]],
+    decision = "prompt",
+    justification = "로컬 변경이나 브랜치를 덮어쓸 수 있어 사용자 승인이 필요합니다.",
+    match = [["git", "switch", "-f", "main"]],
+    not_match = [["git", "switch", "main"]],
+)
+prefix_rule(
+    pattern = ["git", "branch", ["-D", "-f", "--force"]],
+    decision = "prompt",
+    justification = "병합되지 않은 브랜치를 지우거나 덮어쓸 수 있어 사용자 승인이 필요합니다.",
+    match = [["git", "branch", "-D", "feat/1-x"]],
+)
+prefix_rule(
+    pattern = ["git", "branch", "--delete", "--force"],
+    decision = "prompt",
+    justification = "병합되지 않은 브랜치를 지울 수 있어 사용자 승인이 필요합니다.",
+    match = [["git", "branch", "--delete", "--force", "feat/1-x"]],
+)
+prefix_rule(
+    pattern = ["git", "reset", "--hard"],
+    decision = "prompt",
+    justification = "커밋하지 않은 변경을 지워서 사용자 승인이 필요합니다.",
+    match = [["git", "reset", "--hard"]],
+)
+prefix_rule(
+    pattern = ["git", ["clean", "stash", "rebase"]],
+    decision = "prompt",
+    justification = "파일이나 이력을 바꿔서 사용자 승인이 필요합니다.",
+    match = [["git", "clean", "-fd"], ["git", "stash"], ["git", "rebase", "main"]],
+)
+prefix_rule(
+    pattern = ["git", "push", ["-f", "--force", "--force-with-lease"]],
+    decision = "forbidden",
+    justification = "강제 push는 하지 않습니다 (std-git-writing).",
+    match = [["git", "push", "--force", "origin", "x"]],
+    not_match = [["git", "push", "origin", "x"]],
+)
+prefix_rule(
+    pattern = ["git", "push", "origin", ["main", "HEAD:main"]],
+    decision = "forbidden",
+    justification = "main 직접 push는 하지 않습니다 (std-git-writing).",
+    match = [["git", "push", "origin", "main"]],
+)

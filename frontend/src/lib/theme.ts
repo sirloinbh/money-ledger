@@ -3,10 +3,13 @@
 // "system" means no class on <html>, so the tokens follow prefers-color-scheme.
 // public/theme-init.js applies the saved choice before the first paint with the same key.
 
+import { DARK_ONLY } from './theme-config';
+
 export type ThemeChoice = 'light' | 'dark' | 'system';
 export const THEME_KEY = 'theme';
 
 export function readTheme(): ThemeChoice {
+  if (DARK_ONLY) return 'dark';
   try {
     const saved = localStorage.getItem(THEME_KEY);
     return saved === 'light' || saved === 'dark' ? saved : 'system';

@@ -1,5 +1,5 @@
 {
-  "centralSha": "f5bcc28609146d357c3af225bedc3f77868c27aa",
+  "centralSha": "6eda336ddff5e5b3ae4bc5bd8f92afc72b9a0e86",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -10,7 +10,7 @@
     },
     ".claude/settings.json": {
       "mode": "full",
-      "sha256": "2538d11ab7805e3e8d418571d70d6834ad01de10f2022d83d179c7d6369b5060",
+      "sha256": "117d5ee72843ff8af56c0dbbc5e073b49cc33a9b82f00a6cff0cdb10949b9f13",
       "source": "templates/common/.claude/settings.json.tmpl"
     },
     ".claude/skills/std-backlog/SKILL.md": {
@@ -30,7 +30,7 @@
     },
     ".claude/skills/std-git-writing/SKILL.md": {
       "mode": "full",
-      "sha256": "dc6d13a0972e116dfa473ccd600918feeca77dc4a113a836fda622985f6b025a",
+      "sha256": "cce7987e8e692b3853b0a06b7b1424e602d335349be3d5a572d9f76e36b86ee6",
       "source": "templates/common/skills/std-git-writing/SKILL.md"
     },
     ".claude/skills/std-implementation/SKILL.md": {
@@ -47,6 +47,11 @@
       "mode": "full",
       "sha256": "f67c8b4349aa157c221e7195fba9c7f3206b4e381d1f96ff0c91474a119820e3",
       "source": "templates/common/.codex/hooks.json.tmpl"
+    },
+    ".codex/rules/git-branch.rules": {
+      "mode": "full",
+      "sha256": "273a076425113c8b411341a0675a832c909964ffbe1f44a8886e322abac2f5e9",
+      "source": "templates/common/.codex/rules/git-branch.rules"
     },
     ".codex/rules/package-installs.rules": {
       "mode": "full",
@@ -105,7 +110,7 @@
     },
     ".prettierignore": {
       "mode": "section",
-      "sha256": "e0e53bf51277e6bed103ce485a53844e28c00efa1d86e9d5a4fccf0e97a88b9d",
+      "sha256": "4e55897140f9e8dca662279ee1533570473c89dbae0c3831cd2de13b9abcb4e0",
       "source": "templates/app/.prettierignore.tmpl"
     },
     ".standards/blocked-packages.json": {
@@ -371,17 +376,17 @@
     },
     "frontend/public/theme-init.js": {
       "mode": "full",
-      "sha256": "ee3e821a2fbfa70c48b73574f0ad4939fe3c1f8e0c03172e1c52f6157b45331e",
-      "source": "templates/ui/frontend/public/theme-init.js"
+      "sha256": "a3bba8c5fcc6f2cc7dd9c6d2a731e9d704c342a4a4e73b7301fe804d606138ec",
+      "source": "templates/ui/frontend/public/theme-init.js.tmpl"
     },
     "frontend/src/components/layout/app-shell.test.tsx": {
       "mode": "full",
-      "sha256": "735c663ca41db31bcecf85756a7b9fd3d6fe7fed806bbf77e403de673c3c8440",
+      "sha256": "3a70aad77ffe60485ba5d5a5c1f6afca0124e11d90d49750531cd867f65fd6b9",
       "source": "templates/ui/frontend/src/components/layout/app-shell.test.tsx"
     },
     "frontend/src/components/layout/app-shell.tsx": {
       "mode": "full",
-      "sha256": "69970794d1d54f6863a2472dcadcdaa90f96307eab7a20cd5eb70f9cb6c86a3f",
+      "sha256": "bcad61db2f33c5b97eb7b3bfac9977f5cc2027bf4c0f7cef497c520f67ad8a39",
       "source": "templates/ui/frontend/src/components/layout/app-shell.tsx"
     },
     "frontend/src/components/layout/theme-toggle.tsx": {
@@ -569,14 +574,19 @@
       "sha256": "ff3746f0a57138e46f1801a839f4b2f46a121157593a4900f6dc894416cc662a",
       "source": "templates/ui/frontend/src/lib/api.ts"
     },
+    "frontend/src/lib/theme-config.ts": {
+      "mode": "full",
+      "sha256": "f74e48a9587309a33241f81196167e7fd5ad486e600c9bf16a9e28788290e339",
+      "source": "templates/ui/frontend/src/lib/theme-config.ts.tmpl"
+    },
     "frontend/src/lib/theme.test.ts": {
       "mode": "full",
-      "sha256": "a9d21855c41cc231ad1fd388c546abdb35ac5b1092be674ca88448037b4384a5",
+      "sha256": "37f01ba00e38d3db3f6288acd68d3487190879af2f7b15cd7f427a72ba18c046",
       "source": "templates/ui/frontend/src/lib/theme.test.ts"
     },
     "frontend/src/lib/theme.ts": {
       "mode": "full",
-      "sha256": "9c6f587544b5ad082540d395107f20098bf0ee8c79b23e0a71fec6e434c70ad2",
+      "sha256": "b59cc990e51114b6602e7bea5c77c8354f8d9d42478d3ea69b05db3d3b917ffb",
       "source": "templates/ui/frontend/src/lib/theme.ts"
     },
     "frontend/src/lib/use-notice.ts": {
@@ -672,7 +682,7 @@
     },
     "skills/std-git-writing/SKILL.md": {
       "mode": "full",
-      "sha256": "dc6d13a0972e116dfa473ccd600918feeca77dc4a113a836fda622985f6b025a",
+      "sha256": "cce7987e8e692b3853b0a06b7b1424e602d335349be3d5a572d9f76e36b86ee6",
       "source": "templates/common/skills/std-git-writing/SKILL.md"
     },
     "skills/std-implementation/SKILL.md": {

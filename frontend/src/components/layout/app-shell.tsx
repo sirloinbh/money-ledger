@@ -4,6 +4,7 @@ import type * as React from 'react';
 import { useState } from 'react';
 import { Link, NavLink } from 'react-router';
 
+import { DARK_ONLY } from '../../lib/theme-config';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
@@ -88,7 +89,8 @@ function AppShell({
           </Link>
           <div className="ml-auto flex items-center gap-1">
             {actions}
-            <ThemeToggle />
+            {/* A dark-only app (ADR-0011) has no mode to choose. */}
+            {!DARK_ONLY && <ThemeToggle />}
           </div>
         </div>
       </header>
