@@ -42,6 +42,7 @@ frontend/public/offline.html
 frontend/public/manifest.webmanifest
 frontend/src/components/ui/
 frontend/src/lib/utils.ts
+frontend/src/lib/utils.test.ts
 frontend/src/lib/theme.ts
 frontend/src/lib/theme.test.ts
 frontend/src/lib/theme-config.ts

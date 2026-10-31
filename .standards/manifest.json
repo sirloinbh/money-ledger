@@ -1,5 +1,5 @@
 {
-  "centralSha": "9de7b11b985c34869cd0a6c99a7ab22e1ccf18dd",
+  "centralSha": "3f3bf8d44a5f0321c46a93ddd7d375daa96d104f",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -20,7 +20,7 @@
     },
     ".claude/skills/std-backlog/SKILL.md": {
       "mode": "full",
-      "sha256": "5fc503c93357a8fef8e8887135cb3a3649a04e9be779a14f84312a3ee5e50425",
+      "sha256": "ac1fab257c1e2fcd121e79ad6e80c40307fe5701e0f6947b22f49590c7a204bf",
       "source": "templates/common/skills/std-backlog/SKILL.md"
     },
     ".claude/skills/std-communication/SKILL.md": {
@@ -115,7 +115,7 @@
     },
     ".prettierignore": {
       "mode": "section",
-      "sha256": "4e55897140f9e8dca662279ee1533570473c89dbae0c3831cd2de13b9abcb4e0",
+      "sha256": "4f3d8810d994ea29299eb496afd7952b81899651ea4c8d40a83a18c1765423e3",
       "source": "templates/app/.prettierignore.tmpl"
     },
     ".standards/blocked-packages.json": {
@@ -599,9 +599,14 @@
       "sha256": "53805c5dbe7f8a47dc71b1b7e1f3acc55287c31d307193c92e9620add3456ec1",
       "source": "templates/ui/frontend/src/lib/use-notice.ts"
     },
+    "frontend/src/lib/utils.test.ts": {
+      "mode": "full",
+      "sha256": "70fda5c92ae4ffd2a040962dd4bbc6f1ab11207f030f7758cada6688a8ca8c8d",
+      "source": "templates/ui/frontend/src/lib/utils.test.ts"
+    },
     "frontend/src/lib/utils.ts": {
       "mode": "full",
-      "sha256": "d609cd4d459a09392a6a758f7a45510477a6c99350600894f9c7cca07b2d30ca",
+      "sha256": "7296f5f3b81873377955fd02609f8f85414194c1cb8881fcd1a964a63a995bb5",
       "source": "templates/ui/frontend/src/lib/utils.ts"
     },
     "frontend/tsconfig.json": {
@@ -672,7 +677,7 @@
     },
     "skills/std-backlog/SKILL.md": {
       "mode": "full",
-      "sha256": "5fc503c93357a8fef8e8887135cb3a3649a04e9be779a14f84312a3ee5e50425",
+      "sha256": "ac1fab257c1e2fcd121e79ad6e80c40307fe5701e0f6947b22f49590c7a204bf",
       "source": "templates/common/skills/std-backlog/SKILL.md"
     },
     "skills/std-communication/SKILL.md": {
