@@ -1,5 +1,5 @@
 {
-  "centralSha": "6eda336ddff5e5b3ae4bc5bd8f92afc72b9a0e86",
+  "centralSha": "9de7b11b985c34869cd0a6c99a7ab22e1ccf18dd",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -8,9 +8,14 @@
       "sha256": "96ed13e7ef27034622fde22d25dc516b8f626b2fe555c90cec822a205ec57533",
       "source": "templates/common/.claude/hooks/block-package-installs.mjs"
     },
+    ".claude/hooks/pc-setup-notice.mjs": {
+      "mode": "full",
+      "sha256": "33b42fea0106532e8a7dbc9682f9c507a555028a6d21fa4d12ca58ccea2b5983",
+      "source": "templates/common/.claude/hooks/pc-setup-notice.mjs"
+    },
     ".claude/settings.json": {
       "mode": "full",
-      "sha256": "117d5ee72843ff8af56c0dbbc5e073b49cc33a9b82f00a6cff0cdb10949b9f13",
+      "sha256": "656ca80eafc32125c69cd3c30d2b93a176462470401a53faa411afead83d3ef4",
       "source": "templates/common/.claude/settings.json.tmpl"
     },
     ".claude/skills/std-backlog/SKILL.md": {
