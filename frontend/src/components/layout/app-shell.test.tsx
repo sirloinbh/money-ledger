@@ -4,6 +4,7 @@ import { HomeIcon, NotebookPenIcon } from 'lucide-react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, expect, test } from 'vitest';
 
+import { DARK_ONLY } from '../../lib/theme-config';
 import { AppShell, type NavItem } from './app-shell';
 
 const nav: NavItem[] = [
@@ -53,11 +54,16 @@ test('the menu button opens the menu as a sheet, and choosing a page closes it',
   );
 });
 
-test('the mode menu switches to dark and remembers it', () => {
+test.skipIf(DARK_ONLY)('the mode menu switches to dark and remembers it', () => {
   renderAt('/');
   fireEvent.keyDown(screen.getByRole('button', { name: '화면 모드: 시스템 설정' }), { key: 'Enter' });
   fireEvent.click(screen.getByRole('menuitemradio', { name: '다크' }));
   expect(document.documentElement).toHaveClass('dark');
   expect(localStorage.getItem('theme')).toBe('dark');
   expect(screen.getByRole('button', { name: '화면 모드: 다크' })).toBeInTheDocument();
+});
+
+test.runIf(DARK_ONLY)('a dark-only app has no mode menu', () => {
+  renderAt('/');
+  expect(screen.queryByRole('button', { name: /화면 모드/ })).toBeNull();
 });

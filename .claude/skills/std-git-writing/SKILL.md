@@ -60,15 +60,22 @@ Git과 GitHub에 남기는 글은 나중에 사람이 다시 읽는 기록이다
 | `chore/95-fix` | `chore/95-workout-memo-port-reassign` |
 | `feat/44-add-json-schema-validator-and-registry-and-versions-files` | `feat/44-registry-files` |
 
-### 로컬 브랜치 관리 (Fork 앱)
+### 로컬 브랜치 관리 (git CLI)
 
-사용자는 모든 프로젝트의 로컬 브랜치를 Git GUI 앱 [Fork](https://git-fork.com/)로 관리한다. 에이전트는 작업에 필요한 만큼만 브랜치를 다루고, 정리는 사용자에게 맡긴다.
+로컬 브랜치는 git CLI로 관리한다. 에이전트가 아래 명령을 직접 실행하고, 사용자에게 안내할 때도 같은 명령을 쓴다.
 
-- 에이전트가 하는 일: 작업 브랜치 만들기, 커밋, 작업 브랜치 push, PR 만들기·갱신.
-- 새 브랜치는 로컬 main을 건드리지 않고 원격 main에서 만든다: `git fetch origin` 뒤 `git switch -c <브랜치> origin/main`.
-- 시작 전에 현재 브랜치와 작업 트리를 확인한다. 사용자가 Fork에서 다른 브랜치를 체크아웃해 두었거나 커밋하지 않은 변경이 있으면, 바꾸기 전에 사용자에게 알린다.
-- 에이전트가 하지 않는 일: 병합 후 로컬 정리(main 전환, pull, 로컬 브랜치 삭제), `stash`, `reset`, `rebase`, 원격 브랜치 강제 덮어쓰기. 에이전트가 병합하는 리포에서도 `pr merge`에 `--delete-branch`를 붙이지 않는다(로컬 브랜치까지 지운다). 원격 브랜치는 리포 설정 "병합 후 브랜치 자동 삭제"가 지운다.
-- 사용자에게 정리를 안내할 때는 명령어 대신 Fork 기준으로 쓴다: "Fork에서 main을 체크아웃해 Pull하고, 병합된 `<브랜치>`를 삭제해 주세요."
+- **작업 시작:** `git status`로 현재 브랜치와 작업 트리를 확인한 뒤 `git fetch origin`, `git switch --create <브랜치> origin/main` 순서로 만든다. 로컬 main은 건드리지 않는다.
+- **병합 후 정리:** PR이 병합됐는지 확인한 뒤(`pr view <번호> --json state,mergedAt`) `git switch main`, `git pull --ff-only`, `git branch --delete <브랜치>`, `git fetch --prune origin` 순서로 실행한다.
+- **멈추고 사용자에게 알리는 경우:** 다음 중 하나면 브랜치를 바꾸거나 지우지 않는다.
+  - 커밋하지 않은 변경이 있다.
+  - 지우려는 브랜치가 병합되지 않았다.
+  - 지우려는 브랜치를 다른 세션이나 worktree가 쓰고 있다(`git worktree list`로 확인).
+  - `git pull --ff-only`가 실패한다.
+- **`git branch --delete`가 거부되면:** `--force`나 `-D`로 바꾸지 않고 이유를 보고한다.
+- **긴 옵션을 쓴다:** PowerShell 도구의 권한 규칙은 대소문자를 구별하지 않아 `-c`·`-d`를 `-C`·`-D`와 같게 본다. 그래서 `--create`, `--delete`로 쓴다.
+- **폴더 잠금:** OneDrive 등이 파일을 잡아 git이 다시 시도할지 물으면 `n`으로 끝내고, 같은 명령을 반복하지 않는다. 브랜치가 지워졌는지 `git branch --list <브랜치>`로 확인해 결과를 보고한다.
+- **쓰지 않는 명령:** `git branch -D`, `git reset --hard`, `git clean`, `git stash`, `git rebase`는 사용자가 요청하고 승인한 경우에만 쓴다. 강제 push와 main 직접 push는 하지 않는다.
+- **`pr merge --delete-branch`는 쓰지 않는다.** 원격 브랜치는 리포 설정 "병합 후 브랜치 자동 삭제"가 지우고, 로컬 브랜치는 위 정리 절차로 지운다.
 
 ## 4. 커밋 메시지
 
