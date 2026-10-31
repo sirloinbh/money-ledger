@@ -1,5 +1,5 @@
 {
-  "centralSha": "3f3bf8d44a5f0321c46a93ddd7d375daa96d104f",
+  "centralSha": "10baedfb001c54137e02a1c87484219519dffdac",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -328,7 +328,7 @@
     },
     "frontend/nginx.conf": {
       "mode": "full",
-      "sha256": "a42984b008caec8e024113aaa7db7868e7a165d9204b81e960990123c755b82e",
+      "sha256": "21932f5dfeeb19251e9cb12440adb7d56b11abc18223722bcf413a488fcf4529",
       "source": "templates/app/frontend/nginx.conf.tmpl"
     },
     "frontend/package.json": {
@@ -359,7 +359,7 @@
         "devDependencies.jsdom": "30.1.2",
         "devDependencies.tailwindcss": "4.3.3",
         "devDependencies.typescript": "5.9.3",
-        "devDependencies.vite": "6.4.4",
+        "devDependencies.vite": "6.4.5",
         "devDependencies.vitest": "5.0.3"
       },
       "source": "templates/index.json"
@@ -372,7 +372,7 @@
     "frontend/public/offline.html": {
       "mode": "full",
       "sha256": "5456b68505267fcae00a28a328b50bed7b5b46e156640d786ffde5e621bc8a0a",
-      "source": "templates/app/frontend/public/offline.html"
+      "source": "templates/app/frontend/public/offline.html.tmpl"
     },
     "frontend/public/sw.js": {
       "mode": "full",
