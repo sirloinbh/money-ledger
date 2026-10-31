@@ -60,7 +60,7 @@ description: Register requirements as small GitHub issue cards with priority and
 ## 3. 특성 라벨
 
 - `type/*` (하나만): `feature`(새 기능·새 관리 대상), `docs`(문서·규칙), `security`(보안 기준·차단·점검), `chore`(이전·정리·설정 변경), `research`(조사, 코드 변경 없음)
-- `area/*` (하나 이상): `templates`, `tooling`, `compliance`, `registry`, `scaffold`, `ci`, `deploy`, `agent`
+- `area/*` (하나 이상): `templates`, `tooling`, `compliance`, `registry`, `scaffold`, `ci`, `deploy`, `agent`, `app`(앱 기능: 화면·API·DB)
 - 해당되면 추가로: `needs-user`(사용자 직접 단계 포함), `origin/added`(작업 중 추가된 요구사항)
 
 리포에 라벨이 없으면 sirloinbh/project-standards와 같은 이름·색·설명으로 만든다(`label create ... --force`). 새 라벨 종류가 필요하면 먼저 중앙 리포에 이슈를 연다.
