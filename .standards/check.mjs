@@ -131,9 +131,14 @@ export function checkZodArrays(sources) {
         chain.push(next[1]);
         i = closeParen(source.text, i + next[0].length);
       }
-      if (chain.includes('max') || chain.includes('length')) continue;
       const line = source.text.slice(0, m.index).split('\n').length;
-      warnings.push(`${source.file}:${line}: 배열 스키마에 길이 제한이 없습니다. .max(<개수>)를 붙입니다(zod 보안 권고 GHSA-mrhx-c7xc-m3w5).`);
+      const limit = chain.findIndex((name) => name === 'max' || name === 'length');
+      if (limit < 0) {
+        warnings.push(`${source.file}:${line}: 배열 스키마에 길이 제한이 없습니다. .max(<개수>)를 붙입니다(zod 보안 권고 GHSA-mrhx-c7xc-m3w5).`);
+      } else if (chain.slice(0, limit).some((name) => ['refine', 'superRefine', 'check'].includes(name))) {
+        // zod 4.6.7 rejects before reading elements only when the length checks come first (#386).
+        warnings.push(`${source.file}:${line}: 배열의 .${chain[limit]}()가 .refine 뒤에 있어 원소를 모두 읽은 뒤에 거절합니다. 길이 제한을 앞으로 옮깁니다(zod 보안 권고 GHSA-mrhx-c7xc-m3w5).`);
+      }
     }
   }
   return warnings;

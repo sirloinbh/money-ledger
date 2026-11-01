@@ -7,6 +7,8 @@ import { Spinner } from './spinner';
 
 // Asks before a destructive action such as delete (#311), instead of the browser's confirm().
 // Either pass `trigger` (the button that opens it) or control it with `open` and `onOpenChange`.
+// Without a trigger Radix has nowhere to return focus when the dialog closes, so keyboard users land on
+// <body>: pass `returnFocusRef` with the element to go back to (#356).
 // While `onConfirm` runs the buttons are disabled; the dialog closes when it resolves and stays open when it
 // rejects, so the screen can show the error (for example with useNotice).
 
@@ -21,6 +23,8 @@ type ConfirmDialogProps = {
   trigger?: React.ReactElement;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Where focus goes after closing. Takes precedence over `trigger`; ignored while the ref is empty. */
+  returnFocusRef?: React.RefObject<HTMLElement | null>;
 };
 
 function ConfirmDialog({
@@ -33,6 +37,7 @@ function ConfirmDialog({
   trigger,
   open: openProp,
   onOpenChange,
+  returnFocusRef,
 }: ConfirmDialogProps) {
   const [openState, setOpenState] = React.useState(false);
   const [pending, setPending] = React.useState(false);
@@ -61,7 +66,15 @@ function ConfirmDialog({
   return (
     <Dialog open={open} onOpenChange={(next) => !pending && setOpen(next)}>
       {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
-      <DialogContent showCloseButton={false}>
+      <DialogContent
+        showCloseButton={false}
+        onCloseAutoFocus={(event) => {
+          const target = returnFocusRef?.current;
+          if (!target) return;
+          event.preventDefault();
+          target.focus();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
