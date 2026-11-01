@@ -30,8 +30,9 @@ const NPM_ALIASES = {
   'install-clean': 'ci', 'isntall-clean': 'ci', hlep: 'help', 'dist-tags': 'dist-tag', upgrade: 'update',
   udpate: 'update', rum: 'run', sit: 'install-ci-test', urn: 'run', ogr: 'org', 'add-user': 'adduser',
 };
-// npm commands that install, remove, or run packages (`audit` only with `fix`).
-const NPM_BLOCKED = new Set(['install', 'ci', 'install-test', 'install-ci-test', 'update', 'uninstall', 'exec', 'init', 'rebuild', 'dedupe', 'link']);
+// npm commands that install, remove, or run packages (`audit` only with `fix`). `ci` installs exactly what
+// the lockfile pins, so it stays allowed unless an option turns install scripts on (#375).
+const NPM_BLOCKED = new Set(['install', 'install-test', 'install-ci-test', 'update', 'uninstall', 'exec', 'init', 'rebuild', 'dedupe', 'link']);
 // Other package managers and runners are not used in these repositories: every call is blocked.
 const RUNNERS = new Set(['npx', 'pnpm', 'pnpx', 'yarn', 'yarnpkg', 'bun', 'bunx', 'corepack']);
 // npm options whose value is the next word, e.g. `npm -w app install`.
@@ -172,7 +173,7 @@ export function programName(word) {
 }
 
 const isOption = (word) => /^-/.test(word);
-const isAssignment = (word) => /^[A-Za-z_][A-Za-z0-9_]*=/.test(word);
+const isAssignment = (word) => /^[A-Za-z_][A-Za-z0-9_-]*=/.test(word);
 
 // Skips leading options; `withValue` lists options whose value is the next word.
 function skipOptions(args, withValue = []) {
@@ -185,11 +186,41 @@ function skipOptions(args, withValue = []) {
   return i;
 }
 
+const LOCKFILE_INSTALL = 'npm ci';
+const WITH_SCRIPTS = 'npm ci with install scripts';
+// npm settings that undo .npmrc's ignore-scripts=true, as environment variables, however a shell sets them
+// (`X=false`, `$env:X = "false"`, `Set-Item Env:X false`, `SetEnvironmentVariable('X','false')`). Names ignore case.
+const SCRIPTS_ENV = /npm_config_(ignore[-_]scripts[\s'"},=]*(false|0|null|undefined)(?![\w-])|allow[-_]scripts\s*=|dangerously[-_]allow[-_]all[-_]scripts\s*=)/i;
+
+// The same settings as options. npm also accepts any number of dashes, unambiguous prefixes, and repeated `no-` in any case.
+function turnsScriptsOn(args) {
+  return args.some((arg, i) => {
+    if (!arg.startsWith('-')) return false;
+    const [written, writtenValue] = arg.replace(/^-+/, '').split('=');
+    let name = written;
+    let negated = false;
+    while (/^no-/i.test(name)) {
+      name = name.slice(3);
+      negated = !negated;
+    }
+    // Long enough not to catch other options such as `--all` or `-d`.
+    if ((name.length >= 6 && 'allow-scripts'.startsWith(name)) || (name.length >= 3 && 'dangerously-allow-all-scripts'.startsWith(name))) return !negated;
+    if (!name || !'ignore-scripts'.startsWith(name)) return false;
+    const value = writtenValue ?? (args[i + 1] === 'false' ? 'false' : 'true');
+    return (value === 'false') !== negated;
+  });
+}
+
 function checkNpm(args, viaXargs) {
   let positional = 0;
+  // `--` before the command only ends the options: `npm -- install` still installs (#381).
+  let optionsEnded = false;
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--') break;
-    if (isOption(args[i])) {
+    if (!optionsEnded && args[i] === '--') {
+      optionsEnded = true;
+      continue;
+    }
+    if (!optionsEnded && isOption(args[i])) {
       if (NPM_VALUE_OPTIONS.has(args[i])) i++;
       continue;
     }
@@ -198,6 +229,7 @@ function checkNpm(args, viaXargs) {
     // A word that is not a command is the value of an option such as `--prefix dir`.
     if (!command) continue;
     if (command === 'audit') return args.slice(i + 1).includes('fix') ? 'npm audit fix' : null;
+    if (command === 'ci') return turnsScriptsOn(args) ? WITH_SCRIPTS : LOCKFILE_INSTALL;
     return NPM_BLOCKED.has(command) ? `npm ${command}` : null;
   }
   // `xargs npm` takes the subcommand from its input, so the hook cannot see it.
@@ -251,7 +283,7 @@ function checkWords(words, depth, viaXargs = false) {
   if (program === 'npm') return checkNpm(args, viaXargs);
   if (RUNNERS.has(program)) return program;
 
-  const nested = (command) => (command ? findInstall(command, depth + 1) : null);
+  const nested = (command) => (command ? scan(command, depth + 1) : null);
   const wrapped = (rest, xargs = viaXargs) => checkWords(rest, depth, xargs);
 
   switch (program) {
@@ -328,14 +360,30 @@ function checkWords(words, depth, viaXargs = false) {
   return null;
 }
 
-/** Returns what was blocked in a full Bash or PowerShell command line, or null when it may run. */
-export function findInstall(command, depth = 0) {
+// The first blocked command, else `npm ci` when one runs, else null. A later command can still be blocked,
+// so `npm ci` does not end the search.
+function scan(command, depth) {
   if (depth > MAX_DEPTH) return null;
-  for (const words of splitCommands(command)) {
+  const commands = splitCommands(command);
+  let lockfileInstall = false;
+  for (const words of commands) {
     const found = checkWords(words, depth);
-    if (found) return found;
+    if (found === LOCKFILE_INSTALL) lockfileInstall = true;
+    else if (found) return found;
   }
-  return null;
+  if (!lockfileInstall) return null;
+  return SCRIPTS_ENV.test(commands.flat().join(' ')) ? WITH_SCRIPTS : LOCKFILE_INSTALL;
+}
+
+/** Returns what was blocked in a full Bash or PowerShell command line, or null when it may run. */
+export function findInstall(command) {
+  const found = scan(command, 0);
+  return found === LOCKFILE_INSTALL ? null : found;
+}
+
+/** Like findInstall, but `npm ci` counts too: tools that run a command in many repositories refuse it. */
+export function findAnyInstall(command) {
+  return scan(command, 0);
 }
 
 /**
@@ -359,7 +407,7 @@ export async function main() {
   const found = findInstall(command);
   if (!found) process.exit(0);
   process.stderr.write(
-    `패키지 설치·삭제·실행 명령이라 막았습니다(${found}). 에이전트는 패키지를 설치하지 않습니다. ` +
+    `패키지 설치·삭제·실행 명령이라 막았습니다(${found}). 에이전트는 잠금 파일대로 설치하는 npm ci만 실행합니다. ` +
       '설치가 필요하면 사용자에게 요청하세요. 자세한 내용: docs/agent-guardrails.md (sirloinbh/project-standards)\n',
   );
   process.exit(2);
