@@ -1,5 +1,5 @@
 {
-  "centralSha": "8527ea530f2142355a1bc44f8f85076dbefccec6",
+  "centralSha": "b85f96f86a5dda9c361b48e5dfb968ecf134b7df",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -616,7 +616,7 @@
     },
     "frontend/vitest.config.ts": {
       "mode": "full",
-      "sha256": "54362085b4fde9b39977338470aa172e5db6af92a48f3f31df5fd1440d49f06c",
+      "sha256": "eaa95b2080761636ca204d74b8d50c0a59c2e7586dc9f97e45c42fc92efd1e86",
       "source": "templates/vitest/frontend/vitest.config.ts.tmpl"
     },
     "knip.json": {
