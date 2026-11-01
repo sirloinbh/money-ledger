@@ -1,7 +1,7 @@
 import express from 'express';
 import type { Pool } from 'pg';
 import { types } from 'pg';
-import { ZodError } from 'zod';
+import { ZodError } from 'zod/v4';
 
 // DATE columns stay YYYY-MM-DD strings so the service time zone never shifts them.
 types.setTypeParser(1082, (value) => value);

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import type { Pool } from 'pg';
+import { z } from 'zod/v4';
 
 import { serviceDate } from '../src/app.js';
 import { withApi } from './helpers.js';
@@ -37,6 +38,17 @@ test('a DB failure becomes a Korean 500 without leaking the error', async () => 
   } finally {
     console.error = original;
   }
+});
+
+test('a zod 4 validation error becomes a 400 with its own message', async () => {
+  await withApi(
+    pool(async () => z.string({ error: '문자로 입력해 주세요' }).parse(1)),
+    async (call) => {
+      const { status, data } = await call('/api/health');
+      assert.equal(status, 400);
+      assert.deepEqual(data, { error: '문자로 입력해 주세요' });
+    },
+  );
 });
 
 test('unknown API paths return a Korean 404 JSON body', async () => {
