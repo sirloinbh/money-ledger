@@ -1,5 +1,5 @@
 {
-  "centralSha": "bb67a2839ed4876702c4c0195c3fa02525f52fca",
+  "centralSha": "8527ea530f2142355a1bc44f8f85076dbefccec6",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -125,7 +125,7 @@
     },
     ".standards/check.mjs": {
       "mode": "full",
-      "sha256": "d3d3356442229cc93a42efc20fd9d0fce74b8028e2257f478aeeac6f9e211147",
+      "sha256": "e5d4c62dd1538ac2ae2b72ffd9367a2ba078fd5d3721c12788d58026313bf726",
       "source": "scripts/standards-check.mjs"
     },
     ".standards/ioc-scan.mjs": {
@@ -197,7 +197,7 @@
         "devDependencies.@sirloinbh/tsconfig": "1.0.0",
         "dependencies.express": "5.3.0",
         "dependencies.pg": "8.23.1",
-        "dependencies.zod": "3.25.76",
+        "dependencies.zod": "4.6.7",
         "devDependencies.@types/express": "5.0.6",
         "devDependencies.@types/node": "24.19.2",
         "devDependencies.@types/pg": "8.23.1",
@@ -441,12 +441,12 @@
     },
     "frontend/src/components/ui/confirm-dialog.test.tsx": {
       "mode": "full",
-      "sha256": "bb724224694fffbfb45d5f9725a605595675a2b0a47e94393d0cc29d203c51ae",
+      "sha256": "f4e9a83a415f3723b84e1b72b2f11a1d5e3e09eaf5e10f156f091a2a5d0e9b95",
       "source": "templates/ui/frontend/src/components/ui/confirm-dialog.test.tsx"
     },
     "frontend/src/components/ui/confirm-dialog.tsx": {
       "mode": "full",
-      "sha256": "c471198d4e11b95e8ec7ae70169752487298cbf874370c1df23bae1da3bd8f28",
+      "sha256": "8e0b7b64a9b124514150377d6c50517d090aa35d541554f8fec1fa89576cf190",
       "source": "templates/ui/frontend/src/components/ui/confirm-dialog.tsx"
     },
     "frontend/src/components/ui/dialog.test.tsx": {

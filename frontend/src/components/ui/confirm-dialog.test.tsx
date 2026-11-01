@@ -75,3 +75,38 @@ test('it can be controlled, e.g. opened for the row the user picked', () => {
   fireEvent.click(screen.getByRole('button', { name: '지우기' }));
   expect(screen.queryByRole('dialog')).toBeNull();
 });
+
+function ControlledWithReturn() {
+  const [open, setOpen] = React.useState(false);
+  const opener = React.useRef<HTMLButtonElement>(null);
+  return (
+    <>
+      <Button ref={opener} onClick={() => setOpen(true)}>
+        상태 바꾸기
+      </Button>
+      <ConfirmDialog open={open} onOpenChange={setOpen} title="바꿀까요?" onConfirm={() => setOpen(false)} returnFocusRef={opener} />
+    </>
+  );
+}
+
+test('without a trigger, closing returns focus to returnFocusRef (#356)', async () => {
+  render(<ControlledWithReturn />);
+  fireEvent.click(screen.getByRole('button', { name: '상태 바꾸기' }));
+  fireEvent.click(screen.getByRole('button', { name: '취소' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: '상태 바꾸기' })).toHaveFocus());
+});
+
+test('with a trigger, closing still returns focus to the trigger', async () => {
+  render(<ConfirmDialog title="삭제할까요?" onConfirm={vi.fn()} trigger={<Button>열기</Button>} />);
+  fireEvent.click(screen.getByRole('button', { name: '열기' }));
+  fireEvent.click(screen.getByRole('button', { name: '취소' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: '열기' })).toHaveFocus());
+});
+
+test('an empty returnFocusRef keeps the trigger behaviour', async () => {
+  const empty = React.createRef<HTMLElement>();
+  render(<ConfirmDialog title="삭제할까요?" onConfirm={vi.fn()} trigger={<Button>열기</Button>} returnFocusRef={empty} />);
+  fireEvent.click(screen.getByRole('button', { name: '열기' }));
+  fireEvent.click(screen.getByRole('button', { name: '취소' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: '열기' })).toHaveFocus());
+});
