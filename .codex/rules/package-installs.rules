@@ -2,26 +2,24 @@
 # Blocks package installs and ad-hoc package execution for Codex (npm supply-chain attacks, docs/agent-guardrails.md).
 # Codex reads project rules only after the user trusts this project's .codex/ folder.
 prefix_rule(
-    pattern = ["npm", ["install", "i", "in", "ins", "inst", "insta", "instal", "isnt", "isnta", "isntal", "isntall", "add", "ci", "clean-install", "ic", "install-clean", "isntall-clean", "install-test", "it", "install-ci-test", "cit", "clean-install-test", "sit", "update", "up", "u", "upgrade", "udpate", "uninstall", "un", "remove", "rm", "r", "unlink", "exec", "x", "create", "init", "innit", "rebuild", "rb", "dedupe", "ddp", "link", "ln"]],
+    pattern = ["npm", ["install", "i", "in", "ins", "inst", "insta", "instal", "isnt", "isnta", "isntal", "isntall", "add", "install-test", "it", "install-ci-test", "cit", "clean-install-test", "sit", "update", "up", "u", "upgrade", "udpate", "uninstall", "un", "remove", "rm", "r", "unlink", "exec", "x", "create", "init", "innit", "rebuild", "rb", "dedupe", "ddp", "link", "ln"]],
     decision = "forbidden",
     justification = "npm 패키지 설치·삭제·실행은 사용자 승인 후 사용자가 직접 합니다 (docs/dependency-policy.md).",
-    match = [["npm", "install"], ["npm", "i", "react"], ["npm", "ci"], ["npm", "u"], ["npm", "sit"], ["npm", "unlink", "x"]],
-    not_match = [["npm", "run", "check"], ["npm", "ls"], ["npm", "test"]],
+    match = [["npm", "install"], ["npm", "i", "react"], ["npm", "u"], ["npm", "sit"], ["npm", "unlink", "x"]],
+    not_match = [["npm", "ci"], ["npm", "run", "check"], ["npm", "ls"], ["npm", "test"]],
 )
 # Codex rules compare words literally, so this lists every unambiguous prefix and camelCase form npm 11
 # resolves to the commands above (lib/utils/cmd-list.js). The Claude Code hook resolves these instead.
 prefix_rule(
     pattern = ["npm", [
         "clean-install-", "clean-install-t", "clean-install-te", "clean-install-tes", "clean-installT", "clean-installTe",
-        "clean-installTes", "clean-installTest", "cleanInstall", "cleanInstall-", "cleanInstall-t", "cleanInstall-te",
+        "clean-installTes", "clean-installTest", "cleanInstall-", "cleanInstall-t", "cleanInstall-te",
         "cleanInstall-tes", "cleanInstall-test", "cleanInstallT", "cleanInstallTe", "cleanInstallTes", "cleanInstallTest",
         "cr", "cre", "crea", "creat", "dd", "ded", "dedu", "dedup", "exe", "ini", "inn", "inni", "install-ci",
         "install-ci-", "install-ci-t", "install-ci-te", "install-ci-tes", "install-ciT", "install-ciTe", "install-ciTes",
-        "install-ciTest", "install-cl", "install-cle", "install-clea", "install-t", "install-te", "install-tes",
+        "install-ciTest", "install-t", "install-te", "install-tes",
         "installCi", "installCi-", "installCi-t", "installCi-te", "installCi-tes", "installCi-test", "installCiT",
-        "installCiTe", "installCiTes", "installCiTest", "installCl", "installCle", "installClea", "installClean",
-        "installT", "installTe", "installTes", "installTest", "isntall-", "isntall-c", "isntall-cl", "isntall-cle",
-        "isntall-clea", "isntallC", "isntallCl", "isntallCle", "isntallClea", "isntallClean", "lin", "reb", "rebu",
+        "installCiTe", "installCiTes", "installCiTest", "installT", "installTe", "installTes", "installTest", "lin", "reb", "rebu",
         "rebui", "rebuil", "rem", "remo", "remov", "si", "ud", "udp", "udpa", "udpat", "uni", "unin", "unins",
         "uninst", "uninsta", "uninstal", "unl", "unli", "unlin", "upd", "upda", "updat", "upg", "upgr", "upgra",
         "upgrad",
