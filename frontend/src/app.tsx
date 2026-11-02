@@ -2,6 +2,7 @@ import { ChartPie, LayoutDashboard, Settings2, TrendingUp, Wallet } from 'lucide
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 
+import { CategoriesPage } from './categories';
 import { AppShell, type NavItem } from './components/layout/app-shell';
 import { Toaster } from './components/ui/sonner';
 import type { Health } from './health';
@@ -14,6 +15,7 @@ import { PortfolioPage } from './portfolio';
 const pages = {
   overview: '/',
   ledger: '/ledger',
+  categories: '/ledger/categories',
   portfolio: '/portfolio',
   mockTrading: '/mock-trading',
   settings: '/settings',
@@ -64,7 +66,14 @@ export function App() {
               />
             }
           />
-          <Route path={pages.ledger} element={<LedgerPage health={health} />} />
+          <Route
+            path={pages.ledger}
+            element={<LedgerPage health={health} categoriesPath={pages.categories} />}
+          />
+          <Route
+            path={pages.categories}
+            element={<CategoriesPage health={health} ledgerPath={pages.ledger} />}
+          />
           <Route path={pages.portfolio} element={<PortfolioPage health={health} />} />
           <Route path={pages.mockTrading} element={<MockTradingPage health={health} />} />
           <Route

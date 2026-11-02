@@ -8,12 +8,14 @@ export function Page({
   description,
   health,
   emptyDescription,
+  emptyAction,
   children,
 }: {
   title: string;
   description: string;
   health: Health;
-  emptyDescription: string;
+  emptyDescription?: string;
+  emptyAction?: ReactNode;
   children?: ReactNode;
 }) {
   return (
@@ -31,7 +33,13 @@ export function Page({
           </p>
         )}
       </header>
-      {children ?? <EmptyState title="아직 기능이 없습니다" description={emptyDescription} />}
+      {children ?? (
+        <EmptyState
+          title="아직 기능이 없습니다"
+          description={emptyDescription}
+          action={emptyAction}
+        />
+      )}
     </section>
   );
 }
