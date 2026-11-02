@@ -37,4 +37,10 @@
 
 - Docker와 `.env`가 없어 API 없이 확인했다. 그래서 브라우저에서는 정상 상태 문구 대신 `서버에 연결할 수 없습니다` 경고가 보였다. 정상 문구는 단위 테스트로 확인했다.
 - Claude in Chrome 확장이 연결되지 않아 headless Chrome을 썼다.
-- `frontend/public/manifest.webmanifest`와 `AGENTS.md`의 앱 이름과 소개는 중앙 레지스트리 값이라 바꾸지 않았다. 설치형 앱 이름에는 아직 모의투자가 없다.
+- `frontend/public/manifest.webmanifest`, `frontend/public/offline.html`, `AGENTS.md`의 앱 이름과 소개는 중앙 레지스트리 값이라 바꾸지 않았다. 그래서 설치형 앱과 오프라인 화면에는 옛 이름이 보인다. 중앙 이슈 [project-standards#399](https://github.com/sirloinbh/project-standards/issues/399)의 동기화로 맞춘다.
+
+## 리뷰 기록
+
+### 1차 — 보완점 1건, 추가 커밋으로 반영
+
+- 앱 표시 이름이 중앙 레지스트리와 달라졌는데 `offline.html`이 기록에서 빠졌고 후속 작업이 없었다. 중앙 이슈 #399를 등록하고, 이 기록과 `docs/next-steps/README.md`에 연결했다.
