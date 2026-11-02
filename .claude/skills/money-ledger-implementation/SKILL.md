@@ -3,7 +3,7 @@ name: money-ledger-implementation
 description: Follow the user's issue, numbered branch, implementation with docs, tests, PR, up to two automated review rounds, and merge-after-CI workflow for changes to the sirloinbh money-ledger project. Use for code, configuration, documentation, and skill edits; exclude read-only questions and recommendations. Review each PR at most twice with fix commits, split large fixes into new issues, merge with a merge commit once required CI passes, and resolve conflicts between stacked PRs.
 ---
 
-# 가계부·자산 포트폴리오 구현 절차
+# 가계부·자산·모의투자 구현 절차
 
 이 스킬은 `sirloinbh/money-ledger` 변경 작업에 적용한다. 다른 프로젝트에 이 계정·저장소·정책을 적용하지 않는다. 프로젝트 루트의 `AGENTS.md`와 관련 문서를 먼저 읽는다. 아래 순서를 지키고 PR 후 자동 코드 리뷰(최대 2회)를 거쳐 필수 CI를 통과한 PR을 병합까지 마친다.
 

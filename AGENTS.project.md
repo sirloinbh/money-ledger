@@ -1,4 +1,4 @@
-# 가계부·자산 포트폴리오 고유 지침
+# 가계부·자산·모의투자 고유 지침
 
 이 파일은 money-ledger에만 해당하는 규칙이다. 공통 지침은 [AGENTS.md](AGENTS.md)이며, 중앙 표준(`sirloinbh/project-standards`) 동기화 후에는 중앙 관리 파일이 된다. 두 파일이 다르면 이 파일이 우선한다.
 

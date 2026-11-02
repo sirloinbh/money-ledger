@@ -3,7 +3,7 @@ name: money-ledger-testing
 description: Write or update behavior-focused tests with money-ledger implementations and fixes, run them before commits and PR creation or updates, and record actual results. Use with money-ledger-implementation; for documentation-only changes validate the changed artifacts instead of adding unrelated app tests.
 ---
 
-# 가계부·자산 포트폴리오 테스트 작성과 실행
+# 가계부·자산·모의투자 테스트 작성과 실행
 
 프로젝트의 AGENTS.md와 money-ledger-implementation 절차를 함께 따른다. 이 스킬은 테스트 작성·실행 기준이며 이슈·브랜치·docs·PR 절차와 PR 후 자동 코드 리뷰(최대 2회)·CI 통과 후 병합 정책을 유지한다.
 
