@@ -1,4 +1,4 @@
-# 가계부·자산 포트폴리오 PostgreSQL
+# 가계부·자산·모의투자 PostgreSQL
 
 PostgreSQL 17. 마이그레이션 원본은 `migrations/NNN_<설명>.sql` 한 곳뿐이다. 빈 Docker 볼륨에서는 최초 실행 시 모든 파일이 이름순으로 자동 적용되고, CI도 모든 파일을 순서대로 적용한다.
 

@@ -1,20 +1,34 @@
-import { LayoutDashboard, Settings2 } from 'lucide-react';
-import { type ReactNode, useEffect, useState } from 'react';
+import { ChartPie, LayoutDashboard, Settings2, TrendingUp, Wallet } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 
 import { AppShell, type NavItem } from './components/layout/app-shell';
-import { EmptyState } from './components/ui/empty-state';
 import { Toaster } from './components/ui/sonner';
-import { type Health, healthText } from './health';
+import type { Health } from './health';
+import { LedgerPage } from './ledger';
+import { MockTradingPage } from './mock-trading';
+import { Page } from './page';
+import { PortfolioPage } from './portfolio';
 
 // Every page URL lives here (central docs/directory-rules.md).
-const pages = { overview: '/', settings: '/settings' } as const;
+const pages = {
+  overview: '/',
+  ledger: '/ledger',
+  portfolio: '/portfolio',
+  mockTrading: '/mock-trading',
+  settings: '/settings',
+} as const;
 
 // Main menu (LNB) items, in display order.
 const nav: NavItem[] = [
   { to: pages.overview, label: '대시보드', icon: LayoutDashboard },
+  { to: pages.ledger, label: '가계부', icon: Wallet },
+  { to: pages.portfolio, label: '자산 포트폴리오', icon: ChartPie },
+  { to: pages.mockTrading, label: '모의투자', icon: TrendingUp },
   { to: pages.settings, label: '설정', icon: Settings2 },
 ];
+
+const emptyDescription = '기능은 GitHub 이슈 카드로 등록한 뒤 하나씩 추가합니다.';
 
 function useHealth() {
   const [health, setHealth] = useState<Health>({ state: 'loading' });
@@ -33,61 +47,36 @@ function useHealth() {
   return health;
 }
 
-function Page({
-  title,
-  description,
-  health,
-  children,
-}: {
-  title: string;
-  description: string;
-  health: Health;
-  children?: ReactNode;
-}) {
-  return (
-    <section aria-labelledby="page-title" className="flex flex-col gap-6">
-      <header className="flex flex-col gap-2">
-        <h1 id="page-title">{title}</h1>
-        <p className="text-body text-muted-foreground">{description}</p>
-        {health.state === 'error' ? (
-          <p role="alert" className="text-body-sm text-destructive">
-            {healthText(health)}
-          </p>
-        ) : (
-          <p role="status" className="text-caption text-muted-foreground">
-            {healthText(health)}
-          </p>
-        )}
-      </header>
-      {children ?? (
-        <EmptyState
-          title="아직 기능이 없습니다"
-          description="기능은 GitHub 이슈 카드로 등록한 뒤 하나씩 추가합니다."
-        />
-      )}
-    </section>
-  );
-}
-
 export function App() {
   const health = useHealth();
   return (
     <BrowserRouter>
-      <AppShell appName="가계부·자산 포트폴리오" nav={nav}>
+      <AppShell appName="가계부·자산·모의투자" nav={nav}>
         <Routes>
           <Route
             path={pages.overview}
             element={
               <Page
                 title="대시보드"
-                description="수입과 지출, 자산 포트폴리오를 기록하고 흐름을 확인하는 개인 서비스"
+                description="가계부, 자산 포트폴리오, 모의투자를 기록하고 돈의 흐름을 확인하는 개인 서비스"
+                emptyDescription={emptyDescription}
                 health={health}
               />
             }
           />
+          <Route path={pages.ledger} element={<LedgerPage health={health} />} />
+          <Route path={pages.portfolio} element={<PortfolioPage health={health} />} />
+          <Route path={pages.mockTrading} element={<MockTradingPage health={health} />} />
           <Route
             path={pages.settings}
-            element={<Page title="설정" description="앱 환경과 데이터 관리" health={health} />}
+            element={
+              <Page
+                title="설정"
+                description="앱 환경과 데이터 관리"
+                emptyDescription={emptyDescription}
+                health={health}
+              />
+            }
           />
           <Route path="*" element={<Navigate to={pages.overview} replace />} />
         </Routes>

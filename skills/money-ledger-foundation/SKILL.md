@@ -3,7 +3,7 @@ name: money-ledger-foundation
 description: Establish or improve the repeatable development foundation of the money-ledger app, covering stack, structure, conventions, API contracts, design, tests, AI guidance, and deployment. Use for project foundation requests; apply only the requested scope through the money-ledger-implementation issue-to-PR workflow.
 ---
 
-# 가계부·자산 포트폴리오 개발 기반
+# 가계부·자산·모의투자 개발 기반
 
 이 앱의 개발·검증·운영 방식을 반복 가능하게 정리한다. 먼저 프로젝트 루트의 `AGENTS.md`와 `skills/money-ledger-implementation/SKILL.md`를 읽고, 이슈 → 번호 기반 브랜치 → 구현 및 docs 기록 → 테스트·PR → 자동 코드 리뷰(최대 2회) → CI 통과 후 병합 절차로 진행한다. 이 스킬이 이슈·PR 절차를 생략하거나 배포 권한을 부여하지 않는다.
 
