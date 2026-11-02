@@ -88,7 +88,7 @@ npm run check
 **3단계: 전체 앱 실행.** 이미지 빌드에 패키지 토큰이 필요하다.
 
 ```powershell
-$env:NODE_AUTH_TOKEN = (powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gh-project.ps1 auth token)
+$env:NODE_AUTH_TOKEN = (powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gh-project.ps1 auth token --hostname github.com --user sirloinbh)
 docker compose up --build -d
 Remove-Item Env:NODE_AUTH_TOKEN
 ```
@@ -121,3 +121,13 @@ git branch --delete --force chore/1-agent-auto-merge
 - 정해진 형식에 맞춰 "변경" 절을 추가했다.
 - 비밀번호를 고치기 전에 DB가 초기화되지 않도록 복구 순서를 단계로 나눴다.
 - git 명령을 표준의 긴 옵션으로 바꿨다.
+
+### 2차 — 1차 지적 8건 반영 확인, 보완점 2건
+
+- 토큰 명령이 계정을 고르지 않아 `--hostname github.com --user sirloinbh`를 붙였다.
+- 1차 보완 커밋 제목과 PR 코멘트 맨 앞에 BOM이 들어갔다. 코멘트는 고쳤다. 커밋은 강제 푸시가 금지라 그대로 둔다.
+- 표준에 따라 3차 리뷰는 하지 않는다.
+
+## 추가 변경 — 2026-11-02
+
+- 사용자 요청으로 기능 이슈 #34~#55를 등록해 `docs/next-steps/README.md`의 "우선 처리" 표를 그 번호로 바꿨다.
