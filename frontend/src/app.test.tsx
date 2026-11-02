@@ -32,6 +32,39 @@ test('each page has its own address and is marked in the main menu', async () =>
   expect(within(menu).getByRole('link', { name: '설정' })).toHaveAttribute('aria-current', 'page');
 });
 
+const areas = [
+  { label: '가계부', path: '/ledger' },
+  { label: '자산 포트폴리오', path: '/portfolio' },
+  { label: '모의투자', path: '/mock-trading' },
+];
+
+test.each(areas)('the main menu opens the $label page', async ({ label, path }) => {
+  health({ today: '2026-10-26' });
+  window.history.replaceState(null, '', '/');
+  render(<App />);
+  const menu = screen.getByRole('navigation', { name: '주 메뉴' });
+  fireEvent.click(within(menu).getByRole('link', { name: label }));
+  expect(window.location.pathname).toBe(path);
+  expect(await screen.findByRole('heading', { level: 1, name: label })).toBeInTheDocument();
+  expect(within(menu).getByRole('link', { name: label })).toHaveAttribute('aria-current', 'page');
+  expect(screen.getByText('아직 기능이 없습니다')).toBeInTheDocument();
+});
+
+test.each(areas)('opening $path directly shows the $label page', async ({ label, path }) => {
+  health({ today: '2026-10-26' });
+  window.history.replaceState(null, '', path);
+  render(<App />);
+  expect(await screen.findByRole('heading', { level: 1, name: label })).toBeInTheDocument();
+  expect(window.location.pathname).toBe(path);
+});
+
+test('an area page reports a server error as an alert', async () => {
+  health({ error: '데이터베이스에 연결할 수 없습니다' }, 503);
+  window.history.replaceState(null, '', '/ledger');
+  render(<App />);
+  expect(await screen.findByRole('alert')).toHaveTextContent('데이터베이스에 연결할 수 없습니다');
+});
+
 test('an unknown address falls back to the overview', async () => {
   health({ today: '2026-10-26' });
   window.history.replaceState(null, '', '/no-such-page');
