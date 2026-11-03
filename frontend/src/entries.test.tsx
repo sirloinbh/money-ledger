@@ -210,3 +210,69 @@ test('a new categories version reloads the category choices', async () => {
     categories[0] = { ...categories[0], hidden: false };
   }
 });
+
+test('opening an edit moves focus to the date field of the form', async () => {
+  await ready();
+  fireEvent.click(screen.getByRole('button', { name: '2026-11-01 여가 5,000원 수정' }));
+  expect(screen.getByLabelText('날짜')).toHaveFocus();
+});
+
+test('a refused field is marked invalid and points at the message', async () => {
+  await ready();
+  fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '-5' } });
+  fireEvent.click(screen.getByRole('button', { name: '기록' }));
+  const amount = screen.getByLabelText('금액(원)');
+  expect(amount).toHaveAttribute('aria-invalid', 'true');
+  expect(amount).toHaveAccessibleDescription('금액은 0원 이상의 정수로 입력하세요');
+  fireEvent.change(amount, { target: { value: '5' } });
+  expect(amount).not.toHaveAttribute('aria-invalid');
+});
+
+test('while a save runs, edit and cancel wait and the button says so', async () => {
+  await ready();
+  let finish = () => {};
+  const api = vi.mocked(fetch);
+  const real = api.getMockImplementation()!;
+  api.mockImplementationOnce(
+    (url, init) =>
+      new Promise((resolve) => {
+        finish = () => resolve(real(url, init));
+      }),
+  );
+  fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '1000' } });
+  fireEvent.change(screen.getByLabelText('카테고리'), { target: { value: '1' } });
+  fireEvent.click(screen.getByRole('button', { name: '기록' }));
+  expect(await screen.findByRole('button', { name: '저장 중…' })).toBeEnabled();
+
+  fireEvent.click(screen.getByRole('button', { name: '2026-11-01 여가 5,000원 수정' }));
+  expect(screen.getByRole('heading', { name: '새 내역' })).toBeInTheDocument();
+
+  finish();
+  expect(await screen.findByRole('status')).toHaveTextContent('지출 1,000원을 기록했습니다');
+  expect(screen.getByRole('button', { name: '기록' })).toBeInTheDocument();
+});
+
+test('a category change reloads the list, and a chosen category hidden meanwhile is unchosen', async () => {
+  const { rerender } = render(<EntryManager categoriesVersion={0} />);
+  await screen.findByRole('option', { name: '식비' });
+  fireEvent.change(screen.getByLabelText('카테고리'), { target: { value: '1' } });
+  const listLoads = () =>
+    requests.filter((request) => request.method === 'GET' && request.url === '/api/ledger/entries')
+      .length;
+  const before = listLoads();
+
+  categories[0] = { ...categories[0], hidden: true };
+  try {
+    rerender(<EntryManager categoriesVersion={1} />);
+    await vi.waitFor(() => expect(optionLabels()).toEqual(['고르세요']));
+    expect(listLoads()).toBe(before + 1);
+    expect(screen.getByLabelText('카테고리')).toHaveValue('');
+
+    fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '1000' } });
+    fireEvent.click(screen.getByRole('button', { name: '기록' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('카테고리를 고르세요');
+    expect(screen.getByLabelText('카테고리')).toHaveAttribute('aria-invalid', 'true');
+  } finally {
+    categories[0] = { ...categories[0], hidden: false };
+  }
+});

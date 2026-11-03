@@ -28,6 +28,16 @@ const invalid = [
   },
   { label: 'February 30', change: { date: '2026-02-30' }, error: '없는 날짜입니다' },
   {
+    label: 'the year 0000',
+    change: { date: '0000-01-01' },
+    error: '날짜는 1900년부터 2100년 사이로 입력하세요',
+  },
+  {
+    label: 'the year 2101',
+    change: { date: '2101-01-01' },
+    error: '날짜는 1900년부터 2100년 사이로 입력하세요',
+  },
+  {
     label: 'a slash date',
     change: { date: '2026/11/03' },
     error: '날짜를 YYYY-MM-DD 형식으로 입력하세요',
@@ -99,3 +109,28 @@ for (const { label, category, error } of categoryCases) {
     });
   });
 }
+
+test('a category hidden between the check and the write is refused, not written', async () => {
+  const lookups: { kind: string; hidden: boolean }[] = [
+    { kind: 'expense', hidden: false }, // the check
+    { kind: 'expense', hidden: true }, // after the conditional insert wrote nothing
+  ];
+  const sql: string[] = [];
+  const racing = {
+    query: async (text: string) => {
+      sql.push(text);
+      if (text.includes('FROM ledger_categories WHERE id')) return { rows: [lookups.shift()] };
+      if (text.includes('INSERT INTO ledger_entries')) return { rows: [] };
+      throw new Error(`unexpected query: ${text}`);
+    },
+  } as unknown as Pool;
+  await withApi(racing, async (call) => {
+    const response = await call('/api/ledger/entries', { method: 'POST', body: valid });
+    assert.equal(response.status, 400);
+    assert.deepEqual(response.data, { error: '숨긴 카테고리에는 새 내역을 넣을 수 없습니다' });
+  });
+  assert.match(
+    sql.find((text) => text.includes('INSERT'))!,
+    /NOT c\.hidden/,
+  );
+});

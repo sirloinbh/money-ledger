@@ -53,7 +53,11 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
   const [categories, setCategories] = useState<Category[]>([]);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [editing, setEditing] = useState<Entry | undefined>(undefined);
+  // A save in flight: the ref blocks a second submit and edit/cancel, `busy` tells the user.
   const saving = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const [invalid, setInvalid] = useState<'amount' | 'category' | undefined>(undefined);
+  const dateInput = useRef<HTMLInputElement>(null);
   const notice = useNotice();
   const { error: showError, status: showStatus } = notice;
 
@@ -62,9 +66,10 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
     setEntries(data.entries);
   }, []);
 
+  // Also reloads after a category change elsewhere on the page: the list shows category names.
   useEffect(() => {
     loadEntries().catch((cause: unknown) => showError(cause, '내역을 불러오지 못했습니다'));
-  }, [loadEntries, showError]);
+  }, [loadEntries, showError, categoriesVersion]);
 
   useEffect(() => {
     requestJson<{ categories: Category[] }>('/api/ledger/categories')
@@ -78,9 +83,21 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
       category.kind === draft.kind && (!category.hidden || category.id === editing?.categoryId),
   );
 
+  // A chosen category that is no longer offered (hidden meanwhile) counts as not chosen.
+  const categoryId = choices.some((category) => String(category.id) === draft.categoryId)
+    ? draft.categoryId
+    : '';
+
   const change = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
 
+  // Opening an edit moves focus to the form above the list, so keyboard and screen reader users follow.
+  useEffect(() => {
+    if (editing) dateInput.current?.focus();
+  }, [editing]);
+
   const startEdit = (entry: Entry) => {
+    if (saving.current) return;
+    setInvalid(undefined);
     setEditing(entry);
     setDraft({
       date: entry.date,
@@ -93,6 +110,7 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
   };
 
   const stopEdit = () => {
+    setInvalid(undefined);
     setEditing(undefined);
     setDraft(emptyDraft());
   };
@@ -100,21 +118,25 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const amount = parseAmount(draft.amount);
+    if (saving.current) return;
     if (amount === undefined) {
+      setInvalid('amount');
       showError('금액은 0원 이상의 정수로 입력하세요');
       return;
     }
-    if (!draft.categoryId) {
+    if (!categoryId) {
+      setInvalid('category');
       showError('카테고리를 고르세요');
       return;
     }
-    if (saving.current) return;
+    setInvalid(undefined);
     saving.current = true;
+    setBusy(true);
     const body = {
       date: draft.date,
       kind: draft.kind,
       amount,
-      categoryId: Number(draft.categoryId),
+      categoryId: Number(categoryId),
       memo: draft.memo,
     };
     try {
@@ -143,10 +165,15 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
       }
     } finally {
       saving.current = false;
+      setBusy(false);
     }
   };
 
   const remove = async (entry: Entry) => {
+    if (saving.current) {
+      showError('저장 중입니다. 잠시 후 다시 시도하세요');
+      throw new Error('saving'); // keeps the dialog open
+    }
     try {
       await requestJson(`${entriesPath}/${entry.id}`, { method: 'DELETE' });
     } catch (cause) {
@@ -165,7 +192,7 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
   return (
     <section aria-labelledby="entries-title" className="flex flex-col gap-4">
       <h2 id="entries-title">수입·지출 내역</h2>
-      <Notice notice={notice.notice} />
+      <Notice id="entries-notice" notice={notice.notice} />
       <Card>
         <CardHeader>
           <CardTitle asHeading="h3">{editing ? '내역 수정' : '새 내역'}</CardTitle>
@@ -198,6 +225,7 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
               <Label htmlFor="entry-date">날짜</Label>
               <Input
                 id="entry-date"
+                ref={dateInput}
                 type="date"
                 required
                 value={draft.date}
@@ -212,7 +240,12 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
                 autoComplete="off"
                 placeholder="예: 12500"
                 value={draft.amount}
-                onChange={(event) => change({ amount: event.target.value })}
+                aria-invalid={invalid === 'amount' || undefined}
+                aria-describedby={invalid === 'amount' ? 'entries-notice' : undefined}
+                onChange={(event) => {
+                  if (invalid === 'amount') setInvalid(undefined);
+                  change({ amount: event.target.value });
+                }}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -220,8 +253,13 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
               <select
                 id="entry-category"
                 className={selectClass}
-                value={draft.categoryId}
-                onChange={(event) => change({ categoryId: event.target.value })}
+                value={categoryId}
+                aria-invalid={invalid === 'category' || undefined}
+                aria-describedby={invalid === 'category' ? 'entries-notice' : undefined}
+                onChange={(event) => {
+                  if (invalid === 'category') setInvalid(undefined);
+                  change({ categoryId: event.target.value });
+                }}
               >
                 <option value="">고르세요</option>
                 {choices.map((category) => (
@@ -241,9 +279,18 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
               />
             </div>
             <div className="flex gap-2 md:col-span-2">
-              <Button type="submit">{editing ? '수정 저장' : '기록'}</Button>
+              {/* Stays enabled while saving so focus is kept; the ref ignores a second press. */}
+              <Button type="submit" aria-busy={busy || undefined}>
+                {busy ? '저장 중…' : editing ? '수정 저장' : '기록'}
+              </Button>
               {editing ? (
-                <Button type="button" variant="ghost" onClick={stopEdit}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    if (!saving.current) stopEdit();
+                  }}
+                >
                   수정 취소
                 </Button>
               ) : null}

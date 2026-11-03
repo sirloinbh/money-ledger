@@ -9,6 +9,14 @@ import { HttpError, parseId } from './standard/http.js';
 const date = z
   .string({ error: '날짜를 YYYY-MM-DD 형식으로 입력하세요' })
   .regex(/^\d{4}-\d{2}-\d{2}$/, { error: '날짜를 YYYY-MM-DD 형식으로 입력하세요', abort: true })
+  // PostgreSQL has no year 0, and far-off years are typos: keep dates in a range a ledger can mean.
+  .refine(
+    (value) => {
+      const year = Number(value.slice(0, 4));
+      return year >= 1900 && year <= 2100;
+    },
+    { error: '날짜는 1900년부터 2100년 사이로 입력하세요', abort: true },
+  )
   .refine((value) => {
     const parsed = new Date(`${value}T00:00:00Z`);
     return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
@@ -71,7 +79,8 @@ const toEntry = (row: Row) => ({
 
 /**
  * The category must exist and match the entry's kind. A hidden category is refused for a new choice, but an
- * entry may keep the hidden category it already has (`keep`).
+ * entry may keep the hidden category it already has (`keep`). This gives the Korean message; the write
+ * repeats the same conditions so a category hidden in between cannot slip through.
  */
 async function checkCategory(pool: Pool, body: EntryBody, keep?: number) {
   const { rows } = await pool.query<{ kind: string; hidden: boolean }>(
@@ -88,7 +97,8 @@ async function checkCategory(pool: Pool, body: EntryBody, keep?: number) {
   }
 }
 
-// A category changed between the check and the write still fails the foreign key: answer the same way.
+// Backstop only: the write's own conditions already require a category of the same kind. If the foreign key
+// ever fails anyway, answer like the check does instead of with a 500.
 async function writing<T>(run: () => Promise<T>) {
   try {
     return await run();
@@ -99,6 +109,8 @@ async function writing<T>(run: () => Promise<T>) {
     throw error;
   }
 }
+
+const changedMeanwhile = '카테고리가 방금 바뀌었습니다. 다시 시도하세요';
 
 async function findEntry(pool: Pool, id: number) {
   const { rows } = await pool.query<Row>(`${select} WHERE e.id = $1`, [id]);
@@ -120,13 +132,20 @@ export function entriesRouter(pool: Pool) {
   router.post('/', async (req, res) => {
     const body = entryBody.parse(req.body);
     await checkCategory(pool, body);
+    // One statement: the row is written only if the category is still visible and of the same kind.
     const { rows } = await writing(() =>
       pool.query<{ id: string }>(
         `INSERT INTO ledger_entries (entry_date, kind, amount, category_id, memo)
-         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+         SELECT $1::date, $2, $3::bigint, c.id, $5::text FROM ledger_categories c
+         WHERE c.id = $4 AND c.kind = $2 AND NOT c.hidden
+         RETURNING id`,
         [body.date, body.kind, body.amount, body.categoryId, body.memo],
       ),
     );
+    if (!rows[0]) {
+      await checkCategory(pool, body); // names what changed, e.g. the category was just hidden
+      throw new HttpError(409, changedMeanwhile);
+    }
     res.status(201).json({ entry: toEntry(await findEntry(pool, Number(rows[0].id))) });
   });
 
@@ -135,14 +154,22 @@ export function entriesRouter(pool: Pool) {
     const body = entryBody.parse(req.body);
     const current = await findEntry(pool, id);
     await checkCategory(pool, body, Number(current.category_id));
-    await writing(() =>
-      pool.query(
-        `UPDATE ledger_entries
+    // The hidden-category exception compares with the entry's category at write time, not at the check.
+    const { rows } = await writing(() =>
+      pool.query<{ id: string }>(
+        `UPDATE ledger_entries e
          SET entry_date = $2, kind = $3, amount = $4, category_id = $5, memo = $6, updated_at = now()
-         WHERE id = $1`,
+         FROM ledger_categories c
+         WHERE e.id = $1 AND c.id = $5 AND c.kind = $3 AND (NOT c.hidden OR c.id = e.category_id)
+         RETURNING e.id`,
         [id, body.date, body.kind, body.amount, body.categoryId, body.memo],
       ),
     );
+    if (!rows[0]) {
+      const latest = await findEntry(pool, id); // 404 if it was deleted meanwhile
+      await checkCategory(pool, body, Number(latest.category_id));
+      throw new HttpError(409, changedMeanwhile);
+    }
     res.json({ entry: toEntry(await findEntry(pool, id)) });
   });
 
