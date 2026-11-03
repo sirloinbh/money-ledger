@@ -193,7 +193,7 @@ test('a second submit while saving sends nothing', async () => {
   const form = screen.getByLabelText('새 지출 카테고리').closest('form')!;
   fireEvent.submit(form);
   fireEvent.submit(form);
-  expect(screen.getAllByRole('button', { name: '추가' })[0]).toBeDisabled();
+  expect(screen.getAllByRole('button', { name: '추가' })[0]).toBeEnabled();
   expect(await screen.findByRole('status')).toHaveTextContent('반려동물 카테고리를 추가했습니다');
   expect(requests.filter((request) => request.method === 'POST')).toHaveLength(1);
 });

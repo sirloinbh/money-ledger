@@ -83,3 +83,9 @@
 
 - 배포 스크립트가 부르는 `dist/migrate.js`가 없어 기존 운영 DB에 `002`를 자동 적용할 수 없다. 이 PR 전부터 있던 문제이고 배포 구조에 걸쳐 있어 [#71](https://github.com/sirloinbh/money-ledger/issues/71)로 분리했다.
 - CodeQL이 `js/missing-rate-limiting`(high)으로 실패했다. 다른 앱처럼 `express-rate-limit`이 필요한데 패키지 설치는 사용자 단계라 [#70](https://github.com/sirloinbh/money-ledger/issues/70)으로 분리했다. #70을 먼저 병합한 뒤 이 PR에 `main`을 병합해 경고가 사라지는지 확인한다.
+
+### 2차 — 1차 지적 5건 반영 확인, 보완점 1건
+
+- 저장 중 버튼을 끄면 방금 누른 버튼에서 키보드 포커스가 페이지로 빠졌다. 중복 요청은 `ref`가 이미 막으므로 버튼을 끄지 않는다. 중복 제출 테스트는 버튼이 켜진 채로 POST가 한 번만 가는지 확인하도록 바꿨다.
+- 검증: `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과(백엔드 23개 통과·건너뜀 0, 프론트엔드 75개 통과·2개 건너뜀(기존), 스킬 4개). 실제 Chrome(CDP)에서 `교통 숨기기`에 포커스를 두고 누르면 포커스가 같은 버튼(`교통 다시 보이기`)에 남는다.
+- 표준에 따라 3차 리뷰는 하지 않는다.

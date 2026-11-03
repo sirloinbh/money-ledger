@@ -26,7 +26,7 @@ type Save = (run: () => Promise<unknown>, done: string) => Promise<boolean>;
 export function CategoryManager() {
   const [categories, setCategories] = useState<Category[] | undefined>(undefined);
   // One change at a time: a second click or Enter while saving would only add a confusing error.
-  const [busy, setBusy] = useState(false);
+  // Buttons stay enabled so keyboard focus never drops to the page; the ref ignores the extra press.
   const saving = useRef(false);
   const notice = useNotice();
   const { error: showError, status: showStatus } = notice;
@@ -43,7 +43,6 @@ export function CategoryManager() {
   const save: Save = async (run, done) => {
     if (saving.current) return false;
     saving.current = true;
-    setBusy(true);
     try {
       try {
         await run();
@@ -61,7 +60,6 @@ export function CategoryManager() {
       return true;
     } finally {
       saving.current = false;
-      setBusy(false);
     }
   };
 
@@ -87,7 +85,6 @@ export function CategoryManager() {
               title={title}
               categories={categories.filter((category) => category.kind === kind)}
               save={save}
-              busy={busy}
             />
           ))}
         </div>
@@ -101,13 +98,11 @@ function KindCard({
   title,
   categories,
   save,
-  busy,
 }: {
   kind: CategoryKind;
   title: string;
   categories: Category[];
   save: Save;
-  busy: boolean;
 }) {
   const [name, setName] = useState('');
   const inputId = `new-${kind}-category`;
@@ -142,14 +137,14 @@ function KindCard({
               placeholder="예: 반려동물"
               onChange={(event) => setName(event.target.value)}
             />
-            <Button type="submit" disabled={busy || !name.trim()}>
+            <Button type="submit" disabled={!name.trim()}>
               추가
             </Button>
           </div>
         </form>
         <ul aria-label={title} className="flex flex-col divide-y">
           {categories.map((category) => (
-            <CategoryRow key={category.id} category={category} save={save} busy={busy} />
+            <CategoryRow key={category.id} category={category} save={save} />
           ))}
         </ul>
       </CardContent>
@@ -157,7 +152,7 @@ function KindCard({
   );
 }
 
-function CategoryRow({ category, save, busy }: { category: Category; save: Save; busy: boolean }) {
+function CategoryRow({ category, save }: { category: Category; save: Save }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(category.name);
   const nameInput = useRef<HTMLInputElement>(null);
@@ -213,10 +208,10 @@ function CategoryRow({ category, save, busy }: { category: Category; save: Save;
               className="min-w-0 flex-1"
               onChange={(event) => setName(event.target.value)}
             />
-            <Button type="submit" disabled={busy || !name.trim()}>
+            <Button type="submit" disabled={!name.trim()}>
               저장
             </Button>
-            <Button type="button" variant="ghost" disabled={busy} onClick={() => setEditing(false)}>
+            <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
               취소
             </Button>
           </div>
@@ -252,7 +247,6 @@ function CategoryRow({ category, save, busy }: { category: Category; save: Save;
           type="button"
           variant="outline"
           size="sm"
-          disabled={busy}
           aria-label={category.hidden ? `${category.name} 다시 보이기` : `${category.name} 숨기기`}
           onClick={() => void toggleHidden()}
         >
