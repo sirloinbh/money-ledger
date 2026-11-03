@@ -12,4 +12,25 @@
 
 ## 서비스 규칙
 
-- 아직 없다. 이 프로젝트에만 해당하는 도메인 규칙이 생기면 여기에 적는다.
+### 수량·외화·환율 (2026-11-03 사용자 결정, #35)
+
+중앙 `docs/conventions/domain.md`의 금액 규칙(원 단위 정수, `bigint`)에 더해, 주식 수량과 외화를 이렇게 다룬다. 중앙 문서 반영은 [project-standards#401](https://github.com/sirloinbh/project-standards/issues/401)에서 한다.
+
+| 값        | 저장(PostgreSQL)                             | API 값                     | 범위                                        |
+| --------- | -------------------------------------------- | -------------------------- | ------------------------------------------- |
+| 통화 코드 | `text`, `CHECK (currency IN ('KRW', 'USD'))` | `'KRW' \| 'USD'`           | 처음에는 두 통화만 다룬다                   |
+| 수량      | `numeric(20,8)`                              | 소수 문자열 `"0.12345678"` | `CHECK (quantity > 0)`                      |
+| 원화 금액 | `bigint` (원)                                | 정수 숫자                  | 중앙 금액 규칙 그대로                       |
+| 단가      | `numeric(20,4)` + 같은 행의 `currency`       | 소수 문자열 `"123.4500"`   | `CHECK (price > 0)`                         |
+| 외화 금액 | `numeric(20,4)` + 같은 행의 `currency`       | 소수 문자열 `"123.4500"`   | `CHECK (currency <> 'KRW' AND amount >= 0)` |
+| 환율      | `numeric(12,4)`, 외화 1단위당 원             | 소수 문자열 `"1385.2500"`  | `CHECK (fx_rate > 0)`                       |
+
+- 단가는 통화와 관계없이 한 컬럼(`numeric(20,4)`)과 `currency`로 저장하고 API에서도 소수 문자열이다. `currency = 'KRW'`인 단가는 소수점 아래가 0이어야 한다(`CHECK (currency <> 'KRW' OR price = trunc(price))`).
+- 원화 금액은 언제나 `bigint`다. `numeric(20,4)` 금액 컬럼(외화 예금 잔액 등)은 USD 전용이며 KRW 금액을 담지 않는다. 원화·외화가 모두 올 수 있는 금액은 `amount_krw bigint`와 `amount_foreign numeric(20,4)` 두 컬럼으로 나눈다.
+- `numeric` 값은 API에서 문자열로 주고받는다. JavaScript `number`(부동소수)로 바꿔 계산하지 않는다. 곱셈·합계·반올림은 SQL `numeric` 연산으로 한다. 입력 검증은 Zod 정규식으로 자릿수(정수부·소수부)를 확인한다.
+- 거래 행은 수량, 단가, `currency`, 환율(`fx_rate`), 원화 거래액(`amount_krw bigint NOT NULL`)을 저장한다. 환율은 KRW이면 `NULL`, USD이면 거래일 환율을 반드시 넣는다(`CHECK ((currency = 'KRW') = (fx_rate IS NULL))`). 나중에 환율이 바뀌어도 거래 기록의 원화 금액은 바뀌지 않는다.
+- 원화 거래액은 저장할 때 한 번 계산한다: `amount_krw = round(수량 × 단가 × coalesce(fx_rate, 1))`. 외화 총액 같은 중간 결과를 먼저 반올림하지 않는다.
+- 외화 거래 총액은 저장하지 않고 필요할 때 `수량 × 단가`로 계산한다. 화면에 보일 값은 SQL에서 `round(수량 × 단가, 2)`(센트)로 만들어 보낸다. 화면에서 `Number(...).toFixed()`로 반올림하지 않는다.
+- 평가(현재 가치)는 조회 시점의 최신 환율로 원화 환산한다: `round(수량 × 현재가 × 최신 환율)`. 환율 출처와 갱신 주기는 #36에서 정한다.
+- 반올림은 PostgreSQL `round(numeric)`을 쓰며, 0.5는 0에서 먼 쪽으로 보낸다(`round(2.5) = 3`, `round(-2.5) = -3`). 피연산자는 모두 `numeric`이어야 한다. `double precision`이 섞이면 짝수 반올림으로 바뀐다. 음수 -2.5를 -2로 만드는 JS `Math.round`로 대신하지 않는다.
+- 합계는 원화 환산액끼리 더한다. 통화가 다른 외화 금액을 그대로 더하지 않는다.
