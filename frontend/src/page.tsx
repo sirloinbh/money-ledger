@@ -13,7 +13,7 @@ export function Page({
   title: string;
   description: string;
   health: Health;
-  emptyDescription: string;
+  emptyDescription?: string;
   children?: ReactNode;
 }) {
   return (
