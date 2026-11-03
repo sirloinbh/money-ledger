@@ -9,6 +9,7 @@ import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
 import { SkeletonList } from './components/ui/skeleton';
 import { toast } from './components/ui/sonner';
+import { Spinner } from './components/ui/spinner';
 import type { Health } from './health';
 import { requestJson } from './lib/api';
 import { errorText, useNotice } from './lib/use-notice';
@@ -23,6 +24,24 @@ const groups: { kind: Kind; label: string }[] = [
   { kind: 'income', label: '수입' },
 ];
 
+// Waiting buttons use aria-disabled, not disabled: a disabled button drops keyboard focus.
+// The shared button styles only `disabled`, so the waiting look is added here.
+const waitingStyle = 'aria-disabled:cursor-not-allowed aria-disabled:opacity-50';
+
+/** Runs one request at a time for a button and tells whether it is still waiting. */
+function useWaiting<T extends string>() {
+  const [waiting, setWaiting] = useState<T | null>(null);
+  const track = async (what: T, request: Promise<boolean>) => {
+    setWaiting(what);
+    try {
+      return await request;
+    } finally {
+      setWaiting(null);
+    }
+  };
+  return [waiting, track] as const;
+}
+
 function CategoryRow({
   category,
   busy,
@@ -34,6 +53,7 @@ function CategoryRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(category.name);
+  const [waiting, track] = useWaiting<'save' | 'hide'>();
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const editRef = useRef<HTMLButtonElement>(null);
@@ -54,10 +74,14 @@ function CategoryRow({
     returnFocus.current = true;
     setEditing(false);
   };
+  // A rename on its way cannot be called back, so cancelling waits for the answer.
+  const cancel = () => {
+    if (waiting === null) close();
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (await onSave(category.id, { name: draft })) close();
+    if (await track('save', onSave(category.id, { name: draft }))) close();
   };
 
   if (editing) {
@@ -73,14 +97,22 @@ function CategoryRow({
             required
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Escape') close();
+              if (event.key === 'Escape') cancel();
             }}
           />
           <div className="flex gap-2">
-            <Button type="submit" size="sm" aria-disabled={busy}>
+            <Button type="submit" size="sm" aria-disabled={busy} className={waitingStyle}>
+              {waiting === 'save' ? <Spinner size="sm" label="저장하는 중" /> : null}
               저장
             </Button>
-            <Button type="button" size="sm" variant="ghost" onClick={close}>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              aria-disabled={waiting !== null}
+              className={waitingStyle}
+              onClick={cancel}
+            >
               취소
             </Button>
           </div>
@@ -114,9 +146,11 @@ function CategoryRow({
           size="sm"
           variant="ghost"
           aria-disabled={busy}
+          className={waitingStyle}
           aria-label={`${category.name} ${category.hidden ? '다시 표시' : '숨기기'}`}
-          onClick={() => void onSave(category.id, { hidden: !category.hidden })}
+          onClick={() => void track('hide', onSave(category.id, { hidden: !category.hidden }))}
         >
+          {waiting === 'hide' ? <Spinner size="sm" label="저장하는 중" /> : null}
           {category.hidden ? '다시 표시' : '숨기기'}
         </Button>
       </div>
@@ -138,11 +172,12 @@ function CategoryGroup({
   onSave: Save;
 }) {
   const [name, setName] = useState('');
+  const [waiting, track] = useWaiting<'add'>();
   const inputId = useId();
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (await onAdd(name)) setName('');
+    if (await track('add', onAdd(name))) setName('');
   };
 
   return (
@@ -170,7 +205,13 @@ function CategoryGroup({
               required
               onChange={(event) => setName(event.target.value)}
             />
-            <Button type="submit" aria-disabled={busy} aria-label={`${label} 카테고리 추가`}>
+            <Button
+              type="submit"
+              aria-disabled={busy}
+              className={waitingStyle}
+              aria-label={`${label} 카테고리 추가`}
+            >
+              {waiting === 'add' ? <Spinner size="sm" label="저장하는 중" /> : null}
               추가
             </Button>
           </div>
@@ -183,26 +224,51 @@ function CategoryGroup({
 export function CategoriesPage({ health, ledgerPath }: { health: Health; ledgerPath: string }) {
   const [categories, setCategories] = useState<Category[] | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [retrying, setRetrying] = useState(false);
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  const focusList = useRef(false);
   const { notice, error, clear } = useNotice();
 
-  const load = useCallback(() => {
-    return requestJson<{ categories: Category[] }>('/api/categories?includeHidden=true')
-      .then((data) => {
-        setCategories(data.categories);
-        clear();
-      })
-      .catch(error)
-      .finally(() => setLoading(false));
+  const load = useCallback(async () => {
+    try {
+      const data = await requestJson<{ categories: Category[] }>(
+        '/api/categories?includeHidden=true',
+      );
+      setCategories(data.categories);
+      clear();
+      return true;
+    } catch (cause) {
+      error(cause);
+      return false;
+    } finally {
+      setLoading(false);
+    }
   }, [clear, error]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  // One write at a time. Buttons use aria-disabled, not disabled: a disabled button drops keyboard focus.
-  // Results are toasts: the forms sit far down a long list, where a message at the top would be off screen.
+  // The retry button disappears once the list arrives, so focus moves to the list instead of the page start.
+  useEffect(() => {
+    if (categories && focusList.current) {
+      focusList.current = false;
+      listRef.current?.focus();
+    }
+  }, [categories]);
+
+  const retry = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    focusList.current = true;
+    if (!(await load())) focusList.current = false;
+    setRetrying(false);
+  };
+
+  // One write at a time. Results are toasts: the forms sit far down a long list, where a message at
+  // the top would be off screen.
   const run = async (request: () => Promise<string>) => {
     if (pending.current) return false;
     pending.current = true;
@@ -262,7 +328,12 @@ export function CategoriesPage({ health, ledgerPath }: { health: Health; ledgerP
             <SkeletonList />
           </div>
         ) : categories ? (
-          <div className="grid items-start gap-6 md:grid-cols-2">
+          <div
+            ref={listRef}
+            tabIndex={-1}
+            aria-label="카테고리 목록"
+            className="grid items-start gap-6 outline-none md:grid-cols-2"
+          >
             {groups.map(({ kind, label }) => (
               <CategoryGroup
                 key={kind}
@@ -278,11 +349,11 @@ export function CategoriesPage({ health, ledgerPath }: { health: Health; ledgerP
           <div>
             <Button
               variant="outline"
-              onClick={() => {
-                setLoading(true);
-                void load();
-              }}
+              aria-disabled={retrying}
+              className={waitingStyle}
+              onClick={() => void retry()}
             >
+              {retrying ? <Spinner size="sm" label="불러오는 중" /> : null}
               다시 불러오기
             </Button>
           </div>

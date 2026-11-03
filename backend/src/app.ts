@@ -2,6 +2,7 @@ import express from 'express';
 import type { Pool } from 'pg';
 import { types } from 'pg';
 
+import { apiRateLimit, type RateLimitOptions } from './rate-limit.js';
 import { registerCategoriesRoutes } from './routes/categories.js';
 import { errorHandler, notFound } from './standard/http.js';
 
@@ -20,10 +21,14 @@ export function serviceDate(now = new Date()) {
   }).format(now);
 }
 
-export function createApp(pool: Pool, options: { today?: () => string } = {}) {
+export type AppOptions = { today?: () => string; rateLimit?: RateLimitOptions };
+
+export function createApp(pool: Pool, options: AppOptions = {}) {
   const today = options.today ?? (() => serviceDate());
   const app = express();
   app.disable('x-powered-by');
+  // Before the body parser and routes: a refused request costs no parsing and no query.
+  app.use(apiRateLimit(options.rateLimit));
   app.use(express.json({ limit: '256kb' }));
   app.get('/api/health', async (_req, res) => {
     await pool.query('SELECT 1');

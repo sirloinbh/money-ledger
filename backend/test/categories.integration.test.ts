@@ -102,20 +102,43 @@ test('categories keep their rules against the real database', { skip: !url }, as
       },
     );
 
+    await t.test('renaming a hidden category keeps it hidden', async () => {
+      const created = await call('/api/categories', {
+        method: 'POST',
+        body: { kind: 'expense', name: `${prefix}-C` },
+      });
+      const hiddenId = (created.data.category as Category).id;
+      await call(`/api/categories/${hiddenId}`, { method: 'PATCH', body: { hidden: true } });
+      const renamed = await call(`/api/categories/${hiddenId}`, {
+        method: 'PATCH',
+        body: { name: `${prefix}-D` },
+      });
+      assert.equal(renamed.status, 200);
+      const { rows } = await pool.query('SELECT name, hidden FROM categories WHERE id = $1', [
+        hiddenId,
+      ]);
+      assert.deepEqual(rows[0], { name: `${prefix}-D`, hidden: true });
+    });
+
+    // One connection inside a transaction that is always rolled back: the real default stays as it
+    // was even if the test dies half way, and other connections never see the rename.
     await t.test('re-running the migration does not restore a renamed default', async () => {
       const file = path.join(import.meta.dirname, '../../database/migrations/002_categories.sql');
-      const renamed = `${prefix}-식비`;
-      await pool.query(`UPDATE categories SET name = $1 WHERE kind = 'expense' AND name = '식비'`, [
-        renamed,
-      ]);
+      const client = await pool.connect();
       try {
-        await pool.query(await readFile(file, 'utf8'));
-        const { rowCount } = await pool.query(
+        await client.query('BEGIN');
+        await client.query(
+          `UPDATE categories SET name = $1 WHERE kind = 'expense' AND name = '식비'`,
+          [`${prefix}-식비`],
+        );
+        await client.query(await readFile(file, 'utf8'));
+        const { rowCount } = await client.query(
           `SELECT 1 FROM categories WHERE kind = 'expense' AND name = '식비'`,
         );
         assert.equal(rowCount, 0);
       } finally {
-        await pool.query(`UPDATE categories SET name = '식비' WHERE name = $1`, [renamed]);
+        await client.query('ROLLBACK');
+        client.release();
       }
     });
   });

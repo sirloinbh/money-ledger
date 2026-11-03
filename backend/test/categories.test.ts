@@ -82,6 +82,25 @@ for (const [label, body, message] of [
   });
 }
 
+test('a missing or non-object body is rejected in Korean', async () => {
+  const { pool, queries } = fakePool();
+  const message = { error: '요청 본문이 올바르지 않습니다' };
+  await withApi(pool, async (call) => {
+    for (const [path, method] of [
+      ['/api/categories', 'POST'],
+      ['/api/categories/7', 'PATCH'],
+    ]) {
+      const missing = await call(path, { method });
+      assert.equal(missing.status, 400);
+      assert.deepEqual(missing.data, message);
+      const array = await call(path, { method, body: [] });
+      assert.equal(array.status, 400);
+      assert.deepEqual(array.data, message);
+    }
+    assert.equal(queries.length, 0);
+  });
+});
+
 test('a 30-character name is accepted', async () => {
   const name = '가'.repeat(30);
   const { pool, queries } = fakePool({ rows: [{ ...row, name }] });

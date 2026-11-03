@@ -16,12 +16,17 @@ const listQuery = z.object({
     .enum(['true', 'false'], { error: '숨김 포함 여부가 올바르지 않습니다' })
     .optional(),
 });
-const createBody = z.object({ kind: kindSchema, name: nameSchema });
+// Without a message a missing or non-object body would answer in zod's English.
+const bodyError = { error: '요청 본문이 올바르지 않습니다' };
+const createBody = z.object({ kind: kindSchema, name: nameSchema }, bodyError);
 const updateBody = z
-  .object({
-    name: nameSchema.optional(),
-    hidden: z.boolean({ error: '숨김 여부가 올바르지 않습니다' }).optional(),
-  })
+  .object(
+    {
+      name: nameSchema.optional(),
+      hidden: z.boolean({ error: '숨김 여부가 올바르지 않습니다' }).optional(),
+    },
+    bodyError,
+  )
   .refine((body) => body.name !== undefined || body.hidden !== undefined, {
     error: '바꿀 내용을 입력하세요',
   });

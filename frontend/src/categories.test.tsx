@@ -197,6 +197,7 @@ test('a pending request keeps focus on the button and ignores a second press', a
   await waitFor(() => expect(hide).toHaveAttribute('aria-disabled', 'true'));
   expect(hide).toBeEnabled();
   expect(hide).toHaveFocus();
+  expect(within(hide).getByRole('status', { name: '저장하는 중' })).toBeInTheDocument();
   fireEvent.click(hide);
   release();
   await expense.findByRole('button', { name: '식비 다시 표시' });
@@ -215,7 +216,38 @@ test('a failed load shows the error and can be retried', async () => {
   render(<App />);
   expect(await screen.findByRole('alert')).toHaveTextContent('서버 오류가 발생했습니다');
   state.loadError = false;
-  fireEvent.click(screen.getByRole('button', { name: '다시 불러오기' }));
+  const retry = screen.getByRole('button', { name: '다시 불러오기' });
+  retry.focus();
+  fireEvent.click(retry);
   await screen.findByRole('heading', { level: 2, name: '지출' });
   await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+  expect(screen.getByLabelText('카테고리 목록')).toHaveFocus();
+});
+
+test('Escape and cancel wait while a rename is being saved', async () => {
+  const state = api();
+  await open();
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const answer = vi.mocked(fetch).getMockImplementation()!;
+  vi.mocked(fetch).mockImplementation(async (...args) => {
+    await gate;
+    return answer(...args);
+  });
+  const expense = within(group('지출'));
+  fireEvent.click(expense.getByRole('button', { name: '식비 이름 수정' }));
+  const field = expense.getByLabelText('식비 새 이름');
+  fireEvent.change(field, { target: { value: '외식' } });
+  fireEvent.click(expense.getByRole('button', { name: '저장' }));
+  const cancel = expense.getByRole('button', { name: '취소' });
+  await waitFor(() => expect(cancel).toHaveAttribute('aria-disabled', 'true'));
+  fireEvent.keyDown(field, { key: 'Escape' });
+  fireEvent.click(cancel);
+  expect(field).toBeInTheDocument();
+  release();
+  expect(await expense.findByText('외식')).toBeInTheDocument();
+  expect(expense.getByRole('button', { name: '외식 이름 수정' })).toHaveFocus();
+  expect(state.sent).toHaveLength(1);
 });
