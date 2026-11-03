@@ -7,7 +7,7 @@ export async function withApi(
   run: (
     call: (path: string) => Promise<{ status: number; data: Record<string, unknown> }>,
   ) => Promise<void>,
-  options: { today?: () => string } = {},
+  options: Parameters<typeof createApp>[1] = {},
 ) {
   const server = createApp(pool, options).listen(0, '127.0.0.1');
   await new Promise<void>((resolve, reject) => {
