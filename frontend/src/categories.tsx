@@ -23,7 +23,8 @@ const kinds: { kind: CategoryKind; title: string }[] = [
 // Runs one change, then reloads the list. Resolves true when the change itself succeeded.
 type Save = (run: () => Promise<unknown>, done: string) => Promise<boolean>;
 
-export function CategoryManager() {
+/** `onChange` runs after each saved change, so other parts of the page can reload categories. */
+export function CategoryManager({ onChange }: { onChange?: () => void } = {}) {
   const [categories, setCategories] = useState<Category[] | undefined>(undefined);
   // One change at a time: a second click or Enter while saving would only add a confusing error.
   // Buttons stay enabled so keyboard focus never drops to the page; the ref ignores the extra press.
@@ -46,6 +47,7 @@ export function CategoryManager() {
     try {
       try {
         await run();
+        onChange?.();
       } catch (cause) {
         showError(cause);
         return false;
