@@ -3,6 +3,7 @@ import { rateLimit } from 'express-rate-limit';
 import type { Pool } from 'pg';
 import { types } from 'pg';
 
+import { assetsRouter } from './assets.js';
 import { categoriesRouter } from './categories.js';
 import { entriesRouter } from './entries.js';
 import { errorHandler, notFound, serviceDate } from './standard/http.js';
@@ -37,6 +38,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   });
   app.use('/api/ledger/categories', categoriesRouter(pool));
   app.use('/api/ledger/entries', entriesRouter(pool));
+  app.use('/api/portfolio/assets', assetsRouter(pool));
   app.use('/api', notFound);
   app.use(errorHandler);
   return app;

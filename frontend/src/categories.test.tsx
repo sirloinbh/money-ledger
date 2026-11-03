@@ -160,7 +160,8 @@ test('opening rename again starts from the saved name, and focus returns to the 
   fireEvent.change(screen.getByLabelText('식비 새 이름'), { target: { value: '  외식 ' } });
   fireEvent.click(screen.getByRole('button', { name: '저장' }));
   const renameButton = await screen.findByRole('button', { name: '외식 이름 바꾸기' });
-  expect(renameButton).toHaveFocus();
+  // Focus moves in an effect after the row re-renders, so wait for it rather than checking once.
+  await vi.waitFor(() => expect(renameButton).toHaveFocus());
 
   fireEvent.click(renameButton);
   expect(screen.getByLabelText('외식 새 이름')).toHaveValue('외식');
