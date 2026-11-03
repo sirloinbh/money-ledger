@@ -7,7 +7,7 @@ import { withApi } from './helpers.js';
 
 const pool = { query: async () => ({ rows: [] }) } as unknown as Pool;
 
-test('requests over the per-minute limit get a Korean 429 and a retry hint', async () => {
+test('requests over the per-minute limit get a Korean 429', async () => {
   await withApi(
     pool,
     async (call) => {
