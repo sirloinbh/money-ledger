@@ -20,10 +20,14 @@ const kinds: { kind: CategoryKind; title: string }[] = [
   { kind: 'income', title: '수입 카테고리' },
 ];
 
+// Runs one change, then reloads the list. Resolves true when the change itself succeeded.
 type Save = (run: () => Promise<unknown>, done: string) => Promise<boolean>;
 
 export function CategoryManager() {
   const [categories, setCategories] = useState<Category[] | undefined>(undefined);
+  // One change at a time: a second click or Enter while saving would only add a confusing error.
+  const [busy, setBusy] = useState(false);
+  const saving = useRef(false);
   const notice = useNotice();
   const { error: showError, status: showStatus } = notice;
 
@@ -37,14 +41,27 @@ export function CategoryManager() {
   }, [load, showError]);
 
   const save: Save = async (run, done) => {
+    if (saving.current) return false;
+    saving.current = true;
+    setBusy(true);
     try {
-      await run();
-      await load();
-      showStatus(done);
+      try {
+        await run();
+      } catch (cause) {
+        showError(cause);
+        return false;
+      }
+      // The change is saved even when the reload fails; say both instead of reporting a failure.
+      try {
+        await load();
+        showStatus(done);
+      } catch {
+        showError(`${done}. 목록을 새로 불러오지 못했습니다`);
+      }
       return true;
-    } catch (cause) {
-      showError(cause);
-      return false;
+    } finally {
+      saving.current = false;
+      setBusy(false);
     }
   };
 
@@ -70,6 +87,7 @@ export function CategoryManager() {
               title={title}
               categories={categories.filter((category) => category.kind === kind)}
               save={save}
+              busy={busy}
             />
           ))}
         </div>
@@ -83,11 +101,13 @@ function KindCard({
   title,
   categories,
   save,
+  busy,
 }: {
   kind: CategoryKind;
   title: string;
   categories: Category[];
   save: Save;
+  busy: boolean;
 }) {
   const [name, setName] = useState('');
   const inputId = `new-${kind}-category`;
@@ -95,6 +115,7 @@ function KindCard({
   const add = async (event: FormEvent) => {
     event.preventDefault();
     const trimmed = name.trim();
+    if (!trimmed) return;
     const added = await save(
       () => requestJson(categoriesPath, { method: 'POST', body: { kind, name: trimmed } }),
       `${trimmed} 카테고리를 추가했습니다`,
@@ -121,14 +142,14 @@ function KindCard({
               placeholder="예: 반려동물"
               onChange={(event) => setName(event.target.value)}
             />
-            <Button type="submit" disabled={!name.trim()}>
+            <Button type="submit" disabled={busy || !name.trim()}>
               추가
             </Button>
           </div>
         </form>
         <ul aria-label={title} className="flex flex-col divide-y">
           {categories.map((category) => (
-            <CategoryRow key={category.id} category={category} save={save} />
+            <CategoryRow key={category.id} category={category} save={save} busy={busy} />
           ))}
         </ul>
       </CardContent>
@@ -136,19 +157,30 @@ function KindCard({
   );
 }
 
-function CategoryRow({ category, save }: { category: Category; save: Save }) {
+function CategoryRow({ category, save, busy }: { category: Category; save: Save; busy: boolean }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(category.name);
   const nameInput = useRef<HTMLInputElement>(null);
-  // Move focus into the name field when renaming starts.
+  const renameButton = useRef<HTMLButtonElement>(null);
+  const wasEditing = useRef(false);
+  // Focus follows the rename: into the name field when it opens, back to its button when it closes.
   useEffect(() => {
     if (editing) nameInput.current?.focus();
+    else if (wasEditing.current) renameButton.current?.focus();
+    wasEditing.current = editing;
   }, [editing]);
   const path = `${categoriesPath}/${category.id}`;
+
+  const startRename = () => {
+    // Start from the saved name, which may have changed since this row first rendered.
+    setName(category.name);
+    setEditing(true);
+  };
 
   const rename = async (event: FormEvent) => {
     event.preventDefault();
     const trimmed = name.trim();
+    if (!trimmed) return;
     const renamed = await save(
       () => requestJson(path, { method: 'PATCH', body: { name: trimmed } }),
       `카테고리 이름을 ${trimmed}(으)로 바꿨습니다`,
@@ -181,17 +213,10 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
               className="min-w-0 flex-1"
               onChange={(event) => setName(event.target.value)}
             />
-            <Button type="submit" disabled={!name.trim()}>
+            <Button type="submit" disabled={busy || !name.trim()}>
               저장
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                setName(category.name);
-                setEditing(false);
-              }}
-            >
+            <Button type="button" variant="ghost" disabled={busy} onClick={() => setEditing(false)}>
               취소
             </Button>
           </div>
@@ -214,11 +239,12 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
       </span>
       <span className="flex gap-1">
         <Button
+          ref={renameButton}
           type="button"
           variant="ghost"
           size="sm"
           aria-label={`${category.name} 이름 바꾸기`}
-          onClick={() => setEditing(true)}
+          onClick={startRename}
         >
           이름 바꾸기
         </Button>
@@ -226,6 +252,7 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
           type="button"
           variant="outline"
           size="sm"
+          disabled={busy}
           aria-label={category.hidden ? `${category.name} 다시 보이기` : `${category.name} 숨기기`}
           onClick={() => void toggleHidden()}
         >

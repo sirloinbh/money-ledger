@@ -10,6 +10,8 @@ const kind = z.enum(['income', 'expense'], { error: '종류는 수입 또는 지
 const name = z
   .string({ error: '카테고리 이름을 입력하세요' })
   .trim()
+  // NFC: Hangul pasted in decomposed form (macOS) must match the composed name for the duplicate check.
+  .normalize('NFC')
   .min(1, '카테고리 이름을 입력하세요')
   .max(30, '카테고리 이름은 30자 이하로 입력하세요');
 

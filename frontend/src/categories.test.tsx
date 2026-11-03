@@ -151,3 +151,49 @@ test('a failure to load is reported as an alert', async () => {
   expect(await screen.findByRole('alert')).toHaveTextContent('서버에 연결할 수 없습니다');
   expect(screen.queryByText('카테고리를 불러오는 중입니다')).not.toBeInTheDocument();
 });
+
+test('opening rename again starts from the saved name, and focus returns to the button', async () => {
+  render(<CategoryManager />);
+  await list('지출 카테고리');
+  fireEvent.click(screen.getByRole('button', { name: '식비 이름 바꾸기' }));
+  expect(screen.getByLabelText('식비 새 이름')).toHaveFocus();
+  fireEvent.change(screen.getByLabelText('식비 새 이름'), { target: { value: '  외식 ' } });
+  fireEvent.click(screen.getByRole('button', { name: '저장' }));
+  const renameButton = await screen.findByRole('button', { name: '외식 이름 바꾸기' });
+  expect(renameButton).toHaveFocus();
+
+  fireEvent.click(renameButton);
+  expect(screen.getByLabelText('외식 새 이름')).toHaveValue('외식');
+  fireEvent.click(screen.getByRole('button', { name: '취소' }));
+  expect(screen.getByRole('button', { name: '외식 이름 바꾸기' })).toHaveFocus();
+});
+
+test('a change that saved but could not reload says both and still clears the input', async () => {
+  render(<CategoryManager />);
+  await list('지출 카테고리');
+  const api = vi.mocked(fetch);
+  const saveThenFail = api.getMockImplementation()!;
+  api.mockImplementation((url, init) =>
+    (init?.method ?? 'GET') === 'GET'
+      ? Promise.reject(new TypeError('offline'))
+      : saveThenFail(url, init),
+  );
+  fireEvent.change(screen.getByLabelText('새 지출 카테고리'), { target: { value: '반려동물' } });
+  fireEvent.click(screen.getAllByRole('button', { name: '추가' })[0]);
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    '반려동물 카테고리를 추가했습니다. 목록을 새로 불러오지 못했습니다',
+  );
+  expect(screen.getByLabelText('새 지출 카테고리')).toHaveValue('');
+});
+
+test('a second submit while saving sends nothing', async () => {
+  render(<CategoryManager />);
+  await list('지출 카테고리');
+  fireEvent.change(screen.getByLabelText('새 지출 카테고리'), { target: { value: '반려동물' } });
+  const form = screen.getByLabelText('새 지출 카테고리').closest('form')!;
+  fireEvent.submit(form);
+  fireEvent.submit(form);
+  expect(screen.getAllByRole('button', { name: '추가' })[0]).toBeDisabled();
+  expect(await screen.findByRole('status')).toHaveTextContent('반려동물 카테고리를 추가했습니다');
+  expect(requests.filter((request) => request.method === 'POST')).toHaveLength(1);
+});

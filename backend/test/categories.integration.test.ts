@@ -140,4 +140,25 @@ test('ledger categories against the real database', { skip: !url }, async (t) =>
       assert.equal((shown.data.category as Category).hidden, false);
     });
   });
+
+  await t.test('a hidden category keeps its name, and a missing one is a 404', async () => {
+    await reset();
+    await withApi(pool, async (call) => {
+      const { data } = await call('/api/ledger/categories?kind=expense');
+      const [food, transport] = data.categories as Category[];
+      await call(`/api/ledger/categories/${food.id}`, { method: 'PATCH', body: { hidden: true } });
+      const clash = await call(`/api/ledger/categories/${transport.id}`, {
+        method: 'PATCH',
+        body: { name: food.name },
+      });
+      assert.equal(clash.status, 409);
+
+      const missing = await call('/api/ledger/categories/999999', {
+        method: 'PATCH',
+        body: { hidden: true },
+      });
+      assert.equal(missing.status, 404);
+      assert.deepEqual(missing.data, { error: '카테고리를 찾을 수 없습니다' });
+    });
+  });
 });

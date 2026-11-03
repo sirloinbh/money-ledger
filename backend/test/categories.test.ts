@@ -97,3 +97,23 @@ test('changing a category that does not exist is a Korean 404', async () => {
     },
   );
 });
+
+test('a decomposed Hangul name is stored composed, so it meets the duplicate check', async () => {
+  const params: unknown[][] = [];
+  const capture = {
+    query: async (_sql: string, values: unknown[]) => {
+      params.push(values);
+      return { rows: [{ id: '1', kind: 'expense', name: values[1], hidden: false }] };
+    },
+  } as unknown as Pool;
+  await withApi(capture, async (call) => {
+    const decomposed = '식비'.normalize('NFD');
+    assert.notEqual(decomposed, '식비');
+    const response = await call('/api/ledger/categories', {
+      method: 'POST',
+      body: { kind: 'expense', name: decomposed },
+    });
+    assert.equal(response.status, 201);
+    assert.equal(params[0][1], '식비');
+  });
+});
