@@ -177,6 +177,18 @@ test.each([
     message: '원화 평가금액은 0 이상의 원 단위 정수로 입력하세요',
   },
   {
+    label: 'a comma that is not a thousands separator',
+    fill: { 이름: '현금', 평가금액: '1,2,3' },
+    field: '평가금액(원)',
+    message: '원화 평가금액은 0 이상의 원 단위 정수로 입력하세요',
+  },
+  {
+    label: 'a value over 1,000조 won',
+    fill: { 이름: '현금', 평가금액: '1000000000000001' },
+    field: '평가금액(원)',
+    message: '평가금액은 1,000조 원 이하로 입력하세요',
+  },
+  {
     label: 'a zero quantity',
     fill: { 이름: '현금', 수량: '0' },
     field: '수량(선택)',
@@ -254,4 +266,28 @@ test('a server refusal shows its Korean message', async () => {
     '달러 자산의 평가금액은 달러로 입력하세요',
   );
   expect(screen.getByLabelText('이름')).toHaveValue('현금');
+});
+
+test('cancelling an edit keeps focus in the form and a USD value round-trips', async () => {
+  stored[2] = { ...stored[2], valueForeign: '1234.5000' };
+  await ready();
+  fireEvent.click(screen.getByRole('button', { name: '애플 수정' }));
+  expect(screen.getByLabelText('평가금액(달러)')).toHaveValue('1234.5');
+  fireEvent.click(screen.getByRole('button', { name: '수정 취소' }));
+  expect(screen.getByLabelText('이름')).toHaveFocus();
+  expect(screen.getByLabelText('이름')).toHaveValue('');
+});
+
+test('a total too large to show says so instead of a wrong number', async () => {
+  const api = vi.mocked(fetch);
+  api.mockImplementationOnce(() =>
+    json({
+      assets: stored,
+      totals: { assetsKrw: null, debtsKrw: 7000000, netKrw: null, uncounted: 1 },
+    }),
+  );
+  await ready();
+  expect(summary('자산 합계')).toHaveTextContent('너무 커서 표시할 수 없음');
+  expect(summary('부채 합계')).toHaveTextContent('7,000,000원');
+  expect(summary('순자산')).toHaveTextContent('너무 커서 표시할 수 없음');
 });

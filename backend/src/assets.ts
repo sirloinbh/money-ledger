@@ -8,6 +8,8 @@ import { HttpError, parseId } from './standard/http.js';
 // won amounts are JSON numbers (bigint in the DB), quantities and USD amounts are decimal strings.
 // Trades and average prices come with #46, prices and FX conversion with #47.
 
+const maxWon = 1_000_000_000_000_000;
+
 const assetTypes = ['stock', 'real_estate', 'cash', 'debt', 'depreciable', 'other'] as const;
 
 // Up to 12 integer and 8 fractional digits: numeric(20,8).
@@ -39,7 +41,9 @@ const assetBody = z
         .number({ error: '평가금액을 숫자로 입력하세요' })
         .int('원화 평가금액은 원 단위 정수로 입력하세요')
         .min(0, '평가금액은 0 이상이어야 합니다')
-        .max(Number.MAX_SAFE_INTEGER, '평가금액이 너무 큽니다')
+        // 1,000조 원: far above any household asset, and low enough that thousands of them still total
+        // to a safe integer. Totals that still overflow are reported as null rather than failing the list.
+        .max(maxWon, '평가금액은 1,000조 원 이하로 입력하세요')
         .nullable()
         .default(null),
       valueForeign: z
@@ -91,6 +95,12 @@ function won(value: string) {
   return parsed;
 }
 
+// A total as a JSON number, or null when it no longer fits one exactly.
+function total(value: string) {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
 const toAsset = (row: Row) => ({
   id: Number(row.id),
   name: row.name,
@@ -122,9 +132,9 @@ export function assetsRouter(pool: Pool) {
     res.json({
       assets: assets.rows.map(toAsset),
       totals: {
-        assetsKrw: won(sums.assets),
-        debtsKrw: won(sums.debts),
-        netKrw: won(sums.net),
+        assetsKrw: total(sums.assets),
+        debtsKrw: total(sums.debts),
+        netKrw: total(sums.net),
         uncounted: sums.uncounted,
       },
     });

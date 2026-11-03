@@ -25,7 +25,13 @@ type Asset = {
   valueForeign: string | null;
   memo: string;
 };
-type Totals = { assetsKrw: number; debtsKrw: number; netKrw: number; uncounted: number };
+// A total is null when it is too large to show exactly.
+type Totals = {
+  assetsKrw: number | null;
+  debtsKrw: number | null;
+  netKrw: number | null;
+  uncounted: number;
+};
 type Draft = {
   name: string;
   type: AssetType;
@@ -58,7 +64,18 @@ const emptyDraft = (): Draft => ({
   memo: '',
 });
 
-const digits = (text: string) => text.replaceAll(',', '').trim();
+// Commas are accepted only as thousands separators ("1,234.5"); anything else is left in so the check fails.
+const digits = (text: string) => {
+  const trimmed = text.trim();
+  return /^\d{1,3}(,\d{3})+(\.\d*)?$/.test(trimmed) ? trimmed.replaceAll(',', '') : trimmed;
+};
+
+const totalText = (value: number | null) =>
+  value === null
+    ? '너무 커서 표시할 수 없음'
+    : value < 0
+      ? `-${formatWon(-value)}`
+      : formatWon(value);
 
 /**
  * The request body for a draft, or the field and Korean message that is wrong. Mirrors the server rules
@@ -78,8 +95,11 @@ function toBody(draft: Draft): { body: object } | { field: Field; message: strin
   let valueKrw: number | null = null;
   let valueForeign: string | null = null;
   if (valueText && draft.currency === 'KRW') {
-    if (!/^\d{1,16}$/.test(valueText) || !Number.isSafeInteger(Number(valueText))) {
+    if (!/^\d{1,16}$/.test(valueText)) {
       return { field: 'value', message: '원화 평가금액은 0 이상의 원 단위 정수로 입력하세요' };
+    }
+    if (Number(valueText) > 1e15) {
+      return { field: 'value', message: '평가금액은 1,000조 원 이하로 입력하세요' };
     }
     valueKrw = Number(valueText);
   }
@@ -353,7 +373,10 @@ export function AssetManager() {
                   type="button"
                   variant="ghost"
                   onClick={() => {
-                    if (!saving.current) stopEdit();
+                    if (saving.current) return;
+                    stopEdit();
+                    // The cancel button goes away with the edit; keep focus in the form.
+                    nameInput.current?.focus();
                   }}
                 >
                   수정 취소
@@ -384,11 +407,11 @@ export function AssetManager() {
 
 function Summary({ totals }: { totals: Totals }) {
   const items = [
-    { label: '자산 합계', value: formatWon(totals.assetsKrw) },
-    { label: '부채 합계', value: formatWon(totals.debtsKrw) },
+    { label: '자산 합계', value: totalText(totals.assetsKrw) },
+    { label: '부채 합계', value: totalText(totals.debtsKrw) },
     {
       label: '순자산',
-      value: totals.netKrw < 0 ? `-${formatWon(-totals.netKrw)}` : formatWon(totals.netKrw),
+      value: totalText(totals.netKrw),
     },
   ];
   return (

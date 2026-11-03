@@ -33,6 +33,11 @@ const invalid = [
     error: '평가금액은 0 이상이어야 합니다',
   },
   {
+    label: 'a value over 1,000조 won',
+    body: { ...cash, valueKrw: 1_000_000_000_000_001 },
+    error: '평가금액은 1,000조 원 이하로 입력하세요',
+  },
+  {
     label: 'a USD value on a won asset',
     body: { ...cash, valueKrw: null, valueForeign: '10.00' },
     error: '원화 자산의 평가금액은 원 단위로 입력하세요',

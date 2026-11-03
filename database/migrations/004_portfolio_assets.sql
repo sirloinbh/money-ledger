@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS portfolio_assets (
   currency text NOT NULL DEFAULT 'KRW' CHECK (currency IN ('KRW', 'USD')),
   quantity numeric(20, 8) CHECK (quantity > 0),
   -- The value entered by hand: what the asset is worth, or for a debt what is still owed.
-  value_krw bigint CHECK (value_krw >= 0),
+  -- Up to 1,000조 won, so thousands of rows still total to a safe JSON integer.
+  value_krw bigint CHECK (value_krw BETWEEN 0 AND 1000000000000000),
   value_foreign numeric(20, 4) CHECK (value_foreign >= 0),
   memo text NOT NULL DEFAULT '' CHECK (char_length(memo) <= 200),
   created_at timestamptz NOT NULL DEFAULT now(),

@@ -17,7 +17,12 @@ type Asset = {
   valueForeign: string | null;
   memo: string;
 };
-type Totals = { assetsKrw: number; debtsKrw: number; netKrw: number; uncounted: number };
+type Totals = {
+  assetsKrw: number | null;
+  debtsKrw: number | null;
+  netKrw: number | null;
+  uncounted: number;
+};
 
 // Requires a dedicated test DB with database/migrations applied. Skipped (not passed) without it.
 test('portfolio assets against the real database', { skip: !url }, async (t) => {
@@ -64,10 +69,10 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
           name: '아파트',
           type: 'real_estate',
           currency: 'KRW',
-          valueKrw: Number.MAX_SAFE_INTEGER,
+          valueKrw: 1_000_000_000_000_000,
         },
       });
-      assert.equal((big.data.asset as Asset).valueKrw, Number.MAX_SAFE_INTEGER);
+      assert.equal((big.data.asset as Asset).valueKrw, 1_000_000_000_000_000);
     });
   });
 
@@ -138,6 +143,38 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
       );
       await assert.rejects(
         pool.query("INSERT INTO portfolio_assets (name, asset_type) VALUES ('a', 'cash')"),
+        { code: '23514' },
+      );
+    },
+  );
+
+  await t.test(
+    'totals too large for a JSON number come back as null and the list still loads',
+    async () => {
+      await reset();
+      // 10,000 rows of 1,000조 won: each is allowed, their sum is not a safe integer.
+      await pool.query(
+        `INSERT INTO portfolio_assets (name, asset_type, value_krw)
+       SELECT 'a' || n, 'real_estate', 1000000000000000 FROM generate_series(1, 10000) AS n`,
+      );
+      await pool.query(
+        "INSERT INTO portfolio_assets (name, asset_type, value_krw) VALUES ('b', 'debt', 1)",
+      );
+      await withApi(pool, async (call) => {
+        const response = await call('/api/portfolio/assets');
+        assert.equal(response.status, 200);
+        assert.deepEqual(response.data.totals as Totals, {
+          assetsKrw: null,
+          debtsKrw: 1,
+          netKrw: null,
+          uncounted: 0,
+        });
+        assert.equal((response.data.assets as Asset[]).length, 10001);
+      });
+      await assert.rejects(
+        pool.query(
+          "INSERT INTO portfolio_assets (name, asset_type, value_krw) VALUES ('c', 'cash', 1000000000000001)",
+        ),
         { code: '23514' },
       );
     },
