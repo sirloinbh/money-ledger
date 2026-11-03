@@ -12,7 +12,7 @@ type Call = (
 export async function withApi(
   pool: Pool,
   run: (call: Call) => Promise<void>,
-  options: { today?: () => string } = {},
+  options: Parameters<typeof createApp>[1] = {},
 ) {
   const server = createApp(pool, options).listen(0, '127.0.0.1');
   await new Promise<void>((resolve, reject) => {

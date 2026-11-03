@@ -89,3 +89,8 @@
 - 저장 중 버튼을 끄면 방금 누른 버튼에서 키보드 포커스가 페이지로 빠졌다. 중복 요청은 `ref`가 이미 막으므로 버튼을 끄지 않는다. 중복 제출 테스트는 버튼이 켜진 채로 POST가 한 번만 가는지 확인하도록 바꿨다.
 - 검증: `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과(백엔드 23개 통과·건너뜀 0, 프론트엔드 75개 통과·2개 건너뜀(기존), 스킬 4개). 실제 Chrome(CDP)에서 `교통 숨기기`에 포커스를 두고 누르면 포커스가 같은 버튼(`교통 다시 보이기`)에 남는다.
 - 표준에 따라 3차 리뷰는 하지 않는다.
+
+### `main` 병합 — 2026-11-03
+
+- [#70](https://github.com/sirloinbh/money-ledger/issues/70)(요청 횟수 제한)이 병합되어 `origin/main`을 이 브랜치에 병합했다. `backend/test/helpers.ts`의 `withApi` 옵션 타입이 충돌해, 이 브랜치의 `call(path, init)`과 `main`의 `Parameters<typeof createApp>[1]`을 합쳤다. `app.ts`는 자동 병합되어 요청 제한이 카테고리 라우트 앞에 붙는다.
+- `TEST_DATABASE_URL=<테스트 DB> npm run check`: 통과. 백엔드 25개 통과·건너뜀 0, 프론트엔드 75개 통과·2개 건너뜀(기존), 스킬 4개.
