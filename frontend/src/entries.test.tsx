@@ -228,7 +228,7 @@ test('a refused field is marked invalid and points at the message', async () => 
   expect(amount).not.toHaveAttribute('aria-invalid');
 });
 
-test('while a save runs, edit and cancel wait and the button says so', async () => {
+test('while a save runs, opening an edit waits and the button says so', async () => {
   await ready();
   let finish = () => {};
   const api = vi.mocked(fetch);
@@ -275,4 +275,40 @@ test('a category change reloads the list, and a chosen category hidden meanwhile
   } finally {
     categories[0] = { ...categories[0], hidden: false };
   }
+});
+
+test('after a delete focus goes to the section title; after cancelling, back to the delete button', async () => {
+  await ready();
+  const remove = screen.getByRole('button', { name: '2026-11-01 여가 5,000원 삭제' });
+  fireEvent.click(remove);
+  fireEvent.click(screen.getByRole('button', { name: '취소' }));
+  await vi.waitFor(() => expect(remove).toHaveFocus());
+
+  fireEvent.click(remove);
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }));
+  await screen.findByText('아직 기록한 내역이 없습니다.');
+  await vi.waitFor(() =>
+    expect(screen.getByRole('heading', { name: '수입·지출 내역' })).toHaveFocus(),
+  );
+});
+
+test('what is typed while a save runs is kept', async () => {
+  await ready();
+  let finish = () => {};
+  const api = vi.mocked(fetch);
+  const real = api.getMockImplementation()!;
+  api.mockImplementationOnce(
+    (url, init) =>
+      new Promise((resolve) => {
+        finish = () => resolve(real(url, init));
+      }),
+  );
+  fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '1000' } });
+  fireEvent.change(screen.getByLabelText('카테고리'), { target: { value: '1' } });
+  fireEvent.click(screen.getByRole('button', { name: '기록' }));
+  await screen.findByRole('button', { name: '저장 중…' });
+  fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '2000' } });
+  finish();
+  expect(await screen.findByRole('status')).toHaveTextContent('지출 1,000원을 기록했습니다');
+  expect(screen.getByLabelText('금액(원)')).toHaveValue('2000');
 });

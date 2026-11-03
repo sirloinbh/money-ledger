@@ -134,3 +134,49 @@ test('a category hidden between the check and the write is refused, not written'
     /NOT c\.hidden/,
   );
 });
+
+// A pool scripted by query: the entry lookup, category lookups in order, and an UPDATE that writes nothing.
+function updateRace(categories: { kind: string; hidden: boolean }[]) {
+  const entryRow = {
+    id: '7',
+    entry_date: '2026-11-01',
+    kind: 'expense',
+    amount: '5000',
+    category_id: '2',
+    category_name: '여가',
+    memo: '',
+  };
+  return {
+    query: async (text: string) => {
+      // The UPDATE also says "WHERE e.id = $1", so it is matched first.
+      if (text.includes('UPDATE ledger_entries')) return { rows: [] };
+      if (text.includes('WHERE e.id = $1')) return { rows: [entryRow] };
+      if (text.includes('FROM ledger_categories WHERE id')) return { rows: [categories.shift()] };
+      throw new Error(`unexpected query: ${text}`);
+    },
+  } as unknown as Pool;
+}
+
+test('an edit whose new category was hidden meanwhile is refused, not written', async () => {
+  const pool = updateRace([
+    { kind: 'expense', hidden: false },
+    { kind: 'expense', hidden: true },
+  ]);
+  await withApi(pool, async (call) => {
+    const response = await call('/api/ledger/entries/7', { method: 'PUT', body: valid });
+    assert.equal(response.status, 400);
+    assert.deepEqual(response.data, { error: '숨긴 카테고리에는 새 내역을 넣을 수 없습니다' });
+  });
+});
+
+test('a write that matched nothing for no known reason is a Korean 409', async () => {
+  const pool = updateRace([
+    { kind: 'expense', hidden: false },
+    { kind: 'expense', hidden: false },
+  ]);
+  await withApi(pool, async (call) => {
+    const response = await call('/api/ledger/entries/7', { method: 'PUT', body: valid });
+    assert.equal(response.status, 409);
+    assert.deepEqual(response.data, { error: '카테고리가 방금 바뀌었습니다. 다시 시도하세요' });
+  });
+});

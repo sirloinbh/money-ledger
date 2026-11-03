@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { type FormEvent, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
@@ -58,6 +58,9 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
   const [busy, setBusy] = useState(false);
   const [invalid, setInvalid] = useState<'amount' | 'category' | undefined>(undefined);
   const dateInput = useRef<HTMLInputElement>(null);
+  const sectionTitle = useRef<HTMLHeadingElement>(null);
+  // Where the delete dialog returns focus: empty (back to its trigger) unless the delete went through.
+  const afterDelete = useRef<HTMLElement | null>(null);
   const notice = useNotice();
   const { error: showError, status: showStatus } = notice;
 
@@ -155,7 +158,12 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
         stopEdit();
       } else {
         // Keep the date and kind for the next entry of the same day.
-        setDraft((current) => ({ ...current, amount: '', memo: '' }));
+        // Clear only what was sent: anything typed while saving stays.
+        setDraft((current) =>
+          current.amount === draft.amount && current.memo === draft.memo
+            ? { ...current, amount: '', memo: '' }
+            : current,
+        );
       }
       try {
         await loadEntries();
@@ -180,6 +188,7 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
       showError(cause);
       throw cause; // keeps the dialog open
     }
+    afterDelete.current = sectionTitle.current;
     if (editing?.id === entry.id) stopEdit();
     try {
       await loadEntries();
@@ -191,7 +200,10 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
 
   return (
     <section aria-labelledby="entries-title" className="flex flex-col gap-4">
-      <h2 id="entries-title">수입·지출 내역</h2>
+      {/* Focus lands here after a delete: the deleted row held the dialog trigger. */}
+      <h2 id="entries-title" ref={sectionTitle} tabIndex={-1} className="outline-none">
+        수입·지출 내역
+      </h2>
       <Notice id="entries-notice" notice={notice.notice} />
       <Card>
         <CardHeader>
@@ -303,6 +315,10 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
         failed={notice.notice?.kind === 'error'}
         onEdit={startEdit}
         onDelete={remove}
+        returnFocusRef={afterDelete}
+        onDeleteOpen={() => {
+          afterDelete.current = null;
+        }}
       />
     </section>
   );
@@ -313,11 +329,15 @@ function EntryList({
   failed,
   onEdit,
   onDelete,
+  returnFocusRef,
+  onDeleteOpen,
 }: {
   entries: Entry[] | undefined;
   failed: boolean;
   onEdit: (entry: Entry) => void;
   onDelete: (entry: Entry) => Promise<void>;
+  returnFocusRef: RefObject<HTMLElement | null>;
+  onDeleteOpen: () => void;
 }) {
   if (entries === undefined) {
     return failed ? null : (
@@ -359,6 +379,10 @@ function EntryList({
               title="내역을 삭제할까요?"
               description={`${entry.date} ${entry.categoryName} ${formatWon(entry.amount)}. 삭제하면 되돌릴 수 없습니다.`}
               onConfirm={() => onDelete(entry)}
+              returnFocusRef={returnFocusRef}
+              onOpenChange={(open) => {
+                if (open) onDeleteOpen();
+              }}
               trigger={
                 <Button
                   type="button"
