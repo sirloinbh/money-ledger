@@ -3,7 +3,7 @@ import { expect, test, vi } from 'vitest';
 
 import { App } from './app';
 
-// /api/health answers with `body`; the ledger's category list is empty.
+// /api/health answers with `body`; the ledger's categories and entries are empty.
 const health = (body: object, status = 200) =>
   vi.stubGlobal(
     'fetch',
@@ -11,7 +11,7 @@ const health = (body: object, status = 200) =>
       Promise.resolve(
         url === '/api/health'
           ? new Response(JSON.stringify(body), { status })
-          : new Response(JSON.stringify({ categories: [] })),
+          : new Response(JSON.stringify({ categories: [], entries: [] })),
       ),
     ),
   );

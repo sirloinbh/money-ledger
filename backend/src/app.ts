@@ -4,6 +4,7 @@ import type { Pool } from 'pg';
 import { types } from 'pg';
 
 import { categoriesRouter } from './categories.js';
+import { entriesRouter } from './entries.js';
 import { errorHandler, notFound, serviceDate } from './standard/http.js';
 
 // DATE columns stay YYYY-MM-DD strings so the service time zone never shifts them.
@@ -35,6 +36,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
     res.json({ ok: true, service: 'money-ledger', today: today() });
   });
   app.use('/api/ledger/categories', categoriesRouter(pool));
+  app.use('/api/ledger/entries', entriesRouter(pool));
   app.use('/api', notFound);
   app.use(errorHandler);
   return app;
