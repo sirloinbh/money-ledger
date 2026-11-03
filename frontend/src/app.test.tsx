@@ -3,7 +3,7 @@ import { expect, test, vi } from 'vitest';
 
 import { App } from './app';
 
-// /api/health answers with `body`; the ledger's categories and entries are empty.
+// /api/health answers with `body`; every list (categories, entries, assets) is empty.
 const health = (body: object, status = 200) =>
   vi.stubGlobal(
     'fetch',
@@ -11,7 +11,14 @@ const health = (body: object, status = 200) =>
       Promise.resolve(
         url === '/api/health'
           ? new Response(JSON.stringify(body), { status })
-          : new Response(JSON.stringify({ categories: [], entries: [] })),
+          : new Response(
+              JSON.stringify({
+                categories: [],
+                entries: [],
+                assets: [],
+                totals: { assetsKrw: 0, debtsKrw: 0, netKrw: 0, uncounted: 0 },
+              }),
+            ),
       ),
     ),
   );
@@ -41,7 +48,7 @@ test('each page has its own address and is marked in the main menu', async () =>
 
 const areas = [
   { label: '가계부', path: '/ledger', content: '카테고리' },
-  { label: '자산 포트폴리오', path: '/portfolio', content: '아직 기능이 없습니다' },
+  { label: '자산 포트폴리오', path: '/portfolio', content: '보유 자산과 부채' },
   { label: '모의투자', path: '/mock-trading', content: '아직 기능이 없습니다' },
 ];
 
