@@ -72,6 +72,7 @@ export function EntryManager({
 }) {
   const [entries, setEntries] = useState<Entry[] | undefined>(undefined);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [editing, setEditing] = useState<Entry | undefined>(undefined);
   // A save in flight: the ref blocks a second submit and edit/cancel, `busy` tells the user.
@@ -91,7 +92,8 @@ export function EntryManager({
   }, []);
 
   // Set when this component reports its own change: it reloads by itself, so the version bump that follows
-  // does not load the list a second time.
+  // does not load the list a second time. The parent must pass back the version it bumps (LedgerPage does);
+  // the flag is cleared by that one effect run.
   const skipReload = useRef(false);
   const notifyChange = () => {
     if (!onChange) return;
@@ -110,9 +112,27 @@ export function EntryManager({
 
   useEffect(() => {
     requestJson<{ categories: Category[] }>('/api/ledger/categories')
-      .then((data) => setCategories(data.categories))
+      .then((data) => {
+        setCategories(data.categories);
+        setCategoriesLoaded(true);
+      })
       .catch((cause: unknown) => showError(cause, '카테고리를 불러오지 못했습니다'));
   }, [categoriesVersion, showError]);
+
+  // The entry being edited was classified elsewhere on the page (bulk classification): take over its new
+  // category unless the user already picked another one, so saving does not undo the classification.
+  useEffect(() => {
+    if (!editing || !entries) return;
+    const latest = entries.find((entry) => entry.id === editing.id);
+    if (!latest || latest.categoryId === editing.categoryId) return;
+    const before = editing.categoryId === null ? '' : String(editing.categoryId);
+    const after = latest.categoryId === null ? '' : String(latest.categoryId);
+    setEditing({ ...editing, categoryId: latest.categoryId, categoryName: latest.categoryName });
+    setDraft((current) =>
+      current.categoryId === before ? { ...current, categoryId: after } : current,
+    );
+    showStatus('수정 중인 내역의 카테고리가 다른 곳에서 바뀌어 반영했습니다');
+  }, [entries, editing, showStatus]);
 
   // Visible categories of the chosen kind, plus the hidden one an edited entry already has.
   const choices = categories.filter(
@@ -122,7 +142,9 @@ export function EntryManager({
 
   // A chosen category that is no longer offered (hidden meanwhile) must be chosen again: saving it as
   // 미분류 without a word would drop the user's choice.
+  // Judged only once the categories are loaded, so a slow or failed load does not flag every choice.
   const stale =
+    categoriesLoaded &&
     draft.categoryId !== '' &&
     !choices.some((category) => String(category.id) === draft.categoryId);
   const categoryId = stale ? '' : draft.categoryId;
@@ -130,9 +152,11 @@ export function EntryManager({
   const change = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
 
   // Opening an edit moves focus to the form above the list, so keyboard and screen reader users follow.
+  // Keyed by id: taking over a category changed elsewhere must not move focus.
+  const editingId = editing?.id;
   useEffect(() => {
-    if (editing) dateInput.current?.focus();
-  }, [editing]);
+    if (editingId !== undefined) dateInput.current?.focus();
+  }, [editingId]);
 
   const startEdit = (entry: Entry) => {
     if (saving.current) return;
@@ -309,7 +333,7 @@ export function EntryManager({
                 id="entry-category"
                 className={selectClass}
                 value={stale ? 'stale' : categoryId}
-                aria-invalid={invalid === 'category' || undefined}
+                aria-invalid={(invalid === 'category' && stale) || undefined}
                 aria-describedby={
                   invalid === 'category'
                     ? 'entries-notice entry-category-hint'

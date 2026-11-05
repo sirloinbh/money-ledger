@@ -388,3 +388,51 @@ test('editing an uncategorized entry keeps 미분류 and its merchant', async ()
     memo: '',
   });
 });
+
+test('an entry classified elsewhere while being edited keeps that category when saved', async () => {
+  stored = [
+    {
+      id: 5,
+      date: '2026-11-02',
+      kind: 'expense',
+      amount: 3000,
+      categoryId: null,
+      categoryName: null,
+      merchant: '동네 빵집',
+      memo: '',
+    },
+  ];
+  const { rerender } = render(<EntryManager entriesVersion={0} />);
+  await screen.findByRole('option', { name: '식비' });
+  fireEvent.click(await screen.findByRole('button', { name: '2026-11-02 미분류 3,000원 수정' }));
+  fireEvent.change(screen.getByLabelText('메모'), { target: { value: '아침' } });
+
+  // The bulk classification below the form puts it in 식비.
+  stored = [{ ...stored[0], categoryId: 1, categoryName: '식비' }];
+  rerender(<EntryManager entriesVersion={1} />);
+  await vi.waitFor(() => expect(screen.getByLabelText('카테고리')).toHaveValue('1'));
+  expect(screen.getByRole('status')).toHaveTextContent(
+    '수정 중인 내역의 카테고리가 다른 곳에서 바뀌어 반영했습니다',
+  );
+  expect(screen.getByLabelText('메모')).toHaveValue('아침');
+
+  fireEvent.click(screen.getByRole('button', { name: '수정 저장' }));
+  expect(await screen.findByText('내역을 수정했습니다')).toBeInTheDocument();
+  expect(requests.find((request) => request.method === 'PUT')?.body).toMatchObject({
+    categoryId: 1,
+    memo: '아침',
+  });
+});
+
+test('while categories have not loaded, a chosen category is not flagged', async () => {
+  vi.mocked(fetch).mockImplementation((url: string | URL | Request) =>
+    String(url) === '/api/ledger/categories'
+      ? new Promise<Response>(() => undefined) // never answers
+      : json({ entries: stored }),
+  );
+  render(<EntryManager />);
+  fireEvent.click(await screen.findByRole('button', { name: '2026-11-01 여가 5,000원 수정' }));
+  expect(
+    within(screen.getByLabelText('카테고리')).queryByRole('option', { name: '다시 고르세요' }),
+  ).toBeNull();
+});

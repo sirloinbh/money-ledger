@@ -252,7 +252,15 @@ test('keyword rules and classification against the real database', { skip: !url 
         await editor.query('BEGIN');
         await editor.query("UPDATE ledger_entries SET kind = 'income' WHERE id = $1", [entry.id]);
         const applying = call('/api/ledger/entries/apply-rules', { method: 'POST' });
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        // Commit only once apply-rules is actually waiting for the row lock.
+        for (let i = 0; i < 100; i++) {
+          const waiting = await pool.query(
+            `SELECT 1 FROM pg_stat_activity
+             WHERE wait_event_type = 'Lock' AND query LIKE 'UPDATE ledger_entries e SET category_id%'`,
+          );
+          if (waiting.rowCount) break;
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
         await editor.query('COMMIT');
         const applied = await applying;
         assert.equal(applied.status, 200);

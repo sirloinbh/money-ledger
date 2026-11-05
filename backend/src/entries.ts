@@ -230,16 +230,21 @@ export function entriesRouter(pool: Pool) {
       );
       if (other.rowCount) throw new HttpError(400, '고른 카테고리와 종류가 다른 내역이 있습니다');
       const updated = await client.query<{ merchant: string }>(
-        `UPDATE ledger_entries SET category_id = $2, updated_at = now()
-         WHERE id = ANY($1::bigint[]) AND kind = $3 AND category_id IS NULL
-         RETURNING merchant`,
+        // Rows are locked in id order first, so two overlapping bulk classifications wait instead of deadlocking.
+        `WITH target AS (
+           SELECT id FROM ledger_entries WHERE id = ANY($1::bigint[]) ORDER BY id FOR UPDATE
+         )
+         UPDATE ledger_entries e SET category_id = $2, updated_at = now()
+         FROM target WHERE e.id = target.id AND e.kind = $3 AND e.category_id IS NULL
+         RETURNING e.merchant`,
         [ids, body.categoryId, category.kind],
       );
       let rulesAdded = 0;
       let rulesUpdated = 0;
       if (body.remember) {
         // One rule per merchant (ignoring letter case); an existing rule for it now points at this category.
-        // A rule that already points there is left alone and not counted. `xmax = 0` marks a new row.
+        // A rule that already points there is left alone and not counted. `xmax = 0` marks a new row: an
+        // implementation detail of PostgreSQL (true for ordinary tables up to 17), not a documented API.
         const saved = await client.query<{ added: boolean }>(
           `INSERT INTO ledger_category_rules (keyword, kind, category_id)
            SELECT DISTINCT ON (lower(m)) m, $2::text, $3::bigint FROM unnest($1::text[]) AS m

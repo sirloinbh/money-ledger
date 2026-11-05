@@ -65,7 +65,8 @@ function useCategories(version: number, onError: (cause: unknown, fallback?: str
 
 /**
  * Reports a change made here. The component reloads by itself for its status message, so the version bump
- * that comes back skips one reload (`skipReload`) instead of loading the same list twice.
+ * that comes back skips one reload (`skipReload`) instead of loading the same list twice. Contract: the
+ * parent passes the version it bumps back to this component (LedgerPage does), which clears the flag.
  */
 function useOwnChange(onChange: (() => void) | undefined) {
   const skipReload = useRef(false);
@@ -348,7 +349,8 @@ export function RuleManager({
       return;
     }
     load().catch((cause: unknown) => showError(cause, '분류 규칙을 불러오지 못했습니다'));
-  }, [load, showError, version, skipReload]);
+    // categoriesVersion too: a rule shows its category's current name and hidden state.
+  }, [load, showError, version, categoriesVersion, skipReload]);
 
   const reload = async (done: string) => {
     try {

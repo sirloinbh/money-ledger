@@ -344,3 +344,13 @@ test('a category of the other kind marks the category field', async () => {
   );
   expect(screen.getByLabelText('분류할 카테고리')).toHaveAttribute('aria-invalid', 'true');
 });
+
+test('the rules reload when categories change, so names and hidden marks are current', async () => {
+  rules = [{ id: 1, keyword: '스타벅스', kind: 'expense', categoryId: 1 }];
+  const { rerender } = render(<RuleManager categoriesVersion={0} />);
+  await screen.findByRole('list', { name: '분류 규칙 목록' });
+  const loads = () => requests.filter((request) => request.url === '/api/ledger/rules').length;
+  const before = loads();
+  rerender(<RuleManager categoriesVersion={1} />);
+  await vi.waitFor(() => expect(loads()).toBe(before + 1));
+});
