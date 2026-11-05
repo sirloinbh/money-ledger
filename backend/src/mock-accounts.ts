@@ -49,16 +49,19 @@ export function mockAccountsRouter(pool: Pool) {
   const router = Router();
 
   router.get('/', async (_req, res) => {
-    const [open, closed] = await Promise.all([
-      pool.query<Row>(`SELECT ${columns} FROM mock_accounts WHERE closed_at IS NULL`),
-      pool.query<Row>(
-        `SELECT ${columns} FROM mock_accounts WHERE closed_at IS NOT NULL
-         ORDER BY closed_at DESC, id DESC LIMIT ${shownClosedAccounts}`,
-      ),
-    ]);
+    // One statement, so the open account and the closed ones come from the same snapshot even while a
+    // reset commits in between.
+    const { rows } = await pool.query<Row>(
+      `SELECT ${columns} FROM mock_accounts
+       WHERE closed_at IS NULL
+          OR id IN (SELECT id FROM mock_accounts WHERE closed_at IS NOT NULL
+                    ORDER BY closed_at DESC, id DESC LIMIT ${shownClosedAccounts})
+       ORDER BY closed_at DESC NULLS FIRST, id DESC`,
+    );
+    const open = rows.find((row) => row.closed_at === null);
     res.json({
-      account: open.rows[0] ? toAccount(open.rows[0]) : null,
-      closedAccounts: closed.rows.map(toAccount),
+      account: open ? toAccount(open) : null,
+      closedAccounts: rows.filter((row) => row.closed_at !== null).map(toAccount),
     });
   });
 

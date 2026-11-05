@@ -47,7 +47,9 @@ export function MockAccount() {
   const [busy, setBusy] = useState(false);
   const saving = useRef(false);
   const accountTitle = useRef<HTMLHeadingElement>(null);
-  const focusAccount = useRef(false);
+  const createInput = useRef<HTMLInputElement>(null);
+  // Set before a reload that may swap the form for the account card or back.
+  const refocus = useRef(false);
   const notice = useNotice();
   const { error: showError, status: showStatus } = notice;
 
@@ -61,12 +63,13 @@ export function MockAccount() {
     load().catch((cause: unknown) => showError(cause, '모의투자 계좌를 불러오지 못했습니다'));
   }, [load, showError]);
 
-  // After the account is created the form goes away; focus moves to the new account's heading.
+  // When a reload removes the focused control (the create button, the reset button), focus goes to what
+  // replaced it: the account heading, or the amount field of the create form.
   useEffect(() => {
-    if (state?.account && focusAccount.current) {
-      focusAccount.current = false;
-      accountTitle.current?.focus();
-    }
+    if (!state || !refocus.current) return;
+    refocus.current = false;
+    if (document.activeElement && document.activeElement !== document.body) return;
+    (state.account ? accountTitle.current : createInput.current)?.focus();
   }, [state]);
 
   const reload = async (done: string) => {
@@ -99,10 +102,11 @@ export function MockAccount() {
       } catch (cause) {
         showError(cause);
         // Another tab may have created the account already: show what the server has.
+        refocus.current = true;
         await load().catch(() => undefined);
         return;
       }
-      focusAccount.current = true;
+      refocus.current = true;
       await reload(`${formatWon(result.amount)}으로 모의투자 계좌를 만들었습니다`);
     } finally {
       saving.current = false;
@@ -141,9 +145,10 @@ export function MockAccount() {
         showError(cause);
         // Already reset elsewhere (409) or gone (404): show the account the server has now.
         if (cause instanceof RequestError && (cause.status === 409 || cause.status === 404)) {
-          await load().catch(() => undefined);
           // The dialog was about the old account; closing it keeps a second press from resetting the new one.
           setConfirming(false);
+          refocus.current = true;
+          await load().catch(() => undefined);
         }
         throw cause;
       }
@@ -222,6 +227,9 @@ export function MockAccount() {
                   open={confirming}
                   onOpenChange={openConfirm}
                   onConfirm={() => reset(account)}
+                  // Empty while the account card is shown, so focus goes back to the reset button. If the
+                  // account is gone (404) the create form replaces the card and focus goes to its field.
+                  returnFocusRef={createInput}
                   trigger={
                     <Button type="button" variant="outline">
                       초기화
@@ -250,6 +258,7 @@ export function MockAccount() {
                 <Label htmlFor="mock-create-amount">시작 금액(원)</Label>
                 <Input
                   id="mock-create-amount"
+                  ref={createInput}
                   inputMode="numeric"
                   autoComplete="off"
                   value={createAmount}

@@ -112,11 +112,27 @@ test('a 409 from another tab shows the error and the account the server has', as
   await screen.findByLabelText('시작 금액(원)');
   failNext = { status: 409, error: '이미 모의투자 계좌가 있습니다' };
   open = account(7, 20_000_000);
-  fireEvent.click(screen.getByRole('button', { name: '계좌 만들기' }));
+  const submit = screen.getByRole('button', { name: '계좌 만들기' });
+  submit.focus();
+  fireEvent.click(submit);
   expect(await screen.findByRole('alert')).toHaveTextContent('이미 모의투자 계좌가 있습니다');
-  expect(
-    await screen.findByRole('heading', { level: 2, name: '모의투자 계좌' }),
-  ).toBeInTheDocument();
+  const title = await screen.findByRole('heading', { level: 2, name: '모의투자 계좌' });
+  // The create button went away with the form; focus is not left on the page body.
+  await vi.waitFor(() => expect(title).toHaveFocus());
+});
+
+test('an account that is gone (404) closes the dialog and focuses the create form', async () => {
+  open = account(1, 10_000_000);
+  render(<MockAccount />);
+  fireEvent.click(await screen.findByRole('button', { name: '초기화' }));
+  const dialog = await screen.findByRole('dialog');
+  failNext = { status: 404, error: '모의투자 계좌를 찾을 수 없습니다' };
+  open = null;
+  fireEvent.click(within(dialog).getByRole('button', { name: '초기화' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('모의투자 계좌를 찾을 수 없습니다');
+  const amount = await screen.findByLabelText('시작 금액(원)');
+  await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  await vi.waitFor(() => expect(amount).toHaveFocus());
 });
 
 test('reset asks first, then keeps the old account and starts again', async () => {

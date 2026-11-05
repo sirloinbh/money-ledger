@@ -176,6 +176,26 @@ test('mock trading accounts against the real database', { skip: !url }, async (t
     await insert(10_000);
   });
 
+  await t.test('the list shows the open account and the 20 most recently closed', async () => {
+    await reset();
+    await pool.query(
+      `INSERT INTO mock_accounts (initial_cash_krw, cash_krw, created_at, closed_at)
+       SELECT 10000 * n, 10000 * n, now() - interval '1 day' * (30 - n), now() - interval '1 day' * (29 - n)
+       FROM generate_series(1, 25) AS n`,
+    );
+    await pool.query(
+      'INSERT INTO mock_accounts (initial_cash_krw, cash_krw) VALUES (10000000, 10000000)',
+    );
+    await withApi(pool, async (call) => {
+      const state = (await call('/api/mock/accounts')).data as State;
+      assert.equal(state.account?.initialCashKrw, 10_000_000);
+      assert.deepEqual(
+        state.closedAccounts.map((account) => account.initialCashKrw / 10_000),
+        Array.from({ length: 20 }, (_, i) => 25 - i),
+      );
+    });
+  });
+
   await t.test('mock money is not counted in the portfolio totals', async () => {
     await reset();
     await pool.query('DROP TABLE IF EXISTS portfolio_assets');
