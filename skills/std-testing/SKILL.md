@@ -5,7 +5,7 @@ description: Write or update behavior-focused tests with implementations and fix
 
 <!-- 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/skills/std-testing/에서 -->
 
-# 가계부·자산 포트폴리오 테스트 작성과 실행
+# 가계부·자산·모의투자 테스트 작성과 실행
 
 프로젝트의 `AGENTS.md`, `AGENTS.project.md`와 [std-implementation](../std-implementation/SKILL.md) 절차를 함께 따른다. 이 스킬은 테스트 작성·실행 기준이며, 이슈·브랜치·docs·PR 절차와 병합 정책을 바꾸지 않는다. 프로젝트에 설치된 테스트 도구와 위치는 `AGENTS.project.md`에 있다.
 

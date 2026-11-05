@@ -1,6 +1,6 @@
 # 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
 [Unit]
-Description=가계부·자산 포트폴리오 daily database dump (and S3 copy when configured)
+Description=가계부·자산·모의투자 daily database dump (and S3 copy when configured)
 After=docker.service
 Requires=docker.service
 

@@ -5,7 +5,7 @@ description: Establish or improve the repeatable development foundation of a sir
 
 <!-- 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/skills/std-foundation/에서 -->
 
-# 가계부·자산 포트폴리오 개발 기반
+# 가계부·자산·모의투자 개발 기반
 
 이 앱의 개발·검증·운영 방식을 반복할 수 있게 정리한다. 먼저 프로젝트 루트의 `AGENTS.md`, `AGENTS.project.md`와 [std-implementation](../std-implementation/SKILL.md)을 읽고, 이슈 → 번호 기반 브랜치 → 구현과 docs 기록 → 테스트·PR 절차로 진행한다. 이 스킬은 이슈·PR 절차를 생략하거나 배포·병합 권한을 주지 않는다.
 

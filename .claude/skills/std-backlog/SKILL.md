@@ -1,6 +1,6 @@
 ---
 name: std-backlog
-description: Register requirements as small GitHub issue cards with priority and characteristic labels, and choose the next issue to implement after the previous PR is merged. Use when the user gives one or more requirements to register or plan, when a requirement is added mid-work, and when deciding what to start next. Applies to every sirloinbh project repository. Leave all PR merging to the user.
+description: Register requirements as small GitHub issue cards with priority and characteristic labels, link each one as a sub-issue under a per-area parent (epic) issue, and choose the next issue to implement after the previous PR is merged. Use when the user gives one or more requirements to register or plan, when a requirement is added mid-work, and when deciding what to start next. Applies to every sirloinbh project repository. Leave all PR merging to the user.
 ---
 
 <!-- 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/common/skills/std-backlog/에서 -->
@@ -15,6 +15,7 @@ description: Register requirements as small GitHub issue cards with priority and
 2. 각 이슈의 우선순위를 정하고 라벨(뱃지)로 단다.
 3. 각 이슈의 특성을 정하고 라벨(뱃지)로 단다.
 4. 이전 요구사항의 구현과 PR 병합이 끝나면, 추가 요구사항이 있으면 그 우선순위를 올려 먼저 진행한다. 없으면 다음 우선순위 이슈의 구현에 착수한다.
+5. 작업 이슈는 분야별 상위 이슈(`epic`) 아래 하위 이슈로 연결한다(6장).
 
 ## 1. 세분화 기준
 
@@ -62,6 +63,7 @@ description: Register requirements as small GitHub issue cards with priority and
 - `type/*` (하나만): `feature`(새 기능·새 관리 대상), `docs`(문서·규칙), `security`(보안 기준·차단·점검), `chore`(이전·정리·설정 변경), `research`(조사, 코드 변경 없음)
 - `area/*` (하나 이상): `templates`, `tooling`, `compliance`, `registry`, `scaffold`, `ci`, `deploy`, `agent`, `app`(앱 기능: 화면·API·DB)
 - 해당되면 추가로: `needs-user`(사용자 직접 단계 포함), `origin/added`(작업 중 추가된 요구사항)
+- 분야별 상위 이슈에는 `epic`을 단다(6장).
 
 리포에 라벨이 없으면 sirloinbh/project-standards와 같은 이름·색·설명으로 만든다(`label create ... --force`). 새 라벨 종류가 필요하면 먼저 중앙 리포에 이슈를 연다.
 
@@ -70,6 +72,7 @@ description: Register requirements as small GitHub issue cards with priority and
 제목과 본문은 [std-git-writing](../std-git-writing/SKILL.md)의 이슈 규칙과 이슈 템플릿(리포 루트의 `.github/ISSUE_TEMPLATE/task.md`)을 따른다.
 
 - 본문은 UTF-8(BOM 없음) 임시 파일로 쓰고 `--body-file`로 등록한다. 토큰과 비밀값은 넣지 않는다.
+- "참고"의 "상위 이슈" 줄에 연결한 상위 이슈를 `#번호 분야 이름` 형식으로 쓴다. 상위 이슈 자신은 "없음"이다(6장).
 - "먼저 끝나야 하는 것"에는 선행 이슈를 `#번호 짧은 이름` 형식으로 쓴다. 5장에서 다음 작업을 고를 때 이 절을 기준으로 삼는다.
 - "참고"의 우선순위 줄에 등급과 근거를 쓴다. 승격했으면 원래 등급도 함께 쓴다: `우선순위: P1 — 다른 작업의 선행 조건 (추가 요구사항, 원래 P2 → 승격)`
 
@@ -82,10 +85,47 @@ description: Register requirements as small GitHub issue cards with priority and
    - 대화에서 받았지만 아직 등록하지 않은 요구사항은, 이 스킬의 세분화 규칙대로 등록하고 `origin/added`를 단다. 우선순위는 2장의 승격 규칙대로 한 단계 올린다.
    - 이미 등록된 `origin/added` 이슈는 다시 승격하지 않는다.
 3. 착수할 이슈를 고른다.
-   - 열린 이슈 중 "먼저 끝나야 하는 것"이 모두 끝났고(선행 이슈가 닫힘), 사용자 단계가 남아 있지 않은 이슈만 후보로 삼는다.
+   - 열린 이슈 중 "먼저 끝나야 하는 것"이 모두 끝났고(선행 이슈가 닫힘), 사용자 단계가 남아 있지 않은 이슈만 후보로 삼는다. 상위 이슈(`epic`)는 후보가 아니다.
+   - 상위 이슈에 연결되지 않은 작업 이슈가 있으면 착수하기 전에 6장대로 연결한다.
    - 후보 중 우선순위 숫자가 가장 작은 것을 고른다. 같은 등급이면 `origin/added` 이슈를 먼저 고르고, 그래도 같으면 번호가 작은(먼저 등록된) 것을 고른다.
    - `needs-user` 이슈가 가장 앞이면, 사용자에게 할 일을 안내한다. 기다리는 동안에는 그 이슈에 묶이지 않은 다음 후보를 진행한다.
 4. 고른 이슈와 그 이유(우선순위, 선행 조건 상태)를 사용자에게 한 줄로 알리고, 구현 스킬의 절차로 착수한다.
 5. 후보가 없으면 남은 이슈가 무엇에 막혀 있는지 정리해서 보고하고 멈춘다.
 
 `AGENTS.md`가 허용하지 않은 리포에서는 PR 병합, 자동 병합, 승인으로 병합을 대신하는 일을 하지 않는다.
+
+## 6. 상위 이슈와 하위 이슈 (분야별 묶음)
+
+작업 이슈는 분야별 상위 이슈 아래에 GitHub 하위 이슈(sub-issue)로 연결한다. 상위 이슈 하나에서 그 분야에 남은 일과 진행률(하위 이슈 n개 중 m개 완료)을 본다.
+
+- **분야**: 리포 안에서 같은 기능 영역·명령·모듈에 속하는 일의 묶음이다. 예: file-control의 "휴지통 삭제 안전성", "압축 만들기·풀기 안정성". 우선순위·종류·작업 시점으로는 묶지 않는다. 그것은 라벨이 맡는다.
+- **상위 이슈**: `epic` 라벨을 단다. 직접 구현하지 않고 하위 이슈를 묶기만 한다.
+  - 본문에는 목표, 범위(어떤 일이 이 분야에 들어오는지), 관련된 끝난 이슈를 쓴다.
+  - 우선순위 라벨은 열린 하위 이슈 중 가장 높은 등급으로 맞추고, 하위 이슈가 바뀌면 다시 맞춘다. `type/*`·`area/*`는 하위 이슈에 가장 많은 것을 단다.
+- **깊이는 2단계**: 상위 이슈 → 작업 이슈. 작업 이슈 아래에 다시 하위 이슈를 두지 않는다. 작업 이슈가 크면 같은 상위 이슈 아래 형제 이슈로 나눈다(1장).
+- **상위는 하나**: 작업 이슈는 상위 이슈 하나에만 연결한다(GitHub도 하나만 허용한다). 두 분야에 걸치면 주된 분야에 연결하고, 다른 분야는 본문 "참고"에 적는다.
+- **등록할 때**: 작업 이슈를 등록하면 바로 맞는 분야의 열린 상위 이슈에 연결한다.
+  - 맞는 상위 이슈가 없으면 상위 이슈를 먼저 만든다.
+  - 본문 "참고"의 "상위 이슈" 줄에도 번호를 적는다. 다만 본문 글만으로 연결을 대신하지 않는다.
+  - 리뷰에서 분리한 후속 이슈도 같다.
+- **닫힌 상위 이슈**: 새 작업이 그 상위 이슈의 목표 안에 있을 때만 다시 연다. 목표를 이미 이룬 기능 이슈면 다시 열지 않는다. 그 분야의 열린 상위 이슈에 연결하고, 없으면 새로 만든다. 닫힌 이슈는 새 상위 이슈 본문의 "관련된 끝난 이슈"에 적는다.
+- **닫는 시점**: 하위 이슈가 모두 닫히고 본문의 목표를 확인하면 상위 이슈를 닫는다.
+- **여러 리포 추적 이슈**(1장)는 상위 이슈가 아니다. 중앙 리포의 체크박스 추적은 그대로 두고, 리포별 실제 이슈는 각 리포의 분야 상위 이슈에 연결한다.
+- **처음 도입할 때(리포마다 한 번)**: 이 규칙이 동기화된 뒤 그 리포에서 처음 이슈를 등록하거나 다음 작업을 고를 때, 상위 이슈에 연결되지 않은 열린 작업 이슈를 분야별로 묶는다.
+  - 묶음 계획(분야, 상위 이슈, 하위 이슈 번호)을 사용자에게 먼저 한 번 알리고 진행한다.
+  - 연결 뒤에는 모든 열린 작업 이슈에 상위 이슈가 있는지 확인하고 결과를 보고한다.
+
+연결 명령은 PowerShell 기준이다. 하위 이슈는 번호가 아니라 REST `id`로 붙인다.
+
+```powershell
+$id = ghp api repos/<owner>/<repo>/issues/<하위 번호> --jq .id
+ghp api -X POST repos/<owner>/<repo>/issues/<상위 번호>/sub_issues -F sub_issue_id=$id
+# 다른 상위로 옮길 때
+ghp api -X POST repos/<owner>/<repo>/issues/<새 상위 번호>/sub_issues -F sub_issue_id=$id -F replace_parent=true
+# 떼어 낼 때
+ghp api -X DELETE repos/<owner>/<repo>/issues/<상위 번호>/sub_issue -F sub_issue_id=$id
+# 확인: 상위 번호가 나온다. 상위가 없으면 404 "No parent issue found"
+ghp api repos/<owner>/<repo>/issues/<하위 번호>/parent --jq .number
+# 상위 이슈의 진행률
+ghp api repos/<owner>/<repo>/issues/<상위 번호> --jq .sub_issues_summary
+```

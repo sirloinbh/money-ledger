@@ -1,5 +1,5 @@
 {
-  "centralSha": "b85f96f86a5dda9c361b48e5dfb968ecf134b7df",
+  "centralSha": "5c3039c306b546445b55697f9b716b1f6b24f6be",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -20,7 +20,7 @@
     },
     ".claude/skills/std-backlog/SKILL.md": {
       "mode": "full",
-      "sha256": "ac1fab257c1e2fcd121e79ad6e80c40307fe5701e0f6947b22f49590c7a204bf",
+      "sha256": "24fc15a48fd17e3ef9f6b0468593ddfac0f5269b9357fbe14f19f9baf7bee2b5",
       "source": "templates/common/skills/std-backlog/SKILL.md"
     },
     ".claude/skills/std-communication/SKILL.md": {
@@ -30,12 +30,12 @@
     },
     ".claude/skills/std-foundation/SKILL.md": {
       "mode": "full",
-      "sha256": "7bc531eb1ea40b482190af0a2b541842dc5d558e480f350b7ec5e3a79602df5d",
+      "sha256": "5475f984a818dcb3f8a3e93140bbca150ddbcb524f4e83361d9c9f95ac8ea1ac",
       "source": "templates/app/skills/std-foundation/SKILL.md"
     },
     ".claude/skills/std-git-writing/SKILL.md": {
       "mode": "full",
-      "sha256": "cce7987e8e692b3853b0a06b7b1424e602d335349be3d5a572d9f76e36b86ee6",
+      "sha256": "6bdd8344acfc9ce6c3108c3bdb9fd706131c48f6847695ff9d1057543860f68e",
       "source": "templates/common/skills/std-git-writing/SKILL.md"
     },
     ".claude/skills/std-implementation/SKILL.md": {
@@ -45,7 +45,7 @@
     },
     ".claude/skills/std-testing/SKILL.md": {
       "mode": "full",
-      "sha256": "bb110e406b269d2a86deb1efa1dbc22789544f71efbe43e58e237f02ffaa6747",
+      "sha256": "6cbcc1538c17b2551b9d5017335534ced85c7db0e6e24df81b49c428bf49d040",
       "source": "templates/app/skills/std-testing/SKILL.md"
     },
     ".codex/hooks.json": {
@@ -80,7 +80,7 @@
     },
     ".github/ISSUE_TEMPLATE/task.md": {
       "mode": "full",
-      "sha256": "c943a0669097203712125826a9d3b572478502da8b9747bfabbe17cac98b7eae",
+      "sha256": "2a7302c9ba872e11e2162cf4cc54880474a6bcbe8378c0c766223856453c9df1",
       "source": "templates/common/.github/ISSUE_TEMPLATE/task.md"
     },
     ".github/pull_request_template.md": {
@@ -175,7 +175,7 @@
     },
     "AGENTS.md": {
       "mode": "full",
-      "sha256": "dac29e8549f65fa370f7268a36773729f949d86ddc539936060ed4a26ecda9ed",
+      "sha256": "ebbcaa30a02b9974a75ac7863f90bc4fb9aac01f2d70d52ae845ce244b96a003",
       "source": "templates/app/AGENTS.md.tmpl"
     },
     "backend/.npmrc": {
@@ -223,7 +223,7 @@
     },
     "deploy/autodeploy.service": {
       "mode": "full",
-      "sha256": "24911b7ae659241cf1ccec4b065fc8ab28d2ef43a2f5e6874a221f33026b8f84",
+      "sha256": "7892b3f9d3cf69b528de7c6fd07f843ea4473f474d30621cc55a5551d3d9d5d2",
       "source": "templates/app/deploy/autodeploy.service.tmpl"
     },
     "deploy/autodeploy.sh": {
@@ -238,7 +238,7 @@
     },
     "deploy/backup.service": {
       "mode": "full",
-      "sha256": "6cecfaf9f99ab8f64a88048018ad780ef3823c5c857a73dafec374b0910f8c6e",
+      "sha256": "49ce9fb9a81b9f4f485391249280c9829a2faa0c6fbb02e61ada7f509aac104c",
       "source": "templates/app/deploy/backup.service.tmpl"
     },
     "deploy/backup.sh": {
@@ -253,7 +253,7 @@
     },
     "deploy/health.service": {
       "mode": "full",
-      "sha256": "85f95548bc4f0c9bf5a396e830d93d2aa75a5162e88cc4dbd1ab596217610f5e",
+      "sha256": "6e668b29582a5cc4c2473046eec7ea334a728a680b85d1695a3db6ae4c80ec62",
       "source": "templates/app/deploy/health.service.tmpl"
     },
     "deploy/health.timer": {
@@ -283,7 +283,7 @@
     },
     "deploy/report.service": {
       "mode": "full",
-      "sha256": "93e32832137a89367e47947400cb81ee4f7a735d43cc5541b619fee5423b4400",
+      "sha256": "ffd14105513809f3e116abf431faaf61650a9b3eed3700c90b96b7e19c499c08",
       "source": "templates/app/deploy/report.service.tmpl"
     },
     "deploy/report.sh": {
@@ -298,7 +298,7 @@
     },
     "deploy/restore-check.service": {
       "mode": "full",
-      "sha256": "fe23a47c2ef825d81fad7153435839a228bd708762423dfb4814ffd4d5998c09",
+      "sha256": "382e6de3aa98dd70770ac1957fe9c7763dee39d07ff410897deae24c21db03af",
       "source": "templates/app/deploy/restore-check.service.tmpl"
     },
     "deploy/restore-check.timer": {
@@ -366,12 +366,12 @@
     },
     "frontend/public/manifest.webmanifest": {
       "mode": "full",
-      "sha256": "e3293c95798d2ca1a20d3fd81baf4447b54c6637e624b6a2a28b7ca781525242",
+      "sha256": "7900afdc2775f0ad2ae792c4789d6e2bffce5299a789626a3bef7f7fe2c5c15f",
       "source": "templates/app/frontend/public/manifest.webmanifest.tmpl"
     },
     "frontend/public/offline.html": {
       "mode": "full",
-      "sha256": "5456b68505267fcae00a28a328b50bed7b5b46e156640d786ffde5e621bc8a0a",
+      "sha256": "807b75c5f842d08ebe58d8ca7f53f0273b623c98f35afd9aabfbec4ef593039c",
       "source": "templates/app/frontend/public/offline.html.tmpl"
     },
     "frontend/public/sw.js": {
@@ -677,7 +677,7 @@
     },
     "skills/std-backlog/SKILL.md": {
       "mode": "full",
-      "sha256": "ac1fab257c1e2fcd121e79ad6e80c40307fe5701e0f6947b22f49590c7a204bf",
+      "sha256": "24fc15a48fd17e3ef9f6b0468593ddfac0f5269b9357fbe14f19f9baf7bee2b5",
       "source": "templates/common/skills/std-backlog/SKILL.md"
     },
     "skills/std-communication/SKILL.md": {
@@ -687,12 +687,12 @@
     },
     "skills/std-foundation/SKILL.md": {
       "mode": "full",
-      "sha256": "7bc531eb1ea40b482190af0a2b541842dc5d558e480f350b7ec5e3a79602df5d",
+      "sha256": "5475f984a818dcb3f8a3e93140bbca150ddbcb524f4e83361d9c9f95ac8ea1ac",
       "source": "templates/app/skills/std-foundation/SKILL.md"
     },
     "skills/std-git-writing/SKILL.md": {
       "mode": "full",
-      "sha256": "cce7987e8e692b3853b0a06b7b1424e602d335349be3d5a572d9f76e36b86ee6",
+      "sha256": "6bdd8344acfc9ce6c3108c3bdb9fd706131c48f6847695ff9d1057543860f68e",
       "source": "templates/common/skills/std-git-writing/SKILL.md"
     },
     "skills/std-implementation/SKILL.md": {
@@ -702,7 +702,7 @@
     },
     "skills/std-testing/SKILL.md": {
       "mode": "full",
-      "sha256": "bb110e406b269d2a86deb1efa1dbc22789544f71efbe43e58e237f02ffaa6747",
+      "sha256": "6cbcc1538c17b2551b9d5017335534ced85c7db0e6e24df81b49c428bf49d040",
       "source": "templates/app/skills/std-testing/SKILL.md"
     }
   },
