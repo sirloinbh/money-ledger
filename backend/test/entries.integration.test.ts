@@ -12,8 +12,9 @@ type Entry = {
   date: string;
   kind: string;
   amount: number;
-  categoryId: number;
-  categoryName: string;
+  categoryId: number | null;
+  categoryName: string | null;
+  merchant: string;
   memo: string;
 };
 
@@ -72,6 +73,7 @@ test('ledger entries against the real database', { skip: !url }, async (t) => {
           amount: 12500,
           categoryId: ids['expense/식비'],
           categoryName: '식비',
+          merchant: '',
           memo: '점심',
         },
       );

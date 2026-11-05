@@ -12,6 +12,7 @@ import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 
 // #38 Income and expense entries: add, edit, delete. The list shows the latest 100; filters come with #39.
+// #60 A merchant and an optional category: saved without one, the server applies the keyword rules.
 
 type Kind = 'income' | 'expense';
 type Category = { id: number; kind: Kind; name: string; hidden: boolean };
@@ -20,11 +21,19 @@ type Entry = {
   date: string;
   kind: Kind;
   amount: number;
-  categoryId: number;
-  categoryName: string;
+  categoryId: number | null;
+  categoryName: string | null;
+  merchant: string;
   memo: string;
 };
-type Draft = { date: string; kind: Kind; amount: string; categoryId: string; memo: string };
+type Draft = {
+  date: string;
+  kind: Kind;
+  amount: string;
+  categoryId: string;
+  merchant: string;
+  memo: string;
+};
 
 const entriesPath = '/api/ledger/entries';
 const kindLabel: Record<Kind, string> = { expense: '지출', income: '수입' };
@@ -36,6 +45,7 @@ const emptyDraft = (): Draft => ({
   kind: 'expense',
   amount: '',
   categoryId: '',
+  merchant: '',
   memo: '',
 });
 
@@ -47,8 +57,19 @@ function parseAmount(text: string) {
   return Number.isSafeInteger(value) ? value : undefined;
 }
 
-/** `categoriesVersion` changes when categories are edited elsewhere on the page, so the choices reload. */
-export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: number }) {
+/**
+ * `categoriesVersion` changes when categories are edited elsewhere on the page, so the choices reload;
+ * `entriesVersion` when entries are classified elsewhere, so the list reloads. `onChange` reports a save or delete.
+ */
+export function EntryManager({
+  categoriesVersion = 0,
+  entriesVersion = 0,
+  onChange,
+}: {
+  categoriesVersion?: number;
+  entriesVersion?: number;
+  onChange?: () => void;
+}) {
   const [entries, setEntries] = useState<Entry[] | undefined>(undefined);
   const [categories, setCategories] = useState<Category[]>([]);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
@@ -56,7 +77,7 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
   // A save in flight: the ref blocks a second submit and edit/cancel, `busy` tells the user.
   const saving = useRef(false);
   const [busy, setBusy] = useState(false);
-  const [invalid, setInvalid] = useState<'amount' | 'category' | undefined>(undefined);
+  const [invalid, setInvalid] = useState<'amount' | undefined>(undefined);
   const dateInput = useRef<HTMLInputElement>(null);
   const sectionTitle = useRef<HTMLHeadingElement>(null);
   // Where the delete dialog returns focus: empty (back to its trigger) unless the delete went through.
@@ -72,7 +93,7 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
   // Also reloads after a category change elsewhere on the page: the list shows category names.
   useEffect(() => {
     loadEntries().catch((cause: unknown) => showError(cause, '내역을 불러오지 못했습니다'));
-  }, [loadEntries, showError, categoriesVersion]);
+  }, [loadEntries, showError, categoriesVersion, entriesVersion]);
 
   useEffect(() => {
     requestJson<{ categories: Category[] }>('/api/ledger/categories')
@@ -106,7 +127,8 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
       date: entry.date,
       kind: entry.kind,
       amount: String(entry.amount),
-      categoryId: String(entry.categoryId),
+      categoryId: entry.categoryId === null ? '' : String(entry.categoryId),
+      merchant: entry.merchant,
       memo: entry.memo,
     });
     notice.clear();
@@ -127,11 +149,6 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
       showError('금액은 0원 이상의 정수로 입력하세요');
       return;
     }
-    if (!categoryId) {
-      setInvalid('category');
-      showError('카테고리를 고르세요');
-      return;
-    }
     setInvalid(undefined);
     saving.current = true;
     setBusy(true);
@@ -139,7 +156,9 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
       date: draft.date,
       kind: draft.kind,
       amount,
-      categoryId: Number(categoryId),
+      // Empty is 미분류: the server fills it from a matching keyword rule, if any.
+      categoryId: categoryId ? Number(categoryId) : null,
+      merchant: draft.merchant,
       memo: draft.memo,
     };
     try {
@@ -151,6 +170,7 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
         showError(cause);
         return;
       }
+      onChange?.();
       const done = editing
         ? '내역을 수정했습니다'
         : `${kindLabel[draft.kind]} ${formatWon(amount)}을 기록했습니다`;
@@ -160,8 +180,10 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
         // Keep the date and kind for the next entry of the same day.
         // Clear only what was sent: anything typed while saving stays.
         setDraft((current) =>
-          current.amount === draft.amount && current.memo === draft.memo
-            ? { ...current, amount: '', memo: '' }
+          current.amount === draft.amount &&
+          current.memo === draft.memo &&
+          current.merchant === draft.merchant
+            ? { ...current, amount: '', merchant: '', memo: '' }
             : current,
         );
       }
@@ -188,6 +210,7 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
       showError(cause);
       throw cause; // keeps the dialog open
     }
+    onChange?.();
     afterDelete.current = sectionTitle.current;
     if (editing?.id === entry.id) stopEdit();
     try {
@@ -266,20 +289,30 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
                 id="entry-category"
                 className={selectClass}
                 value={categoryId}
-                aria-invalid={invalid === 'category' || undefined}
-                aria-describedby={invalid === 'category' ? 'entries-notice' : undefined}
-                onChange={(event) => {
-                  if (invalid === 'category') setInvalid(undefined);
-                  change({ categoryId: event.target.value });
-                }}
+                aria-describedby="entry-category-hint"
+                onChange={(event) => change({ categoryId: event.target.value })}
               >
-                <option value="">고르세요</option>
+                <option value="">미분류</option>
                 {choices.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.hidden ? `${category.name} (숨김)` : category.name}
                   </option>
                 ))}
               </select>
+              <p id="entry-category-hint" className="text-caption text-muted-foreground">
+                미분류로 두면 가맹점에 맞는 분류 규칙이 있을 때 자동으로 정해집니다.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="entry-merchant">가맹점</Label>
+              <Input
+                id="entry-merchant"
+                maxLength={50}
+                autoComplete="off"
+                placeholder="예: 스타벅스 강남점"
+                value={draft.merchant}
+                onChange={(event) => change({ merchant: event.target.value })}
+              />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="entry-memo">메모</Label>
@@ -324,6 +357,10 @@ export function EntryManager({ categoriesVersion = 0 }: { categoriesVersion?: nu
   );
 }
 
+/** "2026-11-05 식비 12,500원": names a row in button labels and the delete dialog. */
+const entryLabel = (entry: Entry) =>
+  `${entry.date} ${entry.categoryName ?? '미분류'} ${formatWon(entry.amount)}`;
+
 function EntryList({
   entries,
   failed,
@@ -357,9 +394,13 @@ function EntryList({
               <Badge variant={entry.kind === 'income' ? 'success' : 'secondary'}>
                 {kindLabel[entry.kind]}
               </Badge>
-              {entry.categoryName}
+              {entry.categoryName ?? '미분류'}
             </span>
-            {entry.memo ? <span className="break-words">{entry.memo}</span> : null}
+            {entry.merchant || entry.memo ? (
+              <span className="break-words">
+                {[entry.merchant, entry.memo].filter(Boolean).join(' · ')}
+              </span>
+            ) : null}
           </div>
           <div className="flex items-center gap-2">
             <span className="font-medium tabular-nums">
@@ -370,14 +411,14 @@ function EntryList({
               type="button"
               variant="ghost"
               size="sm"
-              aria-label={`${entry.date} ${entry.categoryName} ${formatWon(entry.amount)} 수정`}
+              aria-label={`${entryLabel(entry)} 수정`}
               onClick={() => onEdit(entry)}
             >
               수정
             </Button>
             <ConfirmDialog
               title="내역을 삭제할까요?"
-              description={`${entry.date} ${entry.categoryName} ${formatWon(entry.amount)}. 삭제하면 되돌릴 수 없습니다.`}
+              description={`${entryLabel(entry)}. 삭제하면 되돌릴 수 없습니다.`}
               onConfirm={() => onDelete(entry)}
               returnFocusRef={returnFocusRef}
               onOpenChange={(open) => {
@@ -388,7 +429,7 @@ function EntryList({
                   type="button"
                   variant="outline"
                   size="sm"
-                  aria-label={`${entry.date} ${entry.categoryName} ${formatWon(entry.amount)} 삭제`}
+                  aria-label={`${entryLabel(entry)} 삭제`}
                 >
                   삭제
                 </Button>
