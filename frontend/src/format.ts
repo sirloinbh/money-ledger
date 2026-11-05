@@ -28,3 +28,20 @@ export function formatDecimal(text: string) {
 export function formatUsd(text: string) {
   return `${formatDecimal(text)}달러`;
 }
+
+/** Commas only as thousands separators ("1,234.5" → "1234.5"); anything else is left in so the check fails. */
+export function withoutThousands(text: string) {
+  const trimmed = text.trim();
+  return /^\d{1,3}(,\d{3})+(\.\d*)?$/.test(trimmed) ? trimmed.replaceAll(',', '') : trimmed;
+}
+
+const dateTime = new Intl.DateTimeFormat('ko-KR', {
+  timeZone: 'Asia/Seoul',
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
+
+/** An ISO time from the API in the service time zone, e.g. "2026. 11. 5. 오전 10:30". */
+export function formatDateTime(iso: string) {
+  return dateTime.format(new Date(iso));
+}
