@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
+import { inTransaction } from './db.js';
 import { HttpError, parseId } from './standard/http.js';
 
 // #50 Mock trading account: virtual won kept apart from the ledger and the portfolio.
@@ -83,10 +84,7 @@ export function mockAccountsRouter(pool: Pool) {
   router.post('/:id/reset', async (req, res) => {
     const id = parseId(req.params.id, '모의투자 계좌');
     const body = accountBody.parse(req.body);
-    const client = await pool.connect();
-    let broken = false;
-    try {
-      await client.query('BEGIN');
+    const account = await inTransaction(pool, async (client) => {
       const closed = await client.query(
         'UPDATE mock_accounts SET closed_at = now() WHERE id = $1 AND closed_at IS NULL RETURNING id',
         [id],
@@ -101,17 +99,9 @@ export function mockAccountsRouter(pool: Pool) {
         `INSERT INTO mock_accounts (initial_cash_krw, cash_krw) VALUES ($1, $1) RETURNING ${columns}`,
         [body.initialCashKrw],
       );
-      await client.query('COMMIT');
-      res.json({ account: toAccount(rows[0]) });
-    } catch (error) {
-      // A connection that cannot even roll back is dropped instead of going back to the pool.
-      await client.query('ROLLBACK').catch(() => {
-        broken = true;
-      });
-      throw error;
-    } finally {
-      client.release(broken);
-    }
+      return rows[0];
+    });
+    res.json({ account: toAccount(account) });
   });
 
   return router;

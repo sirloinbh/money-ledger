@@ -7,6 +7,7 @@ import { assetsRouter } from './assets.js';
 import { categoriesRouter } from './categories.js';
 import { entriesRouter } from './entries.js';
 import { mockAccountsRouter } from './mock-accounts.js';
+import { rulesRouter } from './rules.js';
 import { errorHandler, notFound, serviceDate } from './standard/http.js';
 
 // DATE columns stay YYYY-MM-DD strings so the service time zone never shifts them.
@@ -39,6 +40,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   });
   app.use('/api/ledger/categories', categoriesRouter(pool));
   app.use('/api/ledger/entries', entriesRouter(pool));
+  app.use('/api/ledger/rules', rulesRouter(pool));
   app.use('/api/portfolio/assets', assetsRouter(pool));
   app.use('/api/mock/accounts', mockAccountsRouter(pool));
   app.use('/api', notFound);

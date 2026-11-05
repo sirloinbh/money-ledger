@@ -42,7 +42,12 @@ const invalid = [
     change: { date: '2026/11/03' },
     error: '날짜를 YYYY-MM-DD 형식으로 입력하세요',
   },
-  { label: 'no category', change: { categoryId: undefined }, error: '카테고리를 고르세요' },
+  { label: 'a category id of 0', change: { categoryId: 0 }, error: '카테고리를 고르세요' },
+  {
+    label: 'a merchant over 50 characters',
+    change: { merchant: '가'.repeat(51) },
+    error: '가맹점은 50자 이하로 입력하세요',
+  },
   {
     label: 'an unknown kind',
     change: { kind: 'transfer' },
