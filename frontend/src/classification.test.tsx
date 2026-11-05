@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import { useState } from 'react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { RuleManager, UncategorizedEntries } from './classification';
@@ -66,7 +67,8 @@ function fakeApi() {
         return json({
           classified: hit.length,
           skipped: ids.length - hit.length,
-          rulesSaved: body!.remember ? merchants.length : 0,
+          rulesAdded: body!.remember ? merchants.length : 0,
+          rulesUpdated: 0,
         });
       }
       if (url === '/api/ledger/entries/apply-rules') {
@@ -290,4 +292,55 @@ test('deleting a rule asks first and then moves focus to the rules heading', asy
   expect(await screen.findByText("'스타벅스' 규칙을 삭제했습니다")).toBeInTheDocument();
   expect(screen.getByText('아직 분류 규칙이 없습니다.')).toBeInTheDocument();
   await vi.waitFor(() => expect(screen.getByRole('heading', { name: '분류 규칙' })).toHaveFocus());
+});
+
+// Like LedgerPage: a change reported by the list bumps the version it is given.
+function Harness() {
+  const [version, setVersion] = useState(0);
+  return <UncategorizedEntries version={version} onChange={() => setVersion((v) => v + 1)} />;
+}
+
+test('a classification made here loads the list once, not again for the version bump', async () => {
+  render(<Harness />);
+  await screen.findByRole('option', { name: '식비' });
+  const loads = () =>
+    requests.filter((request) => request.url === '/api/ledger/entries?uncategorized=true').length;
+  expect(loads()).toBe(1);
+  fireEvent.click(within(row('1,000원')).getByRole('checkbox'));
+  fireEvent.change(screen.getByLabelText('분류할 카테고리'), { target: { value: '1' } });
+  fireEvent.click(screen.getByRole('button', { name: '선택한 1건 분류' }));
+  await screen.findByRole('heading', { name: '미분류 내역 (3건)' });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(loads()).toBe(2);
+});
+
+test('updated and skipped counts are reported in words', async () => {
+  vi.mocked(fetch).mockImplementation((url: string | URL | Request, init?: RequestInit) => {
+    const path = String(url);
+    if (path.startsWith('/api/ledger/categories')) return json({ categories });
+    if (path === '/api/ledger/entries/classify' && init?.method === 'POST') {
+      return json({ classified: 1, skipped: 1, rulesAdded: 0, rulesUpdated: 1 });
+    }
+    return json({ entries: [entry(1, '김밥천국'), entry(2, '김밥천국')] });
+  });
+  render(<UncategorizedEntries />);
+  await screen.findByRole('option', { name: '식비' });
+  fireEvent.click(screen.getByRole('checkbox', { name: '전체 선택' }));
+  fireEvent.change(screen.getByLabelText('분류할 카테고리'), { target: { value: '1' } });
+  fireEvent.click(screen.getByRole('button', { name: '선택한 2건 분류' }));
+  expect(await screen.findByRole('status')).toHaveTextContent(
+    '1건을 식비(으)로 분류했습니다. 1건은 이미 분류되었거나 바뀌어 건너뛰었습니다. 기존 규칙 1개를 식비(으)로 바꿨습니다',
+  );
+});
+
+test('a category of the other kind marks the category field', async () => {
+  render(<UncategorizedEntries />);
+  await screen.findByRole('option', { name: '급여' });
+  fireEvent.click(within(row('1,000원')).getByRole('checkbox'));
+  fireEvent.change(screen.getByLabelText('분류할 카테고리'), { target: { value: '3' } });
+  fireEvent.click(screen.getByRole('button', { name: '선택한 1건 분류' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    '고른 카테고리와 종류가 다른 내역이 있습니다',
+  );
+  expect(screen.getByLabelText('분류할 카테고리')).toHaveAttribute('aria-invalid', 'true');
 });

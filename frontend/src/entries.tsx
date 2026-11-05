@@ -77,7 +77,7 @@ export function EntryManager({
   // A save in flight: the ref blocks a second submit and edit/cancel, `busy` tells the user.
   const saving = useRef(false);
   const [busy, setBusy] = useState(false);
-  const [invalid, setInvalid] = useState<'amount' | undefined>(undefined);
+  const [invalid, setInvalid] = useState<'amount' | 'category' | undefined>(undefined);
   const dateInput = useRef<HTMLInputElement>(null);
   const sectionTitle = useRef<HTMLHeadingElement>(null);
   // Where the delete dialog returns focus: empty (back to its trigger) unless the delete went through.
@@ -90,8 +90,21 @@ export function EntryManager({
     setEntries(data.entries);
   }, []);
 
+  // Set when this component reports its own change: it reloads by itself, so the version bump that follows
+  // does not load the list a second time.
+  const skipReload = useRef(false);
+  const notifyChange = () => {
+    if (!onChange) return;
+    skipReload.current = true;
+    onChange();
+  };
+
   // Also reloads after a category change elsewhere on the page: the list shows category names.
   useEffect(() => {
+    if (skipReload.current) {
+      skipReload.current = false;
+      return;
+    }
     loadEntries().catch((cause: unknown) => showError(cause, '내역을 불러오지 못했습니다'));
   }, [loadEntries, showError, categoriesVersion, entriesVersion]);
 
@@ -107,10 +120,12 @@ export function EntryManager({
       category.kind === draft.kind && (!category.hidden || category.id === editing?.categoryId),
   );
 
-  // A chosen category that is no longer offered (hidden meanwhile) counts as not chosen.
-  const categoryId = choices.some((category) => String(category.id) === draft.categoryId)
-    ? draft.categoryId
-    : '';
+  // A chosen category that is no longer offered (hidden meanwhile) must be chosen again: saving it as
+  // 미분류 without a word would drop the user's choice.
+  const stale =
+    draft.categoryId !== '' &&
+    !choices.some((category) => String(category.id) === draft.categoryId);
+  const categoryId = stale ? '' : draft.categoryId;
 
   const change = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
 
@@ -149,6 +164,11 @@ export function EntryManager({
       showError('금액은 0원 이상의 정수로 입력하세요');
       return;
     }
+    if (stale) {
+      setInvalid('category');
+      showError('고른 카테고리를 쓸 수 없습니다. 카테고리를 다시 고르세요');
+      return;
+    }
     setInvalid(undefined);
     saving.current = true;
     setBusy(true);
@@ -170,7 +190,7 @@ export function EntryManager({
         showError(cause);
         return;
       }
-      onChange?.();
+      notifyChange();
       const done = editing
         ? '내역을 수정했습니다'
         : `${kindLabel[draft.kind]} ${formatWon(amount)}을 기록했습니다`;
@@ -210,7 +230,7 @@ export function EntryManager({
       showError(cause);
       throw cause; // keeps the dialog open
     }
-    onChange?.();
+    notifyChange();
     afterDelete.current = sectionTitle.current;
     if (editing?.id === entry.id) stopEdit();
     try {
@@ -288,10 +308,23 @@ export function EntryManager({
               <select
                 id="entry-category"
                 className={selectClass}
-                value={categoryId}
-                aria-describedby="entry-category-hint"
-                onChange={(event) => change({ categoryId: event.target.value })}
+                value={stale ? 'stale' : categoryId}
+                aria-invalid={invalid === 'category' || undefined}
+                aria-describedby={
+                  invalid === 'category'
+                    ? 'entries-notice entry-category-hint'
+                    : 'entry-category-hint'
+                }
+                onChange={(event) => {
+                  if (invalid === 'category') setInvalid(undefined);
+                  change({ categoryId: event.target.value });
+                }}
               >
+                {stale ? (
+                  <option value="stale" disabled>
+                    다시 고르세요
+                  </option>
+                ) : null}
                 <option value="">미분류</option>
                 {choices.map((category) => (
                   <option key={category.id} value={category.id}>

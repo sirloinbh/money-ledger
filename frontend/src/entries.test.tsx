@@ -299,16 +299,26 @@ test('a category change reloads the list, and a chosen category hidden meanwhile
   categories[0] = { ...categories[0], hidden: true };
   try {
     rerender(<EntryManager categoriesVersion={1} />);
-    await vi.waitFor(() => expect(optionLabels()).toEqual(['미분류']));
+    // The lost choice shows as "다시 고르세요" instead of silently turning into 미분류.
+    await vi.waitFor(() => expect(optionLabels()).toEqual(['다시 고르세요', '미분류']));
     expect(listLoads()).toBe(before + 1);
-    expect(screen.getByLabelText('카테고리')).toHaveValue('');
+    expect(screen.getByLabelText('카테고리')).toHaveValue('stale');
 
     fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '1000' } });
     fireEvent.click(screen.getByRole('button', { name: '기록' }));
-    // The hidden category is not sent: the entry goes in as 미분류.
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      '고른 카테고리를 쓸 수 없습니다. 카테고리를 다시 고르세요',
+    );
+    expect(screen.getByLabelText('카테고리')).toHaveAttribute('aria-invalid', 'true');
+    expect(requests.some((request) => request.method === 'POST')).toBe(false);
+
+    // Choosing 미분류 on purpose is allowed.
+    fireEvent.change(screen.getByLabelText('카테고리'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: '기록' }));
     await screen.findByRole('status');
-    const post = requests.find((request) => request.method === 'POST');
-    expect(post?.body).toMatchObject({ categoryId: null });
+    expect(requests.find((request) => request.method === 'POST')?.body).toMatchObject({
+      categoryId: null,
+    });
   } finally {
     categories[0] = { ...categories[0], hidden: false };
   }

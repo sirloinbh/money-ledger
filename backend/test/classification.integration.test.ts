@@ -178,7 +178,7 @@ test('keyword rules and classification against the real database', { skip: !url 
           },
         });
         assert.equal(done.status, 200);
-        assert.deepEqual(done.data, { classified: 3, skipped: 2, rulesSaved: 0 });
+        assert.deepEqual(done.data, { classified: 3, skipped: 2, rulesAdded: 0, rulesUpdated: 0 });
 
         // The entry the user had already categorized keeps its category.
         const { rows } = await pool.query<{ id: string; category_id: string }>(
@@ -215,7 +215,7 @@ test('keyword rules and classification against the real database', { skip: !url 
           remember: true,
         },
       });
-      assert.deepEqual(done.data, { classified: 4, skipped: 0, rulesSaved: 2 });
+      assert.deepEqual(done.data, { classified: 4, skipped: 0, rulesAdded: 1, rulesUpdated: 1 });
       const rules = (await call('/api/ledger/rules')).data.rules as Rule[];
       assert.deepEqual(
         rules.map((rule) => [rule.keyword, rule.categoryName]),
@@ -228,6 +228,43 @@ test('keyword rules and classification against the real database', { skip: !url 
         (await addEntry(call, { merchant: '올리브영 강남' })).categoryId,
         ids['expense/식비'],
       );
+
+      // Remembering the same merchant for the same category again changes and counts nothing.
+      const again = await addEntry(call, { merchant: '올리브영', categoryId: ids['expense/식비'] });
+      await pool.query('UPDATE ledger_entries SET category_id = NULL WHERE id = $1', [again.id]);
+      const repeat = await call('/api/ledger/entries/classify', {
+        method: 'POST',
+        body: { entryIds: [again.id], categoryId: ids['expense/식비'], remember: true },
+      });
+      assert.deepEqual(repeat.data, { classified: 1, skipped: 0, rulesAdded: 0, rulesUpdated: 0 });
+    });
+  });
+
+  await t.test('applying rules leaves an entry whose kind changed meanwhile alone', async () => {
+    await reset();
+    const ids = await categoryIds();
+    await withApi(pool, async (call) => {
+      const entry = await addEntry(call, { merchant: '편의점' });
+      await addRule(call, '편의점', ids['expense/생활']);
+      // Hold the row while apply-rules starts, then change its kind before releasing it.
+      const editor = await pool.connect();
+      try {
+        await editor.query('BEGIN');
+        await editor.query("UPDATE ledger_entries SET kind = 'income' WHERE id = $1", [entry.id]);
+        const applying = call('/api/ledger/entries/apply-rules', { method: 'POST' });
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await editor.query('COMMIT');
+        const applied = await applying;
+        assert.equal(applied.status, 200);
+        assert.deepEqual(applied.data, { classified: 0 });
+      } finally {
+        editor.release();
+      }
+      const { rows } = await pool.query<{ category_id: string | null }>(
+        'SELECT category_id FROM ledger_entries WHERE id = $1',
+        [entry.id],
+      );
+      assert.equal(rows[0].category_id, null);
     });
   });
 

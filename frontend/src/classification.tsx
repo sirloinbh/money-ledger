@@ -64,6 +64,20 @@ function useCategories(version: number, onError: (cause: unknown, fallback?: str
 }
 
 /**
+ * Reports a change made here. The component reloads by itself for its status message, so the version bump
+ * that comes back skips one reload (`skipReload`) instead of loading the same list twice.
+ */
+function useOwnChange(onChange: (() => void) | undefined) {
+  const skipReload = useRef(false);
+  const notifyChange = () => {
+    if (!onChange) return;
+    skipReload.current = true;
+    onChange();
+  };
+  return { skipReload, notifyChange };
+}
+
+/**
  * Entries without a category: pick some, pick a category, classify them at once. `version` changes when
  * entries or rules change elsewhere on the page; `onChange` reports a classification here.
  */
@@ -80,6 +94,7 @@ export function UncategorizedEntries({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [categoryId, setCategoryId] = useState('');
   const [remember, setRemember] = useState(true);
+  const [categoryInvalid, setCategoryInvalid] = useState(false);
   const [busy, setBusy] = useState(false);
   const saving = useRef(false);
   const title = useRef<HTMLHeadingElement>(null);
@@ -97,9 +112,14 @@ export function UncategorizedEntries({
     return data.entries;
   }, []);
 
+  const { skipReload, notifyChange } = useOwnChange(onChange);
   useEffect(() => {
+    if (skipReload.current) {
+      skipReload.current = false;
+      return;
+    }
     load().catch((cause: unknown) => showError(cause, '미분류 내역을 불러오지 못했습니다'));
-  }, [load, showError, version]);
+  }, [load, showError, version, skipReload]);
 
   const toggle = (id: number) =>
     setSelected((current) => {
@@ -126,14 +146,22 @@ export function UncategorizedEntries({
     const picked = entries.filter((entry) => selected.has(entry.id));
     const category = categories.find((item) => String(item.id) === categoryId);
     if (picked.length === 0) return showError('분류할 내역을 고르세요');
-    if (!category) return showError('카테고리를 고르세요');
-    if (picked.some((entry) => entry.kind !== category.kind)) {
-      return showError('고른 카테고리와 종류가 다른 내역이 있습니다');
+    if (!category || picked.some((entry) => entry.kind !== category.kind)) {
+      setCategoryInvalid(true);
+      return showError(
+        category ? '고른 카테고리와 종류가 다른 내역이 있습니다' : '카테고리를 고르세요',
+      );
     }
+    setCategoryInvalid(false);
     saving.current = true;
     setBusy(true);
     try {
-      let result: { classified: number; skipped: number; rulesSaved: number };
+      let result: {
+        classified: number;
+        skipped: number;
+        rulesAdded: number;
+        rulesUpdated: number;
+      };
       try {
         result = await requestJson('/api/ledger/entries/classify', {
           method: 'POST',
@@ -143,11 +171,16 @@ export function UncategorizedEntries({
         showError(cause);
         return;
       }
-      onChange?.();
+      notifyChange();
       const parts = [`${result.classified}건을 ${category.name}(으)로 분류했습니다`];
-      if (result.skipped > 0) parts.push(`${result.skipped}건은 이미 분류되어 건너뛰었습니다`);
-      if (result.rulesSaved > 0)
-        parts.push(`가맹점 ${result.rulesSaved}개를 규칙으로 저장했습니다`);
+      if (result.skipped > 0) {
+        parts.push(`${result.skipped}건은 이미 분류되었거나 바뀌어 건너뛰었습니다`);
+      }
+      if (result.rulesAdded > 0)
+        parts.push(`가맹점 ${result.rulesAdded}개를 규칙으로 저장했습니다`);
+      if (result.rulesUpdated > 0) {
+        parts.push(`기존 규칙 ${result.rulesUpdated}개를 ${category.name}(으)로 바꿨습니다`);
+      }
       setSelected(new Set());
       await reloadAfter(parts.join('. '));
     } finally {
@@ -168,7 +201,7 @@ export function UncategorizedEntries({
         showError(cause);
         return;
       }
-      if (result.classified > 0) onChange?.();
+      if (result.classified > 0) notifyChange();
       await reloadAfter(
         result.classified > 0
           ? `${result.classified}건을 규칙으로 분류했습니다`
@@ -244,7 +277,12 @@ export function UncategorizedEntries({
                 id="classify-category"
                 className={selectClass}
                 value={categoryId}
-                onChange={(event) => setCategoryId(event.target.value)}
+                aria-invalid={categoryInvalid || undefined}
+                aria-describedby={categoryInvalid ? 'uncategorized-notice' : undefined}
+                onChange={(event) => {
+                  setCategoryInvalid(false);
+                  setCategoryId(event.target.value);
+                }}
               >
                 <option value="">고르세요</option>
                 <CategoryOptions categories={categories} />
@@ -303,9 +341,14 @@ export function RuleManager({
     setRules(data.rules);
   }, []);
 
+  const { skipReload, notifyChange } = useOwnChange(onChange);
   useEffect(() => {
+    if (skipReload.current) {
+      skipReload.current = false;
+      return;
+    }
     load().catch((cause: unknown) => showError(cause, '분류 규칙을 불러오지 못했습니다'));
-  }, [load, showError, version]);
+  }, [load, showError, version, skipReload]);
 
   const reload = async (done: string) => {
     try {
@@ -341,7 +384,7 @@ export function RuleManager({
         showError(cause);
         return;
       }
-      onChange?.();
+      notifyChange();
       setKeyword('');
       await reload(`'${text}' 규칙을 추가했습니다`);
     } finally {
@@ -357,7 +400,7 @@ export function RuleManager({
       showError(cause);
       throw cause; // keeps the dialog open
     }
-    onChange?.();
+    notifyChange();
     afterDelete.current = title.current;
     await reload(`'${rule.keyword}' 규칙을 삭제했습니다`);
   };

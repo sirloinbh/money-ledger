@@ -235,21 +235,27 @@ export function entriesRouter(pool: Pool) {
          RETURNING merchant`,
         [ids, body.categoryId, category.kind],
       );
-      let rulesSaved = 0;
+      let rulesAdded = 0;
+      let rulesUpdated = 0;
       if (body.remember) {
         // One rule per merchant (ignoring letter case); an existing rule for it now points at this category.
-        const saved = await client.query(
+        // A rule that already points there is left alone and not counted. `xmax = 0` marks a new row.
+        const saved = await client.query<{ added: boolean }>(
           `INSERT INTO ledger_category_rules (keyword, kind, category_id)
            SELECT DISTINCT ON (lower(m)) m, $2::text, $3::bigint FROM unnest($1::text[]) AS m
            WHERE m <> '' ORDER BY lower(m), m
            ON CONFLICT (kind, lower(keyword))
-           DO UPDATE SET category_id = EXCLUDED.category_id, updated_at = now()`,
+           DO UPDATE SET category_id = EXCLUDED.category_id, updated_at = now()
+           WHERE ledger_category_rules.category_id <> EXCLUDED.category_id
+           RETURNING (xmax = 0) AS added`,
           [updated.rows.map((row) => row.merchant), category.kind, body.categoryId],
         );
-        rulesSaved = saved.rowCount ?? 0;
+        rulesAdded = saved.rows.filter((row) => row.added).length;
+        rulesUpdated = saved.rows.length - rulesAdded;
       }
       const classified = updated.rowCount ?? 0;
-      return { classified, skipped: ids.length - classified, rulesSaved };
+      // Skipped: already categorized, deleted, or changed to the other kind meanwhile.
+      return { classified, skipped: ids.length - classified, rulesAdded, rulesUpdated };
     });
     res.json(result);
   });
@@ -259,10 +265,13 @@ export function entriesRouter(pool: Pool) {
     const { rowCount } = await pool.query(
       `UPDATE ledger_entries e SET category_id = m.category_id, updated_at = now()
        FROM (
-         SELECT u.id, ${ruleCategorySql('u.kind', 'u.merchant')} AS category_id
+         SELECT u.id, u.kind, u.merchant, ${ruleCategorySql('u.kind', 'u.merchant')} AS category_id
          FROM ledger_entries u WHERE u.category_id IS NULL AND u.merchant <> ''
        ) m
-       WHERE e.id = m.id AND m.category_id IS NOT NULL AND e.category_id IS NULL`,
+       -- The kind and merchant are checked again on the row being updated: an edit committed while this runs
+       -- must not get a category picked for its old kind or merchant.
+       WHERE e.id = m.id AND m.category_id IS NOT NULL AND e.category_id IS NULL
+         AND e.kind = m.kind AND e.merchant = m.merchant`,
     );
     res.json({ classified: rowCount ?? 0 });
   });
