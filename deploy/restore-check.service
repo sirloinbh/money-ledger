@@ -1,6 +1,6 @@
 # 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
 [Unit]
-Description=가계부·자산 포트폴리오 weekly restore check of the newest database dump
+Description=가계부·자산·모의투자 weekly restore check of the newest database dump
 After=docker.service
 Requires=docker.service
 
