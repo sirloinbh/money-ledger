@@ -6,7 +6,7 @@ import { ConfirmDialog } from './components/ui/confirm-dialog';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
-import { formatDecimal, formatUsd, formatWon } from './format';
+import { formatDecimal, formatUsd, formatWon, withoutThousands as digits } from './format';
 import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 
@@ -63,12 +63,6 @@ const emptyDraft = (): Draft => ({
   value: '',
   memo: '',
 });
-
-// Commas are accepted only as thousands separators ("1,234.5"); anything else is left in so the check fails.
-const digits = (text: string) => {
-  const trimmed = text.trim();
-  return /^\d{1,3}(,\d{3})+(\.\d*)?$/.test(trimmed) ? trimmed.replaceAll(',', '') : trimmed;
-};
 
 const totalText = (value: number | null) =>
   value === null
