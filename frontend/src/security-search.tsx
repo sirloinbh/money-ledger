@@ -21,6 +21,7 @@ type Security = {
   symbol: string;
   name: string | null;
   kind: 'stock' | 'etf';
+  active: boolean;
   currency: 'KRW' | 'USD';
 };
 type Found = Security & { quote: Quote | null };
@@ -269,6 +270,7 @@ function SecurityDetail({ id, onLoaded }: { id: number; onLoaded: (detail: Detai
           <Badge variant="outline">{marketNames[security.market] ?? security.market}</Badge>
           {security.kind === 'etf' ? <Badge variant="secondary">ETF</Badge> : null}
           <span>{security.currency === 'KRW' ? '원화' : '달러'}</span>
+          {security.active ? null : <Badge variant="warning">거래 중단</Badge>}
         </CardDescription>
       </CardHeader>
       <CardContent>
