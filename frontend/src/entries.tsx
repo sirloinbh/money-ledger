@@ -98,11 +98,14 @@ export function EntryManager({
   const query = apiQuery(filters, pageSize);
   const [listing, setListing] = useState<Listing | undefined>(undefined);
   const [loadFailed, setLoadFailed] = useState(false);
-  // Only the latest request may fill the list: an older answer for other filters is dropped.
+  // The filters the next load asks for.
   const latestQuery = useRef(query);
   useEffect(() => {
     latestQuery.current = query;
   }, [query]);
+  // Only the latest request may fill the list. Numbered, not compared by filters: two loads of the same
+  // filters (one started before a save, one after) may answer in either order.
+  const latestRequest = useRef(0);
   // While the list for new filters loads, the previous one stays (marked busy) so the page and focus hold.
   const loading = listing !== undefined && listing.query !== query;
   const entries = listing?.entries;
@@ -125,14 +128,15 @@ export function EntryManager({
   // reloads the new list, not the one it started on.
   const loadEntries = useCallback(async () => {
     const asked = latestQuery.current;
+    const request = ++latestRequest.current;
     setLoadFailed(false);
     try {
       const data = await requestJson<{ entries: Entry[]; total: number }>(
         `${entriesPath}?${asked}`,
       );
-      if (latestQuery.current === asked) setListing({ query: asked, ...data });
+      if (latestRequest.current === request) setListing({ query: asked, ...data });
     } catch (cause) {
-      if (latestQuery.current === asked) setLoadFailed(true);
+      if (latestRequest.current === request) setLoadFailed(true);
       throw cause;
     }
   }, []);
@@ -524,17 +528,17 @@ function EntryList({
   returnFocusRef: RefObject<HTMLElement | null>;
   onDeleteOpen: () => void;
 }) {
-  if (failed) {
-    return (
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="text-body-sm text-muted-foreground">내역을 불러오지 못했습니다.</p>
-        <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-          다시 시도
-        </Button>
-      </div>
-    );
-  }
+  // Shown above the previous list, which stays with its page buttons so focus is not lost.
+  const failure = failed ? (
+    <div className="flex flex-wrap items-center gap-2">
+      <p className="text-body-sm text-muted-foreground">내역을 불러오지 못했습니다.</p>
+      <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+        다시 시도
+      </Button>
+    </div>
+  ) : null;
   if (entries === undefined) {
+    if (failure) return failure;
     return <p className="text-body-sm text-muted-foreground">내역을 불러오는 중입니다</p>;
   }
   const pages = Math.max(1, Math.ceil(total / pageSize));
@@ -563,13 +567,16 @@ function EntryList({
         {pageButton('다음 쪽', page + 1, page < pages)}
       </nav>
     ) : null;
-  const status = (
+  // After a failed load the previous list is not "loading" any more: the failure says what happened.
+  const pending = loading && !failed;
+  const status = failed ? null : (
     <p className="text-body-sm text-muted-foreground">{loading ? '불러오는 중…' : `${total}건`}</p>
   );
   if (entries.length === 0) {
     return (
-      <div aria-busy={loading || undefined} className="flex flex-col gap-3">
-        {loading ? status : null}
+      <div aria-busy={pending || undefined} className="flex flex-col gap-3">
+        {failure}
+        {pending ? status : null}
         <p className="text-body-sm text-muted-foreground">
           {total > 0 ? '이 쪽에는 내역이 없습니다.' : '조건에 맞는 내역이 없습니다.'}
         </p>
@@ -578,7 +585,8 @@ function EntryList({
     );
   }
   return (
-    <div aria-busy={loading || undefined} className="flex flex-col gap-3">
+    <div aria-busy={pending || undefined} className="flex flex-col gap-3">
+      {failure}
       {status}
       <ul
         aria-label="내역 목록"

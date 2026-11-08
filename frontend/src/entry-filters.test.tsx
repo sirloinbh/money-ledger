@@ -367,3 +367,52 @@ test('a category the filter cannot offer is dropped from the address', async () 
   expect(screen.getByLabelText('카테고리', { selector: '#filter-category' })).toHaveValue('');
   expect(lastList()).not.toContain('category=');
 });
+
+test('a load started before a save that answers last does not hide the saved entry', async () => {
+  let finishSave: () => void = () => {};
+  write = () =>
+    new Promise((resolve) => {
+      finishSave = () =>
+        resolve(new Response(JSON.stringify({ entry: entry(9, '2026-12-01') }), { status: 201 }));
+    });
+  let finishBefore: () => void = () => {};
+  let decemberLoads = 0;
+  answer = (url) => {
+    if (!url.includes('from=2026-12-01')) return json({ entries: [], total: 0 });
+    decemberLoads += 1;
+    if (decemberLoads === 1) {
+      // Read before the save committed: without the new entry, and it answers last.
+      return new Promise((resolve) => {
+        finishBefore = () => resolve(new Response(JSON.stringify({ entries: [], total: 0 })));
+      });
+    }
+    return json({ entries: [entry(9, '2026-12-01')], total: 1 });
+  };
+  await show();
+  fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '9000' } });
+  fireEvent.click(screen.getByRole('button', { name: '기록' }));
+  fireEvent.click(screen.getByRole('button', { name: '다음 달' }));
+  await vi.waitFor(() => expect(decemberLoads).toBe(1));
+  finishSave();
+  await screen.findByText('내역 9');
+  finishBefore();
+  await vi.waitFor(() => expect(log.filter((line) => line === 'GET 2026-12-01')).toHaveLength(2));
+  expect(screen.getByRole('list', { name: '내역 목록' })).toHaveTextContent('내역 9');
+});
+
+test('a failed page load keeps the page buttons, and focus, next to the message', async () => {
+  answer = (url) => {
+    const page = Number(new URL(url, 'http://x').searchParams.get('page'));
+    return page === 2
+      ? json({ error: '서버 오류' }, 500)
+      : json({ entries: [entry(1, '2026-11-02')], total: 60 });
+  };
+  await show();
+  const next = await screen.findByRole('button', { name: '다음 쪽' });
+  next.focus();
+  fireEvent.click(next);
+  expect(await screen.findByText('내역을 불러오지 못했습니다.')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '다음 쪽' })).toHaveFocus();
+  expect(screen.queryByText('불러오는 중…')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
+});
