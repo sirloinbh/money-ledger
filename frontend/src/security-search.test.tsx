@@ -49,6 +49,12 @@ beforeEach(() => {
   );
 });
 
+/** The opened detail card, so a value shown in both the result row and the detail is found once. */
+const detailCard = () =>
+  within(
+    document.getElementById('security-detail-title')!.closest<HTMLElement>('[data-slot="card"]')!,
+  );
+
 const searchFor = (text: string) => {
   fireEvent.change(screen.getByLabelText('종목 이름, 코드 또는 티커'), { target: { value: text } });
   fireEvent.click(screen.getByRole('button', { name: '검색' }));
@@ -117,7 +123,7 @@ test('a Korean detail shows the close and marks a delayed one', async () => {
 
   const heading = await screen.findByRole('heading', { level: 2, name: '삼성전자' });
   await vi.waitFor(() => expect(heading).toHaveFocus());
-  expect(screen.getByText('시세 지연 · 11월 6일 종가 기준')).toBeInTheDocument();
+  expect(detailCard().getByText('시세 지연 · 11월 6일 종가 기준')).toBeInTheDocument();
   expect(screen.queryByText(/환율/)).toBeNull();
 });
 
@@ -142,9 +148,14 @@ test('a US detail shows the close in dollars, the rate, and why a close is missi
   searchFor('AAPL');
   fireEvent.click(await screen.findByRole('button', { name: /AAPL/ }));
   expect(await screen.findByRole('heading', { level: 2, name: 'Apple Inc' })).toBeInTheDocument();
-  expect(screen.getByText('231.5달러')).toBeInTheDocument();
-  expect(screen.getByText('1,384.5원')).toBeInTheDocument();
-  expect(screen.getByText('환율 지연 · 11월 9일 기준')).toBeInTheDocument();
+  expect(detailCard().getByText('231.5달러')).toBeInTheDocument();
+  expect(detailCard().getByText('1,384.5원')).toBeInTheDocument();
+  expect(detailCard().getByText('환율 지연 · 11월 9일 기준')).toBeInTheDocument();
+  // The result row picks up the name and close fetched on opening, without a new search.
+  const row = within(screen.getByRole('list', { name: '검색 결과' })).getByRole('button');
+  expect(row).toHaveTextContent('Apple Inc');
+  expect(row).toHaveTextContent('231.5달러');
+  expect(row).not.toHaveTextContent('열면 시세를 받습니다');
 });
 
 test.each([

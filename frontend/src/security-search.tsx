@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
@@ -64,6 +64,22 @@ export function SecuritySearch() {
   const [selected, setSelected] = useState<number | undefined>(undefined);
   // Only the latest search may change the list, whatever order the answers come back in.
   const latest = useRef(0);
+
+  // Opening a US security can fetch its name and close; the result row shows them without a new search.
+  const refreshRow = useCallback((detail: Detail) => {
+    setSearch((current) =>
+      current.state === 'done'
+        ? {
+            ...current,
+            securities: current.securities.map((found) =>
+              found.id === detail.security.id
+                ? { ...found, ...detail.security, quote: detail.quote ?? found.quote }
+                : found,
+            ),
+          }
+        : current,
+    );
+  }, []);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -183,12 +199,14 @@ export function SecuritySearch() {
           ) : null}
         </CardContent>
       </Card>
-      {selected === undefined ? null : <SecurityDetail key={selected} id={selected} />}
+      {selected === undefined ? null : (
+        <SecurityDetail key={selected} id={selected} onLoaded={refreshRow} />
+      )}
     </div>
   );
 }
 
-function SecurityDetail({ id }: { id: number }) {
+function SecurityDetail({ id, onLoaded }: { id: number; onLoaded: (detail: Detail) => void }) {
   const [detail, setDetail] = useState<Detail | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -197,7 +215,9 @@ function SecurityDetail({ id }: { id: number }) {
     let current = true;
     requestJson<Detail>(`/api/prices/securities/${id}`)
       .then((data) => {
-        if (current) setDetail(data);
+        if (!current) return;
+        setDetail(data);
+        onLoaded(data);
       })
       .catch((cause: unknown) => {
         if (current) setError(errorText(cause, '종목 시세를 불러오지 못했습니다'));
@@ -205,7 +225,7 @@ function SecurityDetail({ id }: { id: number }) {
     return () => {
       current = false;
     };
-  }, [id]);
+  }, [id, onLoaded]);
 
   // The detail replaces nothing on the screen, so focus moves to it once it is there.
   useEffect(() => {

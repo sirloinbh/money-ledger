@@ -107,19 +107,25 @@ export function pricesRouter(pool: Pool, { sources, today, now, log }: Options) 
     let issue: QuoteIssue | null = null;
     const tracked =
       row.viewed_at !== null && at.getTime() - row.viewed_at.getTime() < trackedDays * 86_400_000;
+    const tiingo = sources.tiingo;
+    const security = { id, symbol: row.symbol, name: row.name };
+    let hasCloses = row.close !== null;
     // A US security off the daily fetch, or one still without any close, is fetched right away.
-    if (row.currency === 'USD' && (!tracked || row.close === null)) {
-      const tiingo = sources.tiingo;
+    if (row.currency === 'USD' && (!tracked || !hasCloses)) {
       if (!tiingo) issue = 'not_configured';
       else {
-        const security = { id, symbol: row.symbol, name: row.name };
         const result = await fetchUsCloses(pool, tiingo, security, at, tiingoHourlyLimit);
+        if (result === 'saved') hasCloses = true;
         if (result === 'rate_limited' || result === 'fetch_failed' || result === 'not_found') {
           issue = result;
           log({ event: 'price_fetch_now', symbol: row.symbol, result });
         }
-        await fetchUsName(pool, tiingo, security, at);
       }
+    }
+    // The name is fetched on any open while it is missing, but only for a ticker Tiingo has closes for,
+    // so an unknown ticker does not spend a call on a sure 404.
+    if (row.currency === 'USD' && tiingo && hasCloses && issue === null) {
+      await fetchUsName(pool, tiingo, security, at);
     }
     // Opening the detail puts a US security on the daily fetch for the next 30 days.
     await pool.query('UPDATE securities SET viewed_at = $2 WHERE id = $1', [id, at]);

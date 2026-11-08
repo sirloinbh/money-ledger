@@ -11,24 +11,38 @@ import { getState, markAttempt, markChecked, stateSources } from './store.js';
 
 const firstHour = 12;
 const lastRetryHour = 18;
+// Session advisory lock: two servers on one DB never run the fetch at the same time.
+const jobLock = 510001;
 
-/** Runs the daily fetch if it is due at `now`. Returns whether it ran. */
+/** Runs the daily fetch if it is due at `now` and no other server is running it. Returns whether it ran. */
 export async function runIfDue(pool: Pool, sources: PriceSources, now: Date, log: PriceLog) {
   const today = serviceDate(now);
   const hour = seoulHour(now);
   if (hour < firstHour) return false;
-  const state = await getState(pool, stateSources.job, 'all');
-  if (state.checkedThrough === today) return false;
-  const last = state.lastAttemptAt;
-  if (last && serviceDate(last) === today) {
-    if (hour > lastRetryHour) return false; // retries end at 18:00; the next try is tomorrow at 12:00
-    if (seoulHour(last) === hour) return false; // once an hour
+  const lock = await pool.connect();
+  let locked = false;
+  try {
+    locked = (
+      await lock.query<{ locked: boolean }>('SELECT pg_try_advisory_lock($1) AS locked', [jobLock])
+    ).rows[0].locked;
+    if (!locked) return false;
+    // Read after taking the lock, so a run another server just finished is seen.
+    const state = await getState(pool, stateSources.job, 'all');
+    if (state.checkedThrough === today) return false;
+    const last = state.lastAttemptAt;
+    if (last && serviceDate(last) === today) {
+      if (hour > lastRetryHour) return false; // retries end at 18:00; the next try is tomorrow at 12:00
+      if (seoulHour(last) === hour) return false; // once an hour
+    }
+    await markAttempt(pool, stateSources.job, 'all', now);
+    const { complete } = await runDailyFetch(pool, sources, now, log);
+    if (complete) await markChecked(pool, stateSources.job, 'all', today, now);
+    log({ event: 'price_fetch_run', today, complete });
+    return true;
+  } finally {
+    if (locked) await lock.query('SELECT pg_advisory_unlock($1)', [jobLock]).catch(() => undefined);
+    lock.release();
   }
-  await markAttempt(pool, stateSources.job, 'all', now);
-  const { complete } = await runDailyFetch(pool, sources, now, log);
-  if (complete) await markChecked(pool, stateSources.job, 'all', today, now);
-  log({ event: 'price_fetch_run', today, complete });
-  return true;
 }
 
 /** Checks every minute whether the fetch is due. Returns a function that stops the timer. */

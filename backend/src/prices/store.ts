@@ -1,7 +1,13 @@
 import type { Pool, PoolClient } from 'pg';
 
 import { inTransaction } from '../db.js';
-import type { KrxMarket, KrxRow, UsClose, UsTicker } from './sources.js';
+import {
+  type KrxMarket,
+  type KrxRow,
+  SourceError,
+  type UsClose,
+  type UsTicker,
+} from './sources.js';
 
 // Reads and writes of the shared price tables (database/migrations/009_prices.sql). Times are passed in
 // instead of using now(), so the schedule can be tested with a fixed clock.
@@ -73,7 +79,7 @@ export async function markFailed(
   );
 }
 
-/** One KRX market day: every security and its close, then the checked date, in one transaction. */
+/** One KRX market day: every security and its close, then (when `checked`) the checked date, in one transaction. */
 export async function saveKrxDay(
   pool: Pool,
   market: KrxMarket,
@@ -81,6 +87,7 @@ export async function saveKrxDay(
   rows: KrxRow[],
   sourceName: string,
   now: Date,
+  checked = true,
 ) {
   // A symbol twice in one statement would make ON CONFLICT touch a row twice; the last one wins.
   const unique = [...new Map(rows.map((row) => [row.symbol, row])).values()];
@@ -113,16 +120,26 @@ export async function saveKrxDay(
         ],
       );
     }
-    await markChecked(client, stateSources.krx, market, date, now);
+    if (checked) await markChecked(client, stateSources.krx, market, date, now);
   });
 }
 
+/** A new US list shorter than this share of the active tickers is refused as a broken file. */
+const minimumListShare = 0.5;
+
 /**
  * The weekly US list: adds new tickers and marks the ones no longer in the file inactive (kept, because
- * prices and holdings may point at them). An empty list changes nothing.
+ * prices and holdings may point at them). A list less than half as long as the active one is refused, so a
+ * truncated file cannot hide most US securities from search.
  */
 export async function saveUsTickers(pool: Pool, tickers: UsTicker[], today: string, now: Date) {
   await inTransaction(pool, async (client) => {
+    const { rows } = await client.query<{ active: number }>(
+      "SELECT count(*)::int AS active FROM securities WHERE currency = 'USD' AND active",
+    );
+    if (tickers.length < (rows[0]?.active ?? 0) * minimumListShare) {
+      throw new SourceError('Tiingo 종목 목록이 평소보다 너무 짧아 저장하지 않았습니다');
+    }
     if (tickers.length > 0) {
       const symbols = tickers.map((ticker) => ticker.symbol);
       await client.query(
@@ -148,13 +165,13 @@ export async function saveUsTickers(pool: Pool, tickers: UsTicker[], today: stri
   });
 }
 
-/** US closes of one security, then its checked date (`latest`, even when no close came back). */
+/** US closes of one security, then its checked date (`checkedThrough`, chosen by the caller). */
 export async function saveUsCloses(
   pool: Pool,
   securityId: number,
   symbol: string,
   closes: UsClose[],
-  latest: string,
+  checkedThrough: string,
   sourceName: string,
   now: Date,
   note: string | null = null,
@@ -170,7 +187,7 @@ export async function saveUsCloses(
         [securityId, closes.map((c) => c.date), closes.map((c) => c.close), sourceName, now],
       );
     }
-    await markChecked(client, stateSources.tiingo, symbol, latest, now, note);
+    await markChecked(client, stateSources.tiingo, symbol, checkedThrough, now, note);
   });
 }
 
@@ -188,6 +205,7 @@ export async function saveFx(
   rate: string | null,
   sourceName: string,
   now: Date,
+  checked = true,
 ) {
   await inTransaction(pool, async (client) => {
     if (rate !== null) {
@@ -198,7 +216,7 @@ export async function saveFx(
         [date, rate, sourceName, now],
       );
     }
-    await markChecked(client, stateSources.fx, 'USD', date, now);
+    if (checked) await markChecked(client, stateSources.fx, 'USD', date, now);
   });
 }
 

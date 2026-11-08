@@ -119,8 +119,9 @@ test('shared price store against the real database', { skip: !url }, async (t) =
         ['2026-10-30', '2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06'],
       );
       assert.equal((await closesOf('005930')).at(-1)?.close, '70600.0000');
+      // The latest day (Sunday) came back empty, so it is not checked yet: its values may still come out.
       assert.deepEqual(await state('KRX', 'KOSPI'), {
-        checked_through: '2026-11-08',
+        checked_through: '2026-11-07',
         last_error: null,
       });
       // The rate goes up to today.
@@ -144,7 +145,12 @@ test('shared price store against the real database', { skip: !url }, async (t) =
           complete: true,
         },
       );
-      assert.deepEqual(again.calls.krx, []);
+      // Only the empty latest day is asked for again; today's rate already came back.
+      assert.deepEqual(again.calls.krx, [
+        'KOSPI 2026-11-08',
+        'KOSDAQ 2026-11-08',
+        'KRX_ETF 2026-11-08',
+      ]);
       assert.deepEqual(again.calls.fx, []);
       assert.equal(again.calls.tickers, 0); // weekly
 
@@ -153,7 +159,7 @@ test('shared price store against the real database', { skip: !url }, async (t) =
       await runDailyFetch(pool, later.sources, at('2026-11-11T03:00:00Z'), quiet);
       assert.deepEqual(
         later.calls.krx.filter((call) => call.startsWith('KOSPI')),
-        ['KOSPI 2026-11-09', 'KOSPI 2026-11-10'],
+        ['KOSPI 2026-11-08', 'KOSPI 2026-11-09', 'KOSPI 2026-11-10'],
       );
       assert.deepEqual(later.calls.fx, ['2026-11-10', '2026-11-11']);
     },
@@ -180,7 +186,7 @@ test('shared price store against the real database', { skip: !url }, async (t) =
       last_error: 'KRX 시세 응답 오류 (HTTP 503)',
     });
     // Other markets are not held back.
-    assert.equal((await state('KRX', 'KOSPI'))?.checked_through, '2026-11-08');
+    assert.equal((await state('KRX', 'KOSPI'))?.checked_through, '2026-11-07');
     assert.ok(
       logged.some((event) => event.event === 'price_fetch_failed' && event.scope === 'KOSDAQ'),
     );
@@ -189,15 +195,18 @@ test('shared price store against the real database', { skip: !url }, async (t) =
     assert.deepEqual(await runDailyFetch(pool, retry.sources, at('2026-11-09T04:00:00Z'), quiet), {
       complete: true,
     });
-    assert.deepEqual(retry.calls.krx, [
-      'KOSDAQ 2026-11-04',
-      'KOSDAQ 2026-11-05',
-      'KOSDAQ 2026-11-06',
-      'KOSDAQ 2026-11-07',
-      'KOSDAQ 2026-11-08',
-    ]);
+    assert.deepEqual(
+      retry.calls.krx.filter((call) => call.startsWith('KOSDAQ')),
+      [
+        'KOSDAQ 2026-11-04',
+        'KOSDAQ 2026-11-05',
+        'KOSDAQ 2026-11-06',
+        'KOSDAQ 2026-11-07',
+        'KOSDAQ 2026-11-08',
+      ],
+    );
     assert.deepEqual(await state('KRX', 'KOSDAQ'), {
-      checked_through: '2026-11-08',
+      checked_through: '2026-11-07',
       last_error: null,
     });
   });
@@ -360,7 +369,8 @@ test('shared price store against the real database', { skip: !url }, async (t) =
     // The next day's fetch includes it, from the day after its checked date.
     const next = counted();
     await runDailyFetch(pool, next.sources, at('2026-11-10T03:00:00Z'), quiet);
-    assert.deepEqual(next.calls.closes, ['AAPL 2026-11-09~2026-11-09']);
+    // 11-08 (the latest US day at the first open) had no close, so it is asked for again.
+    assert.deepEqual(next.calls.closes, ['AAPL 2026-11-08~2026-11-09']);
     // 30 days after the last open it drops off the daily fetch.
     const month = counted();
     await runDailyFetch(pool, month.sources, at('2026-12-10T03:00:00Z'), quiet);
@@ -463,8 +473,10 @@ test('shared price store against the real database', { skip: !url }, async (t) =
         async (call) => {
           const id = ((await call('/api/prices/securities?q=GONE')).data.securities as Found[])[0]
             .id;
+          const names = calls.names;
           const detail = (await call(`/api/prices/securities/${id}`)).data as Detail;
           assert.deepEqual([detail.quote, detail.quoteIssue], [null, 'not_found']);
+          assert.equal(calls.names, names); // no call spent on a sure 404
         },
         { now: () => at('2026-11-09T05:02:00Z'), prices: sources },
       );
@@ -511,6 +523,83 @@ test('shared price store against the real database', { skip: !url }, async (t) =
       });
     },
   );
+
+  await t.test(
+    'a latest value that is not out yet is asked for again on the next run',
+    async () => {
+      await reset();
+      const { sources, calls } = counted();
+      let published = false;
+      const late = {
+        ...sources,
+        fx: {
+          name: 'FAKE',
+          usd: (date: string) =>
+            date === '2026-11-10' && !published ? Promise.resolve(null) : sources.fx.usd(date),
+        },
+        tiingo: {
+          ...sources.tiingo,
+          closes: async (symbol: string, start: string, end: string) =>
+            (await sources.tiingo.closes(symbol, start, end))?.filter(
+              (close) => published || close.date !== '2026-11-09',
+            ) ?? null,
+        },
+      };
+      await pool.query(
+        "INSERT INTO securities (market, symbol, kind, currency, viewed_at) VALUES ('NASDAQ', 'AAPL', 'stock', 'USD', $1)",
+        [noon],
+      );
+      // Tuesday 12:00 in Seoul: the latest US day is Monday 11-09 and the latest rate day 11-10, both not out.
+      await runDailyFetch(pool, late, at('2026-11-10T03:00:00Z'), quiet);
+      assert.equal((await state('TIINGO', 'AAPL'))?.checked_through, '2026-11-08');
+      assert.equal((await state('KOREAEXIM', 'USD'))?.checked_through, '2026-11-09');
+      published = true;
+      calls.closes.length = 0;
+      calls.fx.length = 0;
+      await runDailyFetch(pool, late, at('2026-11-10T04:00:00Z'), quiet);
+      assert.deepEqual(calls.closes, ['AAPL 2026-11-09~2026-11-09']);
+      assert.deepEqual(calls.fx, ['2026-11-10']);
+      assert.equal((await closesOf('AAPL')).at(-1)?.trade_date, '2026-11-09');
+      assert.equal((await state('TIINGO', 'AAPL'))?.checked_through, '2026-11-09');
+      assert.equal((await state('KOREAEXIM', 'USD'))?.checked_through, '2026-11-10');
+    },
+  );
+
+  await t.test('a US list less than half as long as the active one is refused', async () => {
+    await reset();
+    await runDailyFetch(pool, counted().sources, noon, quiet);
+    const { sources } = counted();
+    const truncated = {
+      ...sources,
+      tiingo: {
+        ...sources.tiingo,
+        tickers: async () => (await sources.tiingo.tickers()).slice(0, 1),
+      },
+    };
+    const result = await runDailyFetch(pool, truncated, at('2026-11-16T03:00:00Z'), quiet);
+    assert.deepEqual(result, { complete: false });
+    const active = await pool.query<{ n: number }>(
+      "SELECT count(*)::int AS n FROM securities WHERE currency = 'USD' AND active",
+    );
+    assert.equal(active.rows[0].n, 4);
+    assert.deepEqual(await state('TIINGO', 'tickers'), {
+      checked_through: '2026-11-09',
+      last_error: 'Tiingo 종목 목록이 평소보다 너무 짧아 저장하지 않았습니다',
+    });
+  });
+
+  await t.test('only one server runs the daily fetch at a time', async () => {
+    await reset();
+    const other = await pool.connect();
+    try {
+      await other.query('SELECT pg_advisory_lock($1)', [510001]);
+      assert.equal(await runIfDue(pool, counted().sources, noon, quiet), false);
+      await other.query('SELECT pg_advisory_unlock($1)', [510001]);
+      assert.equal(await runIfDue(pool, counted().sources, noon, quiet), true);
+    } finally {
+      other.release();
+    }
+  });
 
   await t.test('the DB keeps closes whole for won and in the security currency', async () => {
     await reset();

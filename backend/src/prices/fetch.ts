@@ -19,7 +19,8 @@ import {
 
 // The daily fetch (docs/price-source.md): Korean closes, the USD rate, the weekly US list and the closes of
 // tracked US securities. Each source asks from the day after its last checked date to its latest date, at
-// most 10 days back. An empty answer is "no new values" and still counts as checked.
+// most 10 days back. An empty answer is "no new values" and still counts as checked, except for the latest
+// date: its values may simply not be out yet, so it is asked for again on the next run (#51 review).
 
 export type PriceLog = (event: Record<string, unknown>) => void;
 
@@ -36,6 +37,10 @@ const messageOf = (error: unknown) =>
 /** Runs every source once. `complete` is false when something should be retried in an hour. */
 export async function runDailyFetch(pool: Pool, sources: PriceSources, now: Date, log: PriceLog) {
   const today = serviceDate(now);
+  // Calls are recorded at the time they are made, not when the run started: a run slowed by timeouts must
+  // not let its calls drop out of the hourly window early.
+  const started = performance.now();
+  const clock = () => new Date(now.getTime() + (performance.now() - started));
   let complete = true;
   const failed = async (source: string, scope: string, error: unknown) => {
     const message = messageOf(error);
@@ -51,9 +56,19 @@ export async function runDailyFetch(pool: Pool, sources: PriceSources, now: Date
   else {
     for (const market of krxMarkets) {
       const state = await getState(pool, stateSources.krx, market);
-      for (const date of datesToFetch(state.checkedThrough, addDays(today, -1))) {
+      const latest = addDays(today, -1);
+      for (const date of datesToFetch(state.checkedThrough, latest)) {
         try {
-          await saveKrxDay(pool, market, date, await krx.daily(market, date), krx.name, now);
+          const rows = await krx.daily(market, date);
+          await saveKrxDay(
+            pool,
+            market,
+            date,
+            rows,
+            krx.name,
+            now,
+            checks(date, latest, rows.length),
+          );
         } catch (error) {
           await failed(stateSources.krx, market, error);
           break; // the next run starts again from this date
@@ -69,7 +84,8 @@ export async function runDailyFetch(pool: Pool, sources: PriceSources, now: Date
     const state = await getState(pool, stateSources.fx, 'USD');
     for (const date of datesToFetch(state.checkedThrough, today)) {
       try {
-        await saveFx(pool, date, await fx.usd(date), fx.name, now);
+        const rate = await fx.usd(date);
+        await saveFx(pool, date, rate, fx.name, now, checks(date, today, rate === null ? 0 : 1));
       } catch (error) {
         await failed(stateSources.fx, 'USD', error);
         break;
@@ -85,13 +101,13 @@ export async function runDailyFetch(pool: Pool, sources: PriceSources, now: Date
   const list = await getState(pool, stateSources.tiingo, 'tickers');
   if (list.checkedThrough === null || list.checkedThrough <= addDays(today, -tickersEveryDays)) {
     try {
-      await saveUsTickers(pool, await tiingo.tickers(), today, now);
+      await saveUsTickers(pool, await tiingo.tickers(), today, clock());
     } catch (error) {
       await failed(stateSources.tiingo, 'tickers', error);
     }
   }
   for (const security of await trackedUsSecurities(pool, now)) {
-    const result = await fetchUsCloses(pool, tiingo, security, now, dailyTiingoLimit);
+    const result = await fetchUsCloses(pool, tiingo, security, clock(), dailyTiingoLimit);
     if (result === 'rate_limited') {
       log({ event: 'price_fetch_limited', source: stateSources.tiingo, scope: security.symbol });
       complete = false;
@@ -108,6 +124,14 @@ export async function runDailyFetch(pool: Pool, sources: PriceSources, now: Date
     }
   }
   return { complete };
+}
+
+/**
+ * Whether `date` counts as checked: always for earlier dates (an empty answer there is a holiday), but the
+ * latest date only once values came back, since they may not be published yet.
+ */
+function checks(date: string, latest: string, values: number) {
+  return date < latest || values > 0;
 }
 
 export type UsFetchResult = 'saved' | 'up_to_date' | 'rate_limited' | 'fetch_failed' | 'not_found';
@@ -142,7 +166,8 @@ export async function fetchUsCloses(
       return 'not_found';
     }
     const inRange = closes.filter((close) => close.date >= dates[0] && close.date <= latest);
-    await saveUsCloses(pool, security.id, security.symbol, inRange, latest, tiingo.name, now);
+    const through = inRange.some((close) => close.date === latest) ? latest : addDays(latest, -1);
+    await saveUsCloses(pool, security.id, security.symbol, inRange, through, tiingo.name, now);
   } catch (error) {
     await markFailed(pool, stateSources.tiingo, security.symbol, messageOf(error), now);
     return 'fetch_failed';
@@ -163,6 +188,6 @@ export async function fetchUsName(
     const name = await tiingo.companyName(security.symbol);
     if (name !== null) await saveUsName(pool, security.id, name, now);
   } catch {
-    // The symbol is shown instead; the next first-time open tries again.
+    // The symbol is shown instead; the next open of the detail tries again.
   }
 }
