@@ -34,6 +34,7 @@ const json = (body: unknown, status = 200) =>
 const withCurrent = (asset: Asset) => ({
   ...asset,
   depreciation: asset.depreciation ?? null,
+  prepaid: null,
   currentValueKrw: asset.depreciation ? asset.depreciation.purchasePriceKrw / 2 : asset.valueKrw,
 });
 
