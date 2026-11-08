@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 
 import { serviceDate } from '../standard/http.js';
-import { addDays, datesToFetch, latestUsDate } from './dates.js';
+import { addDays, datesToFetch, isWeekend, latestUsDate } from './dates.js';
 import { krxMarkets, type PriceSources, SourceError, type TiingoSource } from './sources.js';
 import {
   getState,
@@ -166,7 +166,12 @@ export async function fetchUsCloses(
       return 'not_found';
     }
     const inRange = closes.filter((close) => close.date >= dates[0] && close.date <= latest);
-    const through = inRange.some((close) => close.date === latest) ? latest : addDays(latest, -1);
+    // A weekend has no US close, so an empty Saturday or Sunday is done; any other empty latest day may
+    // just not be out yet and is asked for again (#51 review).
+    const through =
+      isWeekend(latest) || inRange.some((close) => close.date === latest)
+        ? latest
+        : addDays(latest, -1);
     await saveUsCloses(pool, security.id, security.symbol, inRange, through, tiingo.name, now);
   } catch (error) {
     await markFailed(pool, stateSources.tiingo, security.symbol, messageOf(error), now);

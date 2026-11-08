@@ -8,6 +8,10 @@ export function addDays(date: string, days: number) {
   return moved.toISOString().slice(0, 10);
 }
 
+/** Saturday or Sunday, for a YYYY-MM-DD date. */
+export const isWeekend = (date: string) =>
+  [0, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay());
+
 function zoned(now: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone,

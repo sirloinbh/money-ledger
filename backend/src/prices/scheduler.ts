@@ -40,8 +40,14 @@ export async function runIfDue(pool: Pool, sources: PriceSources, now: Date, log
     log({ event: 'price_fetch_run', today, complete });
     return true;
   } finally {
-    if (locked) await lock.query('SELECT pg_advisory_unlock($1)', [jobLock]).catch(() => undefined);
-    lock.release();
+    // A connection that could not unlock is dropped, so ending its session frees the lock for other servers.
+    let broken = false;
+    if (locked) {
+      await lock.query('SELECT pg_advisory_unlock($1)', [jobLock]).catch(() => {
+        broken = true;
+      });
+    }
+    lock.release(broken);
   }
 }
 

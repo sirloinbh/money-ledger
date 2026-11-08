@@ -1,11 +1,10 @@
-import { addDays } from './dates.js';
+import { addDays, isWeekend } from './dates.js';
 import type { KrxMarket, KrxRow, PriceSources, UsTicker } from './sources.js';
 
 // A deterministic stand-in for KRX, Tiingo and Korea Eximbank, for tests and for running the app without API
 // keys (PRICE_SOURCE=fake). Weekends have no data, like real market holidays. Prices move with the day of
 // the month so a newer close is visibly different.
 
-const isWeekend = (date: string) => [0, 6].includes(new Date(`${date}T00:00:00Z`).getUTCDay());
 const day = (date: string) => Number(date.slice(8, 10));
 
 const krx: Record<KrxMarket, { symbol: string; name: string; base: number }[]> = {

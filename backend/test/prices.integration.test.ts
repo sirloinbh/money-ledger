@@ -366,11 +366,15 @@ test('shared price store against the real database', { skip: !url }, async (t) =
       options,
     );
 
+    // The latest US day at the first open was Sunday 11-08: empty, but a weekend, so it counts as checked
+    // and an hourly retry the same day does not call Tiingo again.
+    const retry = counted();
+    await runDailyFetch(pool, retry.sources, at('2026-11-09T05:00:00Z'), quiet);
+    assert.deepEqual(retry.calls.closes, []);
     // The next day's fetch includes it, from the day after its checked date.
     const next = counted();
     await runDailyFetch(pool, next.sources, at('2026-11-10T03:00:00Z'), quiet);
-    // 11-08 (the latest US day at the first open) had no close, so it is asked for again.
-    assert.deepEqual(next.calls.closes, ['AAPL 2026-11-08~2026-11-09']);
+    assert.deepEqual(next.calls.closes, ['AAPL 2026-11-09~2026-11-09']);
     // 30 days after the last open it drops off the daily fetch.
     const month = counted();
     await runDailyFetch(pool, month.sources, at('2026-12-10T03:00:00Z'), quiet);
