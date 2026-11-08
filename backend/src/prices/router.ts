@@ -45,7 +45,8 @@ const toSecurity = (row: SecurityRow) => ({
   name: row.name,
   kind: row.kind,
   currency: row.currency,
-  // false: delisted or suspended (#97). Not buyable, still sellable.
+  // false: a Korean security missing from the KRX data for 10 market days (#97), or a US ticker that left the
+  // Tiingo list. Not buyable, still sellable.
   active: row.active,
 });
 

@@ -677,9 +677,52 @@ test('shared price store against the real database', { skip: !url }, async (t) =
         { today: () => '2026-11-17' },
       );
 
+      // An older day that still had it, saved late (a manual refetch), does not bring it back.
+      await save(days[0], [samsung, halted]);
+      assert.equal(await activeOf('000660'), false);
+
       // Back in the data: active again.
       await save(days[11], [samsung, halted]);
       assert.equal(await activeOf('000660'), true);
+    },
+  );
+
+  await t.test(
+    'a security that moved to another market is judged by its new market only',
+    async () => {
+      await reset();
+      const moving = { symbol: '247540', name: '에코프로비엠', close: '150000' };
+      const other = { symbol: '005930', name: '삼성전자', close: '70000' };
+      const days = [
+        '2026-11-02',
+        '2026-11-03',
+        '2026-11-04',
+        '2026-11-05',
+        '2026-11-06',
+        '2026-11-09',
+        '2026-11-10',
+        '2026-11-11',
+        '2026-11-12',
+        '2026-11-13',
+        '2026-11-16',
+      ];
+      await saveKrxDay(
+        pool,
+        'KOSDAQ',
+        days[0],
+        [moving, { ...other, symbol: '000250' }],
+        'FAKE',
+        noon,
+      );
+      // From the next day it is listed on KOSPI, and KOSDAQ answers keep coming without it.
+      for (const date of days.slice(1)) {
+        await saveKrxDay(pool, 'KOSPI', date, [moving, other], 'FAKE', noon);
+        await saveKrxDay(pool, 'KOSDAQ', date, [{ ...other, symbol: '000250' }], 'FAKE', noon);
+      }
+      const row = await pool.query<{ market: string; active: boolean }>(
+        "SELECT market, active FROM securities WHERE symbol = '247540'",
+      );
+      assert.deepEqual(row.rows[0], { market: 'KOSPI', active: true });
     },
   );
 

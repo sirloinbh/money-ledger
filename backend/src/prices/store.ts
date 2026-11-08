@@ -124,7 +124,7 @@ export async function saveKrxDay(
         'INSERT INTO krx_market_days (market, trade_date) VALUES ($1, $2) ON CONFLICT DO NOTHING',
         [market, date],
       );
-      await deactivateMissing(client, market, date, now);
+      await deactivateMissing(client, market, now);
     }
     if (checked) await markChecked(client, stateSources.krx, market, date, now);
   });
@@ -134,19 +134,21 @@ export async function saveKrxDay(
 const krxMissingDays = 10;
 
 /**
- * Marks inactive the securities of `market` missing from its last 10 market days up to `date`: their last-seen
- * day is before the 10th most recent market day. Counting stored market days (not runs) keeps it the same
- * however often a day is fetched again.
+ * Marks inactive the securities of `market` missing from its last 10 market days: their last-seen day is before
+ * the 10th most recent stored market day. Counting stored market days (not runs) keeps it the same however
+ * often a day is fetched again, and judging by the newest days (not the day just saved) keeps an older day
+ * saved late from bringing back a security that left (#97 review). A Korean security without a last-seen
+ * day is never made inactive; every Korean security arrives through the KRX data, which sets it.
  */
-async function deactivateMissing(client: PoolClient, market: KrxMarket, date: string, now: Date) {
+async function deactivateMissing(client: PoolClient, market: KrxMarket, now: Date) {
   await client.query(
-    `UPDATE securities SET active = false, updated_at = $3
+    `UPDATE securities SET active = false, updated_at = $2
      WHERE market = $1 AND currency = 'KRW' AND active
        AND krx_last_seen < (
-         SELECT trade_date FROM krx_market_days WHERE market = $1 AND trade_date <= $2
-         ORDER BY trade_date DESC OFFSET $4 - 1 LIMIT 1
+         SELECT trade_date FROM krx_market_days WHERE market = $1
+         ORDER BY trade_date DESC OFFSET $3 - 1 LIMIT 1
        )`,
-    [market, date, now, krxMissingDays],
+    [market, now, krxMissingDays],
   );
 }
 
