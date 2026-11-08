@@ -200,6 +200,7 @@ test('mock trading accounts against the real database', { skip: !url }, async (t
     await reset();
     await pool.query('DROP TABLE IF EXISTS portfolio_assets');
     await runMigration(pool, '004_portfolio_assets.sql');
+    await runMigration(pool, '007_depreciable_assets.sql');
     await withApi(pool, async (call) => {
       await call('/api/portfolio/assets', {
         method: 'POST',

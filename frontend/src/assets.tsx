@@ -12,9 +12,17 @@ import { useNotice } from './lib/use-notice';
 
 // #45 Held assets and debts. Won values are numbers, quantities and USD values decimal strings (#35 rules).
 // Trades come with #46, prices and FX conversion with #47.
+// #63 A depreciating asset is entered as a purchase price, date and useful life; the server returns its
+// current value (straight-line by month, never below the salvage value).
 
 type AssetType = 'stock' | 'real_estate' | 'cash' | 'debt' | 'depreciable' | 'other';
 type Currency = 'KRW' | 'USD';
+type Depreciation = {
+  purchasePriceKrw: number;
+  purchasedOn: string;
+  usefulLifeMonths: number;
+  salvageValueKrw: number;
+};
 type Asset = {
   id: number;
   name: string;
@@ -24,6 +32,9 @@ type Asset = {
   valueKrw: number | null;
   valueForeign: string | null;
   memo: string;
+  depreciation: Depreciation | null;
+  // The won value counted in the totals: the depreciated value today, else the entered won value.
+  currentValueKrw: number | null;
 };
 // A total is null when it is too large to show exactly.
 type Totals = {
@@ -39,8 +50,23 @@ type Draft = {
   quantity: string;
   value: string;
   memo: string;
+  purchasePrice: string;
+  purchasedOn: string;
+  lifeMonths: string;
+  salvage: string;
 };
-type Field = 'name' | 'quantity' | 'value';
+type Field =
+  'name' | 'quantity' | 'value' | 'purchasePrice' | 'purchasedOn' | 'lifeMonths' | 'salvage';
+
+const minDate = '1900-01-01';
+const maxDate = '2100-12-31';
+
+// Decision (2026-11-02): default useful lives, editable after choosing.
+const lifePresets = [
+  { label: '침대(10년)', months: 120 },
+  { label: '컴퓨터(5년)', months: 60 },
+  { label: '가전제품(7년)', months: 84 },
+] as const;
 
 const assetsPath = '/api/portfolio/assets';
 const typeLabels: Record<AssetType, string> = {
@@ -62,7 +88,56 @@ const emptyDraft = (): Draft => ({
   quantity: '',
   value: '',
   memo: '',
+  purchasePrice: '',
+  purchasedOn: '',
+  lifeMonths: '',
+  salvage: '0',
 });
+
+/** A whole-won amount up to 1,000조, or undefined when the text is not one. */
+function wonValue(text: string) {
+  const plain = digits(text);
+  if (!/^\d{1,16}$/.test(plain) || Number(plain) > 1e15) return undefined;
+  return Number(plain);
+}
+
+function depreciationBody(
+  draft: Draft,
+): { depreciation: Depreciation } | { field: Field; message: string } {
+  const purchasePriceKrw = wonValue(draft.purchasePrice);
+  if (purchasePriceKrw === undefined) {
+    return {
+      field: 'purchasePrice',
+      message: '구입가는 1,000조 원 이하의 원 단위 정수로 입력하세요',
+    };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.purchasedOn)) {
+    return { field: 'purchasedOn', message: '구입일을 입력하세요' };
+  }
+  // Same range as the server (and the date input's min/max).
+  if (draft.purchasedOn < minDate || draft.purchasedOn > maxDate) {
+    return { field: 'purchasedOn', message: '구입일은 1900년부터 2100년 사이로 입력하세요' };
+  }
+  const lifeText = draft.lifeMonths.trim();
+  if (!/^\d{1,4}$/.test(lifeText) || Number(lifeText) < 1 || Number(lifeText) > 1200) {
+    return { field: 'lifeMonths', message: '사용 기간은 1~1200개월 사이의 정수로 입력하세요' };
+  }
+  const salvageValueKrw = draft.salvage.trim() === '' ? 0 : wonValue(draft.salvage);
+  if (salvageValueKrw === undefined) {
+    return { field: 'salvage', message: '잔존 가치는 원 단위 정수로 입력하세요' };
+  }
+  if (salvageValueKrw > purchasePriceKrw) {
+    return { field: 'salvage', message: '잔존 가치는 구입가보다 클 수 없습니다' };
+  }
+  return {
+    depreciation: {
+      purchasePriceKrw,
+      purchasedOn: draft.purchasedOn,
+      usefulLifeMonths: Number(lifeText),
+      salvageValueKrw,
+    },
+  };
+}
 
 const totalText = (value: number | null) =>
   value === null
@@ -78,6 +153,22 @@ const totalText = (value: number | null) =>
 function toBody(draft: Draft): { body: object } | { field: Field; message: string } {
   const name = draft.name.trim();
   if (!name) return { field: 'name', message: '자산 이름을 입력하세요' };
+  if (draft.type === 'depreciable') {
+    const result = depreciationBody(draft);
+    if ('field' in result) return result;
+    return {
+      body: {
+        name,
+        type: draft.type,
+        currency: 'KRW',
+        quantity: null,
+        valueKrw: null,
+        valueForeign: null,
+        memo: draft.memo,
+        depreciation: result.depreciation,
+      },
+    };
+  }
   const quantityText = draft.type === 'debt' ? '' : digits(draft.quantity);
   if (
     quantityText &&
@@ -120,9 +211,18 @@ function toBody(draft: Draft): { body: object } | { field: Field; message: strin
 }
 
 function valueText(asset: Asset) {
-  if (asset.valueKrw !== null) return formatWon(asset.valueKrw);
+  if (asset.currentValueKrw !== null) return formatWon(asset.currentValueKrw);
   if (asset.valueForeign !== null) return formatUsd(asset.valueForeign);
   return '평가금액 없음';
+}
+
+/** "구입가 1,200,000원 · 2026-01-15 구입 · 사용 기간 60개월" (+ " · 잔존 가치 …" when not 0). */
+function depreciationText(depreciation: Depreciation) {
+  const salvage =
+    depreciation.salvageValueKrw > 0
+      ? ` · 잔존 가치 ${formatWon(depreciation.salvageValueKrw)}`
+      : '';
+  return `구입가 ${formatWon(depreciation.purchasePriceKrw)} · ${depreciation.purchasedOn} 구입 · 사용 기간 ${depreciation.usefulLifeMonths}개월${salvage}`;
 }
 
 export function AssetManager() {
@@ -180,6 +280,15 @@ export function AssetManager() {
             ? formatDecimal(asset.valueForeign).replaceAll(',', '')
             : '',
       memo: asset.memo,
+      // A #45 depreciable row has only a value: offer it as the purchase price instead of dropping it.
+      purchasePrice: asset.depreciation
+        ? String(asset.depreciation.purchasePriceKrw)
+        : asset.type === 'depreciable' && asset.valueKrw !== null
+          ? String(asset.valueKrw)
+          : '',
+      purchasedOn: asset.depreciation?.purchasedOn ?? '',
+      lifeMonths: asset.depreciation ? String(asset.depreciation.usefulLifeMonths) : '',
+      salvage: asset.depreciation ? String(asset.depreciation.salvageValueKrw) : '0',
     });
     notice.clear();
   };
@@ -256,7 +365,8 @@ export function AssetManager() {
         <CardHeader>
           <CardTitle asHeading="h2">{editing ? '자산 수정' : '새 자산'}</CardTitle>
           <CardDescription>
-            수량만 넣은 자산과 달러 자산은 시세·환율 기능이 생기면 원화로 환산됩니다.
+            수량만 넣은 자산과 달러 자산은 시세·환율 기능이 생기면 원화로 환산됩니다. 감가상각
+            대상은 구입가에서 매달 같은 금액을 빼 현재 가치를 계산합니다.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -295,59 +405,148 @@ export function AssetManager() {
                 ))}
               </select>
             </div>
-            <fieldset className="flex flex-col gap-2">
-              <legend className="mb-2 text-body-sm font-medium">통화</legend>
-              <div className="flex gap-4">
-                {(['KRW', 'USD'] as const).map((currency) => (
-                  <label key={currency} className="flex items-center gap-2 text-body-sm">
-                    <input
-                      type="radio"
-                      name="asset-currency"
-                      value={currency}
-                      checked={draft.currency === currency}
-                      onChange={() => change({ currency })}
-                      className="size-4 accent-primary"
+            {draft.type === 'depreciable' ? (
+              <>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="asset-purchase-price">구입가(원)</Label>
+                  <Input
+                    id="asset-purchase-price"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="예: 1200000"
+                    value={draft.purchasePrice}
+                    {...fieldProps('purchasePrice')}
+                    onChange={(event) => {
+                      clearInvalid('purchasePrice');
+                      change({ purchasePrice: event.target.value });
+                    }}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="asset-purchased-on">구입일</Label>
+                  <Input
+                    id="asset-purchased-on"
+                    type="date"
+                    min={minDate}
+                    max={maxDate}
+                    value={draft.purchasedOn}
+                    {...fieldProps('purchasedOn')}
+                    onChange={(event) => {
+                      clearInvalid('purchasedOn');
+                      change({ purchasedOn: event.target.value });
+                    }}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="asset-life-preset">기본 사용 기간</Label>
+                  <select
+                    id="asset-life-preset"
+                    className={selectClass}
+                    value={
+                      lifePresets.find(
+                        (preset) => String(preset.months) === draft.lifeMonths.trim(),
+                      )?.months ?? ''
+                    }
+                    onChange={(event) => {
+                      clearInvalid('lifeMonths');
+                      change({ lifeMonths: event.target.value });
+                    }}
+                  >
+                    <option value="">직접 입력</option>
+                    {lifePresets.map((preset) => (
+                      <option key={preset.months} value={preset.months}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="asset-life-months">사용 기간(개월)</Label>
+                  <Input
+                    id="asset-life-months"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="예: 60"
+                    value={draft.lifeMonths}
+                    {...fieldProps('lifeMonths')}
+                    onChange={(event) => {
+                      clearInvalid('lifeMonths');
+                      change({ lifeMonths: event.target.value });
+                    }}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="asset-salvage">잔존 가치(원)</Label>
+                  <Input
+                    id="asset-salvage"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={draft.salvage}
+                    {...fieldProps('salvage')}
+                    onChange={(event) => {
+                      clearInvalid('salvage');
+                      change({ salvage: event.target.value });
+                    }}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <fieldset className="flex flex-col gap-2">
+                  <legend className="mb-2 text-body-sm font-medium">통화</legend>
+                  <div className="flex gap-4">
+                    {(['KRW', 'USD'] as const).map((currency) => (
+                      <label key={currency} className="flex items-center gap-2 text-body-sm">
+                        <input
+                          type="radio"
+                          name="asset-currency"
+                          value={currency}
+                          checked={draft.currency === currency}
+                          onChange={() => change({ currency })}
+                          className="size-4 accent-primary"
+                        />
+                        {currency === 'KRW' ? '원화(KRW)' : '달러(USD)'}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                {draft.type === 'debt' ? null : (
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="asset-quantity">수량(선택)</Label>
+                    <Input
+                      id="asset-quantity"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      placeholder="예: 10 또는 0.5"
+                      value={draft.quantity}
+                      {...fieldProps('quantity')}
+                      onChange={(event) => {
+                        clearInvalid('quantity');
+                        change({ quantity: event.target.value });
+                      }}
                     />
-                    {currency === 'KRW' ? '원화(KRW)' : '달러(USD)'}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-            {draft.type === 'debt' ? null : (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="asset-quantity">수량(선택)</Label>
-                <Input
-                  id="asset-quantity"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  placeholder="예: 10 또는 0.5"
-                  value={draft.quantity}
-                  {...fieldProps('quantity')}
-                  onChange={(event) => {
-                    clearInvalid('quantity');
-                    change({ quantity: event.target.value });
-                  }}
-                />
-              </div>
+                  </div>
+                )}
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="asset-value">
+                    {draft.type === 'debt' ? '남은 금액' : '평가금액'}(
+                    {draft.currency === 'KRW' ? '원' : '달러'})
+                  </Label>
+                  <Input
+                    id="asset-value"
+                    inputMode={draft.currency === 'KRW' ? 'numeric' : 'decimal'}
+                    autoComplete="off"
+                    placeholder={draft.currency === 'KRW' ? '예: 5000000' : '예: 1234.56'}
+                    value={draft.value}
+                    {...fieldProps('value')}
+                    onChange={(event) => {
+                      clearInvalid('value');
+                      change({ value: event.target.value });
+                    }}
+                  />
+                </div>
+              </>
             )}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="asset-value">
-                {draft.type === 'debt' ? '남은 금액' : '평가금액'}(
-                {draft.currency === 'KRW' ? '원' : '달러'})
-              </Label>
-              <Input
-                id="asset-value"
-                inputMode={draft.currency === 'KRW' ? 'numeric' : 'decimal'}
-                autoComplete="off"
-                placeholder={draft.currency === 'KRW' ? '예: 5000000' : '예: 1234.56'}
-                value={draft.value}
-                {...fieldProps('value')}
-                onChange={(event) => {
-                  clearInvalid('value');
-                  change({ value: event.target.value });
-                }}
-              />
-            </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="asset-memo">메모</Label>
               <Input
@@ -474,7 +673,7 @@ function AssetList({
                     <div className="flex min-w-0 flex-col gap-1">
                       <span className="font-medium break-words">{asset.name}</span>
                       <span className="text-body-sm text-muted-foreground">
-                        {asset.currency}
+                        {asset.depreciation ? depreciationText(asset.depreciation) : asset.currency}
                         {asset.quantity === null ? '' : ` · 수량 ${formatDecimal(asset.quantity)}`}
                         {asset.memo ? ` · ${asset.memo}` : ''}
                       </span>

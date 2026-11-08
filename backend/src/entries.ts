@@ -10,7 +10,7 @@ import { HttpError, parseId } from './standard/http.js';
 // #60 An entry may have a merchant and may be uncategorized (category NULL, "미분류"). Saved without a
 // category, it gets the category of the matching keyword rule if there is one; a chosen category is kept.
 
-const date = z
+export const date = z
   .string({ error: '날짜를 YYYY-MM-DD 형식으로 입력하세요' })
   .regex(/^\d{4}-\d{2}-\d{2}$/, { error: '날짜를 YYYY-MM-DD 형식으로 입력하세요', abort: true })
   // PostgreSQL has no year 0, and far-off years are typos: keep dates in a range a ledger can mean.

@@ -1,6 +1,7 @@
 import type { Health } from './health';
 import { MockAccount } from './mock-account';
 import { Page } from './page';
+import { SecuritySearch } from './security-search';
 
 export function MockTradingPage({ health }: { health: Health }) {
   return (
@@ -10,6 +11,7 @@ export function MockTradingPage({ health }: { health: Health }) {
       health={health}
     >
       <MockAccount />
+      <SecuritySearch />
     </Page>
   );
 }
