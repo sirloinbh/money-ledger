@@ -5,7 +5,7 @@ import { ConfirmDialog } from './components/ui/confirm-dialog';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
-import { formatWon, serviceToday, withoutThousands as digits } from './format';
+import { formatWon, realDate, serviceToday, withoutThousands as digits } from './format';
 import { RequestError, requestJson } from './lib/api';
 import { errorText, useNotice } from './lib/use-notice';
 
@@ -15,13 +15,6 @@ import { errorText, useNotice } from './lib/use-notice';
 
 type Usage = { id: number; usedOn: string; amountKrw: number; memo: string };
 type Field = 'usedOn' | 'amount';
-
-/** A real YYYY-MM-DD date between 1900 and 2100 (the server's range). */
-function realDate(text: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(text) || text < '1900-01-01' || text > '2100-12-31') return false;
-  const parsed = new Date(`${text}T00:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === text;
-}
 
 export function PrepaidUsages({
   assetId,
@@ -73,10 +66,19 @@ export function PrepaidUsages({
 
   const add = async (event: FormEvent) => {
     event.preventDefault();
-    if (saving.current) return;
+    if (saving.current) {
+      showError('저장 중입니다. 잠시 후 다시 시도하세요');
+      return;
+    }
     if (!realDate(usedOn)) {
       setInvalid('usedOn');
       showError('사용한 날짜를 1900년부터 2100년 사이로 입력하세요');
+      return;
+    }
+    // Same rule as the server: a use has already happened.
+    if (usedOn > serviceToday()) {
+      setInvalid('usedOn');
+      showError('오늘 이후 날짜에는 사용을 기록할 수 없습니다');
       return;
     }
     const plain = digits(amount);
@@ -95,9 +97,17 @@ export function PrepaidUsages({
           body: { usedOn, amountKrw: Number(plain), memo },
         });
       } catch (cause) {
-        // The balance, expiry and future dates are checked on the server; its Korean message says which,
-        // and a message about the date marks the date field.
-        setInvalid(errorText(cause).includes('날짜') ? 'usedOn' : 'amount');
+        // The balance, expiry and dates are checked on the server; its Korean message says which. A refusal
+        // about the date marks the date field, one about the balance the amount; others mark no field.
+        const text = errorText(cause);
+        const refused = cause instanceof RequestError && cause.status === 400;
+        setInvalid(
+          refused && text.includes('날짜')
+            ? 'usedOn'
+            : refused && text.includes('잔액')
+              ? 'amount'
+              : undefined,
+        );
         showError(cause);
         return;
       }
@@ -117,6 +127,7 @@ export function PrepaidUsages({
       throw new Error('saving');
     }
     saving.current = true;
+    setBusy(true);
     try {
       await requestJson(`${path}/${usage.id}`, { method: 'DELETE' });
     } catch (cause) {
@@ -126,6 +137,7 @@ export function PrepaidUsages({
       throw cause;
     } finally {
       saving.current = false;
+      setBusy(false);
     }
     // The row and its button go away; the dialog returns focus to the panel title.
     afterDelete.current = title.current;
@@ -158,7 +170,7 @@ export function PrepaidUsages({
             id={`${prefix}-date`}
             type="date"
             min="1900-01-01"
-            max="2100-12-31"
+            max={serviceToday()}
             value={usedOn}
             {...fieldProps('usedOn')}
             onChange={(event) => {

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { AssetManager } from './assets';
+import { serviceToday } from './format';
 
 // #64 Prepaid assets on the asset screen, against a fake server that keeps the same rules.
 
@@ -266,22 +267,44 @@ test('a date refused by the server marks the date field, and a date that does no
   const date = within(panel).getByLabelText('사용한 날짜');
   fireEvent.change(within(panel).getByLabelText('사용 금액(원)'), { target: { value: '1000' } });
 
+  // A past date the (fake) server refuses because of the expiry.
   vi.mocked(fetch).mockImplementationOnce(() =>
-    json({ error: '만료일(2026-12-31)이 지난 날짜에는 쓸 수 없습니다' }, 400),
+    json({ error: '만료일(2026-01-31)이 지난 날짜에는 쓸 수 없습니다' }, 400),
   );
-  fireEvent.change(date, { target: { value: '2027-01-01' } });
+  fireEvent.change(date, { target: { value: '2026-02-01' } });
   fireEvent.click(within(panel).getByRole('button', { name: '사용 추가' }));
-  expect(await within(panel).findByRole('alert')).toHaveTextContent('만료일(2026-12-31)');
+  expect(await within(panel).findByRole('alert')).toHaveTextContent('만료일(2026-01-31)');
   expect(date).toHaveAttribute('aria-invalid', 'true');
   expect(within(panel).getByLabelText('사용 금액(원)')).not.toHaveAttribute('aria-invalid');
 
   const posts = requests.filter((request) => request.method === 'POST').length;
+  // A submit that skips the browser's own date checks still meets ours.
+  const form = within(panel).getByRole('form', { name: '미용실 회원권 사용 추가' });
   fireEvent.change(date, { target: { value: '2026-02-30' } });
-  fireEvent.submit(within(panel).getByRole('form', { name: '미용실 회원권 사용 추가' }));
+  fireEvent.submit(form);
   expect(within(panel).getByRole('alert')).toHaveTextContent(
     '사용한 날짜를 1900년부터 2100년 사이로 입력하세요',
   );
+  fireEvent.change(date, { target: { value: '2099-01-01' } });
+  expect(date).toHaveAttribute('max', serviceToday());
+  fireEvent.submit(form);
+  expect(within(panel).getByRole('alert')).toHaveTextContent(
+    '오늘 이후 날짜에는 사용을 기록할 수 없습니다',
+  );
   expect(requests.filter((request) => request.method === 'POST')).toHaveLength(posts);
+});
+
+test('a refusal that is not about the date or the balance marks no field', async () => {
+  stored.push(salon);
+  await ready();
+  fireEvent.click(screen.getByRole('button', { name: '미용실 회원권 사용 기록' }));
+  const panel = screen.getByRole('region', { name: '미용실 회원권 사용 기록' });
+  fireEvent.change(within(panel).getByLabelText('사용 금액(원)'), { target: { value: '1000' } });
+  vi.mocked(fetch).mockImplementationOnce(() => json({ error: '자산을 찾을 수 없습니다' }, 404));
+  fireEvent.click(within(panel).getByRole('button', { name: '사용 추가' }));
+  expect(await within(panel).findByRole('alert')).toHaveTextContent('자산을 찾을 수 없습니다');
+  expect(within(panel).getByLabelText('사용 금액(원)')).not.toHaveAttribute('aria-invalid');
+  expect(within(panel).getByLabelText('사용한 날짜')).not.toHaveAttribute('aria-invalid');
 });
 
 test('a use of 0 won is refused before sending', async () => {

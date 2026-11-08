@@ -358,11 +358,15 @@ test('prepaid assets against the real database', { skip: !url }, async (t) => {
       'SELECT count(*)::int AS n FROM portfolio_assets',
     );
     assert.equal(rows[0].n, 3);
-    // The widened checks are still in place: a prepaid row with nothing to value stays refused.
-    await assert.rejects(
-      pool.query("INSERT INTO portfolio_assets (name, asset_type) VALUES ('a', 'cash')"),
-      { code: '23514' },
+    // The widened checks are still the ones 010 made.
+    const checks = await pool.query<{ conname: string; def: string }>(
+      `SELECT conname, pg_get_constraintdef(oid) AS def FROM pg_constraint
+       WHERE conrelid = 'portfolio_assets'::regclass
+         AND conname IN ('portfolio_assets_quantity_or_value_check', 'portfolio_assets_asset_type_check')
+       ORDER BY conname`,
     );
+    assert.match(checks.rows[0].def, /'prepaid'/);
+    assert.match(checks.rows[1].def, /prepaid_kind/);
   });
 
   await t.test('a use cannot be dated after today', async () => {

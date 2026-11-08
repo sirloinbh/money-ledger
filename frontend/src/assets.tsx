@@ -6,7 +6,13 @@ import { ConfirmDialog } from './components/ui/confirm-dialog';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
-import { formatDecimal, formatUsd, formatWon, withoutThousands as digits } from './format';
+import {
+  formatDecimal,
+  formatUsd,
+  formatWon,
+  realDate,
+  withoutThousands as digits,
+} from './format';
 import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 import { PrepaidUsages } from './prepaid-usages';
@@ -126,10 +132,6 @@ const emptyDraft = (): Draft => ({
   expiresOn: '',
 });
 
-/** A YYYY-MM-DD date within the range the server accepts. */
-const validDate = (text: string) =>
-  /^\d{4}-\d{2}-\d{2}$/.test(text) && text >= minDate && text <= maxDate;
-
 function prepaidBody(draft: Draft): { prepaid: object } | { field: Field; message: string } {
   const amountKrw = wonValue(draft.prepaidAmount);
   if (amountKrw === undefined) {
@@ -139,10 +141,10 @@ function prepaidBody(draft: Draft): { prepaid: object } | { field: Field; messag
     };
   }
   if (draft.prepaidKind === 'period') {
-    if (!validDate(draft.startsOn)) {
+    if (!realDate(draft.startsOn)) {
       return { field: 'startsOn', message: '시작일을 1900년부터 2100년 사이로 입력하세요' };
     }
-    if (!validDate(draft.expiresOn)) {
+    if (!realDate(draft.expiresOn)) {
       return { field: 'expiresOn', message: '만료일을 1900년부터 2100년 사이로 입력하세요' };
     }
     if (draft.startsOn > draft.expiresOn) {
@@ -157,7 +159,7 @@ function prepaidBody(draft: Draft): { prepaid: object } | { field: Field; messag
       },
     };
   }
-  if (draft.expiresOn && !validDate(draft.expiresOn)) {
+  if (draft.expiresOn && !realDate(draft.expiresOn)) {
     return { field: 'expiresOn', message: '만료일을 1900년부터 2100년 사이로 입력하세요' };
   }
   return {
