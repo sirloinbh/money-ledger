@@ -29,6 +29,7 @@ import {
 import { formatWon, serviceToday } from './format';
 import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
+import { cn } from './lib/utils';
 
 // #38 Income and expense entries: add, edit, delete.
 // #39 The list is filtered by period, kind, category and search (kept in the address) and split into pages.
@@ -102,8 +103,9 @@ export function EntryManager({
   useEffect(() => {
     latestQuery.current = query;
   }, [query]);
-  // The list shown is the one for the current filters; while another one loads, nothing stale is shown.
-  const entries = listing?.query === query ? listing.entries : undefined;
+  // While the list for new filters loads, the previous one stays (marked busy) so the page and focus hold.
+  const loading = listing !== undefined && listing.query !== query;
+  const entries = listing?.entries;
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesLoaded, setCategoriesLoaded] = useState(false);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
@@ -119,18 +121,21 @@ export function EntryManager({
   const notice = useNotice();
   const { error: showError, status: showStatus } = notice;
 
+  // Always loads the filters current when it is called: a save or delete that ends after the filters changed
+  // reloads the new list, not the one it started on.
   const loadEntries = useCallback(async () => {
+    const asked = latestQuery.current;
     setLoadFailed(false);
     try {
       const data = await requestJson<{ entries: Entry[]; total: number }>(
-        `${entriesPath}?${query}`,
+        `${entriesPath}?${asked}`,
       );
-      if (latestQuery.current === query) setListing({ query, ...data });
+      if (latestQuery.current === asked) setListing({ query: asked, ...data });
     } catch (cause) {
-      if (latestQuery.current === query) setLoadFailed(true);
+      if (latestQuery.current === asked) setLoadFailed(true);
       throw cause;
     }
-  }, [query]);
+  }, []);
 
   // Set when this component reports its own change: it reloads by itself, so the version bump that follows
   // does not load the list a second time. The parent must pass back the version it bumps (LedgerPage does);
@@ -149,7 +154,7 @@ export function EntryManager({
       return;
     }
     loadEntries().catch((cause: unknown) => showError(cause, '내역을 불러오지 못했습니다'));
-  }, [loadEntries, showError, categoriesVersion, entriesVersion]);
+  }, [loadEntries, showError, categoriesVersion, entriesVersion, query]);
 
   useEffect(() => {
     requestJson<{ categories: Category[] }>('/api/ledger/categories')
@@ -174,6 +179,25 @@ export function EntryManager({
     );
     showStatus('수정 중인 내역의 카테고리가 다른 곳에서 바뀌어 반영했습니다');
   }, [entries, editing, showStatus]);
+
+  // A page past the end (the last entry of the last page was deleted, or an old link): go to the last page.
+  useEffect(() => {
+    if (!listing || listing.query !== query || listing.entries.length > 0) return;
+    const last = Math.max(1, Math.ceil(listing.total / pageSize));
+    if (filters.page > last) {
+      setSearchParams(writeFilters({ ...filters, page: last }), { replace: true });
+    }
+  }, [listing, query, filters, setSearchParams]);
+
+  // A category in the address that the filter cannot offer (unknown, or of the other kind) is dropped, so the
+  // form and the list always show the same conditions.
+  useEffect(() => {
+    if (!categoriesLoaded || !/^\d+$/.test(filters.category)) return;
+    const category = categories.find((c) => String(c.id) === filters.category);
+    if (!category || (filters.kind && category.kind !== filters.kind)) {
+      setSearchParams(writeFilters({ ...filters, category: '', page: 1 }), { replace: true });
+    }
+  }, [categoriesLoaded, categories, filters, setSearchParams]);
 
   // Visible categories of the chosen kind, plus the hidden one an edited entry already has.
   const choices = categories.filter(
@@ -449,7 +473,8 @@ export function EntryManager({
       />
       <EntryList
         entries={entries}
-        total={listing?.query === query ? listing.total : 0}
+        loading={loading}
+        total={listing?.total ?? 0}
         failed={loadFailed}
         onRetry={() =>
           void loadEntries().catch((cause: unknown) =>
@@ -475,6 +500,7 @@ const entryLabel = (entry: Entry) =>
 
 function EntryList({
   entries,
+  loading,
   total,
   failed,
   onRetry,
@@ -486,6 +512,8 @@ function EntryList({
   onDeleteOpen,
 }: {
   entries: Entry[] | undefined;
+  /** The list shown is for the previous filters while the new one loads. */
+  loading: boolean;
   total: number;
   failed: boolean;
   onRetry: () => void;
@@ -496,7 +524,7 @@ function EntryList({
   returnFocusRef: RefObject<HTMLElement | null>;
   onDeleteOpen: () => void;
 }) {
-  if (failed && entries === undefined) {
+  if (failed) {
     return (
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-body-sm text-muted-foreground">내역을 불러오지 못했습니다.</p>
@@ -510,35 +538,38 @@ function EntryList({
     return <p className="text-body-sm text-muted-foreground">내역을 불러오는 중입니다</p>;
   }
   const pages = Math.max(1, Math.ceil(total / pageSize));
+  // aria-disabled, not disabled: a button that becomes unavailable on the last page keeps the focus.
+  const pageButton = (label: string, target: number, available: boolean) => (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      aria-disabled={!available || undefined}
+      className="aria-disabled:pointer-events-none aria-disabled:opacity-50"
+      onClick={() => {
+        if (available) onPage(target);
+      }}
+    >
+      {label}
+    </Button>
+  );
   const pager =
     pages > 1 || page > 1 ? (
       <nav aria-label="내역 쪽" className="flex items-center justify-center gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={page <= 1}
-          onClick={() => onPage(Math.min(page - 1, pages))}
-        >
-          이전 쪽
-        </Button>
+        {pageButton('이전 쪽', Math.min(page - 1, pages), page > 1)}
         <span className="text-body-sm tabular-nums">
           {page} / {pages}쪽
         </span>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={page >= pages}
-          onClick={() => onPage(page + 1)}
-        >
-          다음 쪽
-        </Button>
+        {pageButton('다음 쪽', page + 1, page < pages)}
       </nav>
     ) : null;
+  const status = (
+    <p className="text-body-sm text-muted-foreground">{loading ? '불러오는 중…' : `${total}건`}</p>
+  );
   if (entries.length === 0) {
     return (
-      <div className="flex flex-col gap-3">
+      <div aria-busy={loading || undefined} className="flex flex-col gap-3">
+        {loading ? status : null}
         <p className="text-body-sm text-muted-foreground">
           {total > 0 ? '이 쪽에는 내역이 없습니다.' : '조건에 맞는 내역이 없습니다.'}
         </p>
@@ -547,9 +578,12 @@ function EntryList({
     );
   }
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-body-sm text-muted-foreground">{total}건</p>
-      <ul aria-label="내역 목록" className="flex flex-col divide-y rounded-xl border">
+    <div aria-busy={loading || undefined} className="flex flex-col gap-3">
+      {status}
+      <ul
+        aria-label="내역 목록"
+        className={cn('flex flex-col divide-y rounded-xl border', loading && 'opacity-60')}
+      >
         {entries.map((entry) => (
           <li
             key={entry.id}

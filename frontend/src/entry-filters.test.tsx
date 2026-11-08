@@ -60,6 +60,25 @@ describe('filter helpers', () => {
     );
   });
 
+  test('values the server would refuse are dropped from the address', () => {
+    const read = (search: string) => readFilters(new URLSearchParams(search), '2026-11-03');
+    expect(read('from=2026-13-01&to=2026-11-30&category=abc')).toMatchObject({
+      from: '',
+      to: '2026-11-30',
+      category: '',
+    });
+    expect(read('from=2026-02-30&to=0999-01-01&category=none')).toMatchObject({
+      from: '',
+      to: '',
+      category: 'none',
+    });
+    // A start after the end: back to this month.
+    expect(read('from=2026-11-30&to=2026-11-01')).toMatchObject({
+      from: '2026-11-01',
+      to: '2026-11-30',
+    });
+  });
+
   test('a whole month is named by its month, other periods by their dates', () => {
     expect(periodLabel({ from: '2026-11-01', to: '2026-11-30' })).toBe('2026년 11월');
     expect(periodLabel({ from: '2026-11-01', to: '2026-11-15' })).toBe('2026-11-01 ~ 2026-11-15');
@@ -81,6 +100,9 @@ const entry = (id: number, date: string) => ({
 
 let listUrls: string[];
 let answer: (url: string) => Promise<Response>;
+// Saves and deletes; `log` records list loads and writes in the order they finish.
+let write: (url: string, init: RequestInit) => Promise<Response>;
+let log: string[];
 
 const json = (body: unknown, status = 200) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }));
@@ -89,10 +111,18 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-11-02T15:30:00Z')); // 2026-11-03 in Seoul
   listUrls = [];
+  log = [];
+  write = () => json({ entry: entry(9, '2026-11-03') }, 201);
   answer = () => json({ entries: [entry(1, '2026-11-02')], total: 1, page: 1, pageSize: 50 });
   vi.stubGlobal(
     'fetch',
-    vi.fn((url: string) => {
+    vi.fn((url: string, init: RequestInit = {}) => {
+      if ((init.method ?? 'GET') !== 'GET') {
+        return write(url, init).then((response) => {
+          log.push(`${init.method} done`);
+          return response;
+        });
+      }
       if (url === '/api/ledger/categories') {
         return json({
           categories: [
@@ -103,7 +133,10 @@ beforeEach(() => {
         });
       }
       listUrls.push(url);
-      return answer(url);
+      return answer(url).then((response) => {
+        log.push(`GET ${new URL(url, 'http://x').searchParams.get('from')}`);
+        return response;
+      });
     }),
   );
 });
@@ -223,7 +256,7 @@ test('pages: the count, the page number and the next page', async () => {
   await show();
   expect(await screen.findByText('1 / 3쪽')).toBeInTheDocument();
   expect(screen.getByText('120건')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '이전 쪽' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: '이전 쪽' })).toHaveAttribute('aria-disabled', 'true');
   fireEvent.click(screen.getByRole('button', { name: '다음 쪽' }));
   expect(await screen.findByText('2 / 3쪽')).toBeInTheDocument();
   expect(lastList()).toContain('&page=2&size=50');
@@ -246,4 +279,91 @@ test('no match and a failed load each say so; a failed load can be retried', asy
   answer = () => json({ entries: [entry(4, '2026-10-02')], total: 1, page: 1, pageSize: 50 });
   fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
   expect(await screen.findByRole('list', { name: '내역 목록' })).toHaveTextContent('내역 4');
+});
+
+test('an older answer that arrives last does not replace the list for the current filters', async () => {
+  let finishOctober: () => void = () => {};
+  answer = (url) => {
+    if (url.includes('from=2026-10-01')) {
+      return new Promise((resolve) => {
+        finishOctober = () =>
+          resolve(new Response(JSON.stringify({ entries: [entry(10, '2026-10-02')], total: 1 })));
+      });
+    }
+    return json({ entries: [entry(11, '2026-11-02')], total: 1 });
+  };
+  await show();
+  await screen.findByText('내역 11');
+  fireEvent.click(screen.getByRole('button', { name: '이전 달' }));
+  await vi.waitFor(() => expect(lastList()).toContain('from=2026-10-01'));
+  fireEvent.click(screen.getByRole('button', { name: '이번 달' }));
+  await vi.waitFor(() => expect(lastList()).toContain('from=2026-11-01'));
+  await screen.findByText('1건');
+  finishOctober();
+  await vi.waitFor(() => expect(log).toContain('GET 2026-10-01'));
+  expect(screen.getByRole('list', { name: '내역 목록' })).toHaveTextContent('내역 11');
+  expect(screen.queryByText('내역 10')).not.toBeInTheDocument();
+});
+
+test('a save that ends after the filters changed reloads the new list, after the save', async () => {
+  let finishSave: () => void = () => {};
+  write = () =>
+    new Promise((resolve) => {
+      finishSave = () =>
+        resolve(new Response(JSON.stringify({ entry: entry(9, '2026-11-03') }), { status: 201 }));
+    });
+  await show();
+  fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '9000' } });
+  fireEvent.click(screen.getByRole('button', { name: '기록' }));
+  fireEvent.click(screen.getByRole('button', { name: '다음 달' }));
+  await vi.waitFor(() => expect(log).toContain('GET 2026-12-01'));
+  finishSave();
+  await screen.findByText('지출 9,000원을 기록했습니다');
+  // The last load is of December and comes after the save.
+  expect(log.slice(log.indexOf('POST done'))).toContain('GET 2026-12-01');
+  expect(lastList()).toContain('from=2026-12-01');
+});
+
+test('changing the page keeps the page buttons, and focus, while the next page loads', async () => {
+  let finishPage2: () => void = () => {};
+  answer = (url) => {
+    const page = Number(new URL(url, 'http://x').searchParams.get('page'));
+    if (page === 2) {
+      return new Promise((resolve) => {
+        finishPage2 = () =>
+          resolve(new Response(JSON.stringify({ entries: [entry(2, '2026-11-01')], total: 60 })));
+      });
+    }
+    return json({ entries: [entry(1, '2026-11-02')], total: 60 });
+  };
+  await show();
+  const next = await screen.findByRole('button', { name: '다음 쪽' });
+  next.focus();
+  fireEvent.click(next);
+  expect(await screen.findByText('불러오는 중…')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '다음 쪽' })).toHaveFocus();
+  finishPage2();
+  expect(await screen.findByText('2 / 2쪽')).toBeInTheDocument();
+  // The last page: unavailable but still focused.
+  expect(screen.getByRole('button', { name: '다음 쪽' })).toHaveAttribute('aria-disabled', 'true');
+  expect(screen.getByRole('button', { name: '다음 쪽' })).toHaveFocus();
+  fireEvent.click(screen.getByRole('button', { name: '다음 쪽' }));
+  expect(address()).toContain('page=2');
+});
+
+test('a page past the end goes to the last page', async () => {
+  answer = (url) => {
+    const page = Number(new URL(url, 'http://x').searchParams.get('page'));
+    return json({ entries: page > 1 ? [] : [entry(1, '2026-11-02')], total: 50 });
+  };
+  await show('/ledger?from=2026-11-01&to=2026-11-30&page=2');
+  await vi.waitFor(() => expect(address()).toBe('?from=2026-11-01&to=2026-11-30'));
+  expect(await screen.findByText('50건')).toBeInTheDocument();
+});
+
+test('a category the filter cannot offer is dropped from the address', async () => {
+  await show('/ledger?from=2026-11-01&to=2026-11-30&kind=income&category=1');
+  await vi.waitFor(() => expect(address()).toBe('?from=2026-11-01&to=2026-11-30&kind=income'));
+  expect(screen.getByLabelText('카테고리', { selector: '#filter-category' })).toHaveValue('');
+  expect(lastList()).not.toContain('category=');
 });

@@ -32,19 +32,36 @@ export function shiftMonth(month: string, delta: number) {
   return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
-/** The filters in the address; `today` (YYYY-MM-DD in Seoul) picks the default month. */
+/** A real date between 1900 and 2100 (what the server accepts), or ''. */
+function validDate(text: string | null) {
+  if (!text || !/^\d{4}-\d{2}-\d{2}$/.test(text)) return '';
+  const year = Number(text.slice(0, 4));
+  if (year < 1900 || year > 2100) return '';
+  const parsed = new Date(`${text}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === text ? text : '';
+}
+
+/**
+ * The filters in the address; `today` (YYYY-MM-DD in Seoul) picks the default month. Values the server
+ * would refuse (a hand-edited or old link) are dropped instead, so the list never gets stuck on an error;
+ * a start after the end falls back to this month.
+ */
 export function readFilters(params: URLSearchParams, today: string): Filters {
-  const period =
-    params.has('from') || params.has('to')
-      ? { from: params.get('from') ?? '', to: params.get('to') ?? '' }
-      : monthRange(today.slice(0, 7));
+  const thisMonth = monthRange(today.slice(0, 7));
+  let period = thisMonth;
+  if (params.has('from') || params.has('to')) {
+    const from = validDate(params.get('from'));
+    const to = validDate(params.get('to'));
+    period = from && to && from > to ? thisMonth : { from, to };
+  }
   const kind = params.get('kind');
+  const category = params.get('category') ?? '';
   const page = params.get('page') ?? '';
   return {
     ...period,
     kind: kind === 'income' || kind === 'expense' ? kind : '',
-    category: params.get('category') ?? '',
-    q: params.get('q') ?? '',
+    category: /^(none|[1-9]\d{0,8})$/.test(category) ? category : '',
+    q: (params.get('q') ?? '').trim().slice(0, 50),
     page: /^[1-9]\d{0,8}$/.test(page) ? Number(page) : 1,
   };
 }
