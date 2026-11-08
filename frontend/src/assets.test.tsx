@@ -395,6 +395,45 @@ test.each([
   },
 );
 
+test('a purchase date outside 1900–2100 is not sent', async () => {
+  await ready();
+  fireEvent.change(screen.getByLabelText('이름'), { target: { value: '침대' } });
+  fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'depreciable' } });
+  fireEvent.change(screen.getByLabelText('구입가(원)'), { target: { value: '1000' } });
+  fireEvent.change(screen.getByLabelText('사용 기간(개월)'), { target: { value: '60' } });
+  const date = screen.getByLabelText<HTMLInputElement>('구입일');
+  expect(date).toHaveAttribute('min', '1900-01-01');
+  expect(date).toHaveAttribute('max', '2100-12-31');
+  fireEvent.change(date, { target: { value: '0201-01-01' } });
+  // The browser's range check stops the submit first.
+  expect(date.validity.rangeUnderflow).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: '추가' }));
+  // Our own check covers a submit that skips the browser's (the same message the server gives).
+  fireEvent.submit(screen.getByRole('form', { name: '새 자산' }));
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    '구입일은 1900년부터 2100년 사이로 입력하세요',
+  );
+  expect(date).toHaveAttribute('aria-invalid', 'true');
+  expect(requests.some((request) => request.method === 'POST')).toBe(false);
+});
+
+test('editing a #45 depreciable row offers its value as the purchase price', async () => {
+  stored.push({
+    id: 5,
+    name: '옛 TV',
+    type: 'depreciable',
+    currency: 'KRW',
+    quantity: null,
+    valueKrw: 700000,
+    valueForeign: null,
+    memo: '',
+  });
+  await ready();
+  fireEvent.click(screen.getByRole('button', { name: '옛 TV 수정' }));
+  expect(screen.getByLabelText('구입가(원)')).toHaveValue('700000');
+  expect(screen.getByLabelText('구입일')).toHaveValue('');
+});
+
 test('editing a depreciating asset fills its schedule', async () => {
   stored.push({
     id: 4,

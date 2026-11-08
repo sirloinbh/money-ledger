@@ -140,6 +140,7 @@ type Row = {
 
 // The won value counted in the totals: for a depreciating asset its value on the reference date ($1),
 // otherwise the value entered by hand (null for USD values and quantity-only assets).
+// Every query that uses `currentValue` or `columns` must pass the reference date as its FIRST parameter.
 const currentValue = `coalesce(
   portfolio_depreciated_value(purchase_price_krw, salvage_value_krw, purchased_on, useful_life_months, $1::date),
   value_krw)`;

@@ -58,6 +58,9 @@ type Draft = {
 type Field =
   'name' | 'quantity' | 'value' | 'purchasePrice' | 'purchasedOn' | 'lifeMonths' | 'salvage';
 
+const minDate = '1900-01-01';
+const maxDate = '2100-12-31';
+
 // Decision (2026-11-02): default useful lives, editable after choosing.
 const lifePresets = [
   { label: '침대(10년)', months: 120 },
@@ -110,6 +113,10 @@ function depreciationBody(
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.purchasedOn)) {
     return { field: 'purchasedOn', message: '구입일을 입력하세요' };
+  }
+  // Same range as the server (and the date input's min/max).
+  if (draft.purchasedOn < minDate || draft.purchasedOn > maxDate) {
+    return { field: 'purchasedOn', message: '구입일은 1900년부터 2100년 사이로 입력하세요' };
   }
   const lifeText = draft.lifeMonths.trim();
   if (!/^\d{1,4}$/.test(lifeText) || Number(lifeText) < 1 || Number(lifeText) > 1200) {
@@ -273,7 +280,12 @@ export function AssetManager() {
             ? formatDecimal(asset.valueForeign).replaceAll(',', '')
             : '',
       memo: asset.memo,
-      purchasePrice: asset.depreciation ? String(asset.depreciation.purchasePriceKrw) : '',
+      // A #45 depreciable row has only a value: offer it as the purchase price instead of dropping it.
+      purchasePrice: asset.depreciation
+        ? String(asset.depreciation.purchasePriceKrw)
+        : asset.type === 'depreciable' && asset.valueKrw !== null
+          ? String(asset.valueKrw)
+          : '',
       purchasedOn: asset.depreciation?.purchasedOn ?? '',
       lifeMonths: asset.depreciation ? String(asset.depreciation.usefulLifeMonths) : '',
       salvage: asset.depreciation ? String(asset.depreciation.salvageValueKrw) : '0',
@@ -415,6 +427,8 @@ export function AssetManager() {
                   <Input
                     id="asset-purchased-on"
                     type="date"
+                    min={minDate}
+                    max={maxDate}
                     value={draft.purchasedOn}
                     {...fieldProps('purchasedOn')}
                     onChange={(event) => {

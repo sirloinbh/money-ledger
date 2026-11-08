@@ -28,9 +28,12 @@ ALTER TABLE portfolio_assets ADD CONSTRAINT portfolio_assets_quantity_or_value_c
 );
 
 -- The value on `as_of`: the purchase price minus the same amount for every full month since the purchase,
--- never below the salvage value. Before the purchase date nothing is taken off. A month is full on the same
--- day of a later month (2026-01-15 -> 2026-02-15); from the 31st it is the last day only when that day exists
--- (age() counts 2026-01-31 -> 2026-02-28 as 28 days). Rounding is numeric round(): 0.5 goes away from zero.
+-- never below the salvage value. Before the purchase date nothing is taken off. Full months are counted by
+-- age(): a month is full on the same day of a later month (2026-01-15 -> 2026-02-15). When that day does not
+-- exist it is full on the 1st of the month after (2026-01-31 -> 2026-03-01 is 1 month, 2026-02-28 is 0;
+-- 2024-02-29 -> 2025-02-28 is 11 months, 2025-03-01 is 12). Rounding is numeric round(): 0.5 goes away from zero.
+-- The dates are cast to timestamp (no time zone) so age() does not depend on the session TimeZone; with plain
+-- dates PostgreSQL picks age(timestamptz, timestamptz) and a DST change can drop a month.
 CREATE OR REPLACE FUNCTION portfolio_depreciated_value(
   price bigint, salvage bigint, purchased date, life_months integer, as_of date
 ) RETURNS bigint
@@ -41,8 +44,8 @@ AS $$
       * least(
           greatest(
             -- integer, so no double precision reaches round() (that would round half to even).
-            (extract(year FROM age(as_of, purchased)) * 12
-              + extract(month FROM age(as_of, purchased)))::integer,
+            (extract(year FROM age(as_of::timestamp, purchased::timestamp)) * 12
+              + extract(month FROM age(as_of::timestamp, purchased::timestamp)))::integer,
             0
           ),
           life_months

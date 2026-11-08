@@ -263,7 +263,7 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
   );
 
   await t.test(
-    'a month from the 31st is full on the last day only when that day exists',
+    'a month from a day the next month lacks is full on the 1st of the month after',
     async () => {
       await reset();
       await withApi(pool, async (call) => {
@@ -278,7 +278,46 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
           ((await call(`/api/portfolio/assets?asOf=${asOf}`)).data.assets as Asset[])[0]
             .currentValueKrw;
         assert.equal(await valueOn('2026-02-28'), 1_200_000);
+        assert.equal(await valueOn('2026-03-01'), 1_180_000);
+        assert.equal(await valueOn('2026-03-30'), 1_180_000);
         assert.equal(await valueOn('2026-03-31'), 1_160_000);
+      });
+    },
+  );
+
+  await t.test('the month count does not depend on the session time zone', async () => {
+    await reset();
+    // In São Paulo 2018-11-04 starts a DST change: with timestamptz the month came out 1 hour short.
+    const client = await pool.connect();
+    try {
+      await client.query("SET TimeZone = 'America/Sao_Paulo'");
+      const { rows } = await client.query<{ value: string }>(
+        "SELECT portfolio_depreciated_value(1200000, 0, '2018-11-04', 60, '2018-12-04') AS value",
+      );
+      assert.equal(rows[0].value, '1180000');
+    } finally {
+      await client.query('RESET TimeZone');
+      client.release();
+    }
+  });
+
+  await t.test(
+    'a #45 depreciable row with only a value still counts after migration 007',
+    async () => {
+      await pool.query('DROP TABLE IF EXISTS portfolio_assets');
+      await runMigration(pool, '004_portfolio_assets.sql');
+      await pool.query(
+        "INSERT INTO portfolio_assets (name, asset_type, value_krw) VALUES ('old', 'depreciable', 700000)",
+      );
+      await runMigration(pool, '007_depreciable_assets.sql');
+      await withApi(pool, async (call) => {
+        const { data } = await call('/api/portfolio/assets');
+        const [old] = data.assets as Asset[];
+        assert.deepEqual(
+          { depreciation: old.depreciation, currentValueKrw: old.currentValueKrw },
+          { depreciation: null, currentValueKrw: 700_000 },
+        );
+        assert.equal((data.totals as Totals).assetsKrw, 700_000);
       });
     },
   );
@@ -324,6 +363,11 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
         assert.equal(changed.status, 200);
         assert.equal((changed.data.asset as Asset).depreciation, null);
         assert.equal((changed.data.asset as Asset).currentValueKrw, 300_000);
+
+        const back = await call(`/api/portfolio/assets/${id}`, { method: 'PUT', body: computer });
+        assert.equal(back.status, 200);
+        assert.equal((back.data.asset as Asset).valueKrw, null);
+        assert.equal((back.data.asset as Asset).depreciation?.purchasePriceKrw, 1_200_000);
 
         const bad = await call('/api/portfolio/assets?asOf=2026-02-30');
         assert.equal(bad.status, 400);
