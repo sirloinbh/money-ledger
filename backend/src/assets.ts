@@ -4,7 +4,9 @@ import { z } from 'zod/v4';
 
 import { inTransaction } from './db.js';
 import { date } from './entries.js';
+import { particles } from './korean.js';
 import { HttpError, parseId } from './standard/http.js';
+import { tradesRouter } from './trades.js';
 
 // #45 Held assets and debts. Formats follow AGENTS.project.md "수량·외화·환율" (#35):
 // won amounts are JSON numbers (bigint in the DB), quantities and USD amounts are decimal strings.
@@ -30,13 +32,6 @@ const assetTypes = [
 const quantityPattern = /^\d{1,12}(\.\d{1,8})?$/;
 // Up to 16 integer and 4 fractional digits: numeric(20,4).
 const foreignPattern = /^\d{1,16}(\.\d{1,4})?$/;
-
-// Korean particles depend on whether the label ends in a final consonant: 구입가는 / 결제액은.
-function particles(label: string) {
-  const last = label.charCodeAt(label.length - 1) - 0xac00;
-  const final = last >= 0 && last < 11172 && last % 28 !== 0;
-  return final ? { topic: '은', object: '을' } : { topic: '는', object: '를' };
-}
 
 const wonAmount = (label: string) => {
   const { topic, object } = particles(label);
@@ -189,15 +184,26 @@ const assetBody = z
       }
       return;
     }
-    if (body.quantity === null && body.valueKrw === null && body.valueForeign === null) {
-      issue('수량이 없는 자산은 평가금액을 입력하세요');
-    }
     if (body.type === 'debt' && body.quantity !== null) {
       issue('부채에는 수량을 넣을 수 없습니다');
     }
   });
 
 const listQuery = z.object({ asOf: date.optional() });
+
+// #46 Types that can have buy and sell records (decision 2026-11-08).
+const tradeableTypes: readonly string[] = ['stock', 'other'];
+
+/**
+ * A plain asset needs a quantity or a value. Checked outside the schema because an asset whose quantity
+ * comes from trades may hold nothing (everything sold) and still be edited.
+ */
+function requireQuantityOrValue(body: z.infer<typeof assetBody>) {
+  if (body.type === 'depreciable' || body.type === 'prepaid') return;
+  if (body.quantity === null && body.valueKrw === null && body.valueForeign === null) {
+    throw new HttpError(400, '수량이 없는 자산은 평가금액을 입력하세요');
+  }
+}
 
 type Row = {
   id: string;
@@ -217,6 +223,7 @@ type Row = {
   prepaid_starts_on: string | null;
   prepaid_expires_on: string | null;
   prepaid_used_krw: string;
+  has_trades: boolean;
   current_value_krw: string | null;
 };
 
@@ -238,6 +245,7 @@ const currentValue = `coalesce(
 const columns = `id, name, asset_type, currency, quantity, value_krw, value_foreign, memo,
   purchase_price_krw, purchased_on, useful_life_months, salvage_value_krw,
   prepaid_kind, prepaid_amount_krw, prepaid_starts_on, prepaid_expires_on, ${usedUpTo} AS prepaid_used_krw,
+  EXISTS (SELECT 1 FROM portfolio_trades tr WHERE tr.asset_id = portfolio_assets.id) AS has_trades,
   ${currentValue} AS current_value_krw`;
 
 const wonText = new Intl.NumberFormat('ko-KR');
@@ -312,6 +320,8 @@ const toAsset = (row: Row) => ({
           expiresOn: row.prepaid_expires_on,
           usedKrw: won(row.prepaid_used_krw),
         },
+  // #46 Whether the asset has trades; its quantity is then their total and cannot be entered by hand.
+  hasTrades: row.has_trades,
   currentValueKrw: row.current_value_krw === null ? null : won(row.current_value_krw),
 });
 
@@ -370,6 +380,7 @@ export function assetsRouter(pool: Pool, today: () => string) {
 
   router.post('/', async (req, res) => {
     const body = assetBody.parse(req.body);
+    requireQuantityOrValue(body);
     const { rows } = await pool.query<Row>(
       `INSERT INTO portfolio_assets (name, asset_type, currency, quantity, value_krw, value_foreign, memo,
          purchase_price_krw, purchased_on, useful_life_months, salvage_value_krw,
@@ -405,14 +416,40 @@ export function assetsRouter(pool: Pool, today: () => string) {
           throw new HttpError(400, `만료일은 마지막 사용일(${lastUsedOn})보다 앞설 수 없습니다`);
         }
       }
+      // #46 An asset with trades keeps a tradeable type and its currency, and its quantity is the trades'
+      // total (the row is already locked, as trade writes lock it too). Without trades it is entered by hand.
+      const traded = await client.query<{
+        currency: string;
+        trades: number;
+        same_quantity: boolean;
+      }>(
+        `SELECT currency, (SELECT count(*) FROM portfolio_trades WHERE asset_id = $1)::int AS trades,
+                $2::numeric IS NOT DISTINCT FROM quantity AS same_quantity
+         FROM portfolio_assets WHERE id = $1`,
+        [id, body.quantity],
+      );
+      const { currency, trades, same_quantity } = traded.rows[0];
+      if (trades > 0) {
+        if (!tradeableTypes.includes(body.type) || body.currency !== currency) {
+          throw new HttpError(
+            400,
+            '거래 기록이 있는 자산은 주식이나 기타(코인 등)로, 같은 통화로만 바꿀 수 있습니다',
+          );
+        }
+        if (!same_quantity) {
+          throw new HttpError(400, '거래 기록이 있는 자산의 수량은 거래로만 바뀝니다');
+        }
+      } else {
+        requireQuantityOrValue(body);
+      }
       const { rows } = await client.query<Row>(
         `UPDATE portfolio_assets
          SET name = $2, asset_type = $3, currency = $4, quantity = $5, value_krw = $6, value_foreign = $7,
              memo = $8, purchase_price_krw = $9, purchased_on = $10, useful_life_months = $11,
              salvage_value_krw = $12, prepaid_kind = $13, prepaid_amount_krw = $14, prepaid_starts_on = $15,
-             prepaid_expires_on = $16, updated_at = now()
+             prepaid_expires_on = $16, quantity_from_trades = $18, updated_at = now()
          WHERE id = $17 RETURNING ${columns}`,
-        [...values(body), id],
+        [...values(body), id, trades > 0],
       );
       return rows[0];
     });
@@ -492,6 +529,9 @@ export function assetsRouter(pool: Pool, today: () => string) {
     if (!rowCount) throw new HttpError(404, '사용 기록을 찾을 수 없습니다');
     res.status(204).end();
   });
+
+  // #46 Buy and sell records: /api/portfolio/assets/:id/trades.
+  router.use('/:id/trades', tradesRouter(pool, today));
 
   return router;
 }
