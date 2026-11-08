@@ -79,7 +79,14 @@ test('a buy shows which close it fills at, then fills once and reports the new c
   ).toHaveAttribute('role', 'status');
   expect(posts()).toHaveLength(1);
   const { requestKey, ...rest } = posts()[0].body!;
-  expect(rest).toEqual({ securityId: 1, side: 'buy', quantity: '10' });
+  expect(rest).toEqual({
+    securityId: 1,
+    side: 'buy',
+    quantity: '10',
+    expectedPrice: '70600.0000',
+    expectedPriceDate: '2026-11-06',
+    expectedFxRate: null,
+  });
   expect(requestKey).toMatch(/^[0-9a-f-]{36}$/);
   expect(onOrdered).toHaveBeenCalledTimes(1);
   expect(screen.getByLabelText('수량(주)')).toHaveValue('');
@@ -130,11 +137,18 @@ test('a bad quantity, no account and a refused preview never reach the order', a
 
 test('a lost connection keeps the request key for the retry; a refusal starts a new one', async () => {
   postAnswers = ['offline'];
-  render(<MockOrder securityId={1} title="삼성전자" onOrdered={() => undefined} />);
+  const onOrdered = vi.fn();
+  render(<MockOrder securityId={1} title="삼성전자" onOrdered={onOrdered} />);
   orderFor('10');
   let dialog = await screen.findByRole('dialog');
   fireEvent.click(within(dialog).getByRole('button', { name: '매수' }));
-  expect(await screen.findByText('서버에 연결할 수 없습니다')).toBeInTheDocument();
+  expect(
+    await screen.findByText(
+      '서버에 연결할 수 없습니다. 주문이 체결됐을 수 있으니 계좌 현금을 확인하세요',
+    ),
+  ).toBeInTheDocument();
+  // The account card is reloaded in case the order filled.
+  expect(onOrdered).toHaveBeenCalledTimes(1);
 
   // Closed and confirmed again: the same order goes with the same key, so it cannot fill twice.
   fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));

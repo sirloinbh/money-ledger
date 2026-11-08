@@ -35,6 +35,20 @@ const orderBody = z.object(
     side: sideField,
     quantity: quantityField,
     requestKey: z.uuid({ error: '주문 키가 올바르지 않습니다' }),
+    // What the confirmation showed. The fill still uses the server's latest close and rate; these are only
+    // compared with them, so an order never fills at a price the person did not see (#52 review).
+    expectedPrice: z
+      .string({ error: '확인한 시세가 없습니다. 주문을 다시 확인하세요' })
+      .max(30, '확인한 시세가 올바르지 않습니다')
+      .nullable(),
+    expectedPriceDate: z
+      .string({ error: '확인한 시세가 없습니다. 주문을 다시 확인하세요' })
+      .max(10, '확인한 시세가 올바르지 않습니다')
+      .nullable(),
+    expectedFxRate: z
+      .string({ error: '확인한 시세가 없습니다. 주문을 다시 확인하세요' })
+      .max(30, '확인한 시세가 올바르지 않습니다')
+      .nullable(),
   },
   { error: '요청 본문은 JSON 객체여야 합니다' },
 );
@@ -62,6 +76,7 @@ type QuoteRow = {
   amount_krw: string | null;
   fee_krw: string | null;
   held: string | null;
+  held_cost: string | null;
   stale: boolean | null;
 };
 
@@ -75,7 +90,8 @@ async function quote(
 ): Promise<QuoteRow> {
   const { rows } = await db.query<QuoteRow>(
     `SELECT s.id, s.symbol, s.name, s.currency, s.active, p.close, p.trade_date, fx.fx_rate, fx.rate_date,
-            ($5::date - p.trade_date) > 5 AS stale, h.quantity AS held, amount.krw AS amount_krw,
+            ($5::date - p.trade_date) > 5 AS stale, h.quantity AS held, h.cost_krw AS held_cost,
+            amount.krw AS amount_krw,
             round(amount.krw * $4::numeric) AS fee_krw
      FROM securities s
      LEFT JOIN LATERAL (
@@ -111,11 +127,15 @@ function problemOf(account: Account, row: QuoteRow, side: Side, quantity: string
   const cash = BigInt(account.cash_krw);
   if (amount > maxWon) return '주문 금액이 너무 큽니다';
   if (side === 'buy' && amount + fee > cash) return '현금이 부족합니다';
+  // The cost of a holding has the same 1,000조 ceiling as cash (015).
+  if (side === 'buy' && BigInt(row.held_cost ?? '0') + amount + fee > maxWon) {
+    return '주문 금액이 너무 큽니다';
+  }
   if (side === 'sell') {
     // Whole shares on both sides, so comparing as integers is exact.
     const held = row.held === null ? 0n : BigInt(row.held.split('.')[0]);
     if (BigInt(quantity) > held) return '보유 수량이 부족합니다';
-    if (cash + amount - fee > maxWon) return '주문 금액이 너무 큽니다';
+    if (cash + amount - fee > maxWon) return '계좌 현금 한도를 넘습니다';
   }
   return null;
 }
@@ -235,6 +255,13 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
       const row = await quote(client, found, body.securityId, body.quantity, today());
       const problem = problemOf(found, row, body.side, body.quantity);
       if (problem !== null) throw new HttpError(409, problem);
+      if (
+        row.close !== body.expectedPrice ||
+        row.trade_date !== body.expectedPriceDate ||
+        row.fx_rate !== body.expectedFxRate
+      ) {
+        throw new HttpError(409, '시세가 바뀌었습니다. 주문을 다시 확인하세요');
+      }
 
       const cash = await client.query<{ cash_krw: string }>(
         'UPDATE mock_accounts SET cash_krw = cash_krw + $2 WHERE id = $1 RETURNING cash_krw',
@@ -289,6 +316,12 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
         [inserted.rows[0].id],
       );
       return { order: order.rows[0], cashKrw: cash.rows[0].cash_krw, created: true };
+    }).catch((error: unknown) => {
+      // The same key sent at once for two accounts passes both account locks; the unique key stops one.
+      if ((error as { code?: unknown } | null)?.code === '23505') {
+        throw new HttpError(409, '같은 주문 키로 다른 주문을 보냈습니다');
+      }
+      throw error;
     });
     res
       .status(result.created ? 201 : 200)

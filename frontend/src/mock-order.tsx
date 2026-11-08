@@ -125,6 +125,10 @@ export function MockOrder({
           side: preview.side,
           quantity: preview.quantity,
           requestKey: requestKey.current.key,
+          // What the dialog showed: the server refuses the order if its close or rate changed since.
+          expectedPrice: preview.data.price,
+          expectedPriceDate: preview.data.priceDate,
+          expectedFxRate: preview.data.fxRate,
         },
       });
       requestKey.current = undefined;
@@ -136,12 +140,18 @@ export function MockOrder({
       onOrdered();
     } catch (cause) {
       // A refusal (409: cash, holdings, price changed) closes the dialog so the reason shows on the screen.
-      // A lost connection keeps the key, so pressing again cannot fill twice.
       if (cause instanceof RequestError && cause.status !== undefined) {
         requestKey.current = undefined;
         setPreview(undefined);
+        showError(cause, '주문하지 못했습니다');
+        throw cause;
       }
-      showError(cause, '주문하지 못했습니다');
+      // A lost connection keeps the key, so pressing again cannot fill twice. The order may have filled
+      // anyway, so the account card is reloaded to show the cash as it is now.
+      showError(
+        `${cause instanceof Error ? cause.message : '주문하지 못했습니다'}. 주문이 체결됐을 수 있으니 계좌 현금을 확인하세요`,
+      );
+      onOrdered();
       throw cause;
     }
   };

@@ -16,6 +16,9 @@ const valid = {
   side: 'buy',
   quantity: '10',
   requestKey: '0b8f6c7e-5d2a-4c1e-9f3b-2a7d6e8c1f40',
+  expectedPrice: '70600.0000',
+  expectedPriceDate: '2026-11-06',
+  expectedFxRate: null,
 };
 
 const invalid = [
@@ -49,6 +52,11 @@ const invalid = [
     label: 'a malformed request key',
     body: { ...valid, requestKey: 'abc' },
     error: '주문 키가 올바르지 않습니다',
+  },
+  {
+    label: 'no confirmed price',
+    body: { ...valid, expectedPrice: undefined },
+    error: '확인한 시세가 없습니다. 주문을 다시 확인하세요',
   },
   { label: 'a body that is not an object', body: [1], error: '요청 본문은 JSON 객체여야 합니다' },
 ];

@@ -102,17 +102,38 @@ test('mock trading market orders against the real database', { skip: !url }, asy
     ).rows[0];
   const orderCount = async () =>
     Number((await pool.query<{ n: string }>('SELECT count(*) AS n FROM mock_orders')).rows[0].n);
-  const body = (
+  // An order as the screen sends it: with the close (and rate) the confirmation showed, read here from the DB.
+  const body = async (
     symbol: string,
     side: 'buy' | 'sell',
     quantity: string,
     requestKey = randomUUID(),
-  ) => ({
-    securityId: ids[symbol],
-    side,
-    quantity,
-    requestKey,
-  });
+  ) => {
+    const { rows } = await pool.query<{
+      close: string | null;
+      trade_date: string | null;
+      fx: string | null;
+    }>(
+      `SELECT p.close, p.trade_date,
+              (SELECT fx_rate FROM fx_rates WHERE s.currency = 'USD' ORDER BY rate_date DESC LIMIT 1) AS fx
+       FROM securities s
+       LEFT JOIN LATERAL (
+         SELECT close, trade_date FROM security_prices WHERE security_id = s.id
+         ORDER BY trade_date DESC LIMIT 1
+       ) p ON true
+       WHERE s.id = $1`,
+      [ids[symbol] ?? 0],
+    );
+    return {
+      securityId: ids[symbol],
+      side,
+      quantity,
+      requestKey,
+      expectedPrice: rows[0]?.close ?? null,
+      expectedPriceDate: rows[0]?.trade_date ?? null,
+      expectedFxRate: rows[0]?.fx ?? null,
+    };
+  };
   const path = () => `/api/mock/accounts/${accountId}/orders`;
 
   await t.test('a buy fills at the stored close, takes the cash and adds the holding', async () => {
@@ -123,7 +144,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
         // A price sent by the client is ignored: the server's latest close is used.
         const placed = await call(path(), {
           method: 'POST',
-          body: { ...body('005930', 'buy', '10'), price: '1' },
+          body: { ...(await body('005930', 'buy', '10')), price: '1' },
         });
         assert.equal(placed.status, 201);
         const { order, cashKrw } = placed.data as Placed;
@@ -159,7 +180,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
       await withApi(
         pool,
         async (call) => {
-          const order = body('005930', 'buy', '1');
+          const order = await body('005930', 'buy', '1');
           const [first, second] = await Promise.all([
             call(path(), { method: 'POST', body: order }),
             call(path(), { method: 'POST', body: order }),
@@ -191,8 +212,8 @@ test('mock trading market orders against the real database', { skip: !url }, asy
       async (call) => {
         // Each takes 706,000 of 1,000,000: only one can fill.
         const results = await Promise.all([
-          call(path(), { method: 'POST', body: body('005930', 'buy', '10') }),
-          call(path(), { method: 'POST', body: body('005930', 'buy', '10') }),
+          call(path(), { method: 'POST', body: await body('005930', 'buy', '10') }),
+          call(path(), { method: 'POST', body: await body('005930', 'buy', '10') }),
         ]);
         assert.deepEqual(results.map((r) => r.status).sort(), [201, 409]);
         assert.deepEqual(results.find((r) => r.status === 409)?.data, {
@@ -214,8 +235,9 @@ test('mock trading market orders against the real database', { skip: !url }, asy
       await withApi(
         pool,
         async (call) => {
-          const placed = (await call(path(), { method: 'POST', body: body('AAPL', 'buy', '3') }))
-            .data as Placed;
+          const placed = (
+            await call(path(), { method: 'POST', body: await body('AAPL', 'buy', '3') })
+          ).data as Placed;
           // round(3 × 231.5 × 1384.5) = round(961,535.25); fee round(961,535 × 0.00015) = round(144.23).
           assert.deepEqual(
             [
@@ -242,8 +264,9 @@ test('mock trading market orders against the real database', { skip: !url }, asy
             "INSERT INTO security_prices (security_id, trade_date, close, currency, source) VALUES ($1, '2026-11-09', 100000, 'KRW', 'T')",
             [ids['100001']],
           );
-          const half = (await call(path(), { method: 'POST', body: body('100001', 'buy', '1') }))
-            .data as Placed;
+          const half = (
+            await call(path(), { method: 'POST', body: await body('100001', 'buy', '1') })
+          ).data as Placed;
           assert.deepEqual([half.order.amountKrw, half.order.feeKrw], [100_000, 2]);
         },
         { today },
@@ -258,24 +281,33 @@ test('mock trading market orders against the real database', { skip: !url }, asy
       await withApi(
         pool,
         async (call) => {
-          await call(path(), { method: 'POST', body: body('100001', 'buy', '3') });
+          await call(path(), { method: 'POST', body: await body('100001', 'buy', '3') });
           assert.deepEqual(await holding('100001'), { quantity: '3.00000000', cost_krw: '300003' });
 
-          const sold = await call(path(), { method: 'POST', body: body('100001', 'sell', '1') });
+          const sold = await call(path(), {
+            method: 'POST',
+            body: await body('100001', 'sell', '1'),
+          });
           assert.equal(sold.status, 201);
           assert.equal((sold.data as Placed).cashKrw, 10_000_000 - 300_003 + 100_001);
           // round(300,003 × 2 / 3) = 200,002
           assert.deepEqual(await holding('100001'), { quantity: '2.00000000', cost_krw: '200002' });
 
-          const tooMany = await call(path(), { method: 'POST', body: body('100001', 'sell', '3') });
+          const tooMany = await call(path(), {
+            method: 'POST',
+            body: await body('100001', 'sell', '3'),
+          });
           assert.deepEqual(
             [tooMany.status, tooMany.data],
             [409, { error: '보유 수량이 부족합니다' }],
           );
-          const none = await call(path(), { method: 'POST', body: body('005930', 'sell', '1') });
+          const none = await call(path(), {
+            method: 'POST',
+            body: await body('005930', 'sell', '1'),
+          });
           assert.deepEqual(none.data, { error: '보유 수량이 부족합니다' });
 
-          await call(path(), { method: 'POST', body: body('100001', 'sell', '2') });
+          await call(path(), { method: 'POST', body: await body('100001', 'sell', '2') });
           assert.equal(await holding('100001'), undefined);
           assert.equal(await cashOf(), 10_000_000 - 300_003 + 300_003);
         },
@@ -293,17 +325,21 @@ test('mock trading market orders against the real database', { skip: !url }, asy
           const response = await call(path(), { method: 'POST', body: order });
           assert.deepEqual([response.status, response.data], [status, { error }]);
         };
-        await refuse(body('005930', 'buy', '2'), 409, '현금이 부족합니다');
+        await refuse(await body('005930', 'buy', '2'), 409, '현금이 부족합니다');
         // Inactive (#97): not buyable, but a held one can be sold.
-        await refuse(body('000660', 'buy', '1'), 409, '거래가 중단된 종목은 살 수 없습니다');
-        await refuse(body('0009A0', 'buy', '1'), 409, '저장된 종가가 없어 주문할 수 없습니다');
+        await refuse(await body('000660', 'buy', '1'), 409, '거래가 중단된 종목은 살 수 없습니다');
         await refuse(
-          body('AAPL', 'buy', '1'),
+          await body('0009A0', 'buy', '1'),
+          409,
+          '저장된 종가가 없어 주문할 수 없습니다',
+        );
+        await refuse(
+          await body('AAPL', 'buy', '1'),
           409,
           '저장된 환율이 없어 미국 주식을 주문할 수 없습니다',
         );
         await refuse(
-          { ...body('005930', 'buy', '1'), securityId: 999_999 },
+          { ...(await body('005930', 'buy', '1')), securityId: 999_999 },
           404,
           '종목을 찾을 수 없습니다',
         );
@@ -314,19 +350,22 @@ test('mock trading market orders against the real database', { skip: !url }, asy
           'INSERT INTO mock_holdings (account_id, security_id, quantity, cost_krw) VALUES ($1, $2, 1, 150000)',
           [accountId, ids['000660']],
         );
-        const sold = await call(path(), { method: 'POST', body: body('000660', 'sell', '1') });
+        const sold = await call(path(), {
+          method: 'POST',
+          body: await body('000660', 'sell', '1'),
+        });
         assert.equal(sold.status, 201);
         assert.equal(await cashOf(), 280_000);
 
         await pool.query('UPDATE mock_accounts SET closed_at = now() WHERE id = $1', [accountId]);
         await refuse(
-          body('005930', 'buy', '1'),
+          await body('005930', 'buy', '1'),
           409,
           '초기화된 계좌입니다. 화면을 새로 고친 뒤 다시 시도하세요',
         );
         const missing = await call('/api/mock/accounts/999999/orders', {
           method: 'POST',
-          body: body('005930', 'buy', '1'),
+          body: await body('005930', 'buy', '1'),
         });
         assert.deepEqual(missing.data, { error: '모의투자 계좌를 찾을 수 없습니다' });
       },
@@ -379,6 +418,74 @@ test('mock trading market orders against the real database', { skip: !url }, asy
           assert.deepEqual([late.priceStale, late.problem], [true, null]);
         },
         { today: () => '2026-11-12' },
+      );
+    },
+  );
+
+  await t.test('a close or rate that changed after the confirmation is refused', async () => {
+    await reset();
+    await addRate();
+    await withApi(
+      pool,
+      async (call) => {
+        const changed = '시세가 바뀌었습니다. 주문을 다시 확인하세요';
+        // The same day's close fetched again with another value.
+        const seen = await body('005930', 'buy', '1');
+        await pool.query(
+          "UPDATE security_prices SET close = 71000 WHERE security_id = $1 AND trade_date = '2026-11-06'",
+          [ids['005930']],
+        );
+        const late = await call(path(), { method: 'POST', body: seen });
+        assert.deepEqual([late.status, late.data], [409, { error: changed }]);
+        // A new rate for a US order.
+        const us = await body('AAPL', 'buy', '1');
+        await pool.query(
+          "INSERT INTO fx_rates (currency, rate_date, fx_rate, source) VALUES ('USD', '2026-11-09', 1390, 'T')",
+        );
+        const rate = await call(path(), { method: 'POST', body: us });
+        assert.deepEqual([rate.status, rate.data], [409, { error: changed }]);
+        assert.equal(await orderCount(), 0);
+        assert.equal(await cashOf(), 10_000_000);
+
+        // Confirmed again with what is stored now: it fills.
+        const again = await call(path(), { method: 'POST', body: await body('AAPL', 'buy', '1') });
+        assert.equal(again.status, 201);
+        assert.equal((again.data as Placed).order.fxRate, '1390.0000');
+      },
+      { today },
+    );
+  });
+
+  await t.test(
+    'the same key sent for two accounts at once is a Korean 409, not a server error',
+    async () => {
+      await reset();
+      const second = await pool.query<{ id: string }>(
+        'UPDATE mock_accounts SET closed_at = now() WHERE id = $1 RETURNING id',
+        [accountId],
+      );
+      const firstId = Number(second.rows[0].id);
+      const opened = await pool.query<{ id: string }>(
+        'INSERT INTO mock_accounts (initial_cash_krw, cash_krw) VALUES (10000000, 10000000) RETURNING id',
+      );
+      // The partial unique index allows one open account; reopen the first for this test only.
+      await pool.query('DROP INDEX mock_accounts_one_open_idx');
+      await pool.query('UPDATE mock_accounts SET closed_at = NULL WHERE id = $1', [firstId]);
+      const order = await body('005930', 'buy', '1');
+      await withApi(
+        pool,
+        async (call) => {
+          const results = await Promise.all(
+            [firstId, Number(opened.rows[0].id)].map((id) =>
+              call(`/api/mock/accounts/${id}/orders`, { method: 'POST', body: order }),
+            ),
+          );
+          assert.deepEqual(results.map((r) => r.status).sort(), [201, 409]);
+          assert.deepEqual(results.find((r) => r.status === 409)?.data, {
+            error: '같은 주문 키로 다른 주문을 보냈습니다',
+          });
+        },
+        { today },
       );
     },
   );
