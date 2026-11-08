@@ -215,4 +215,78 @@ test('ledger entries against the real database', { skip: !url }, async (t) => {
       assert.deepEqual(list.entries, []);
     });
   });
+
+  // #39 Filters: both ends of the period are included, every filter narrows the same list, and pages split it.
+  await t.test(
+    'the list is filtered by period, kind, category and search, and split into pages',
+    async () => {
+      await reset();
+      await runMigration(pool, '006_ledger_classification.sql');
+      const ids = await categoryIds();
+      const add = async (
+        date: string,
+        kind: string,
+        categoryId: number | null,
+        merchant = '',
+        memo = '',
+      ) => {
+        const { rows } = await pool.query<{ id: string }>(
+          `INSERT INTO ledger_entries (entry_date, kind, amount, category_id, merchant, memo)
+         VALUES ($1, $2, 1000, $3, $4, $5) RETURNING id`,
+          [date, kind, categoryId, merchant, memo],
+        );
+        return Number(rows[0].id);
+      };
+      const octLast = await add('2026-10-31', 'expense', ids['expense/식비'], '편의점');
+      const novFirst = await add('2026-11-01', 'expense', ids['expense/식비'], '스타벅스 강남점');
+      const salary = await add('2026-11-15', 'income', ids['income/급여'], '', '11월 급여');
+      const loose = await add('2026-11-20', 'expense', null, '', '100% 환불_대기');
+      const novLast = await add('2026-11-30', 'expense', ids['expense/교통'], 'STARBUCKS');
+      await add('2026-12-01', 'expense', ids['expense/식비']);
+
+      await withApi(pool, async (call) => {
+        const listed = async (query: string) => {
+          const response = await call(`/api/ledger/entries?${query}`);
+          assert.equal(response.status, 200, JSON.stringify(response.data));
+          return {
+            ids: (response.data.entries as Entry[]).map((entry) => entry.id),
+            total: response.data.total,
+          };
+        };
+        assert.deepEqual(await listed('from=2026-11-01&to=2026-11-30'), {
+          ids: [novLast, loose, salary, novFirst],
+          total: 4,
+        });
+        assert.deepEqual((await listed('to=2026-10-31')).ids, [octLast]);
+        assert.deepEqual((await listed('from=2026-11-01&to=2026-11-30&kind=income')).ids, [salary]);
+        assert.deepEqual(
+          (await listed(`from=2026-11-01&to=2026-11-30&category=${ids['expense/식비']}`)).ids,
+          [novFirst],
+        );
+        assert.deepEqual((await listed('category=none')).ids, [loose]);
+        // The merchant and the memo, ignoring letter case; % and _ are matched as typed.
+        assert.deepEqual((await listed(`q=${encodeURIComponent('starbucks')}`)).ids, [novLast]);
+        assert.deepEqual((await listed(`q=${encodeURIComponent('급여')}`)).ids, [salary]);
+        assert.deepEqual((await listed(`q=${encodeURIComponent('0%')}`)).ids, [loose]);
+        assert.deepEqual((await listed(`q=${encodeURIComponent('불_')}`)).ids, [loose]);
+        assert.deepEqual((await listed(`q=${encodeURIComponent('_')}`)).ids, [loose]);
+
+        const first = await call('/api/ledger/entries?size=4');
+        assert.deepEqual(
+          { total: first.data.total, page: first.data.page, pageSize: first.data.pageSize },
+          { total: 6, page: 1, pageSize: 4 },
+        );
+        assert.equal((first.data.entries as Entry[]).length, 4);
+        const second = await listed('size=4&page=2');
+        assert.deepEqual(second, { ids: [novFirst, octLast], total: 6 });
+        assert.deepEqual(await listed('size=4&page=3'), { ids: [], total: 6 });
+        // The uncategorized list for bulk classification is unchanged.
+        const { data } = await call('/api/ledger/entries?uncategorized=true');
+        assert.deepEqual(
+          (data.entries as Entry[]).map((entry) => entry.id),
+          [loose],
+        );
+      });
+    },
+  );
 });

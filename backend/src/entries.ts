@@ -57,10 +57,64 @@ const entryBody = z.object(
 );
 type EntryBody = z.infer<typeof entryBody>;
 
-const listQuery = z.object({
-  // `uncategorized=true` lists only entries without a category: the bulk classification list.
-  uncategorized: z.enum(['true'], { error: 'uncategorized는 true만 쓸 수 있습니다' }).optional(),
-});
+const pageSizes = { default: 50, max: 100 };
+const positiveInt = (message: string) =>
+  z
+    .string({ error: message })
+    .regex(/^[1-9]\d{0,8}$/, { error: message })
+    .transform(Number);
+
+// #39 Filters for the entry list. Every parameter is optional; `from` and `to` both include their own day.
+const listQuery = z
+  .object({
+    // `uncategorized=true` lists only entries without a category: the bulk classification list.
+    uncategorized: z.enum(['true'], { error: 'uncategorized는 true만 쓸 수 있습니다' }).optional(),
+    from: date.optional(),
+    to: date.optional(),
+    kind: z
+      .enum(['income', 'expense'], { error: '종류는 수입 또는 지출 중에서 고르세요' })
+      .optional(),
+    // A category id, or `none` for 미분류.
+    category: z
+      .union([z.literal('none'), positiveInt('카테고리가 올바르지 않습니다')], {
+        error: '카테고리가 올바르지 않습니다',
+      })
+      .optional(),
+    // Searched in the merchant and the memo, ignoring letter case.
+    q: z
+      .string({ error: '검색어는 글자로 입력하세요' })
+      .trim()
+      .max(50, '검색어는 50자 이하로 입력하세요')
+      .optional(),
+    page: positiveInt('쪽 번호가 올바르지 않습니다').optional(),
+    size: positiveInt('한 쪽의 내역 수가 올바르지 않습니다')
+      .pipe(z.number().max(pageSizes.max, `한 쪽에 ${pageSizes.max}건까지 볼 수 있습니다`))
+      .optional(),
+  })
+  .refine((query) => !query.from || !query.to || query.from <= query.to, {
+    error: '시작일이 종료일보다 늦습니다',
+  });
+type ListQuery = z.infer<typeof listQuery>;
+
+/** `%`, `_` and `\` typed by the user are matched as themselves in ILIKE (default escape `\`). */
+const likePattern = (text: string) => `%${text.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
+
+/** WHERE conditions and their parameters for the list filters. */
+function listFilter(query: ListQuery) {
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+  const add = (sql: (n: string) => string, value: unknown) => {
+    params.push(value);
+    conditions.push(sql(`$${params.length}`));
+  };
+  if (query.from) add((n) => `e.entry_date >= ${n}::date`, query.from);
+  if (query.to) add((n) => `e.entry_date <= ${n}::date`, query.to);
+  if (query.kind) add((n) => `e.kind = ${n}::text`, query.kind);
+  if (query.category === 'none') conditions.push('e.category_id IS NULL');
+  else if (query.category !== undefined) add((n) => `e.category_id = ${n}::bigint`, query.category);
+  if (query.q) add((n) => `(e.merchant ILIKE ${n} OR e.memo ILIKE ${n})`, likePattern(query.q));
+  return { where: conditions.length ? `WHERE ${conditions.join(' AND ')}` : '', params };
+}
 
 const maxClassify = 200;
 const classifyBody = z.object(
@@ -168,15 +222,36 @@ const chosen = (body: EntryBody): body is Chosen => body.categoryId !== null;
 export function entriesRouter(pool: Pool) {
   const router = Router();
 
-  // The latest entries first. Period and category filters come with #39.
+  // The latest entries first, filtered and split into pages (#39). `total` counts every matching entry.
   router.get('/', async (req, res) => {
     const query = listQuery.parse(req.query);
-    const { rows } = await pool.query<Row>(
-      query.uncategorized
-        ? `${select} WHERE e.category_id IS NULL ORDER BY e.entry_date DESC, e.id DESC LIMIT ${maxClassify}`
-        : `${select} ORDER BY e.entry_date DESC, e.id DESC LIMIT 100`,
-    );
-    res.json({ entries: rows.map(toEntry) });
+    if (query.uncategorized) {
+      const { rows } = await pool.query<Row>(
+        `${select} WHERE e.category_id IS NULL ORDER BY e.entry_date DESC, e.id DESC LIMIT ${maxClassify}`,
+      );
+      res.json({ entries: rows.map(toEntry) });
+      return;
+    }
+    const page = query.page ?? 1;
+    const pageSize = query.size ?? pageSizes.default;
+    const { where, params } = listFilter(query);
+    const n = params.length;
+    const [list, count] = await Promise.all([
+      pool.query<Row>(
+        `${select} ${where} ORDER BY e.entry_date DESC, e.id DESC LIMIT $${n + 1} OFFSET $${n + 2}`,
+        [...params, pageSize, (page - 1) * pageSize],
+      ),
+      pool.query<{ total: string }>(
+        `SELECT count(*) AS total FROM ledger_entries e ${where}`,
+        params,
+      ),
+    ]);
+    res.json({
+      entries: list.rows.map(toEntry),
+      total: Number(count.rows[0].total),
+      page,
+      pageSize,
+    });
   });
 
   router.post('/', async (req, res) => {
