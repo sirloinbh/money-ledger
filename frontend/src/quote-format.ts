@@ -15,9 +15,12 @@ export function formatMonthDay(date: string) {
   return `${Number(date.slice(5, 7))}월 ${Number(date.slice(8, 10))}일`;
 }
 
-/** The close in its own currency, from the decimal string as is (no floating point). */
-export const formatClose = (quote: Quote) =>
-  quote.currency === 'KRW' ? `${formatDecimal(quote.close)}원` : formatUsd(quote.close);
+/** A price in its own currency, from the decimal string as is (no floating point). */
+export const formatPrice = (price: string, currency: 'KRW' | 'USD') =>
+  currency === 'KRW' ? `${formatDecimal(price)}원` : formatUsd(price);
+
+/** The close in its own currency. */
+export const formatClose = (quote: Quote) => formatPrice(quote.close, quote.currency);
 
 /** "11월 6일 종가 기준", or "시세 지연 · 11월 6일 종가 기준" for a close more than 5 days old. */
 export const quoteBasis = (quote: Quote) =>

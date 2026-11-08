@@ -213,3 +213,13 @@ test('a failed load is shown as an error instead of the form', async () => {
   expect(await screen.findByRole('alert')).toHaveTextContent('서버 오류가 발생했습니다');
   expect(screen.queryByRole('button', { name: '계좌 만들기' })).not.toBeInTheDocument();
 });
+
+test('a new refresh key (an order elsewhere on the page) reloads the cash', async () => {
+  open = account(1, 10_000_000);
+  const { rerender } = render(<MockAccount refreshKey={0} />);
+  expect(await screen.findAllByText('10,000,000원')).toHaveLength(2);
+  open = { ...open, cashKrw: 9_294_000 };
+  rerender(<MockAccount refreshKey={1} />);
+  expect(await screen.findByText('9,294,000원')).toBeInTheDocument();
+  expect(requests.filter((request) => request.method === 'GET')).toHaveLength(2);
+});
