@@ -10,6 +10,7 @@ const samsung = {
   symbol: '005930',
   name: '삼성전자',
   kind: 'stock',
+  active: true,
   currency: 'KRW',
   quote: {
     close: '70600.0000',
@@ -25,6 +26,7 @@ const apple = {
   symbol: 'AAPL',
   name: null,
   kind: 'stock',
+  active: true,
   currency: 'USD',
   quote: null,
 };
@@ -175,6 +177,38 @@ test.each([
   expect(await screen.findByText('시세 없음')).toBeInTheDocument();
   expect(screen.getByText(text)).toBeInTheDocument();
   expect(screen.getByText('환율 없음')).toBeInTheDocument();
+});
+
+test('a delisted or suspended security says 거래 중단 next to its last close', async () => {
+  answers['/api/prices/securities?q=005930'] = { status: 200, body: { securities: [samsung] } };
+  answers['/api/prices/securities/1'] = {
+    status: 200,
+    body: {
+      security: { ...samsung, active: false },
+      quote: samsung.quote,
+      quoteIssue: null,
+      fx: null,
+    },
+  };
+  render(<SecuritySearch />);
+  searchFor('005930');
+  fireEvent.click(await screen.findByRole('button', { name: /삼성전자/ }));
+  await screen.findByRole('heading', { level: 2, name: '삼성전자' });
+  expect(detailCard().getByText('거래 중단')).toBeInTheDocument();
+  expect(detailCard().getByText('70,600원')).toBeInTheDocument();
+});
+
+test('an active security has no 거래 중단 mark', async () => {
+  answers['/api/prices/securities?q=005930'] = { status: 200, body: { securities: [samsung] } };
+  answers['/api/prices/securities/1'] = {
+    status: 200,
+    body: { security: samsung, quote: samsung.quote, quoteIssue: null, fx: null },
+  };
+  render(<SecuritySearch />);
+  searchFor('005930');
+  fireEvent.click(await screen.findByRole('button', { name: /삼성전자/ }));
+  await screen.findByRole('heading', { level: 2, name: '삼성전자' });
+  expect(screen.queryByText('거래 중단')).toBeNull();
 });
 
 test('a detail that fails to load shows the server message', async () => {

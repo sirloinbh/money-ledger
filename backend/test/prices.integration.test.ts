@@ -7,6 +7,7 @@ import { fakeSources } from '../src/prices/fake.js';
 import { dailyTiingoLimit, runDailyFetch, tiingoHourlyLimit } from '../src/prices/fetch.js';
 import { runIfDue } from '../src/prices/scheduler.js';
 import { type PriceSources, SourceError } from '../src/prices/sources.js';
+import { saveKrxDay } from '../src/prices/store.js';
 import { runMigration, withApi } from './helpers.js';
 
 const url = process.env.TEST_DATABASE_URL;
@@ -82,10 +83,13 @@ test('shared price store against the real database', { skip: !url }, async (t) =
 
   const reset = async () => {
     await pool.query(
-      'DROP TABLE IF EXISTS security_prices, fx_rates, price_fetch_state, price_api_calls, securities',
+      'DROP TABLE IF EXISTS security_prices, fx_rates, price_fetch_state, price_api_calls, krx_market_days, securities',
     );
     await runMigration(pool, '009_prices.sql');
-    await runMigration(pool, '009_prices.sql'); // re-running is safe
+    await runMigration(pool, '012_krx_listing.sql');
+    // re-running is safe
+    await runMigration(pool, '009_prices.sql');
+    await runMigration(pool, '012_krx_listing.sql');
   };
   const closesOf = async (symbol: string) =>
     (
@@ -603,6 +607,139 @@ test('shared price store against the real database', { skip: !url }, async (t) =
     } finally {
       other.release();
     }
+  });
+
+  await t.test(
+    'a Korean security missing from 10 market days in a row becomes inactive (#97)',
+    async () => {
+      await reset();
+      const samsung = { symbol: '005930', name: '삼성전자', close: '70000' };
+      const halted = { symbol: '000660', name: 'SK하이닉스', close: '180000' };
+      const days = [
+        '2026-11-02',
+        '2026-11-03',
+        '2026-11-04',
+        '2026-11-05',
+        '2026-11-06',
+        '2026-11-09',
+        '2026-11-10',
+        '2026-11-11',
+        '2026-11-12',
+        '2026-11-13',
+        '2026-11-16',
+        '2026-11-17',
+      ];
+      const save = (date: string, rows: { symbol: string; name: string; close: string }[]) =>
+        saveKrxDay(pool, 'KOSPI', date, rows, 'FAKE', noon);
+      const activeOf = async (symbol: string) =>
+        (
+          await pool.query<{ active: boolean }>('SELECT active FROM securities WHERE symbol = $1', [
+            symbol,
+          ])
+        ).rows[0].active;
+
+      await save(days[0], [samsung, halted]);
+      // Missing from 9 market days: still active. An empty answer (holiday) is not a market day, saving a
+      // day again does not count twice, and another market's days do not count.
+      for (const date of days.slice(1, 10)) await save(date, [samsung]);
+      await save('2026-11-14', []);
+      await save(days[9], [samsung]);
+      await saveKrxDay(
+        pool,
+        'KOSDAQ',
+        days[10],
+        [{ symbol: '247540', name: '에코프로비엠', close: '150000' }],
+        'FAKE',
+        noon,
+      );
+      assert.equal(await activeOf('000660'), true);
+
+      // The 10th market day without it.
+      await save(days[10], [samsung]);
+      assert.equal(await activeOf('000660'), false);
+      assert.equal(await activeOf('005930'), true);
+      await withApi(
+        pool,
+        async (call) => {
+          assert.deepEqual((await call('/api/prices/securities?q=000660')).data.securities, []);
+          const id = (
+            await pool.query<{ id: string }>("SELECT id FROM securities WHERE symbol = '000660'")
+          ).rows[0].id;
+          // The detail still opens (holdings will link to it) with the last close and active false.
+          const detail = (await call(`/api/prices/securities/${id}`)).data as Detail & {
+            security: { active: boolean };
+          };
+          assert.deepEqual(
+            [detail.security.active, detail.quote?.tradeDate],
+            [false, '2026-11-02'],
+          );
+        },
+        { today: () => '2026-11-17' },
+      );
+
+      // An older day that still had it, saved late (a manual refetch), does not bring it back.
+      await save(days[0], [samsung, halted]);
+      assert.equal(await activeOf('000660'), false);
+
+      // Back in the data: active again.
+      await save(days[11], [samsung, halted]);
+      assert.equal(await activeOf('000660'), true);
+    },
+  );
+
+  await t.test(
+    'a security that moved to another market is judged by its new market only',
+    async () => {
+      await reset();
+      const moving = { symbol: '247540', name: '에코프로비엠', close: '150000' };
+      const other = { symbol: '005930', name: '삼성전자', close: '70000' };
+      const days = [
+        '2026-11-02',
+        '2026-11-03',
+        '2026-11-04',
+        '2026-11-05',
+        '2026-11-06',
+        '2026-11-09',
+        '2026-11-10',
+        '2026-11-11',
+        '2026-11-12',
+        '2026-11-13',
+        '2026-11-16',
+      ];
+      await saveKrxDay(
+        pool,
+        'KOSDAQ',
+        days[0],
+        [moving, { ...other, symbol: '000250' }],
+        'FAKE',
+        noon,
+      );
+      // From the next day it is listed on KOSPI, and KOSDAQ answers keep coming without it.
+      for (const date of days.slice(1)) {
+        await saveKrxDay(pool, 'KOSPI', date, [moving, other], 'FAKE', noon);
+        await saveKrxDay(pool, 'KOSDAQ', date, [{ ...other, symbol: '000250' }], 'FAKE', noon);
+      }
+      const row = await pool.query<{ market: string; active: boolean }>(
+        "SELECT market, active FROM securities WHERE symbol = '247540'",
+      );
+      assert.deepEqual(row.rows[0], { market: 'KOSPI', active: true });
+    },
+  );
+
+  await t.test('012 fills market days and last-seen days from closes saved before it', async () => {
+    await reset();
+    await runDailyFetch(pool, counted().sources, noon, quiet);
+    await pool.query('UPDATE securities SET krx_last_seen = NULL');
+    await pool.query('DELETE FROM krx_market_days');
+    await runMigration(pool, '012_krx_listing.sql');
+    const seen = await pool.query("SELECT krx_last_seen FROM securities WHERE symbol = '005930'");
+    assert.equal(seen.rows[0].krx_last_seen, '2026-11-06');
+    const marketDays = await pool.query<{ n: number }>(
+      "SELECT count(*)::int AS n FROM krx_market_days WHERE market = 'KOSPI'",
+    );
+    assert.equal(marketDays.rows[0].n, 6);
+    const us = await pool.query("SELECT krx_last_seen FROM securities WHERE symbol = 'AAPL'");
+    assert.equal(us.rows[0].krx_last_seen, null);
   });
 
   await t.test('the DB keeps closes whole for won and in the security currency', async () => {

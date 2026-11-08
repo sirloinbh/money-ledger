@@ -31,6 +31,7 @@ type SecurityRow = {
   name: string | null;
   kind: string;
   currency: 'KRW' | 'USD';
+  active: boolean;
   close: string | null;
   trade_date: string | null;
   fetched_at: Date | null;
@@ -44,6 +45,9 @@ const toSecurity = (row: SecurityRow) => ({
   name: row.name,
   kind: row.kind,
   currency: row.currency,
+  // false: a Korean security missing from the KRX data for 10 market days (#97), or a US ticker that left the
+  // Tiingo list. Not buyable, still sellable.
+  active: row.active,
 });
 
 const toQuote = (row: SecurityRow) =>
@@ -59,7 +63,7 @@ const toQuote = (row: SecurityRow) =>
 
 // The newest stored close of each security, with "delayed" decided against the service date ($1).
 const withLatestClose = `
-  SELECT s.id, s.market, s.symbol, s.name, s.kind, s.currency, s.viewed_at,
+  SELECT s.id, s.market, s.symbol, s.name, s.kind, s.currency, s.active, s.viewed_at,
          p.close, p.trade_date, p.fetched_at, ($1::date - p.trade_date) > ${staleAfterDays} AS stale
   FROM securities s
   LEFT JOIN LATERAL (
