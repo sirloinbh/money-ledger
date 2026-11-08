@@ -9,6 +9,7 @@ import { Notice } from './components/ui/notice';
 import { formatDecimal } from './format';
 import { requestJson } from './lib/api';
 import { errorText, type NoticeValue } from './lib/use-notice';
+import { MockOrder } from './mock-order';
 import { formatClose, formatMonthDay, type Quote, quoteBasis } from './quote-format';
 
 // #51 Security search and quote detail on the shared price API (/api/prices). Korean securities are found by
@@ -58,7 +59,8 @@ type Search =
   | { state: 'error'; message: string }
   | { state: 'done'; query: string; securities: Found[] };
 
-export function SecuritySearch() {
+/** `onOrdered`, when given, shows the mock order form in the detail and is called after each filled order. */
+export function SecuritySearch({ onOrdered }: { onOrdered?: () => void } = {}) {
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState<Search>({ state: 'idle' });
   const [invalid, setInvalid] = useState(false);
@@ -201,13 +203,21 @@ export function SecuritySearch() {
         </CardContent>
       </Card>
       {selected === undefined ? null : (
-        <SecurityDetail key={selected} id={selected} onLoaded={refreshRow} />
+        <SecurityDetail key={selected} id={selected} onLoaded={refreshRow} onOrdered={onOrdered} />
       )}
     </div>
   );
 }
 
-function SecurityDetail({ id, onLoaded }: { id: number; onLoaded: (detail: Detail) => void }) {
+function SecurityDetail({
+  id,
+  onLoaded,
+  onOrdered,
+}: {
+  id: number;
+  onLoaded: (detail: Detail) => void;
+  onOrdered?: () => void;
+}) {
   const [detail, setDetail] = useState<Detail | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -273,7 +283,7 @@ function SecurityDetail({ id, onLoaded }: { id: number; onLoaded: (detail: Detai
           {security.active ? null : <Badge variant="warning">거래 중단</Badge>}
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-6">
         <dl className="grid gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1 rounded-xl border px-4 py-3">
             <dt className="text-body-sm text-muted-foreground">현재가(종가)</dt>
@@ -318,6 +328,9 @@ function SecurityDetail({ id, onLoaded }: { id: number; onLoaded: (detail: Detai
             </div>
           ) : null}
         </dl>
+        {onOrdered ? (
+          <MockOrder securityId={security.id} title={title(security)} onOrdered={onOrdered} />
+        ) : null}
       </CardContent>
     </Card>
   );

@@ -38,7 +38,8 @@ function parseAmount(text: string): { amount: number } | { message: string } {
 
 const grouped = (amount: number) => new Intl.NumberFormat('ko-KR').format(amount);
 
-export function MockAccount() {
+/** `refreshKey` changes after an order elsewhere on the page, so the cash shown is reloaded (#52). */
+export function MockAccount({ refreshKey = 0 }: { refreshKey?: number } = {}) {
   const [state, setState] = useState<State | undefined>(undefined);
   const [createAmount, setCreateAmount] = useState(defaultAmount);
   const [resetAmount, setResetAmount] = useState(defaultAmount);
@@ -61,7 +62,7 @@ export function MockAccount() {
 
   useEffect(() => {
     load().catch((cause: unknown) => showError(cause, '모의투자 계좌를 불러오지 못했습니다'));
-  }, [load, showError]);
+  }, [load, showError, refreshKey]);
 
   // When a reload removes the focused control (the create button, the reset button), focus goes to what
   // replaced it: the account heading, or the amount field of the create form.
