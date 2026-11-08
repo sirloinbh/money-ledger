@@ -97,11 +97,12 @@ export async function saveKrxDay(
         `WITH input AS (
            SELECT * FROM unnest($1::text[], $2::text[], $3::numeric[]) AS t(symbol, name, close)
          ), saved AS (
-           INSERT INTO securities (market, symbol, name, kind, currency, updated_at)
-           SELECT $4, symbol, name, $5, 'KRW', $6 FROM input
+           INSERT INTO securities (market, symbol, name, kind, currency, updated_at, krx_last_seen)
+           SELECT $4, symbol, name, $5, 'KRW', $6, $7 FROM input
            ON CONFLICT (currency, symbol) DO UPDATE SET
              market = EXCLUDED.market, name = EXCLUDED.name, kind = EXCLUDED.kind, active = true,
-             updated_at = EXCLUDED.updated_at
+             updated_at = EXCLUDED.updated_at,
+             krx_last_seen = GREATEST(securities.krx_last_seen, EXCLUDED.krx_last_seen)
            RETURNING id, symbol
          )
          INSERT INTO security_prices (security_id, trade_date, close, currency, source, fetched_at)
@@ -119,9 +120,34 @@ export async function saveKrxDay(
           sourceName,
         ],
       );
+      await client.query(
+        'INSERT INTO krx_market_days (market, trade_date) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [market, date],
+      );
+      await deactivateMissing(client, market, date, now);
     }
     if (checked) await markChecked(client, stateSources.krx, market, date, now);
   });
+}
+
+/** Market days a Korean security may be missing from the KRX data before it becomes inactive (#97). */
+const krxMissingDays = 10;
+
+/**
+ * Marks inactive the securities of `market` missing from its last 10 market days up to `date`: their last-seen
+ * day is before the 10th most recent market day. Counting stored market days (not runs) keeps it the same
+ * however often a day is fetched again.
+ */
+async function deactivateMissing(client: PoolClient, market: KrxMarket, date: string, now: Date) {
+  await client.query(
+    `UPDATE securities SET active = false, updated_at = $3
+     WHERE market = $1 AND currency = 'KRW' AND active
+       AND krx_last_seen < (
+         SELECT trade_date FROM krx_market_days WHERE market = $1 AND trade_date <= $2
+         ORDER BY trade_date DESC OFFSET $4 - 1 LIMIT 1
+       )`,
+    [market, date, now, krxMissingDays],
+  );
 }
 
 /** A new US list shorter than this share of the active tickers is refused as a broken file. */
