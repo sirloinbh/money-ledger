@@ -167,3 +167,22 @@ test('a lost connection keeps the request key for the retry; a refusal starts a 
   await screen.findByText(/종가로 (매수|매도)했습니다/);
   expect(posts()[2].body?.requestKey).not.toBe(posts()[0].body?.requestKey);
 });
+
+test('a 5xx after sending (e.g. a proxy timeout) is treated like a lost connection', async () => {
+  postAnswers = [{ status: 502, body: {} }];
+  const onOrdered = vi.fn();
+  render(<MockOrder securityId={1} title="삼성전자" onOrdered={onOrdered} />);
+  orderFor('10');
+  let dialog = await screen.findByRole('dialog');
+  fireEvent.click(within(dialog).getByRole('button', { name: '매수' }));
+  expect(
+    await screen.findByText(/주문이 체결됐을 수 있으니 계좌 현금을 확인하세요/),
+  ).toBeInTheDocument();
+  expect(onOrdered).toHaveBeenCalledTimes(1);
+  // The retry goes with the same key.
+  fireEvent.click(within(dialog).getByRole('button', { name: '매수' }));
+  await screen.findByText(/종가로 매수했습니다/);
+  expect(posts()[1].body?.requestKey).toBe(posts()[0].body?.requestKey);
+  dialog = screen.queryByRole('dialog') as HTMLElement;
+  expect(dialog).toBeNull();
+});

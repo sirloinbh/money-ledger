@@ -460,30 +460,67 @@ test('mock trading market orders against the real database', { skip: !url }, asy
     'the same key sent for two accounts at once is a Korean 409, not a server error',
     async () => {
       await reset();
-      const second = await pool.query<{ id: string }>(
-        'UPDATE mock_accounts SET closed_at = now() WHERE id = $1 RETURNING id',
-        [accountId],
+      // Another account's order with the same key, inserted but not committed yet: the API passes its own
+      // key check, then waits on the unique key and fails with 23505 once this commits.
+      const closed = await pool.query<{ id: string }>(
+        'INSERT INTO mock_accounts (initial_cash_krw, cash_krw, closed_at) VALUES (10000000, 10000000, now()) RETURNING id',
       );
-      const firstId = Number(second.rows[0].id);
-      const opened = await pool.query<{ id: string }>(
-        'INSERT INTO mock_accounts (initial_cash_krw, cash_krw) VALUES (10000000, 10000000) RETURNING id',
-      );
-      // The partial unique index allows one open account; reopen the first for this test only.
-      await pool.query('DROP INDEX mock_accounts_one_open_idx');
-      await pool.query('UPDATE mock_accounts SET closed_at = NULL WHERE id = $1', [firstId]);
       const order = await body('005930', 'buy', '1');
+      const other = await pool.connect();
+      try {
+        await other.query('BEGIN');
+        await other.query(
+          `INSERT INTO mock_orders (account_id, security_id, request_key, side, quantity, price, currency,
+             price_date, amount_krw, fee_krw, cash_after_krw)
+           VALUES ($1, $2, $3, 'buy', 1, 70600, 'KRW', '2026-11-06', 70600, 0, 0)`,
+          [closed.rows[0].id, ids['005930'], order.requestKey],
+        );
+        await withApi(
+          pool,
+          async (call) => {
+            const pending = call(path(), { method: 'POST', body: order });
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            await other.query('COMMIT');
+            const response = await pending;
+            assert.deepEqual(
+              [response.status, response.data],
+              [409, { error: '같은 주문 키로 다른 주문을 보냈습니다' }],
+            );
+          },
+          { today },
+        );
+      } finally {
+        await other.query('ROLLBACK').catch(() => undefined);
+        other.release();
+      }
+      // Rolled back: no cash taken, no holding.
+      assert.equal(await cashOf(), 10_000_000);
+      assert.equal(await holding('005930'), undefined);
+    },
+  );
+
+  await t.test(
+    'a buy that would take a holding cost over the 1,000조 ceiling is refused',
+    async () => {
+      await reset();
+      await pool.query('UPDATE mock_accounts SET cash_krw = 1000000000000000 WHERE id = $1', [
+        accountId,
+      ]);
+      await pool.query(
+        'INSERT INTO mock_holdings (account_id, security_id, quantity, cost_krw) VALUES ($1, $2, 1, 999999999999000)',
+        [accountId, ids['005930']],
+      );
       await withApi(
         pool,
         async (call) => {
-          const results = await Promise.all(
-            [firstId, Number(opened.rows[0].id)].map((id) =>
-              call(`/api/mock/accounts/${id}/orders`, { method: 'POST', body: order }),
-            ),
-          );
-          assert.deepEqual(results.map((r) => r.status).sort(), [201, 409]);
-          assert.deepEqual(results.find((r) => r.status === 409)?.data, {
-            error: '같은 주문 키로 다른 주문을 보냈습니다',
+          const response = await call(path(), {
+            method: 'POST',
+            body: await body('005930', 'buy', '1'),
           });
+          assert.deepEqual(
+            [response.status, response.data],
+            [409, { error: '주문 금액이 너무 큽니다' }],
+          );
         },
         { today },
       );

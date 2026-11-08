@@ -318,7 +318,8 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
       return { order: order.rows[0], cashKrw: cash.rows[0].cash_krw, created: true };
     }).catch((error: unknown) => {
       // The same key sent at once for two accounts passes both account locks; the unique key stops one.
-      if ((error as { code?: unknown } | null)?.code === '23505') {
+      const pg = error as { code?: unknown; constraint?: unknown } | null;
+      if (pg?.code === '23505' && pg.constraint === 'mock_orders_request_key_key') {
         throw new HttpError(409, '같은 주문 키로 다른 주문을 보냈습니다');
       }
       throw error;

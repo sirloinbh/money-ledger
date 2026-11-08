@@ -140,7 +140,9 @@ export function MockOrder({
       onOrdered();
     } catch (cause) {
       // A refusal (409: cash, holdings, price changed) closes the dialog so the reason shows on the screen.
-      if (cause instanceof RequestError && cause.status !== undefined) {
+      // A 5xx (for example a proxy timeout) may come after the order committed, so it is treated like a
+      // lost connection below.
+      if (cause instanceof RequestError && cause.status !== undefined && cause.status < 500) {
         requestKey.current = undefined;
         setPreview(undefined);
         showError(cause, '주문하지 못했습니다');
