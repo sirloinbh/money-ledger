@@ -44,6 +44,7 @@ const usedOf = (id: number) =>
 const view = (asset: Asset) => ({
   ...asset,
   depreciation: null,
+  hasTrades: false,
   prepaid: asset.prepaid ? { ...asset.prepaid, usedKrw: usedOf(asset.id) } : null,
   currentValueKrw: asset.prepaid
     ? asset.prepaid.kind === 'period'

@@ -37,13 +37,17 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
   t.after(() => pool.end());
 
   const reset = async () => {
-    await pool.query('DROP TABLE IF EXISTS portfolio_prepaid_usages, portfolio_assets');
+    await pool.query(
+      'DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets',
+    );
     await runMigration(pool, '004_portfolio_assets.sql');
     await runMigration(pool, '004_portfolio_assets.sql'); // re-running is safe
     await runMigration(pool, '007_depreciable_assets.sql');
     await runMigration(pool, '010_prepaid_assets.sql');
+    await runMigration(pool, '013_asset_trades.sql');
     await runMigration(pool, '007_depreciable_assets.sql');
     await runMigration(pool, '010_prepaid_assets.sql');
+    await runMigration(pool, '013_asset_trades.sql');
   };
 
   await t.test('quantities and USD values are stored in the agreed formats', async () => {
@@ -67,6 +71,7 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
           memo: '해외',
           depreciation: null,
           prepaid: null,
+          hasTrades: false,
           currentValueKrw: null,
         },
       );
@@ -307,13 +312,16 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
   await t.test(
     'a #45 depreciable row with only a value still counts after migration 007',
     async () => {
-      await pool.query('DROP TABLE IF EXISTS portfolio_prepaid_usages, portfolio_assets');
+      await pool.query(
+        'DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets',
+      );
       await runMigration(pool, '004_portfolio_assets.sql');
       await pool.query(
         "INSERT INTO portfolio_assets (name, asset_type, value_krw) VALUES ('old', 'depreciable', 700000)",
       );
       await runMigration(pool, '007_depreciable_assets.sql');
       await runMigration(pool, '010_prepaid_assets.sql');
+      await runMigration(pool, '013_asset_trades.sql');
       await withApi(pool, async (call) => {
         const { data } = await call('/api/portfolio/assets');
         const [old] = data.assets as Asset[];

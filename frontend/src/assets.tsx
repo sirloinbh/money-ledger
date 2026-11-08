@@ -1,5 +1,6 @@
 import { type FormEvent, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 
+import { AssetTrades } from './asset-trades';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { ConfirmDialog } from './components/ui/confirm-dialog';
@@ -52,6 +53,8 @@ type Asset = {
   memo: string;
   depreciation: Depreciation | null;
   prepaid: Prepaid | null;
+  // #46 With trades the quantity is their total and cannot be entered here.
+  hasTrades: boolean;
   // The won value counted in the totals: the depreciated or prepaid value today, else the entered won value.
   currentValueKrw: number | null;
 };
@@ -112,6 +115,8 @@ const typeLabels: Record<AssetType, string> = {
   debt: '부채',
 };
 const typeOrder = Object.keys(typeLabels) as AssetType[];
+// #46 Types that can have buy and sell records (decision 2026-11-08).
+const tradeableTypes: readonly AssetType[] = ['stock', 'other'];
 const selectClass =
   'flex h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none pointer-coarse:min-h-11 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-body-sm dark:bg-input/30';
 
@@ -223,7 +228,10 @@ const totalText = (value: number | null) =>
  * The request body for a draft, or the field and Korean message that is wrong. Mirrors the server rules
  * so the common mistakes are caught before sending; the server checks again.
  */
-function toBody(draft: Draft): { body: object } | { field: Field; message: string } {
+function toBody(
+  draft: Draft,
+  tradeManaged = false,
+): { body: object } | { field: Field; message: string } {
   const name = draft.name.trim();
   if (!name) return { field: 'name', message: '자산 이름을 입력하세요' };
   if (draft.type === 'prepaid') {
@@ -283,7 +291,8 @@ function toBody(draft: Draft): { body: object } | { field: Field; message: strin
     }
     valueForeign = valueText;
   }
-  if (!quantityText && valueKrw === null && valueForeign === null) {
+  // An asset with trades may hold nothing (all sold) and still be edited.
+  if (!tradeManaged && !quantityText && valueKrw === null && valueForeign === null) {
     return { field: 'value', message: '수량이 없는 자산은 평가금액을 입력하세요' };
   }
   return {
@@ -328,6 +337,7 @@ export function AssetManager() {
   const [totals, setTotals] = useState<Totals | undefined>(undefined);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [editing, setEditing] = useState<Asset | undefined>(undefined);
+  const tradeManaged = editing?.hasTrades === true;
   const [invalid, setInvalid] = useState<Field | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const saving = useRef(false);
@@ -348,10 +358,34 @@ export function AssetManager() {
     load().catch((cause: unknown) => showError(cause, '자산을 불러오지 못했습니다'));
   }, [load, showError]);
 
-  // Opening an edit moves focus to the form above the list.
+  // Opening an edit moves focus to the form above the list (not when the same asset is refreshed below).
+  const editingId = editing?.id;
   useEffect(() => {
-    if (editing) nameInput.current?.focus();
-  }, [editing]);
+    if (editingId !== undefined) nameInput.current?.focus();
+  }, [editingId]);
+
+  // #46 A trade saved while the asset is open in the form changes whether its quantity comes from trades
+  // and what it is: follow the fresh asset so the form never sends a quantity the server will refuse.
+  useEffect(() => {
+    if (!editing || !assets) return;
+    const fresh = assets.find((asset) => asset.id === editing.id);
+    if (!fresh) {
+      // Deleted elsewhere (another tab): there is nothing left to save.
+      setInvalid(undefined);
+      setEditing(undefined);
+      setDraft(emptyDraft());
+      showError(`${editing.name}은(는) 이미 삭제되어 수정을 닫았습니다`);
+      return;
+    }
+    if (fresh.hasTrades === editing.hasTrades && fresh.quantity === editing.quantity) return;
+    setEditing(fresh);
+    if (fresh.hasTrades || editing.hasTrades) {
+      setDraft((current) => ({
+        ...current,
+        quantity: fresh.quantity === null ? '' : formatDecimal(fresh.quantity),
+      }));
+    }
+  }, [assets, editing, showError]);
 
   const change = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
   const clearInvalid = (field: Field) => {
@@ -413,7 +447,7 @@ export function AssetManager() {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (saving.current) return;
-    const result = toBody(draft);
+    const result = toBody(draft, tradeManaged);
     if ('field' in result) {
       setInvalid(result.field);
       showError(result.message);
@@ -693,19 +727,33 @@ export function AssetManager() {
                 </fieldset>
                 {draft.type === 'debt' ? null : (
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="asset-quantity">수량(선택)</Label>
+                    <Label htmlFor="asset-quantity">
+                      {tradeManaged ? '수량(거래 합계)' : '수량(선택)'}
+                    </Label>
                     <Input
                       id="asset-quantity"
                       inputMode="decimal"
                       autoComplete="off"
-                      placeholder="예: 10 또는 0.5"
+                      placeholder={tradeManaged ? '0' : '예: 10 또는 0.5'}
                       value={draft.quantity}
+                      // #46 Decision: an asset with trades takes its quantity from them.
+                      readOnly={tradeManaged}
                       {...fieldProps('quantity')}
+                      aria-describedby={
+                        tradeManaged
+                          ? 'asset-quantity-hint'
+                          : fieldProps('quantity')['aria-describedby']
+                      }
                       onChange={(event) => {
                         clearInvalid('quantity');
                         change({ quantity: event.target.value });
                       }}
                     />
+                    {tradeManaged ? (
+                      <p id="asset-quantity-hint" className="text-caption text-muted-foreground">
+                        거래 기록이 있어 수량은 거래 내역에서만 바뀝니다.
+                      </p>
+                    ) : null}
                   </div>
                 )}
                 <div className="flex flex-col gap-2">
@@ -828,6 +876,8 @@ function AssetList({
 }) {
   // The stored-value asset whose uses are open, one at a time.
   const [openUsages, setOpenUsages] = useState<number | undefined>(undefined);
+  // The stock or other asset whose trades are open, one at a time.
+  const [openTrades, setOpenTrades] = useState<number | undefined>(undefined);
   if (assets === undefined) {
     return failed ? null : (
       <p className="text-body-sm text-muted-foreground">자산을 불러오는 중입니다</p>
@@ -888,6 +938,23 @@ function AssetList({
                           사용 기록
                         </Button>
                       ) : null}
+                      {tradeableTypes.includes(asset.type) ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          aria-expanded={openTrades === asset.id}
+                          aria-controls={
+                            openTrades === asset.id ? `trade-${asset.id}-panel` : undefined
+                          }
+                          aria-label={`${asset.name} 거래 내역`}
+                          onClick={() =>
+                            setOpenTrades((open) => (open === asset.id ? undefined : asset.id))
+                          }
+                        >
+                          거래 내역
+                        </Button>
+                      ) : null}
                       <Button
                         type="button"
                         variant="ghost"
@@ -922,6 +989,17 @@ function AssetList({
                         <PrepaidUsages
                           assetId={asset.id}
                           assetName={asset.name}
+                          onChanged={onUsagesChanged}
+                        />
+                      </div>
+                    ) : null}
+                    {tradeableTypes.includes(asset.type) && openTrades === asset.id ? (
+                      <div id={`trade-${asset.id}-panel`} className="w-full">
+                        <AssetTrades
+                          assetId={asset.id}
+                          assetName={asset.name}
+                          currency={asset.currency}
+                          handQuantity={asset.hasTrades ? null : asset.quantity}
                           onChanged={onUsagesChanged}
                         />
                       </div>

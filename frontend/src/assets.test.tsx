@@ -35,6 +35,7 @@ const withCurrent = (asset: Asset) => ({
   ...asset,
   depreciation: asset.depreciation ?? null,
   prepaid: null,
+  hasTrades: false,
   currentValueKrw: asset.depreciation ? asset.depreciation.purchasePriceKrw / 2 : asset.valueKrw,
 });
 
