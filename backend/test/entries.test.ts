@@ -185,3 +185,27 @@ test('a write that matched nothing for no known reason is a Korean 409', async (
     assert.deepEqual(response.data, { error: '카테고리가 방금 바뀌었습니다. 다시 시도하세요' });
   });
 });
+
+// #39 List filters are checked before the DB, with Korean messages.
+const invalidQueries = [
+  { query: 'from=2026-02-30', error: '없는 날짜입니다' },
+  { query: 'to=2026/11/30', error: '날짜를 YYYY-MM-DD 형식으로 입력하세요' },
+  { query: 'from=2026-11-30&to=2026-11-01', error: '시작일이 종료일보다 늦습니다' },
+  { query: 'kind=transfer', error: '종류는 수입 또는 지출 중에서 고르세요' },
+  { query: 'category=0', error: '카테고리가 올바르지 않습니다' },
+  { query: 'category=abc', error: '카테고리가 올바르지 않습니다' },
+  { query: `q=${'가'.repeat(51)}`, error: '검색어는 50자 이하로 입력하세요' },
+  { query: 'page=0', error: '쪽 번호가 올바르지 않습니다' },
+  { query: 'page=1&page=2', error: '쪽 번호가 올바르지 않습니다' },
+  { query: 'size=101', error: '한 쪽에 100건까지 볼 수 있습니다' },
+];
+
+for (const { query, error } of invalidQueries) {
+  test(`listing with ${query.slice(0, 40)} is a Korean 400 before the DB`, async () => {
+    await withApi(noDb, async (call) => {
+      const response = await call(`/api/ledger/entries?${encodeURI(query)}`);
+      assert.equal(response.status, 400);
+      assert.deepEqual(response.data, { error });
+    });
+  });
+}
