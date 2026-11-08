@@ -1,7 +1,14 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { EntryManager } from './entries';
+
+// The list filters live in the address, so the manager renders inside a router.
+const Router = ({ children }: { children: ReactNode }) => (
+  <MemoryRouter initialEntries={['/ledger']}>{children}</MemoryRouter>
+);
 
 type Entry = {
   id: number;
@@ -42,7 +49,10 @@ function fakeApi() {
       requests.push({ method, url, body });
       if (url === '/api/ledger/categories') return json({ categories });
       if (method === 'GET')
-        return json({ entries: [...stored].sort((a, b) => b.date.localeCompare(a.date)) });
+        return json({
+          entries: [...stored].sort((a, b) => b.date.localeCompare(a.date)),
+          total: stored.length,
+        });
       const id = Number(url.split('/').pop());
       if (method === 'DELETE') {
         stored = stored.filter((entry) => entry.id !== id);
@@ -87,13 +97,13 @@ afterEach(() => {
 });
 
 const optionLabels = () =>
-  within(screen.getByLabelText('카테고리'))
+  within(screen.getByLabelText('카테고리', { selector: '#entry-category' }))
     .getAllByRole('option')
     .map((option) => option.textContent);
 
 const ready = async () => {
-  render(<EntryManager />);
-  await screen.findByRole('list', { name: '최근 내역' });
+  render(<EntryManager />, { wrapper: Router });
+  await screen.findByRole('list', { name: '내역 목록' });
   await screen.findByRole('option', { name: '식비' });
 };
 
@@ -110,7 +120,9 @@ test('a new entry starts on today in Seoul and offers only visible categories of
 test('recording sends whole won, keeps the date and kind, and lists the entry', async () => {
   await ready();
   fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '12,500' } });
-  fireEvent.change(screen.getByLabelText('카테고리'), { target: { value: '1' } });
+  fireEvent.change(screen.getByLabelText('카테고리', { selector: '#entry-category' }), {
+    target: { value: '1' },
+  });
   fireEvent.change(screen.getByLabelText('메모'), { target: { value: '점심' } });
   fireEvent.click(screen.getByRole('button', { name: '기록' }));
 
@@ -130,7 +142,7 @@ test('recording sends whole won, keeps the date and kind, and lists the entry', 
   expect(screen.getByLabelText('금액(원)')).toHaveValue('');
   expect(screen.getByLabelText('메모')).toHaveValue('');
   expect(screen.getByLabelText('날짜')).toHaveValue('2026-11-03');
-  const first = within(screen.getByRole('list', { name: '최근 내역' })).getAllByRole('listitem')[0];
+  const first = within(screen.getByRole('list', { name: '내역 목록' })).getAllByRole('listitem')[0];
   expect(first).toHaveTextContent('2026-11-03');
   expect(first).toHaveTextContent('-12,500원');
 });
@@ -140,7 +152,9 @@ test.each(['-1', '1.5', '만원', ''])(
   async (amount) => {
     await ready();
     fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: amount } });
-    fireEvent.change(screen.getByLabelText('카테고리'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('카테고리', { selector: '#entry-category' }), {
+      target: { value: '1' },
+    });
     fireEvent.click(screen.getByRole('button', { name: '기록' }));
     expect(screen.getByRole('alert')).toHaveTextContent('금액은 0원 이상의 정수로 입력하세요');
     expect(requests.some((request) => request.method === 'POST')).toBe(false);
@@ -167,7 +181,7 @@ test('an entry without a category is sent as 미분류 with its merchant', async
     },
   });
   expect(screen.getByLabelText('가맹점')).toHaveValue('');
-  const first = within(screen.getByRole('list', { name: '최근 내역' })).getAllByRole('listitem')[0];
+  const first = within(screen.getByRole('list', { name: '내역 목록' })).getAllByRole('listitem')[0];
   expect(first).toHaveTextContent('미분류');
   expect(first).toHaveTextContent('스타벅스 강남점');
 });
@@ -176,7 +190,9 @@ test('a server refusal shows its Korean message and keeps the input', async () =
   await ready();
   vi.mocked(fetch).mockImplementationOnce(() => json({ error: '없는 날짜입니다' }, 400));
   fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '1000' } });
-  fireEvent.change(screen.getByLabelText('카테고리'), { target: { value: '1' } });
+  fireEvent.change(screen.getByLabelText('카테고리', { selector: '#entry-category' }), {
+    target: { value: '1' },
+  });
   fireEvent.click(screen.getByRole('button', { name: '기록' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('없는 날짜입니다');
   expect(screen.getByLabelText('금액(원)')).toHaveValue('1000');
@@ -189,7 +205,7 @@ test('editing fills the form, keeps the hidden category it has, and saves with P
   expect(screen.getByLabelText('날짜')).toHaveValue('2026-11-01');
   expect(screen.getByLabelText('금액(원)')).toHaveValue('5000');
   expect(optionLabels()).toEqual(['미분류', '식비', '여가 (숨김)']);
-  expect(screen.getByLabelText('카테고리')).toHaveValue('2');
+  expect(screen.getByLabelText('카테고리', { selector: '#entry-category' })).toHaveValue('2');
 
   fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '7000' } });
   fireEvent.click(screen.getByRole('button', { name: '수정 저장' }));
@@ -225,7 +241,7 @@ test('deleting asks first, then removes the entry', async () => {
   const dialog = screen.getByRole('dialog', { name: '내역을 삭제할까요?' });
   expect(requests.some((request) => request.method === 'DELETE')).toBe(false);
   fireEvent.click(within(dialog).getByRole('button', { name: '삭제' }));
-  expect(await screen.findByText('아직 기록한 내역이 없습니다.')).toBeInTheDocument();
+  expect(await screen.findByText('조건에 맞는 내역이 없습니다.')).toBeInTheDocument();
   expect(requests).toContainEqual({
     method: 'DELETE',
     url: '/api/ledger/entries/1',
@@ -235,7 +251,7 @@ test('deleting asks first, then removes the entry', async () => {
 });
 
 test('a new categories version reloads the category choices', async () => {
-  const { rerender } = render(<EntryManager categoriesVersion={0} />);
+  const { rerender } = render(<EntryManager categoriesVersion={0} />, { wrapper: Router });
   await screen.findByRole('option', { name: '식비' });
   categories[0] = { ...categories[0], hidden: true };
   try {
@@ -275,7 +291,9 @@ test('while a save runs, opening an edit waits and the button says so', async ()
       }),
   );
   fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '1000' } });
-  fireEvent.change(screen.getByLabelText('카테고리'), { target: { value: '1' } });
+  fireEvent.change(screen.getByLabelText('카테고리', { selector: '#entry-category' }), {
+    target: { value: '1' },
+  });
   fireEvent.click(screen.getByRole('button', { name: '기록' }));
   expect(await screen.findByRole('button', { name: '저장 중…' })).toBeEnabled();
 
@@ -288,12 +306,15 @@ test('while a save runs, opening an edit waits and the button says so', async ()
 });
 
 test('a category change reloads the list, and a chosen category hidden meanwhile is unchosen', async () => {
-  const { rerender } = render(<EntryManager categoriesVersion={0} />);
+  const { rerender } = render(<EntryManager categoriesVersion={0} />, { wrapper: Router });
   await screen.findByRole('option', { name: '식비' });
-  fireEvent.change(screen.getByLabelText('카테고리'), { target: { value: '1' } });
+  fireEvent.change(screen.getByLabelText('카테고리', { selector: '#entry-category' }), {
+    target: { value: '1' },
+  });
   const listLoads = () =>
-    requests.filter((request) => request.method === 'GET' && request.url === '/api/ledger/entries')
-      .length;
+    requests.filter(
+      (request) => request.method === 'GET' && request.url.startsWith('/api/ledger/entries?'),
+    ).length;
   const before = listLoads();
 
   categories[0] = { ...categories[0], hidden: true };
@@ -302,18 +323,23 @@ test('a category change reloads the list, and a chosen category hidden meanwhile
     // The lost choice shows as "다시 고르세요" instead of silently turning into 미분류.
     await vi.waitFor(() => expect(optionLabels()).toEqual(['다시 고르세요', '미분류']));
     expect(listLoads()).toBe(before + 1);
-    expect(screen.getByLabelText('카테고리')).toHaveValue('stale');
+    expect(screen.getByLabelText('카테고리', { selector: '#entry-category' })).toHaveValue('stale');
 
     fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '1000' } });
     fireEvent.click(screen.getByRole('button', { name: '기록' }));
     expect(screen.getByRole('alert')).toHaveTextContent(
       '고른 카테고리를 쓸 수 없습니다. 카테고리를 다시 고르세요',
     );
-    expect(screen.getByLabelText('카테고리')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('카테고리', { selector: '#entry-category' })).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
     expect(requests.some((request) => request.method === 'POST')).toBe(false);
 
     // Choosing 미분류 on purpose is allowed.
-    fireEvent.change(screen.getByLabelText('카테고리'), { target: { value: '' } });
+    fireEvent.change(screen.getByLabelText('카테고리', { selector: '#entry-category' }), {
+      target: { value: '' },
+    });
     fireEvent.click(screen.getByRole('button', { name: '기록' }));
     await screen.findByRole('status');
     expect(requests.find((request) => request.method === 'POST')?.body).toMatchObject({
@@ -333,7 +359,7 @@ test('after a delete focus goes to the section title; after cancelling, back to 
 
   fireEvent.click(remove);
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }));
-  await screen.findByText('아직 기록한 내역이 없습니다.');
+  await screen.findByText('조건에 맞는 내역이 없습니다.');
   await vi.waitFor(() =>
     expect(screen.getByRole('heading', { name: '수입·지출 내역' })).toHaveFocus(),
   );
@@ -351,7 +377,9 @@ test('what is typed while a save runs is kept', async () => {
       }),
   );
   fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '1000' } });
-  fireEvent.change(screen.getByLabelText('카테고리'), { target: { value: '1' } });
+  fireEvent.change(screen.getByLabelText('카테고리', { selector: '#entry-category' }), {
+    target: { value: '1' },
+  });
   fireEvent.click(screen.getByRole('button', { name: '기록' }));
   await screen.findByRole('button', { name: '저장 중…' });
   fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '2000' } });
@@ -375,7 +403,7 @@ test('editing an uncategorized entry keeps 미분류 and its merchant', async ()
   ];
   await ready();
   fireEvent.click(screen.getByRole('button', { name: '2026-11-02 미분류 3,000원 수정' }));
-  expect(screen.getByLabelText('카테고리')).toHaveValue('');
+  expect(screen.getByLabelText('카테고리', { selector: '#entry-category' })).toHaveValue('');
   expect(screen.getByLabelText('가맹점')).toHaveValue('동네 빵집');
   fireEvent.click(screen.getByRole('button', { name: '수정 저장' }));
   expect(await screen.findByRole('status')).toHaveTextContent('내역을 수정했습니다');
@@ -402,7 +430,7 @@ test('an entry classified elsewhere while being edited keeps that category when 
       memo: '',
     },
   ];
-  const { rerender } = render(<EntryManager entriesVersion={0} />);
+  const { rerender } = render(<EntryManager entriesVersion={0} />, { wrapper: Router });
   await screen.findByRole('option', { name: '식비' });
   fireEvent.click(await screen.findByRole('button', { name: '2026-11-02 미분류 3,000원 수정' }));
   fireEvent.change(screen.getByLabelText('메모'), { target: { value: '아침' } });
@@ -410,7 +438,9 @@ test('an entry classified elsewhere while being edited keeps that category when 
   // The bulk classification below the form puts it in 식비.
   stored = [{ ...stored[0], categoryId: 1, categoryName: '식비' }];
   rerender(<EntryManager entriesVersion={1} />);
-  await vi.waitFor(() => expect(screen.getByLabelText('카테고리')).toHaveValue('1'));
+  await vi.waitFor(() =>
+    expect(screen.getByLabelText('카테고리', { selector: '#entry-category' })).toHaveValue('1'),
+  );
   expect(screen.getByRole('status')).toHaveTextContent(
     '수정 중인 내역의 카테고리가 다른 곳에서 바뀌어 반영했습니다',
   );
@@ -428,11 +458,14 @@ test('while categories have not loaded, a chosen category is not flagged', async
   vi.mocked(fetch).mockImplementation((url: string | URL | Request) =>
     String(url) === '/api/ledger/categories'
       ? new Promise<Response>(() => undefined) // never answers
-      : json({ entries: stored }),
+      : json({ entries: stored, total: stored.length }),
   );
-  render(<EntryManager />);
+  render(<EntryManager />, { wrapper: Router });
   fireEvent.click(await screen.findByRole('button', { name: '2026-11-01 여가 5,000원 수정' }));
   expect(
-    within(screen.getByLabelText('카테고리')).queryByRole('option', { name: '다시 고르세요' }),
+    within(screen.getByLabelText('카테고리', { selector: '#entry-category' })).queryByRole(
+      'option',
+      { name: '다시 고르세요' },
+    ),
   ).toBeNull();
 });

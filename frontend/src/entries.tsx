@@ -1,4 +1,13 @@
-import { type FormEvent, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  type FormEvent,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { useSearchParams } from 'react-router';
 
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
@@ -7,15 +16,25 @@ import { ConfirmDialog } from './components/ui/confirm-dialog';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
+import { EntryFilters } from './entry-filters';
+import {
+  apiQuery,
+  type FilterCategory,
+  type Kind,
+  kindLabel,
+  readFilters,
+  selectClass,
+  writeFilters,
+} from './entry-filters-state';
 import { formatWon, serviceToday } from './format';
 import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 
-// #38 Income and expense entries: add, edit, delete. The list shows the latest 100; filters come with #39.
+// #38 Income and expense entries: add, edit, delete.
+// #39 The list is filtered by period, kind, category and search (kept in the address) and split into pages.
 // #60 A merchant and an optional category: saved without one, the server applies the keyword rules.
 
-type Kind = 'income' | 'expense';
-type Category = { id: number; kind: Kind; name: string; hidden: boolean };
+type Category = FilterCategory;
 type Entry = {
   id: number;
   date: string;
@@ -36,9 +55,9 @@ type Draft = {
 };
 
 const entriesPath = '/api/ledger/entries';
-const kindLabel: Record<Kind, string> = { expense: '지출', income: '수입' };
-const selectClass =
-  'flex h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none pointer-coarse:min-h-11 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-body-sm dark:bg-input/30';
+const pageSize = 50;
+/** One loaded page of the list, with the query it answers. */
+type Listing = { query: string; entries: Entry[]; total: number };
 
 const emptyDraft = (): Draft => ({
   date: serviceToday(),
@@ -70,7 +89,21 @@ export function EntryManager({
   entriesVersion?: number;
   onChange?: () => void;
 }) {
-  const [entries, setEntries] = useState<Entry[] | undefined>(undefined);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const today = serviceToday();
+  const search = searchParams.toString();
+  // Memoized by the address: the filter form compares by identity to notice a change.
+  const filters = useMemo(() => readFilters(new URLSearchParams(search), today), [search, today]);
+  const query = apiQuery(filters, pageSize);
+  const [listing, setListing] = useState<Listing | undefined>(undefined);
+  const [loadFailed, setLoadFailed] = useState(false);
+  // Only the latest request may fill the list: an older answer for other filters is dropped.
+  const latestQuery = useRef(query);
+  useEffect(() => {
+    latestQuery.current = query;
+  }, [query]);
+  // The list shown is the one for the current filters; while another one loads, nothing stale is shown.
+  const entries = listing?.query === query ? listing.entries : undefined;
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesLoaded, setCategoriesLoaded] = useState(false);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
@@ -87,9 +120,17 @@ export function EntryManager({
   const { error: showError, status: showStatus } = notice;
 
   const loadEntries = useCallback(async () => {
-    const data = await requestJson<{ entries: Entry[] }>(entriesPath);
-    setEntries(data.entries);
-  }, []);
+    setLoadFailed(false);
+    try {
+      const data = await requestJson<{ entries: Entry[]; total: number }>(
+        `${entriesPath}?${query}`,
+      );
+      if (latestQuery.current === query) setListing({ query, ...data });
+    } catch (cause) {
+      if (latestQuery.current === query) setLoadFailed(true);
+      throw cause;
+    }
+  }, [query]);
 
   // Set when this component reports its own change: it reloads by itself, so the version bump that follows
   // does not load the list a second time. The parent must pass back the version it bumps (LedgerPage does);
@@ -400,9 +441,23 @@ export function EntryManager({
           </form>
         </CardContent>
       </Card>
+      <EntryFilters
+        filters={filters}
+        categories={categories}
+        today={today}
+        onApply={(next) => setSearchParams(writeFilters(next))}
+      />
       <EntryList
         entries={entries}
-        failed={notice.notice?.kind === 'error'}
+        total={listing?.query === query ? listing.total : 0}
+        failed={loadFailed}
+        onRetry={() =>
+          void loadEntries().catch((cause: unknown) =>
+            showError(cause, '내역을 불러오지 못했습니다'),
+          )
+        }
+        page={filters.page}
+        onPage={(page) => setSearchParams(writeFilters({ ...filters, page }))}
         onEdit={startEdit}
         onDelete={remove}
         returnFocusRef={afterDelete}
@@ -420,81 +475,138 @@ const entryLabel = (entry: Entry) =>
 
 function EntryList({
   entries,
+  total,
   failed,
+  onRetry,
+  page,
+  onPage,
   onEdit,
   onDelete,
   returnFocusRef,
   onDeleteOpen,
 }: {
   entries: Entry[] | undefined;
+  total: number;
   failed: boolean;
+  onRetry: () => void;
+  page: number;
+  onPage: (page: number) => void;
   onEdit: (entry: Entry) => void;
   onDelete: (entry: Entry) => Promise<void>;
   returnFocusRef: RefObject<HTMLElement | null>;
   onDeleteOpen: () => void;
 }) {
-  if (entries === undefined) {
-    return failed ? null : (
-      <p className="text-body-sm text-muted-foreground">내역을 불러오는 중입니다</p>
+  if (failed && entries === undefined) {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-body-sm text-muted-foreground">내역을 불러오지 못했습니다.</p>
+        <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+          다시 시도
+        </Button>
+      </div>
     );
   }
+  if (entries === undefined) {
+    return <p className="text-body-sm text-muted-foreground">내역을 불러오는 중입니다</p>;
+  }
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const pager =
+    pages > 1 || page > 1 ? (
+      <nav aria-label="내역 쪽" className="flex items-center justify-center gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={page <= 1}
+          onClick={() => onPage(Math.min(page - 1, pages))}
+        >
+          이전 쪽
+        </Button>
+        <span className="text-body-sm tabular-nums">
+          {page} / {pages}쪽
+        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={page >= pages}
+          onClick={() => onPage(page + 1)}
+        >
+          다음 쪽
+        </Button>
+      </nav>
+    ) : null;
   if (entries.length === 0) {
-    return <p className="text-body-sm text-muted-foreground">아직 기록한 내역이 없습니다.</p>;
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-body-sm text-muted-foreground">
+          {total > 0 ? '이 쪽에는 내역이 없습니다.' : '조건에 맞는 내역이 없습니다.'}
+        </p>
+        {pager}
+      </div>
+    );
   }
   return (
-    <ul aria-label="최근 내역" className="flex flex-col divide-y rounded-xl border">
-      {entries.map((entry) => (
-        <li key={entry.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-          <div className="flex min-w-0 flex-col gap-1">
-            <span className="flex items-center gap-2 text-body-sm text-muted-foreground">
-              {entry.date}
-              <Badge variant={entry.kind === 'income' ? 'success' : 'secondary'}>
-                {kindLabel[entry.kind]}
-              </Badge>
-              {entry.categoryName ?? '미분류'}
-            </span>
-            {entry.merchant || entry.memo ? (
-              <span className="break-words">
-                {[entry.merchant, entry.memo].filter(Boolean).join(' · ')}
+    <div className="flex flex-col gap-3">
+      <p className="text-body-sm text-muted-foreground">{total}건</p>
+      <ul aria-label="내역 목록" className="flex flex-col divide-y rounded-xl border">
+        {entries.map((entry) => (
+          <li
+            key={entry.id}
+            className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+          >
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="flex items-center gap-2 text-body-sm text-muted-foreground">
+                {entry.date}
+                <Badge variant={entry.kind === 'income' ? 'success' : 'secondary'}>
+                  {kindLabel[entry.kind]}
+                </Badge>
+                {entry.categoryName ?? '미분류'}
               </span>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="font-medium tabular-nums">
-              {entry.kind === 'income' ? '+' : '-'}
-              {formatWon(entry.amount)}
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              aria-label={`${entryLabel(entry)} 수정`}
-              onClick={() => onEdit(entry)}
-            >
-              수정
-            </Button>
-            <ConfirmDialog
-              title="내역을 삭제할까요?"
-              description={`${entryLabel(entry)}. 삭제하면 되돌릴 수 없습니다.`}
-              onConfirm={() => onDelete(entry)}
-              returnFocusRef={returnFocusRef}
-              onOpenChange={(open) => {
-                if (open) onDeleteOpen();
-              }}
-              trigger={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  aria-label={`${entryLabel(entry)} 삭제`}
-                >
-                  삭제
-                </Button>
-              }
-            />
-          </div>
-        </li>
-      ))}
-    </ul>
+              {entry.merchant || entry.memo ? (
+                <span className="break-words">
+                  {[entry.merchant, entry.memo].filter(Boolean).join(' · ')}
+                </span>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-medium tabular-nums">
+                {entry.kind === 'income' ? '+' : '-'}
+                {formatWon(entry.amount)}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label={`${entryLabel(entry)} 수정`}
+                onClick={() => onEdit(entry)}
+              >
+                수정
+              </Button>
+              <ConfirmDialog
+                title="내역을 삭제할까요?"
+                description={`${entryLabel(entry)}. 삭제하면 되돌릴 수 없습니다.`}
+                onConfirm={() => onDelete(entry)}
+                returnFocusRef={returnFocusRef}
+                onOpenChange={(open) => {
+                  if (open) onDeleteOpen();
+                }}
+                trigger={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label={`${entryLabel(entry)} 삭제`}
+                  >
+                    삭제
+                  </Button>
+                }
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+      {pager}
+    </div>
   );
 }
