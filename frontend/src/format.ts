@@ -9,6 +9,13 @@ export function serviceToday(now = new Date()) {
   }).format(now);
 }
 
+/** A real YYYY-MM-DD date between 1900 and 2100, the range the server accepts ("2026-02-30" is not one). */
+export function realDate(text: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text) || text < '1900-01-01' || text > '2100-12-31') return false;
+  const parsed = new Date(`${text}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === text;
+}
+
 const won = new Intl.NumberFormat('ko-KR');
 
 /** 12500 → "12,500원" */

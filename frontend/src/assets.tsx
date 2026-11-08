@@ -6,17 +6,35 @@ import { ConfirmDialog } from './components/ui/confirm-dialog';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
-import { formatDecimal, formatUsd, formatWon, withoutThousands as digits } from './format';
+import {
+  formatDecimal,
+  formatUsd,
+  formatWon,
+  realDate,
+  withoutThousands as digits,
+} from './format';
 import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
+import { PrepaidUsages } from './prepaid-usages';
 
 // #45 Held assets and debts. Won values are numbers, quantities and USD values decimal strings (#35 rules).
 // Trades come with #46, prices and FX conversion with #47.
 // #63 A depreciating asset is entered as a purchase price, date and useful life; the server returns its
 // current value (straight-line by month, never below the salvage value).
+// #64 A prepaid asset is a stored value (금액권, lowered by uses) or a pass (기간권, lowered by the day);
+// the server returns its current value. Paying is a ledger expense, so a use is not recorded as one again.
 
-type AssetType = 'stock' | 'real_estate' | 'cash' | 'debt' | 'depreciable' | 'other';
+type AssetType = 'stock' | 'real_estate' | 'cash' | 'debt' | 'depreciable' | 'prepaid' | 'other';
 type Currency = 'KRW' | 'USD';
+type PrepaidKind = 'amount' | 'period';
+type Prepaid = {
+  kind: PrepaidKind;
+  amountKrw: number;
+  startsOn: string | null;
+  expiresOn: string | null;
+  // Uses up to today (stored values only).
+  usedKrw: number;
+};
 type Depreciation = {
   purchasePriceKrw: number;
   purchasedOn: string;
@@ -33,7 +51,8 @@ type Asset = {
   valueForeign: string | null;
   memo: string;
   depreciation: Depreciation | null;
-  // The won value counted in the totals: the depreciated value today, else the entered won value.
+  prepaid: Prepaid | null;
+  // The won value counted in the totals: the depreciated or prepaid value today, else the entered won value.
   currentValueKrw: number | null;
 };
 // A total is null when it is too large to show exactly.
@@ -54,9 +73,22 @@ type Draft = {
   purchasedOn: string;
   lifeMonths: string;
   salvage: string;
+  prepaidKind: PrepaidKind;
+  prepaidAmount: string;
+  startsOn: string;
+  expiresOn: string;
 };
 type Field =
-  'name' | 'quantity' | 'value' | 'purchasePrice' | 'purchasedOn' | 'lifeMonths' | 'salvage';
+  | 'name'
+  | 'quantity'
+  | 'value'
+  | 'purchasePrice'
+  | 'purchasedOn'
+  | 'lifeMonths'
+  | 'salvage'
+  | 'prepaidAmount'
+  | 'startsOn'
+  | 'expiresOn';
 
 const minDate = '1900-01-01';
 const maxDate = '2100-12-31';
@@ -74,7 +106,9 @@ const typeLabels: Record<AssetType, string> = {
   real_estate: '부동산',
   cash: '현금(예적금 포함)',
   depreciable: '감가상각 대상',
-  other: '기타(코인·선입금 등)',
+  // Decision (2026-11-08): prepaid moved out of 기타 into its own type.
+  prepaid: '선입금',
+  other: '기타(코인 등)',
   debt: '부채',
 };
 const typeOrder = Object.keys(typeLabels) as AssetType[];
@@ -92,7 +126,46 @@ const emptyDraft = (): Draft => ({
   purchasedOn: '',
   lifeMonths: '',
   salvage: '0',
+  prepaidKind: 'amount',
+  prepaidAmount: '',
+  startsOn: '',
+  expiresOn: '',
 });
+
+function prepaidBody(draft: Draft): { prepaid: object } | { field: Field; message: string } {
+  const amountKrw = wonValue(draft.prepaidAmount);
+  if (amountKrw === undefined) {
+    return {
+      field: 'prepaidAmount',
+      message: '결제액은 1,000조 원 이하의 원 단위 정수로 입력하세요',
+    };
+  }
+  if (draft.prepaidKind === 'period') {
+    if (!realDate(draft.startsOn)) {
+      return { field: 'startsOn', message: '시작일을 1900년부터 2100년 사이로 입력하세요' };
+    }
+    if (!realDate(draft.expiresOn)) {
+      return { field: 'expiresOn', message: '만료일을 1900년부터 2100년 사이로 입력하세요' };
+    }
+    if (draft.startsOn > draft.expiresOn) {
+      return { field: 'expiresOn', message: '만료일은 시작일과 같거나 뒤여야 합니다' };
+    }
+    return {
+      prepaid: {
+        kind: 'period',
+        amountKrw,
+        startsOn: draft.startsOn,
+        expiresOn: draft.expiresOn,
+      },
+    };
+  }
+  if (draft.expiresOn && !realDate(draft.expiresOn)) {
+    return { field: 'expiresOn', message: '만료일을 1900년부터 2100년 사이로 입력하세요' };
+  }
+  return {
+    prepaid: { kind: 'amount', amountKrw, startsOn: null, expiresOn: draft.expiresOn || null },
+  };
+}
 
 /** A whole-won amount up to 1,000조, or undefined when the text is not one. */
 function wonValue(text: string) {
@@ -153,6 +226,22 @@ const totalText = (value: number | null) =>
 function toBody(draft: Draft): { body: object } | { field: Field; message: string } {
   const name = draft.name.trim();
   if (!name) return { field: 'name', message: '자산 이름을 입력하세요' };
+  if (draft.type === 'prepaid') {
+    const result = prepaidBody(draft);
+    if ('field' in result) return result;
+    return {
+      body: {
+        name,
+        type: draft.type,
+        currency: 'KRW',
+        quantity: null,
+        valueKrw: null,
+        valueForeign: null,
+        memo: draft.memo,
+        prepaid: result.prepaid,
+      },
+    };
+  }
   if (draft.type === 'depreciable') {
     const result = depreciationBody(draft);
     if ('field' in result) return result;
@@ -225,6 +314,15 @@ function depreciationText(depreciation: Depreciation) {
   return `구입가 ${formatWon(depreciation.purchasePriceKrw)} · ${depreciation.purchasedOn} 구입 · 사용 기간 ${depreciation.usefulLifeMonths}개월${salvage}`;
 }
 
+/** "금액권 · 충전액 300,000원 · 사용 50,000원 · 2026-12-31 만료" or "기간권 · 결제액 … · 2026-01-01~2026-03-31". */
+function prepaidText(prepaid: Prepaid) {
+  if (prepaid.kind === 'period') {
+    return `기간권 · 결제액 ${formatWon(prepaid.amountKrw)} · ${prepaid.startsOn}~${prepaid.expiresOn}`;
+  }
+  const expiry = prepaid.expiresOn ? ` · ${prepaid.expiresOn} 만료` : '';
+  return `금액권 · 충전액 ${formatWon(prepaid.amountKrw)} · 사용 ${formatWon(prepaid.usedKrw)}${expiry}`;
+}
+
 export function AssetManager() {
   const [assets, setAssets] = useState<Asset[] | undefined>(undefined);
   const [totals, setTotals] = useState<Totals | undefined>(undefined);
@@ -289,6 +387,10 @@ export function AssetManager() {
       purchasedOn: asset.depreciation?.purchasedOn ?? '',
       lifeMonths: asset.depreciation ? String(asset.depreciation.usefulLifeMonths) : '',
       salvage: asset.depreciation ? String(asset.depreciation.salvageValueKrw) : '0',
+      prepaidKind: asset.prepaid?.kind ?? 'amount',
+      prepaidAmount: asset.prepaid ? String(asset.prepaid.amountKrw) : '',
+      startsOn: asset.prepaid?.startsOn ?? '',
+      expiresOn: asset.prepaid?.expiresOn ?? '',
     });
     notice.clear();
   };
@@ -366,7 +468,8 @@ export function AssetManager() {
           <CardTitle asHeading="h2">{editing ? '자산 수정' : '새 자산'}</CardTitle>
           <CardDescription>
             수량만 넣은 자산과 달러 자산은 시세·환율 기능이 생기면 원화로 환산됩니다. 감가상각
-            대상은 구입가에서 매달 같은 금액을 빼 현재 가치를 계산합니다.
+            대상은 구입가에서 매달 같은 금액을 빼 현재 가치를 계산합니다. 선입금은 결제한 날
+            가계부에 지출로 적고, 여기에는 남은 가치만 둡니다.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -405,7 +508,85 @@ export function AssetManager() {
                 ))}
               </select>
             </div>
-            {draft.type === 'depreciable' ? (
+            {draft.type === 'prepaid' ? (
+              <>
+                <fieldset className="flex flex-col gap-2">
+                  <legend className="mb-2 text-body-sm font-medium">선입금 종류</legend>
+                  <div className="flex gap-4">
+                    {(
+                      [
+                        ['amount', '금액권'],
+                        ['period', '기간권'],
+                      ] as const
+                    ).map(([kind, label]) => (
+                      <label key={kind} className="flex items-center gap-2 text-body-sm">
+                        <input
+                          type="radio"
+                          name="asset-prepaid-kind"
+                          value={kind}
+                          checked={draft.prepaidKind === kind}
+                          // A pass with uses is refused by the server; it says so.
+                          onChange={() => change({ prepaidKind: kind })}
+                          className="size-4 accent-primary"
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="asset-prepaid-amount">
+                    {draft.prepaidKind === 'amount' ? '충전액(원)' : '결제액(원)'}
+                  </Label>
+                  <Input
+                    id="asset-prepaid-amount"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="예: 300000"
+                    value={draft.prepaidAmount}
+                    {...fieldProps('prepaidAmount')}
+                    onChange={(event) => {
+                      clearInvalid('prepaidAmount');
+                      change({ prepaidAmount: event.target.value });
+                    }}
+                  />
+                </div>
+                {draft.prepaidKind === 'period' ? (
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="asset-starts-on">시작일</Label>
+                    <Input
+                      id="asset-starts-on"
+                      type="date"
+                      min={minDate}
+                      max={maxDate}
+                      value={draft.startsOn}
+                      {...fieldProps('startsOn')}
+                      onChange={(event) => {
+                        clearInvalid('startsOn');
+                        change({ startsOn: event.target.value });
+                      }}
+                    />
+                  </div>
+                ) : null}
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="asset-expires-on">
+                    {draft.prepaidKind === 'period' ? '만료일(이날까지 사용)' : '만료일(선택)'}
+                  </Label>
+                  <Input
+                    id="asset-expires-on"
+                    type="date"
+                    min={minDate}
+                    max={maxDate}
+                    value={draft.expiresOn}
+                    {...fieldProps('expiresOn')}
+                    onChange={(event) => {
+                      clearInvalid('expiresOn');
+                      change({ expiresOn: event.target.value });
+                    }}
+                  />
+                </div>
+              </>
+            ) : draft.type === 'depreciable' ? (
               <>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="asset-purchase-price">구입가(원)</Label>
@@ -592,6 +773,7 @@ export function AssetManager() {
           onDeleteOpen={() => {
             afterDelete.current = null;
           }}
+          onUsagesChanged={load}
         />
       </section>
     </div>
@@ -634,6 +816,7 @@ function AssetList({
   onDelete,
   returnFocusRef,
   onDeleteOpen,
+  onUsagesChanged,
 }: {
   assets: Asset[] | undefined;
   failed: boolean;
@@ -641,7 +824,10 @@ function AssetList({
   onDelete: (asset: Asset) => Promise<void>;
   returnFocusRef: RefObject<HTMLElement | null>;
   onDeleteOpen: () => void;
+  onUsagesChanged: () => Promise<void>;
 }) {
+  // The stored-value asset whose uses are open, one at a time.
+  const [openUsages, setOpenUsages] = useState<number | undefined>(undefined);
   if (assets === undefined) {
     return failed ? null : (
       <p className="text-body-sm text-muted-foreground">자산을 불러오는 중입니다</p>
@@ -673,13 +859,35 @@ function AssetList({
                     <div className="flex min-w-0 flex-col gap-1">
                       <span className="font-medium break-words">{asset.name}</span>
                       <span className="text-body-sm text-muted-foreground">
-                        {asset.depreciation ? depreciationText(asset.depreciation) : asset.currency}
+                        {asset.depreciation
+                          ? depreciationText(asset.depreciation)
+                          : asset.prepaid
+                            ? prepaidText(asset.prepaid)
+                            : asset.currency}
                         {asset.quantity === null ? '' : ` · 수량 ${formatDecimal(asset.quantity)}`}
                         {asset.memo ? ` · ${asset.memo}` : ''}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-medium tabular-nums">{valueText(asset)}</span>
+                      {asset.prepaid?.kind === 'amount' ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          aria-expanded={openUsages === asset.id}
+                          // Only while the panel exists, so it never points at a missing id.
+                          aria-controls={
+                            openUsages === asset.id ? `usage-${asset.id}-panel` : undefined
+                          }
+                          aria-label={`${asset.name} 사용 기록`}
+                          onClick={() =>
+                            setOpenUsages((open) => (open === asset.id ? undefined : asset.id))
+                          }
+                        >
+                          사용 기록
+                        </Button>
+                      ) : null}
                       <Button
                         type="button"
                         variant="ghost"
@@ -709,6 +917,15 @@ function AssetList({
                         }
                       />
                     </div>
+                    {asset.prepaid?.kind === 'amount' && openUsages === asset.id ? (
+                      <div id={`usage-${asset.id}-panel`} className="w-full">
+                        <PrepaidUsages
+                          assetId={asset.id}
+                          assetName={asset.name}
+                          onChanged={onUsagesChanged}
+                        />
+                      </div>
+                    ) : null}
                   </li>
                 ))}
             </ul>
