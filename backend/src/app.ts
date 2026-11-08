@@ -7,6 +7,7 @@ import { assetsRouter } from './assets.js';
 import { categoriesRouter } from './categories.js';
 import { entriesRouter } from './entries.js';
 import { mockAccountsRouter } from './mock-accounts.js';
+import { type PriceLog, type PriceSources, pricesRouter } from './prices/index.js';
 import { rulesRouter } from './rules.js';
 import { errorHandler, notFound, serviceDate } from './standard/http.js';
 
@@ -15,10 +16,18 @@ types.setTypeParser(1082, (value) => value);
 
 export { serviceDate };
 
-type AppOptions = { today?: () => string; requestsPerMinute?: number };
+type AppOptions = {
+  today?: () => string;
+  now?: () => Date;
+  requestsPerMinute?: number;
+  // Price sources for immediate fetches (#51). None by default: tests and a server without keys fetch nothing.
+  prices?: PriceSources;
+  priceLog?: PriceLog;
+};
 
 export function createApp(pool: Pool, options: AppOptions = {}) {
   const today = options.today ?? (() => serviceDate());
+  const now = options.now ?? (() => new Date());
   const app = express();
   app.disable('x-powered-by');
   // Same level as the /api/ limit in frontend/nginx.conf (10 r/s), for requests that skip nginx.
@@ -43,6 +52,15 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   app.use('/api/ledger/rules', rulesRouter(pool));
   app.use('/api/portfolio/assets', assetsRouter(pool, today));
   app.use('/api/mock/accounts', mockAccountsRouter(pool));
+  app.use(
+    '/api/prices',
+    pricesRouter(pool, {
+      sources: options.prices ?? {},
+      today,
+      now,
+      log: options.priceLog ?? (() => undefined),
+    }),
+  );
   app.use('/api', notFound);
   app.use(errorHandler);
   return app;
