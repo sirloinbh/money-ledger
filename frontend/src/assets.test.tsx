@@ -12,6 +12,12 @@ type Asset = {
   valueKrw: number | null;
   valueForeign: string | null;
   memo: string;
+  depreciation?: {
+    purchasePriceKrw: number;
+    purchasedOn: string;
+    usefulLifeMonths: number;
+    salvageValueKrw: number;
+  } | null;
 };
 
 let stored: Asset[];
@@ -24,17 +30,25 @@ const json = (body: unknown, status = 200) =>
       : new Response(JSON.stringify(body), { status }),
   );
 
-// Totals the way the server does: won values only, debts apart.
+// The server works out a depreciated value from the date; the fake says it is half the purchase price.
+const withCurrent = (asset: Asset) => ({
+  ...asset,
+  depreciation: asset.depreciation ?? null,
+  currentValueKrw: asset.depreciation ? asset.depreciation.purchasePriceKrw / 2 : asset.valueKrw,
+});
+
+// Totals the way the server does: current won values only, debts apart.
 function totals() {
+  const valued = stored.map(withCurrent);
   const sum = (debt: boolean) =>
-    stored
+    valued
       .filter((asset) => (asset.type === 'debt') === debt)
-      .reduce((total, asset) => total + (asset.valueKrw ?? 0), 0);
+      .reduce((total, asset) => total + (asset.currentValueKrw ?? 0), 0);
   return {
     assetsKrw: sum(false),
     debtsKrw: sum(true),
     netKrw: sum(false) - sum(true),
-    uncounted: stored.filter((asset) => asset.valueKrw === null).length,
+    uncounted: valued.filter((asset) => asset.currentValueKrw === null).length,
   };
 }
 
@@ -45,7 +59,7 @@ function fakeApi() {
       const method = init.method ?? 'GET';
       const body = init.body ? (JSON.parse(init.body as string) as Omit<Asset, 'id'>) : undefined;
       requests.push({ method, url, body });
-      if (method === 'GET') return json({ assets: stored, totals: totals() });
+      if (method === 'GET') return json({ assets: stored.map(withCurrent), totals: totals() });
       const id = Number(url.split('/').pop());
       if (method === 'DELETE') {
         stored = stored.filter((asset) => asset.id !== id);
@@ -56,7 +70,7 @@ function fakeApi() {
         method === 'POST'
           ? [...stored, saved]
           : stored.map((asset) => (asset.id === id ? saved : asset));
-      return json({ asset: saved }, method === 'POST' ? 201 : 200);
+      return json({ asset: withCurrent(saved) }, method === 'POST' ? 201 : 200);
     }),
   );
 }
@@ -278,11 +292,179 @@ test('cancelling an edit keeps focus in the form and a USD value round-trips', a
   expect(screen.getByLabelText('이름')).toHaveValue('');
 });
 
+// #63
+test('a depreciating asset is entered as a purchase price, date and useful life', async () => {
+  await ready();
+  fireEvent.change(screen.getByLabelText('이름'), { target: { value: '노트북' } });
+  fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'depreciable' } });
+  expect(screen.queryByLabelText('평가금액(원)')).not.toBeInTheDocument();
+  expect(screen.queryByRole('radio', { name: '달러(USD)' })).not.toBeInTheDocument();
+  expect(screen.getByLabelText('잔존 가치(원)')).toHaveValue('0'); // decision: 0 won by default
+  fireEvent.change(screen.getByLabelText('구입가(원)'), { target: { value: '1,200,000' } });
+  fireEvent.change(screen.getByLabelText('구입일'), { target: { value: '2026-01-15' } });
+  fireEvent.change(screen.getByLabelText('기본 사용 기간'), { target: { value: '60' } });
+  expect(screen.getByLabelText('사용 기간(개월)')).toHaveValue('60');
+  fireEvent.click(screen.getByRole('button', { name: '추가' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('노트북을(를) 추가했습니다');
+  expect(requests).toContainEqual({
+    method: 'POST',
+    url: '/api/portfolio/assets',
+    body: {
+      name: '노트북',
+      type: 'depreciable',
+      currency: 'KRW',
+      quantity: null,
+      valueKrw: null,
+      valueForeign: null,
+      memo: '',
+      depreciation: {
+        purchasePriceKrw: 1200000,
+        purchasedOn: '2026-01-15',
+        usefulLifeMonths: 60,
+        salvageValueKrw: 0,
+      },
+    },
+  });
+  const list = screen.getByRole('list', { name: '감가상각 대상' });
+  expect(
+    within(list).getByText('구입가 1,200,000원 · 2026-01-15 구입 · 사용 기간 60개월'),
+  ).toBeInTheDocument();
+  expect(within(list).getByText('600,000원')).toBeInTheDocument(); // the current value from the server
+  expect(summary('자산 합계')).toHaveTextContent('5,600,000원');
+});
+
+test('the useful life presets are 10, 5 and 7 years and the months can be changed', async () => {
+  await ready();
+  fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'depreciable' } });
+  const preset = screen.getByLabelText('기본 사용 기간');
+  expect(
+    within(preset)
+      .getAllByRole('option')
+      .map((option) => option.textContent),
+  ).toEqual(['직접 입력', '침대(10년)', '컴퓨터(5년)', '가전제품(7년)']);
+  fireEvent.change(preset, { target: { value: '84' } });
+  expect(screen.getByLabelText('사용 기간(개월)')).toHaveValue('84');
+  fireEvent.change(screen.getByLabelText('사용 기간(개월)'), { target: { value: '90' } });
+  expect(preset).toHaveValue('');
+});
+
+test.each([
+  {
+    label: 'no purchase price',
+    fill: { 구입일: '2026-01-01', 기간: '60' },
+    field: '구입가(원)',
+    message: '구입가는 1,000조 원 이하의 원 단위 정수로 입력하세요',
+  },
+  {
+    label: 'no purchase date',
+    fill: { 구입가: '1000', 기간: '60' },
+    field: '구입일',
+    message: '구입일을 입력하세요',
+  },
+  {
+    label: 'a useful life of 0 months',
+    fill: { 구입가: '1000', 구입일: '2026-01-01', 기간: '0' },
+    field: '사용 기간(개월)',
+    message: '사용 기간은 1~1200개월 사이의 정수로 입력하세요',
+  },
+  {
+    label: 'a salvage value above the price',
+    fill: { 구입가: '1000', 구입일: '2026-01-01', 기간: '60', 잔존: '1001' },
+    field: '잔존 가치(원)',
+    message: '잔존 가치는 구입가보다 클 수 없습니다',
+  },
+])(
+  'a depreciating asset with $label is refused before sending',
+  async ({ fill, field, message }) => {
+    await ready();
+    const labels: Record<string, string> = {
+      구입가: '구입가(원)',
+      구입일: '구입일',
+      기간: '사용 기간(개월)',
+      잔존: '잔존 가치(원)',
+    };
+    fireEvent.change(screen.getByLabelText('이름'), { target: { value: '침대' } });
+    fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'depreciable' } });
+    for (const [key, value] of Object.entries(fill)) {
+      fireEvent.change(screen.getByLabelText(labels[key]), { target: { value } });
+    }
+    fireEvent.click(screen.getByRole('button', { name: '추가' }));
+    expect(screen.getByRole('alert')).toHaveTextContent(message);
+    expect(screen.getByLabelText(field)).toHaveAttribute('aria-invalid', 'true');
+    expect(requests.some((request) => request.method === 'POST')).toBe(false);
+  },
+);
+
+test('a purchase date outside 1900–2100 is not sent', async () => {
+  await ready();
+  fireEvent.change(screen.getByLabelText('이름'), { target: { value: '침대' } });
+  fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'depreciable' } });
+  fireEvent.change(screen.getByLabelText('구입가(원)'), { target: { value: '1000' } });
+  fireEvent.change(screen.getByLabelText('사용 기간(개월)'), { target: { value: '60' } });
+  const date = screen.getByLabelText<HTMLInputElement>('구입일');
+  expect(date).toHaveAttribute('min', '1900-01-01');
+  expect(date).toHaveAttribute('max', '2100-12-31');
+  fireEvent.change(date, { target: { value: '0201-01-01' } });
+  // The browser's range check stops the submit first.
+  expect(date.validity.rangeUnderflow).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: '추가' }));
+  // Our own check covers a submit that skips the browser's (the same range as the server).
+  fireEvent.submit(screen.getByRole('form', { name: '새 자산' }));
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    '구입일은 1900년부터 2100년 사이로 입력하세요',
+  );
+  expect(date).toHaveAttribute('aria-invalid', 'true');
+  expect(requests.some((request) => request.method === 'POST')).toBe(false);
+});
+
+test('editing a #45 depreciable row offers its value as the purchase price', async () => {
+  stored.push({
+    id: 5,
+    name: '옛 TV',
+    type: 'depreciable',
+    currency: 'KRW',
+    quantity: null,
+    valueKrw: 700000,
+    valueForeign: null,
+    memo: '',
+  });
+  await ready();
+  fireEvent.click(screen.getByRole('button', { name: '옛 TV 수정' }));
+  expect(screen.getByLabelText('구입가(원)')).toHaveValue('700000');
+  expect(screen.getByLabelText('구입일')).toHaveValue('');
+});
+
+test('editing a depreciating asset fills its schedule', async () => {
+  stored.push({
+    id: 4,
+    name: '침대',
+    type: 'depreciable',
+    currency: 'KRW',
+    quantity: null,
+    valueKrw: null,
+    valueForeign: null,
+    memo: '',
+    depreciation: {
+      purchasePriceKrw: 2000000,
+      purchasedOn: '2025-03-01',
+      usefulLifeMonths: 120,
+      salvageValueKrw: 100000,
+    },
+  });
+  await ready();
+  expect(screen.getByText(/· 잔존 가치 100,000원$/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '침대 수정' }));
+  expect(screen.getByLabelText('구입가(원)')).toHaveValue('2000000');
+  expect(screen.getByLabelText('구입일')).toHaveValue('2025-03-01');
+  expect(screen.getByLabelText('기본 사용 기간')).toHaveValue('120');
+  expect(screen.getByLabelText('잔존 가치(원)')).toHaveValue('100000');
+});
+
 test('a total too large to show says so instead of a wrong number', async () => {
   const api = vi.mocked(fetch);
   api.mockImplementationOnce(() =>
     json({
-      assets: stored,
+      assets: stored.map(withCurrent),
       totals: { assetsKrw: null, debtsKrw: 7000000, netKrw: null, uncounted: 1 },
     }),
   );

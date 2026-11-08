@@ -41,7 +41,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   app.use('/api/ledger/categories', categoriesRouter(pool));
   app.use('/api/ledger/entries', entriesRouter(pool));
   app.use('/api/ledger/rules', rulesRouter(pool));
-  app.use('/api/portfolio/assets', assetsRouter(pool));
+  app.use('/api/portfolio/assets', assetsRouter(pool, today));
   app.use('/api/mock/accounts', mockAccountsRouter(pool));
   app.use('/api', notFound);
   app.use(errorHandler);
