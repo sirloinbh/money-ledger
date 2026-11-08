@@ -408,7 +408,7 @@ test('a purchase date outside 1900–2100 is not sent', async () => {
   // The browser's range check stops the submit first.
   expect(date.validity.rangeUnderflow).toBe(true);
   fireEvent.click(screen.getByRole('button', { name: '추가' }));
-  // Our own check covers a submit that skips the browser's (the same message the server gives).
+  // Our own check covers a submit that skips the browser's (the same range as the server).
   fireEvent.submit(screen.getByRole('form', { name: '새 자산' }));
   expect(screen.getByRole('alert')).toHaveTextContent(
     '구입일은 1900년부터 2100년 사이로 입력하세요',
