@@ -369,9 +369,15 @@ export function AssetManager() {
   useEffect(() => {
     if (!editing || !assets) return;
     const fresh = assets.find((asset) => asset.id === editing.id);
-    if (!fresh || (fresh.hasTrades === editing.hasTrades && fresh.quantity === editing.quantity)) {
+    if (!fresh) {
+      // Deleted elsewhere (another tab): there is nothing left to save.
+      setInvalid(undefined);
+      setEditing(undefined);
+      setDraft(emptyDraft());
+      showError(`${editing.name}은(는) 이미 삭제되어 수정을 닫았습니다`);
       return;
     }
+    if (fresh.hasTrades === editing.hasTrades && fresh.quantity === editing.quantity) return;
     setEditing(fresh);
     if (fresh.hasTrades || editing.hasTrades) {
       setDraft((current) => ({
@@ -379,7 +385,7 @@ export function AssetManager() {
         quantity: fresh.quantity === null ? '' : formatDecimal(fresh.quantity),
       }));
     }
-  }, [assets, editing]);
+  }, [assets, editing, showError]);
 
   const change = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
   const clearInvalid = (field: Field) => {

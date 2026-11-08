@@ -544,4 +544,40 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
       assert.match(rows[0].def, /quantity_from_trades/);
     },
   );
+
+  await t.test('one sell whose realized profit no JSON number holds is refused', async () => {
+    await reset();
+    await withApi(pool, async (call) => {
+      const id = await create(call, samsung);
+      const max = 1_000_000_000_000_000;
+      // Two sells of about +1,000조 each keep the total of realized profit in range later on.
+      await trade(call, id, { side: 'buy', tradedOn: '2026-10-01', quantity: '2', price: '1' });
+      for (const day of ['2026-10-02', '2026-10-03']) {
+        await trade(call, id, { side: 'sell', tradedOn: day, quantity: '1', price: String(max) });
+      }
+      // A won cost of 9,000조 (three buys of 1,000조 each with as much in fees and taxes).
+      for (let n = 0; n < 3; n += 1) {
+        await trade(call, id, {
+          side: 'buy',
+          tradedOn: '2026-10-04',
+          quantity: '1',
+          price: String(max),
+          feeKrw: max,
+          taxKrw: max,
+        });
+      }
+      // Selling them for 1 won with a 1,000조 fee: about −1경 on this one sell, while the total stays
+      // about −8,000조.
+      const sell = await trade(call, id, {
+        side: 'sell',
+        tradedOn: '2026-10-05',
+        quantity: '3',
+        price: '1',
+        feeKrw: max,
+      });
+      assert.equal(sell.status, 400);
+      assert.deepEqual(sell.data, { error: '보유 수량이나 금액이 너무 큽니다' });
+      assert.equal((await call(`${assets}/${id}/trades`)).status, 200);
+    });
+  });
 });

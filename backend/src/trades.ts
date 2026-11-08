@@ -200,6 +200,7 @@ async function settle(client: PoolClient, assetId: number) {
             coalesce((SELECT max(quantity_after) >= 1000000000000
                         OR max(cost_krw_after) > $2::numeric
                         OR abs(sum(realized_krw)) > $2::numeric
+                        OR max(abs(realized_krw)) > $2::numeric
                       FROM p WHERE NOT oversold), false) AS too_big`,
     [assetId, Number.MAX_SAFE_INTEGER],
   );

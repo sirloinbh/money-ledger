@@ -339,3 +339,18 @@ test('the open edit form follows a first trade and locks the quantity', async ()
   // Focus stays in the trades panel rather than jumping to the form.
   expect(add).toHaveFocus();
 });
+
+test('an asset deleted elsewhere closes its open edit form on the next reload', async () => {
+  await ready();
+  fireEvent.click(screen.getByRole('button', { name: '애플 수정' }));
+  expect(screen.getByRole('heading', { name: '자산 수정' })).toBeInTheDocument();
+  // Another tab deletes 애플; a trade on 삼성전자 reloads the list here.
+  stored = stored.filter((asset) => asset.id !== 3);
+  const panel = await openTrades('삼성전자');
+  fireEvent.change(within(panel).getByLabelText('거래일'), { target: { value: '2026-01-02' } });
+  fireEvent.change(within(panel).getByLabelText('수량'), { target: { value: '1' } });
+  fireEvent.change(within(panel).getByLabelText('단가(원)'), { target: { value: '1000' } });
+  fireEvent.click(within(panel).getByRole('button', { name: '거래 추가' }));
+  expect(await screen.findByRole('heading', { name: '새 자산' })).toBeInTheDocument();
+  expect(screen.getByText('애플은(는) 이미 삭제되어 수정을 닫았습니다')).toBeInTheDocument();
+});
