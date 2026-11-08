@@ -451,4 +451,97 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
       assert.equal(left.rows[0].n, 0);
     });
   });
+
+  await t.test('the first trade replaces a quantity entered by hand (decision 4)', async () => {
+    await reset();
+    await withApi(pool, async (call) => {
+      const id = await create(call, { ...samsung, quantity: '10' });
+      // Holding 10 by hand is not a trade: a first sell has nothing to sell.
+      const sell = await trade(call, id, {
+        side: 'sell',
+        tradedOn: '2026-09-01',
+        quantity: '1',
+        price: '1000',
+      });
+      assert.deepEqual(sell.data, {
+        error: '2026-09-01 매도 수량이 그때 보유 수량(0)보다 많습니다',
+      });
+      assert.equal((await assetOf(call, id)).quantity, '10.00000000');
+      await trade(call, id, { side: 'buy', tradedOn: '2026-09-01', quantity: '5', price: '1000' });
+      assert.equal((await assetOf(call, id)).quantity, '5.00000000');
+    });
+  });
+
+  await t.test('a quantity too large anywhere in the history is a Korean 400', async () => {
+    await reset();
+    await withApi(pool, async (call) => {
+      const id = await create(call, samsung);
+      const big = { quantity: '600000000000', price: '1' };
+      await trade(call, id, { ...big, side: 'buy', tradedOn: '2026-09-01' });
+      await trade(call, id, { ...big, side: 'sell', tradedOn: '2026-09-10' });
+      // In between, the holding would reach 1.2조 shares although it ends at 0.6조.
+      const between = await trade(call, id, { ...big, side: 'buy', tradedOn: '2026-09-05' });
+      assert.equal(between.status, 400);
+      assert.deepEqual(between.data, { error: '보유 수량이나 금액이 너무 큽니다' });
+    });
+  });
+
+  await t.test('an asset edit and a trade at the same time leave a consistent asset', async () => {
+    await reset();
+    await withApi(pool, async (call) => {
+      const id = await create(call, samsung);
+      await trade(call, id, { side: 'buy', tradedOn: '2026-09-01', quantity: '2', price: '1000' });
+      // The edit sends the quantity it saw (2); the trade makes it 3. Either the edit goes first and the
+      // trade follows, or the trade goes first and the edit is refused: never a quantity of 2 with 3 bought.
+      const [edit, buy] = await Promise.all([
+        call(`${assets}/${id}`, {
+          method: 'PUT',
+          body: { ...samsung, name: '삼성', quantity: '2' },
+        }),
+        trade(call, id, { side: 'buy', tradedOn: '2026-09-02', quantity: '1', price: '1000' }),
+      ]);
+      assert.equal(buy.status, 201);
+      assert.ok([200, 400].includes(edit.status));
+      assert.equal((await assetOf(call, id)).quantity, '3.00000000');
+    });
+  });
+
+  await t.test(
+    're-running older migrations after 013 keeps assets that only 013 allows',
+    async () => {
+      await reset();
+      await withApi(pool, async (call) => {
+        const id = await create(call, samsung);
+        await trade(call, id, {
+          side: 'buy',
+          tradedOn: '2026-09-01',
+          quantity: '1',
+          price: '1000',
+        });
+        await trade(call, id, {
+          side: 'sell',
+          tradedOn: '2026-09-02',
+          quantity: '1',
+          price: '1000',
+        });
+      });
+      // All sold: quantity NULL and no value, valid only through quantity_from_trades.
+      for (const file of [
+        '004_portfolio_assets.sql',
+        '007_depreciable_assets.sql',
+        '010_prepaid_assets.sql',
+        '013_asset_trades.sql',
+        '007_depreciable_assets.sql',
+        '010_prepaid_assets.sql',
+      ]) {
+        await runMigration(pool, file);
+      }
+      const { rows } = await pool.query<{ def: string }>(
+        `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint
+       WHERE conrelid = 'portfolio_assets'::regclass
+         AND conname = 'portfolio_assets_quantity_or_value_check'`,
+      );
+      assert.match(rows[0].def, /quantity_from_trades/);
+    },
+  );
 });

@@ -67,7 +67,12 @@ function tradeApi(url: string, method: string, body: unknown) {
   trades[assetId] = match[2]
     ? list.map((item) => ((item as { id: number }).id === saved.id ? saved : item))
     : [saved, ...list];
-  stored = stored.map((asset) => (asset.id === assetId ? { ...asset, hasTrades: true } : asset));
+  // The first trade replaces a hand-entered quantity (the fake says the total is 2).
+  stored = stored.map((asset) =>
+    asset.id === assetId
+      ? { ...asset, hasTrades: true, quantity: asset.hasTrades ? asset.quantity : '2.00000000' }
+      : asset,
+  );
   return json({ trade: saved }, match[2] ? 200 : 201);
 }
 
@@ -265,7 +270,7 @@ test('a won price with decimals and a future date are refused before sending', a
 test('a trade can be edited and, after confirming, deleted', async () => {
   await ready();
   const panel = await openTrades('삼성전자');
-  fireEvent.click(within(panel).getByRole('button', { name: '2026-01-10 매도 5 수정' }));
+  fireEvent.click(within(panel).getByRole('button', { name: '2026-01-10 매도 5 × 1,500원 수정' }));
   expect(within(panel).getByRole('radio', { name: '매도' })).toBeChecked();
   expect(within(panel).getByLabelText('수량')).toHaveValue('5');
   expect(within(panel).getByLabelText('단가(원)')).toHaveValue('1500');
@@ -279,7 +284,9 @@ test('a trade can be edited and, after confirming, deleted', async () => {
     expect.objectContaining({ method: 'PUT', url: '/api/portfolio/assets/2/trades/7' }),
   );
 
-  fireEvent.click(await within(panel).findByRole('button', { name: '2026-01-10 매도 4 지우기' }));
+  fireEvent.click(
+    await within(panel).findByRole('button', { name: '2026-01-10 매도 4 × 1,500원 지우기' }),
+  );
   expect(requests.some((request) => request.method === 'DELETE')).toBe(false);
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '지우기' }));
   expect(await within(panel).findByText('아직 거래 기록이 없습니다.')).toBeInTheDocument();
@@ -299,4 +306,36 @@ test('an asset with trades shows its quantity read-only in the edit form', async
   fireEvent.click(screen.getByRole('button', { name: '수정 취소' }));
   fireEvent.click(screen.getByRole('button', { name: '애플 수정' }));
   expect(screen.getByLabelText('수량(선택)')).not.toHaveAttribute('readonly');
+});
+
+test('a USD asset labels its dollar average and a hand-entered quantity is flagged before the first trade', async () => {
+  trades[3] = [];
+  await ready();
+  const panel = await openTrades('애플');
+  expect(within(panel).getByText('평균 단가(수수료 제외)')).toBeInTheDocument();
+  expect(
+    within(panel).getByText(/지금 수량 1은\(는\) 직접 넣은 값입니다\. 첫 거래를 기록하면/),
+  ).toBeInTheDocument();
+});
+
+test('the open edit form follows a first trade and locks the quantity', async () => {
+  await ready();
+  fireEvent.click(screen.getByRole('button', { name: '애플 수정' }));
+  expect(screen.getByLabelText('수량(선택)')).toHaveValue('1');
+  const panel = await openTrades('애플');
+  fireEvent.change(within(panel).getByLabelText('거래일'), { target: { value: '2026-02-02' } });
+  fireEvent.change(within(panel).getByLabelText('수량'), { target: { value: '2' } });
+  fireEvent.change(within(panel).getByLabelText('단가(달러)'), { target: { value: '100' } });
+  fireEvent.change(within(panel).getByLabelText('환율(1달러당 원)'), {
+    target: { value: '1300' },
+  });
+  const add = within(panel).getByRole('button', { name: '거래 추가' });
+  add.focus();
+  fireEvent.click(add);
+  await within(panel).findByRole('status');
+  const quantity = await screen.findByLabelText('수량(거래 합계)');
+  expect(quantity).toHaveValue('2');
+  expect(quantity).toHaveAttribute('readonly');
+  // Focus stays in the trades panel rather than jumping to the form.
+  expect(add).toHaveFocus();
 });

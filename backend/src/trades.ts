@@ -117,7 +117,7 @@ const toTrade = (row: TradeRow) => ({
 });
 
 /** The quantity held and its moving-average price in the asset's currency (USD: without the won fees). */
-async function position(db: Pool | PoolClient, assetId: number, currency: 'KRW' | 'USD') {
+async function position(db: PoolClient, assetId: number, currency: 'KRW' | 'USD') {
   const { rows } = await db.query<PositionRow>(
     `WITH p AS (
        SELECT * FROM portfolio_trade_positions($1) WITH ORDINALITY AS p(trade_id, quantity_after, cost_krw_after, cost_foreign_after, realized_krw, oversold, n)
@@ -163,13 +163,13 @@ async function amountFor(client: PoolClient, body: TradeBody, currency: 'KRW' | 
   } else if (body.fxRate === null) {
     throw new HttpError(400, '달러 거래는 그날 환율을 입력하세요');
   }
-  const { rows } = await client.query<{ amount: string }>(
-    'SELECT round($1::numeric * $2::numeric * coalesce($3::numeric, 1))::text AS amount',
-    [body.quantity, body.price, body.fxRate],
+  // Compared in numeric: the product can be far beyond what a JS number holds exactly.
+  const { rows } = await client.query<{ amount: string; too_big: boolean }>(
+    `SELECT a::text AS amount, a > $4::numeric AS too_big
+     FROM (SELECT round($1::numeric * $2::numeric * coalesce($3::numeric, 1)) AS a) x`,
+    [body.quantity, body.price, body.fxRate, maxWon],
   );
-  if (Number(rows[0].amount) > maxWon) {
-    throw new HttpError(400, '거래 금액이 1,000조 원을 넘습니다');
-  }
+  if (rows[0].too_big) throw new HttpError(400, '거래 금액이 1,000조 원을 넘습니다');
   return rows[0].amount;
 }
 
@@ -178,38 +178,45 @@ async function amountFor(client: PoolClient, body: TradeBody, currency: 'KRW' | 
  * larger than what is held; otherwise sets the asset's quantity to the trades' total.
  */
 async function settle(client: PoolClient, assetId: number) {
+  // One replay: the first oversold sell if any, the final quantity, and whether anything along the way
+  // is beyond what the columns and JSON numbers hold (numeric(20,8) quantities, safe-integer won).
   const { rows } = await client.query<{
-    traded_on: string;
-    quantity: string;
-    held: string;
-    oversold: boolean;
+    oversold_on: string | null;
+    oversold_held: string | null;
+    quantity: string | null;
+    too_big: boolean;
   }>(
-    `SELECT t.traded_on, t.quantity::text,
-            (p.quantity_after + t.quantity)::numeric(20, 8)::text AS held, p.oversold
-     FROM portfolio_trade_positions($1) p JOIN portfolio_trades t ON t.id = p.trade_id
-     WHERE p.oversold`,
-    [assetId],
+    `WITH p AS (
+       SELECT * FROM portfolio_trade_positions($1)
+         WITH ORDINALITY AS p(trade_id, quantity_after, cost_krw_after, cost_foreign_after, realized_krw,
+                              oversold, n)
+     ), bad AS (
+       SELECT t.traded_on, (p.quantity_after + t.quantity) AS held
+       FROM p JOIN portfolio_trades t ON t.id = p.trade_id WHERE p.oversold
+     )
+     SELECT (SELECT traded_on FROM bad) AS oversold_on,
+            (SELECT held::numeric(20, 8)::text FROM bad) AS oversold_held,
+            (SELECT nullif(quantity_after, 0)::text FROM p ORDER BY n DESC LIMIT 1) AS quantity,
+            coalesce((SELECT max(quantity_after) >= 1000000000000
+                        OR max(cost_krw_after) > $2::numeric
+                        OR abs(sum(realized_krw)) > $2::numeric
+                      FROM p WHERE NOT oversold), false) AS too_big`,
+    [assetId, Number.MAX_SAFE_INTEGER],
   );
-  if (rows[0]) {
-    const { traded_on, held } = rows[0];
+  const result = rows[0];
+  if (result.oversold_on !== null) {
     throw new HttpError(
       400,
-      `${traded_on} 매도 수량이 그때 보유 수량(${trimDecimal(held)})보다 많습니다`,
+      `${result.oversold_on} 매도 수량이 그때 보유 수량(${trimDecimal(result.oversold_held ?? '0')})보다 많습니다`,
     );
   }
-  const total = await client.query<{ quantity: string | null; too_big: boolean }>(
-    `SELECT nullif(quantity_after, 0)::text AS quantity, quantity_after >= 1000000000000 AS too_big
-     FROM portfolio_trade_positions($1) WITH ORDINALITY AS p(trade_id, quantity_after, cost_krw_after, cost_foreign_after, realized_krw, oversold, n)
-     ORDER BY n DESC LIMIT 1`,
-    [assetId],
-  );
-  if (total.rows[0]?.too_big) throw new HttpError(400, '보유 수량이 너무 큽니다');
+  if (result.too_big) throw new HttpError(400, '보유 수량이나 금액이 너무 큽니다');
   // Stays trade-managed with no trades left (see migration 013); nothing held is a NULL quantity.
   await client.query(
     `UPDATE portfolio_assets
      SET quantity = $2::numeric, quantity_from_trades = true, updated_at = now()
      WHERE id = $1`,
-    [assetId, total.rows[0]?.quantity ?? null],
+    [assetId, result.quantity],
   );
 }
 
@@ -228,21 +235,26 @@ export function tradesRouter(pool: Pool, today: () => string) {
 
   router.get('/', async (req, res) => {
     const assetId = assetIdOf(req.params);
-    const asset = await pool.query<{ currency: 'KRW' | 'USD' }>(
-      'SELECT currency FROM portfolio_assets WHERE id = $1',
-      [assetId],
-    );
-    if (!asset.rows[0]) throw new HttpError(404, '자산을 찾을 수 없습니다');
-    const [trades, held] = await Promise.all([
-      pool.query<TradeRow>(
+    // One snapshot, so the list and the position agree even while a trade is being saved.
+    const result = await inTransaction(pool, async (client) => {
+      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
+      const asset = await client.query<{ currency: 'KRW' | 'USD' }>(
+        'SELECT currency FROM portfolio_assets WHERE id = $1',
+        [assetId],
+      );
+      if (!asset.rows[0]) throw new HttpError(404, '자산을 찾을 수 없습니다');
+      const trades = await client.query<TradeRow>(
         `SELECT ${tradeColumns}
          FROM portfolio_trades t JOIN portfolio_trade_positions($1) p ON p.trade_id = t.id
          ORDER BY t.traded_on DESC, t.id DESC`,
         [assetId],
-      ),
-      position(pool, assetId, asset.rows[0].currency),
-    ]);
-    res.json({ trades: trades.rows.map(toTrade), position: held });
+      );
+      return {
+        trades: trades.rows.map(toTrade),
+        position: await position(client, assetId, asset.rows[0].currency),
+      };
+    });
+    res.json(result);
   });
 
   // A trade is something that happened: a date after today is refused.

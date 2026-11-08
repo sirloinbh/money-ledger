@@ -134,11 +134,14 @@ export function AssetTrades({
   assetId,
   assetName,
   currency,
+  handQuantity,
   onChanged,
 }: {
   assetId: number;
   assetName: string;
   currency: Currency;
+  /** The quantity entered by hand while the asset has no trades yet (the first trade replaces it). */
+  handQuantity: string | null;
   /** Reloads the asset list so the quantity follows the trades. */
   onChanged: () => Promise<void>;
 }) {
@@ -288,7 +291,9 @@ export function AssetTrades({
           {[
             ['보유 수량', position.quantity === null ? '0' : formatDecimal(position.quantity)],
             [
-              '평균 단가',
+              // USD: in dollars without the won fees, which have no dollar rate of their own; the won
+              // cost below includes them (decision 3).
+              currency === 'USD' ? '평균 단가(수수료 제외)' : '평균 단가',
               position.averagePrice === null ? '-' : priceText(position.averagePrice, currency),
             ],
             ['원화 원가', formatWon(position.costKrw)],
@@ -300,6 +305,12 @@ export function AssetTrades({
             </div>
           ))}
         </dl>
+      ) : null}
+      {handQuantity !== null && trades?.length === 0 ? (
+        <p id={`${prefix}-hand`} className="text-body-sm text-muted-foreground">
+          지금 수량 {formatDecimal(handQuantity)}은(는) 직접 넣은 값입니다. 첫 거래를 기록하면
+          수량이 거래 합계로 바뀌므로, 이미 가진 수량은 매수로 먼저 넣으세요.
+        </p>
       ) : null}
       <Notice id={noticeId} notice={notice.notice} />
       <form
@@ -433,7 +444,7 @@ export function AssetTrades({
       ) : (
         <ul aria-label={`${assetName} 거래 목록`} className="flex flex-col divide-y">
           {trades.map((trade) => {
-            const label = `${trade.tradedOn} ${sideLabels[trade.side]} ${formatDecimal(trade.quantity)}`;
+            const label = `${trade.tradedOn} ${sideLabels[trade.side]} ${formatDecimal(trade.quantity)} × ${priceText(trade.price, trade.currency)}`;
             const costs = trade.feeKrw + trade.taxKrw;
             return (
               <li key={trade.id} className="flex flex-wrap items-center justify-between gap-2 py-2">

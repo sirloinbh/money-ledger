@@ -358,10 +358,28 @@ export function AssetManager() {
     load().catch((cause: unknown) => showError(cause, '자산을 불러오지 못했습니다'));
   }, [load, showError]);
 
-  // Opening an edit moves focus to the form above the list.
+  // Opening an edit moves focus to the form above the list (not when the same asset is refreshed below).
+  const editingId = editing?.id;
   useEffect(() => {
-    if (editing) nameInput.current?.focus();
-  }, [editing]);
+    if (editingId !== undefined) nameInput.current?.focus();
+  }, [editingId]);
+
+  // #46 A trade saved while the asset is open in the form changes whether its quantity comes from trades
+  // and what it is: follow the fresh asset so the form never sends a quantity the server will refuse.
+  useEffect(() => {
+    if (!editing || !assets) return;
+    const fresh = assets.find((asset) => asset.id === editing.id);
+    if (!fresh || (fresh.hasTrades === editing.hasTrades && fresh.quantity === editing.quantity)) {
+      return;
+    }
+    setEditing(fresh);
+    if (fresh.hasTrades || editing.hasTrades) {
+      setDraft((current) => ({
+        ...current,
+        quantity: fresh.quantity === null ? '' : formatDecimal(fresh.quantity),
+      }));
+    }
+  }, [assets, editing]);
 
   const change = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
   const clearInvalid = (field: Field) => {
@@ -975,6 +993,7 @@ function AssetList({
                           assetId={asset.id}
                           assetName={asset.name}
                           currency={asset.currency}
+                          handQuantity={asset.hasTrades ? null : asset.quantity}
                           onChanged={onUsagesChanged}
                         />
                       </div>
