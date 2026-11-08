@@ -236,12 +236,52 @@ test('uses lower a stored value, a use above the balance shows the server messag
   );
   expect(within(panel).getByLabelText('사용 금액(원)')).toHaveAttribute('aria-invalid', 'true');
 
+  // Deleting asks first.
   fireEvent.click(
     within(panel).getByRole('button', { name: '2026-02-01 50,000원 사용 기록 지우기' }),
   );
+  expect(requests.some((request) => request.method === 'DELETE')).toBe(false);
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '지우기' }));
   expect(await within(panel).findByText('아직 사용 기록이 없습니다.')).toBeInTheDocument();
-  expect(within(panel).getByRole('heading', { name: '미용실 회원권 사용 기록' })).toHaveFocus();
+  await vi.waitFor(() =>
+    expect(within(panel).getByRole('heading', { name: '미용실 회원권 사용 기록' })).toHaveFocus(),
+  );
   await vi.waitFor(() => expect(summary('자산 합계')).toHaveTextContent('5,300,000원'));
+});
+
+test('the uses button points at its panel only while it is open', async () => {
+  stored.push(salon);
+  await ready();
+  const toggle = screen.getByRole('button', { name: '미용실 회원권 사용 기록' });
+  expect(toggle).not.toHaveAttribute('aria-controls');
+  fireEvent.click(toggle);
+  expect(document.getElementById(toggle.getAttribute('aria-controls')!)).toBeInTheDocument();
+});
+
+test('a date refused by the server marks the date field, and a date that does not exist is caught first', async () => {
+  stored.push(salon);
+  await ready();
+  fireEvent.click(screen.getByRole('button', { name: '미용실 회원권 사용 기록' }));
+  const panel = screen.getByRole('region', { name: '미용실 회원권 사용 기록' });
+  const date = within(panel).getByLabelText('사용한 날짜');
+  fireEvent.change(within(panel).getByLabelText('사용 금액(원)'), { target: { value: '1000' } });
+
+  vi.mocked(fetch).mockImplementationOnce(() =>
+    json({ error: '만료일(2026-12-31)이 지난 날짜에는 쓸 수 없습니다' }, 400),
+  );
+  fireEvent.change(date, { target: { value: '2027-01-01' } });
+  fireEvent.click(within(panel).getByRole('button', { name: '사용 추가' }));
+  expect(await within(panel).findByRole('alert')).toHaveTextContent('만료일(2026-12-31)');
+  expect(date).toHaveAttribute('aria-invalid', 'true');
+  expect(within(panel).getByLabelText('사용 금액(원)')).not.toHaveAttribute('aria-invalid');
+
+  const posts = requests.filter((request) => request.method === 'POST').length;
+  fireEvent.change(date, { target: { value: '2026-02-30' } });
+  fireEvent.submit(within(panel).getByRole('form', { name: '미용실 회원권 사용 추가' }));
+  expect(within(panel).getByRole('alert')).toHaveTextContent(
+    '사용한 날짜를 1900년부터 2100년 사이로 입력하세요',
+  );
+  expect(requests.filter((request) => request.method === 'POST')).toHaveLength(posts);
 });
 
 test('a use of 0 won is refused before sending', async () => {

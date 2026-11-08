@@ -1,12 +1,13 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from './components/ui/button';
+import { ConfirmDialog } from './components/ui/confirm-dialog';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
 import { formatWon, serviceToday, withoutThousands as digits } from './format';
-import { requestJson } from './lib/api';
-import { useNotice } from './lib/use-notice';
+import { RequestError, requestJson } from './lib/api';
+import { errorText, useNotice } from './lib/use-notice';
 
 // #64 Uses of a stored-value prepaid asset (금액권). Add and delete only (decision 2026-11-08); the server
 // refuses a use larger than the balance or after the expiry date. A use is not a ledger expense: the
@@ -14,6 +15,13 @@ import { useNotice } from './lib/use-notice';
 
 type Usage = { id: number; usedOn: string; amountKrw: number; memo: string };
 type Field = 'usedOn' | 'amount';
+
+/** A real YYYY-MM-DD date between 1900 and 2100 (the server's range). */
+function realDate(text: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text) || text < '1900-01-01' || text > '2100-12-31') return false;
+  const parsed = new Date(`${text}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === text;
+}
 
 export function PrepaidUsages({
   assetId,
@@ -33,6 +41,8 @@ export function PrepaidUsages({
   const [busy, setBusy] = useState(false);
   const saving = useRef(false);
   const title = useRef<HTMLHeadingElement>(null);
+  // Where the delete dialog returns focus: empty (back to its trigger) unless the delete went through.
+  const afterDelete = useRef<HTMLElement | null>(null);
   const notice = useNotice();
   const { error: showError, status: showStatus } = notice;
   const path = `/api/portfolio/assets/${assetId}/usages`;
@@ -64,9 +74,9 @@ export function PrepaidUsages({
   const add = async (event: FormEvent) => {
     event.preventDefault();
     if (saving.current) return;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(usedOn)) {
+    if (!realDate(usedOn)) {
       setInvalid('usedOn');
-      showError('사용한 날짜를 입력하세요');
+      showError('사용한 날짜를 1900년부터 2100년 사이로 입력하세요');
       return;
     }
     const plain = digits(amount);
@@ -85,8 +95,9 @@ export function PrepaidUsages({
           body: { usedOn, amountKrw: Number(plain), memo },
         });
       } catch (cause) {
-        // The balance and expiry are checked on the server; its Korean message says which.
-        setInvalid('amount');
+        // The balance, expiry and future dates are checked on the server; its Korean message says which,
+        // and a message about the date marks the date field.
+        setInvalid(errorText(cause).includes('날짜') ? 'usedOn' : 'amount');
         showError(cause);
         return;
       }
@@ -99,19 +110,25 @@ export function PrepaidUsages({
     }
   };
 
+  // Called by the confirm dialog: rejecting keeps it open with the error shown.
   const remove = async (usage: Usage) => {
-    if (saving.current) return;
+    if (saving.current) {
+      showError('저장 중입니다. 잠시 후 다시 시도하세요');
+      throw new Error('saving');
+    }
     saving.current = true;
     try {
       await requestJson(`${path}/${usage.id}`, { method: 'DELETE' });
     } catch (cause) {
       showError(cause);
-      return;
+      // Already gone (deleted elsewhere): show the list as it is now.
+      if (cause instanceof RequestError && cause.status === 404) await load().catch(() => {});
+      throw cause;
     } finally {
       saving.current = false;
     }
-    // The button goes away with the row; keep focus in the panel.
-    title.current?.focus();
+    // The row and its button go away; the dialog returns focus to the panel title.
+    afterDelete.current = title.current;
     await refresh(`${usage.usedOn} ${formatWon(usage.amountKrw)} 사용 기록을 지웠습니다`);
   };
 
@@ -194,15 +211,27 @@ export function PrepaidUsages({
                 <span className="text-body-sm font-medium tabular-nums">
                   {formatWon(usage.amountKrw)}
                 </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`${usage.usedOn} ${formatWon(usage.amountKrw)} 사용 기록 지우기`}
-                  onClick={() => void remove(usage)}
-                >
-                  지우기
-                </Button>
+                <ConfirmDialog
+                  title="사용 기록을 지울까요?"
+                  description={`${usage.usedOn} ${formatWon(usage.amountKrw)}. 지우면 잔액이 그만큼 늘어납니다.`}
+                  confirmLabel="지우기"
+                  onConfirm={() => remove(usage)}
+                  returnFocusRef={afterDelete}
+                  onOpenChange={(open) => {
+                    // Back to the trigger unless the delete went through.
+                    if (open) afterDelete.current = null;
+                  }}
+                  trigger={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`${usage.usedOn} ${formatWon(usage.amountKrw)} 사용 기록 지우기`}
+                    >
+                      지우기
+                    </Button>
+                  }
+                />
               </span>
             </li>
           ))}

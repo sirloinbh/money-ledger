@@ -874,7 +874,10 @@ function AssetList({
                           variant="ghost"
                           size="sm"
                           aria-expanded={openUsages === asset.id}
-                          aria-controls={`usage-${asset.id}-panel`}
+                          // Only while the panel exists, so it never points at a missing id.
+                          aria-controls={
+                            openUsages === asset.id ? `usage-${asset.id}-panel` : undefined
+                          }
                           aria-label={`${asset.name} 사용 기록`}
                           onClick={() =>
                             setOpenUsages((open) => (open === asset.id ? undefined : asset.id))

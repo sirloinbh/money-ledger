@@ -322,5 +322,124 @@ test('prepaid assets against the real database', { skip: !url }, async (t) => {
     await assert.rejects(insert('prepaid_kind, prepaid_amount_krw', "'cash', 'amount', 1"), {
       code: '23514',
     });
+    // The prepaid type without its details (a hand-entered value instead).
+    await assert.rejects(insert('value_krw', "'prepaid', 1"), { code: '23514' });
   });
+
+  await t.test('re-running the migrations keeps rows that only a later one allows', async () => {
+    await reset();
+    await withApi(pool, async (call) => {
+      await call(path, { method: 'POST', body: salon });
+      await call(path, { method: 'POST', body: gym });
+      await call(path, {
+        method: 'POST',
+        body: {
+          name: '노트북',
+          type: 'depreciable',
+          currency: 'KRW',
+          depreciation: {
+            purchasePriceKrw: 1_200_000,
+            purchasedOn: '2026-01-15',
+            usefulLifeMonths: 60,
+          },
+        },
+      });
+    });
+    // In order, as a deploy would apply them all again: 007 must not narrow the check 010 widened.
+    for (const file of [
+      '004_portfolio_assets.sql',
+      '007_depreciable_assets.sql',
+      '010_prepaid_assets.sql',
+      '007_depreciable_assets.sql',
+    ]) {
+      await runMigration(pool, file);
+    }
+    const { rows } = await pool.query<{ n: number }>(
+      'SELECT count(*)::int AS n FROM portfolio_assets',
+    );
+    assert.equal(rows[0].n, 3);
+    // The widened checks are still in place: a prepaid row with nothing to value stays refused.
+    await assert.rejects(
+      pool.query("INSERT INTO portfolio_assets (name, asset_type) VALUES ('a', 'cash')"),
+      { code: '23514' },
+    );
+  });
+
+  await t.test('a use cannot be dated after today', async () => {
+    await reset();
+    await withApi(
+      pool,
+      async (call) => {
+        const { data } = await call(path, { method: 'POST', body: salon });
+        const id = (data.asset as Asset).id;
+        const use = (usedOn: string) =>
+          call(`${path}/${id}/usages`, { method: 'POST', body: { usedOn, amountKrw: 1000 } });
+        assert.equal((await use('2026-02-15')).status, 201); // today
+        const later = await use('2026-02-16');
+        assert.equal(later.status, 400);
+        assert.deepEqual(later.data, { error: '오늘 이후 날짜에는 사용을 기록할 수 없습니다' });
+      },
+      { today: () => '2026-02-15' },
+    );
+  });
+
+  await t.test('the expiry cannot be moved before the last use', async () => {
+    await reset();
+    await withApi(pool, async (call) => {
+      const { data } = await call(path, { method: 'POST', body: salon });
+      const id = (data.asset as Asset).id;
+      await call(`${path}/${id}/usages`, {
+        method: 'POST',
+        body: { usedOn: '2026-03-10', amountKrw: 1000 },
+      });
+      const put = (expiresOn: string) =>
+        call(`${path}/${id}`, {
+          method: 'PUT',
+          body: { ...salon, prepaid: { kind: 'amount', amountKrw: 300_000, expiresOn } },
+        });
+      const early = await put('2026-03-09');
+      assert.equal(early.status, 400);
+      assert.deepEqual(early.data, {
+        error: '만료일은 마지막 사용일(2026-03-10)보다 앞설 수 없습니다',
+      });
+      assert.equal((await put('2026-03-10')).status, 200);
+    });
+  });
+
+  await t.test(
+    'lowering the amount and adding a use at the same time cannot overspend',
+    async () => {
+      await reset();
+      await withApi(pool, async (call) => {
+        const { data } = await call(path, {
+          method: 'POST',
+          body: { ...salon, prepaid: { kind: 'amount', amountKrw: 20_000 } },
+        });
+        const id = (data.asset as Asset).id;
+        await call(`${path}/${id}/usages`, {
+          method: 'POST',
+          body: { usedOn: '2026-02-01', amountKrw: 10_000 },
+        });
+        // Either order is fine, but never both: 10,000 used + 10,000 more on a 10,000 amount.
+        const [lower, use] = await Promise.all([
+          call(`${path}/${id}`, {
+            method: 'PUT',
+            body: { ...salon, prepaid: { kind: 'amount', amountKrw: 10_000 } },
+          }),
+          call(`${path}/${id}/usages`, {
+            method: 'POST',
+            body: { usedOn: '2026-02-02', amountKrw: 10_000 },
+          }),
+        ]);
+        assert.equal([lower.status, use.status].filter((status) => status < 300).length, 1);
+        const { rows } = await pool.query<{ amount: string; used: string }>(
+          `SELECT a.prepaid_amount_krw AS amount,
+                (SELECT sum(amount_krw) FROM portfolio_prepaid_usages WHERE asset_id = a.id) AS used
+         FROM portfolio_assets a WHERE a.id = $1`,
+          [id],
+        );
+        assert.ok(Number(rows[0].used) <= Number(rows[0].amount));
+      });
+    },
+  );
 });

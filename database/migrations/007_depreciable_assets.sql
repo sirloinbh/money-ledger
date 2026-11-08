@@ -21,11 +21,24 @@ ALTER TABLE portfolio_assets ADD CONSTRAINT portfolio_assets_depreciation_check 
 );
 
 -- A depreciating asset has no hand-entered value: its value comes from the purchase price.
-ALTER TABLE portfolio_assets DROP CONSTRAINT IF EXISTS portfolio_assets_quantity_or_value_check;
-ALTER TABLE portfolio_assets ADD CONSTRAINT portfolio_assets_quantity_or_value_check CHECK (
-  quantity IS NOT NULL OR value_krw IS NOT NULL OR value_foreign IS NOT NULL
-  OR purchase_price_krw IS NOT NULL
-);
+-- Replaced only while the check does not yet allow it: a later migration (010) widens the same check, and
+-- re-running this file after it must not narrow it again (rows it allows would then fail).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'portfolio_assets'::regclass
+      AND conname = 'portfolio_assets_quantity_or_value_check'
+      AND pg_get_constraintdef(oid) LIKE '%purchase_price_krw%'
+  ) THEN
+    ALTER TABLE portfolio_assets DROP CONSTRAINT IF EXISTS portfolio_assets_quantity_or_value_check;
+    ALTER TABLE portfolio_assets ADD CONSTRAINT portfolio_assets_quantity_or_value_check CHECK (
+      quantity IS NOT NULL OR value_krw IS NOT NULL OR value_foreign IS NOT NULL
+      OR purchase_price_krw IS NOT NULL
+    );
+  END IF;
+END
+$$;
 
 -- The value on `as_of`: the purchase price minus the same amount for every full month since the purchase,
 -- never below the salvage value. Before the purchase date nothing is taken off. Full months are counted by

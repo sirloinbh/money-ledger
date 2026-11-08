@@ -257,11 +257,16 @@ async function lockForUses(client: PoolClient, id: number) {
     [id],
   );
   if (!found.rows[0]) throw new HttpError(404, '자산을 찾을 수 없습니다');
-  const sum = await client.query<{ used: string }>(
-    'SELECT coalesce(sum(amount_krw), 0) AS used FROM portfolio_prepaid_usages WHERE asset_id = $1',
+  const sum = await client.query<{ used: string; last_used_on: string | null }>(
+    `SELECT coalesce(sum(amount_krw), 0) AS used, max(used_on) AS last_used_on
+     FROM portfolio_prepaid_usages WHERE asset_id = $1`,
     [id],
   );
-  return { ...found.rows[0], used: Number(sum.rows[0].used) };
+  return {
+    ...found.rows[0],
+    used: Number(sum.rows[0].used),
+    lastUsedOn: sum.rows[0].last_used_on,
+  };
 }
 
 // pg returns bigint as a string; won amounts stay exact as long as they are safe integers.
@@ -380,7 +385,7 @@ export function assetsRouter(pool: Pool, today: () => string) {
     const body = assetBody.parse(req.body);
     const asset = await inTransaction(pool, async (client) => {
       // Locked so a use cannot be added between the check and the update.
-      const { used } = await lockForUses(client, id);
+      const { used, lastUsedOn } = await lockForUses(client, id);
       if (used > 0) {
         if (body.prepaid?.kind !== 'amount') {
           throw new HttpError(
@@ -393,6 +398,11 @@ export function assetsRouter(pool: Pool, today: () => string) {
             400,
             `결제액은 이미 쓴 금액(${wonText.format(used)}원)보다 적을 수 없습니다`,
           );
+        }
+        // Keeps the rule a new use follows: no use after the expiry date.
+        const { expiresOn } = body.prepaid;
+        if (expiresOn !== null && lastUsedOn !== null && expiresOn < lastUsedOn) {
+          throw new HttpError(400, `만료일은 마지막 사용일(${lastUsedOn})보다 앞설 수 없습니다`);
         }
       }
       const { rows } = await client.query<Row>(
@@ -444,6 +454,10 @@ export function assetsRouter(pool: Pool, today: () => string) {
       const asset = await lockForUses(client, id);
       if (asset.prepaid_kind !== 'amount') {
         throw new HttpError(400, '사용 기록은 선입금 금액권에만 넣을 수 있습니다');
+      }
+      // A use is something that happened: a later date would count in the balance but not yet in the value.
+      if (body.usedOn > today()) {
+        throw new HttpError(400, '오늘 이후 날짜에는 사용을 기록할 수 없습니다');
       }
       if (asset.prepaid_expires_on !== null && body.usedOn > asset.prepaid_expires_on) {
         throw new HttpError(
