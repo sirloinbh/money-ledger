@@ -3,7 +3,7 @@ import { expect, test, vi } from 'vitest';
 
 import { App } from './app';
 
-// /api/health answers with `body`; every list (categories, entries, assets, trend months) is empty and there is no mock account.
+// /api/health answers with `body`; every list (categories, entries, assets, trend months, budgets) is empty and there is no mock account.
 const health = (body: object, status = 200) =>
   vi.stubGlobal(
     'fetch',
@@ -16,6 +16,7 @@ const health = (body: object, status = 200) =>
                 categories: [],
                 entries: [],
                 months: [],
+                budgets: [],
                 assets: [],
                 totals: { assetsKrw: 0, debtsKrw: 0, netKrw: 0, uncounted: 0 },
                 account: null,

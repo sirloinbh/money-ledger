@@ -4,6 +4,7 @@ import type { Pool } from 'pg';
 import { types } from 'pg';
 
 import { assetsRouter } from './assets.js';
+import { budgetsRouter } from './budgets.js';
 import { categoriesRouter } from './categories.js';
 import { entriesRouter } from './entries.js';
 import { mockAccountsRouter } from './mock-accounts.js';
@@ -52,6 +53,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
     await pool.query('SELECT 1');
     res.json({ ok: true, service: 'money-ledger', today: today() });
   });
+  app.use('/api/ledger/budgets', budgetsRouter(pool));
   app.use('/api/ledger/categories', categoriesRouter(pool));
   app.use('/api/ledger/entries', entriesRouter(pool));
   app.use('/api/ledger/rules', rulesRouter(pool));

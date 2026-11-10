@@ -16,6 +16,7 @@ import { shiftMonth } from './entry-filters-state';
 import { formatWon, serviceToday } from './format';
 import { requestJson } from './lib/api';
 import { cn } from './lib/utils';
+import { readSummaryMonth } from './summary-month';
 
 // #40 One month at a glance: income, expense, balance, and the expense by category as a horizontal bar chart
 // with the same values in a table. The month is in the address (`?month=2026-11`, default this month in Seoul),
@@ -37,15 +38,6 @@ type Summary = {
   categories: CategoryShare[];
 };
 
-/** The month in the address if it is one the server accepts, else this month. */
-function readMonth(params: URLSearchParams, today: string) {
-  const month = params.get('month') ?? '';
-  const year = Number(month.slice(0, 4));
-  return /^\d{4}-(0[1-9]|1[0-2])$/.test(month) && year >= 1900 && year <= 2100
-    ? month
-    : today.slice(0, 7);
-}
-
 // Recharts is large: the chart loads in its own file when a month with expense is shown, not with the app.
 // `lazy` keeps a failed load, so a failure starts a new one for the next month or retry.
 const loadChart = () =>
@@ -61,7 +53,7 @@ const monthLabel = (month: string) => `${month.slice(0, 4)}년 ${Number(month.sl
 export function MonthlySummary({ version = 0 }: { version?: number }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const today = serviceToday();
-  const month = readMonth(searchParams, today);
+  const month = readSummaryMonth(searchParams, today);
   const [summary, setSummary] = useState<Summary | undefined>(undefined);
   const [failed, setFailed] = useState(false);
   // Bumped by 다시 시도 so a chart that failed to load is tried again.
