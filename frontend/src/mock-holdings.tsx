@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Notice } from './components/ui/notice';
-import { formatDecimal, formatWon } from './format';
+import { formatDecimal, formatWon, signedPercent } from './format';
 import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 import { MockOrder } from './mock-order';
@@ -47,16 +47,8 @@ type Data = {
 const signedWon = (amount: number) =>
   amount > 0 ? `+${formatWon(amount)}` : amount < 0 ? `-${formatWon(-amount)}` : formatWon(0);
 
-/** "13.31" → "+13.31%", "-0.05" → "-0.05%", "0.00" → "0%" */
-function signedPct(text: string) {
-  const negative = text.startsWith('-');
-  const digits = formatDecimal(negative ? text.slice(1) : text);
-  if (digits === '0') return '0%';
-  return `${negative ? '-' : '+'}${digits}%`;
-}
-
 const profitText = (profit: number | null, pct: string | null) =>
-  profit === null ? '-' : `${signedWon(profit)}${pct === null ? '' : ` (${signedPct(pct)})`}`;
+  profit === null ? '-' : `${signedWon(profit)}${pct === null ? '' : ` (${signedPercent(pct)})`}`;
 
 const heldTitle = (held: Holding) => held.security.name ?? held.security.symbol;
 
@@ -131,7 +123,7 @@ export function MockHoldings({
               ['계좌 손익', profitText(loaded.summary.profitKrw, null)],
               [
                 '수익률',
-                loaded.summary.returnPct === null ? '-' : signedPct(loaded.summary.returnPct),
+                loaded.summary.returnPct === null ? '-' : signedPercent(loaded.summary.returnPct),
               ],
             ].map(([label, value]) => (
               <div key={label} className="flex flex-col gap-1 rounded-xl border px-4 py-3">

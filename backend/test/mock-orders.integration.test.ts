@@ -4,6 +4,7 @@ import { test } from 'node:test';
 
 import { Pool } from 'pg';
 
+import { saveSnapshot, snapshotOpenAccount } from '../src/mock-snapshots.js';
 import { runMigration, withApi } from './helpers.js';
 
 const url = process.env.TEST_DATABASE_URL;
@@ -45,7 +46,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
   let accountId = 0;
   const reset = async (cash = 10_000_000) => {
     await pool.query(
-      `DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets, mock_orders, mock_holdings, mock_accounts, security_prices, fx_rates,
+      `DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets, mock_snapshots, mock_orders, mock_holdings, mock_accounts, security_prices, fx_rates,
          price_fetch_state, price_api_calls, krx_market_days, securities`,
     );
     for (const file of [
@@ -58,10 +59,12 @@ test('mock trading market orders against the real database', { skip: !url }, asy
       '010_prepaid_assets.sql',
       '013_asset_trades.sql',
       '016_asset_valuation.sql',
+      '018_mock_snapshots.sql',
     ]) {
       await runMigration(pool, file);
     }
     await runMigration(pool, '015_mock_orders.sql'); // re-running is safe
+    await runMigration(pool, '018_mock_snapshots.sql');
     const securities = await pool.query<{ id: string; symbol: string }>(
       `INSERT INTO securities (market, symbol, name, kind, currency, active) VALUES
          ('KOSPI', '005930', '삼성전자', 'stock', 'KRW', true),
@@ -818,6 +821,110 @@ test('mock trading market orders against the real database', { skip: !url }, asy
             assert.deepEqual([refused.status, refused.data], [400, { error }], query);
           }
           const missing = await call('/api/mock/accounts/999999/orders');
+          assert.deepEqual(
+            [missing.status, missing.data],
+            [404, { error: '모의투자 계좌를 찾을 수 없습니다' }],
+          );
+        },
+        { today },
+      );
+    },
+  );
+  await t.test(
+    'one snapshot a KST day from orders and the daily fetch, kept as saved (#54)',
+    async () => {
+      type Snapshots = {
+        startDate: string;
+        initialCashKrw: number;
+        snapshots: { date: string; totalKrw: number; profitKrw: number; returnPct: string }[];
+      };
+      await reset();
+      await addRate();
+      // The account started on 11-09 00:30 in Seoul (11-08 in UTC).
+      await pool.query(
+        "UPDATE mock_accounts SET created_at = '2026-11-08T15:30:00Z' WHERE id = $1",
+        [accountId],
+      );
+      await withApi(
+        pool,
+        async (call) => {
+          const snapshots = async () =>
+            (await call(`/api/mock/accounts/${accountId}/snapshots`)).data as Snapshots;
+          assert.deepEqual(await snapshots(), {
+            startDate: '2026-11-09',
+            initialCashKrw: 10_000_000,
+            snapshots: [],
+          });
+
+          // Two orders on 11-09: one row for the day, with the value after the last one.
+          for (const order of [await body('005930', 'buy', '10'), await body('AAPL', 'buy', '2')]) {
+            assert.equal((await call(path(), { method: 'POST', body: order })).status, 201);
+          }
+          const holdings = (await call(`/api/mock/accounts/${accountId}/holdings`)).data as {
+            summary: { totalKrw: number; profitKrw: number; returnPct: string };
+          };
+          const afterOrders = {
+            date: '2026-11-09',
+            totalKrw: holdings.summary.totalKrw,
+            profitKrw: holdings.summary.profitKrw,
+            returnPct: holdings.summary.returnPct,
+          };
+          // round(2 × 231.5 × 1384.5) = 641,024: cash 8,652,976 + 706,000 + 641,024 = 10,000,000.
+          assert.deepEqual(afterOrders, {
+            date: '2026-11-09',
+            totalKrw: 10_000_000,
+            profitKrw: 0,
+            returnPct: '0.00',
+          });
+          assert.deepEqual((await snapshots()).snapshots, [afterOrders]);
+
+          // The daily fetch of 11-10 (KST) saves that day with the new close; a closed account gets nothing.
+          await pool.query(
+            `INSERT INTO security_prices (security_id, trade_date, close, currency, source)
+             VALUES ($1, '2026-11-09', 80000, 'KRW', 'T')`,
+            [ids['005930']],
+          );
+          const closed = await pool.query<{ id: string }>(
+            `INSERT INTO mock_accounts (initial_cash_krw, cash_krw, created_at, closed_at)
+             VALUES (10000000, 10000000, now(), now()) RETURNING id`,
+          );
+          await snapshotOpenAccount(pool, new Date('2026-11-10T03:00:00Z'));
+          // 10 × 80,000 = 800,000: total 10,094,000, +0.94%.
+          const day2 = {
+            date: '2026-11-10',
+            totalKrw: 10_094_000,
+            profitKrw: 94_000,
+            returnPct: '0.94',
+          };
+          assert.deepEqual((await snapshots()).snapshots, [afterOrders, day2]);
+          const others = await pool.query('SELECT 1 FROM mock_snapshots WHERE account_id = $1', [
+            closed.rows[0].id,
+          ]);
+          assert.equal(others.rowCount, 0);
+
+          // A saved day is not recomputed when prices change later; the same day saved again is replaced.
+          await pool.query(
+            `INSERT INTO security_prices (security_id, trade_date, close, currency, source)
+             VALUES ($1, '2026-11-10', 90000, 'KRW', 'T')`,
+            [ids['005930']],
+          );
+          assert.deepEqual((await snapshots()).snapshots, [afterOrders, day2]);
+          await snapshotOpenAccount(pool, new Date('2026-11-10T09:00:00Z'));
+          assert.deepEqual((await snapshots()).snapshots, [
+            afterOrders,
+            { date: '2026-11-10', totalKrw: 10_194_000, profitKrw: 194_000, returnPct: '1.94' },
+          ]);
+          const rows = await pool.query('SELECT 1 FROM mock_snapshots WHERE account_id = $1', [
+            accountId,
+          ]);
+          assert.equal(rows.rowCount, 2);
+
+          // Without a USD rate the value is unknown: no row rather than a wrong one.
+          await pool.query("DELETE FROM fx_rates WHERE currency = 'USD'");
+          assert.equal(await saveSnapshot(pool, accountId, '2026-11-11', '2026-11-11'), false);
+          assert.equal((await snapshots()).snapshots.length, 2);
+
+          const missing = await call('/api/mock/accounts/999999/snapshots');
           assert.deepEqual(
             [missing.status, missing.data],
             [404, { error: '모의투자 계좌를 찾을 수 없습니다' }],

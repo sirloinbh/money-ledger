@@ -9,7 +9,9 @@ import { Notice } from './components/ui/notice';
 import { formatDateTime, formatWon, withoutThousands } from './format';
 import { RequestError, requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
+import { MockHistory } from './mock-history';
 import { MockHoldings } from './mock-holdings';
+import { MockReturns } from './mock-returns';
 
 // #50 Mock trading account. Virtual won only, never added to the ledger or portfolio totals.
 // One open account; resetting keeps the old one as a closed record (2026-11-03 decision).
@@ -292,6 +294,21 @@ export function MockAccount({
           </CardContent>
         </Card>
       )}
+      {account ? (
+        // #54 Only the open account's return and orders are shown; keyed so a reset starts them over.
+        <>
+          <MockReturns
+            key={`returns-${account.id}`}
+            accountId={account.id}
+            refreshKey={refreshKey}
+          />
+          <MockHistory
+            key={`history-${account.id}`}
+            accountId={account.id}
+            refreshKey={refreshKey}
+          />
+        </>
+      ) : null}
       {state && state.closedAccounts.length > 0 ? (
         <section aria-labelledby="mock-closed-title" className="flex flex-col gap-3">
           <h2 id="mock-closed-title">이전 계좌</h2>

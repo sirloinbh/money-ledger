@@ -6,6 +6,7 @@ import {
   formatUsd,
   formatWon,
   serviceToday,
+  signedPercent,
   withoutThousands,
 } from './format';
 
@@ -40,4 +41,13 @@ test('decimal strings lose trailing zeros and keep every digit', () => {
   expect(formatDecimal('1234567.0001')).toBe('1,234,567.0001');
   expect(formatDecimal('0.12345678')).toBe('0.12345678');
   expect(formatUsd('1234.5000')).toBe('1,234.5달러');
+});
+
+test('signedPercent shows the sign of a percentage from the API without trailing zeros', () => {
+  expect(signedPercent('13.31')).toBe('+13.31%');
+  expect(signedPercent('100.00')).toBe('+100%');
+  expect(signedPercent('-0.05')).toBe('-0.05%');
+  expect(signedPercent('-1.50')).toBe('-1.5%');
+  expect(signedPercent('0.00')).toBe('0%');
+  expect(signedPercent('-0.00')).toBe('0%');
 });

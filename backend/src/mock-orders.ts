@@ -4,6 +4,7 @@ import { z } from 'zod/v4';
 
 import { inTransaction } from './db.js';
 import { date } from './entries.js';
+import { saveSnapshot } from './mock-snapshots.js';
 import { HttpError, parseId, serviceTimeZone } from './standard/http.js';
 
 // #52 Mock trading market orders (decisions 2026-11-08, issue comment):
@@ -369,6 +370,8 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
           cash.rows[0].cash_krw,
         ],
       );
+      // The day's value for the return chart (#54), in the same transaction as the order.
+      await saveSnapshot(client, accountId, today(), today());
       const order = await client.query<OrderRow>(
         `SELECT ${orderColumns} FROM mock_orders o JOIN securities s ON s.id = o.security_id WHERE o.id = $1`,
         [inserted.rows[0].id],

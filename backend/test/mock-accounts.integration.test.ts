@@ -24,7 +24,7 @@ test('mock trading accounts against the real database', { skip: !url }, async (t
   const reset = async () => {
     await pool.query(
       // Orders and holdings (#52) point at accounts, so they go first.
-      'DROP TABLE IF EXISTS mock_orders, mock_holdings, mock_accounts',
+      'DROP TABLE IF EXISTS mock_snapshots, mock_orders, mock_holdings, mock_accounts',
     );
     await runMigration(pool, '005_mock_accounts.sql');
     await runMigration(pool, '005_mock_accounts.sql'); // re-running is safe
