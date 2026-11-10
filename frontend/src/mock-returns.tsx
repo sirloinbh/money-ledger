@@ -156,7 +156,10 @@ export function MockReturns({ accountId, refreshKey }: { accountId: number; refr
                 <tbody>
                   {[...points].reverse().map((point) => (
                     <tr key={point.date} className="border-b last:border-b-0">
-                      <th scope="row" className="py-2 text-left font-normal whitespace-nowrap tabular-nums">
+                      <th
+                        scope="row"
+                        className="py-2 text-left font-normal whitespace-nowrap tabular-nums"
+                      >
                         {point.date}
                       </th>
                       <td className="py-2 text-right tabular-nums">{formatWon(point.totalKrw)}</td>
