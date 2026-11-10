@@ -52,3 +52,11 @@ const dateTime = new Intl.DateTimeFormat('ko-KR', {
 export function formatDateTime(iso: string) {
   return dateTime.format(new Date(iso));
 }
+
+/** A percentage string from the API with its sign: "13.31" → "+13.31%", "-0.05" → "-0.05%", "0.00" → "0%". */
+export function signedPercent(text: string) {
+  const negative = text.startsWith('-');
+  const digits = formatDecimal(negative ? text.slice(1) : text);
+  if (digits === '0') return '0%';
+  return `${negative ? '-' : '+'}${digits}%`;
+}

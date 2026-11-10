@@ -14,8 +14,17 @@ const lastRetryHour = 18;
 // Session advisory lock: two servers on one DB never run the fetch at the same time.
 const jobLock = 510001;
 
+/** Called after each run of the daily fetch, with the run's time (#54: the mock account's daily value). */
+export type AfterFetch = (now: Date) => Promise<void>;
+
 /** Runs the daily fetch if it is due at `now` and no other server is running it. Returns whether it ran. */
-export async function runIfDue(pool: Pool, sources: PriceSources, now: Date, log: PriceLog) {
+export async function runIfDue(
+  pool: Pool,
+  sources: PriceSources,
+  now: Date,
+  log: PriceLog,
+  afterFetch?: AfterFetch,
+) {
   const today = serviceDate(now);
   const hour = seoulHour(now);
   if (hour < firstHour) return false;
@@ -38,6 +47,13 @@ export async function runIfDue(pool: Pool, sources: PriceSources, now: Date, log
     const { complete } = await runDailyFetch(pool, sources, now, log);
     if (complete) await markChecked(pool, stateSources.job, 'all', today, now);
     log({ event: 'price_fetch_run', today, complete });
+    // A failure here is logged on its own and does not count as a failed fetch.
+    await afterFetch?.(now).catch((error: unknown) =>
+      log({
+        event: 'price_after_fetch_error',
+        message: error instanceof Error ? error.message : String(error),
+      }),
+    );
     return true;
   } finally {
     // A connection that could not unlock is dropped, so ending its session frees the lock for other servers.
@@ -52,13 +68,18 @@ export async function runIfDue(pool: Pool, sources: PriceSources, now: Date, log
 }
 
 /** Checks every minute whether the fetch is due. Returns a function that stops the timer. */
-export function startPriceJobs(pool: Pool, sources: PriceSources, log: PriceLog) {
+export function startPriceJobs(
+  pool: Pool,
+  sources: PriceSources,
+  log: PriceLog,
+  afterFetch?: AfterFetch,
+) {
   let running = false;
   const tick = async () => {
     if (running) return;
     running = true;
     try {
-      await runIfDue(pool, sources, new Date(), log);
+      await runIfDue(pool, sources, new Date(), log, afterFetch);
     } catch (error) {
       log({
         event: 'price_job_error',

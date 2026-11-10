@@ -3,7 +3,9 @@ import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod/v4';
 
 import { inTransaction } from './db.js';
-import { HttpError, parseId } from './standard/http.js';
+import { date } from './entries.js';
+import { saveSnapshot } from './mock-snapshots.js';
+import { HttpError, parseId, serviceTimeZone } from './standard/http.js';
 
 // #52 Mock trading market orders (decisions 2026-11-08, issue comment):
 // - One won cash balance. A US order is converted with the latest stored USD deal base rate at order time:
@@ -58,6 +60,24 @@ const previewQuery = z.object({
   side: sideField,
   quantity: quantityField,
 });
+
+// #54 Order history of an account, newest first, a page at a time. Dates are order days in the service time
+// zone (KST). `before` is the id of the last order already shown.
+const historyPage = 50;
+const historyQuery = z
+  .object({
+    from: date.optional(),
+    to: date.optional(),
+    securityId: securityField.optional(),
+    before: z
+      .string({ error: '이어 볼 위치가 올바르지 않습니다' })
+      .regex(/^[1-9]\d{0,14}$/, '이어 볼 위치가 올바르지 않습니다')
+      .optional(),
+  })
+  .refine((query) => !query.from || !query.to || query.from <= query.to, {
+    error: '시작일은 종료일보다 늦을 수 없습니다',
+    path: ['from'],
+  });
 
 type Side = 'buy' | 'sell';
 type Db = Pool | PoolClient;
@@ -204,6 +224,46 @@ async function account(db: Db, id: number, lock: boolean) {
 export function mockOrdersRouter(pool: Pool, today: () => string) {
   const router = Router({ mergeParams: true });
 
+  router.get('/', async (req, res) => {
+    const accountId = parseId((req.params as { accountId?: string }).accountId, '모의투자 계좌');
+    const query = historyQuery.parse(req.query);
+    const exists = await pool.query('SELECT 1 FROM mock_accounts WHERE id = $1', [accountId]);
+    if (!exists.rowCount) throw new HttpError(404, '모의투자 계좌를 찾을 수 없습니다');
+    const values: unknown[] = [accountId];
+    const where = ['o.account_id = $1'];
+    const add = (sql: (n: string) => string, value: unknown) => {
+      values.push(value);
+      where.push(sql(`$${values.length}`));
+    };
+    const day = `(o.created_at AT TIME ZONE '${serviceTimeZone}')::date`;
+    if (query.from) add((n) => `${day} >= ${n}::date`, query.from);
+    if (query.to) add((n) => `${day} <= ${n}::date`, query.to);
+    if (query.securityId) add((n) => `o.security_id = ${n}`, query.securityId);
+    if (query.before) add((n) => `o.id < ${n}`, query.before);
+    // One more than a page tells whether there is a next one. Ids grow with each order, so they order them;
+    // orders of one account are in a line behind its row lock, so an id never commits after a later one.
+    const { rows } = await pool.query<OrderRow>(
+      `SELECT ${orderColumns} FROM mock_orders o JOIN securities s ON s.id = o.security_id
+       WHERE ${where.join(' AND ')} ORDER BY o.id DESC LIMIT ${historyPage + 1}`,
+      values,
+    );
+    // Every security this account has traded, for the filter, whatever the other conditions are.
+    const traded = await pool.query<{ id: string; symbol: string; name: string | null }>(
+      `SELECT DISTINCT s.id, s.symbol, s.name FROM mock_orders o JOIN securities s ON s.id = o.security_id
+       WHERE o.account_id = $1 ORDER BY s.name NULLS LAST, s.symbol`,
+      [accountId],
+    );
+    res.json({
+      orders: rows.slice(0, historyPage).map(toOrder),
+      hasMore: rows.length > historyPage,
+      securities: traded.rows.map((row) => ({
+        id: Number(row.id),
+        symbol: row.symbol,
+        name: row.name,
+      })),
+    });
+  });
+
   // What the order would do now, for the confirmation step. Nothing is saved.
   router.get('/preview', async (req, res) => {
     const accountId = parseId((req.params as { accountId?: string }).accountId, '모의투자 계좌');
@@ -311,6 +371,8 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
           cash.rows[0].cash_krw,
         ],
       );
+      // The day's value for the return chart (#54), in the same transaction as the order.
+      await saveSnapshot(client, accountId, today(), today());
       const order = await client.query<OrderRow>(
         `SELECT ${orderColumns} FROM mock_orders o JOIN securities s ON s.id = o.security_id WHERE o.id = $1`,
         [inserted.rows[0].id],

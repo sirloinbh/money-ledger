@@ -77,6 +77,12 @@ function fakeApi() {
               : [],
         });
       }
+      if (method === 'GET' && url.includes('/orders')) {
+        return json({ orders: [], hasMore: false, securities: [] });
+      }
+      if (method === 'GET' && url.endsWith('/snapshots')) {
+        return json({ startDate: '2026-11-05', initialCashKrw: 10_000_000, snapshots: [] });
+      }
       if (method === 'GET') return json({ account: open, closedAccounts: closed });
       if (failNext) {
         const { status, error } = failNext;
