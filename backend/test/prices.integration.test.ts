@@ -280,6 +280,39 @@ test('shared price store against the real database', { skip: !url }, async (t) =
   );
 
   await t.test(
+    'each run of the daily fetch calls the after-fetch step; its failure is logged apart (#54)',
+    async () => {
+      await reset();
+      const runs: string[] = [];
+      const logged: Record<string, unknown>[] = [];
+      const log = (event: Record<string, unknown>) => logged.push(event);
+      assert.equal(
+        await runIfDue(pool, counted().sources, noon, log, (now) => {
+          runs.push(now.toISOString());
+          return Promise.reject(new Error('snapshot failed'));
+        }),
+        true,
+      );
+      assert.deepEqual(runs, [noon.toISOString()]);
+      assert.ok(
+        logged.some(
+          (event) =>
+            event.event === 'price_after_fetch_error' && event.message === 'snapshot failed',
+        ),
+      );
+      // The fetch itself still counts as done for today.
+      assert.equal(
+        await runIfDue(pool, counted().sources, at('2026-11-09T04:00:00Z'), log, () => {
+          runs.push('again');
+          return Promise.resolve();
+        }),
+        false,
+      );
+      assert.equal(runs.length, 1);
+    },
+  );
+
+  await t.test(
     'search finds Korean names and codes and US tickers, with the latest close',
     async () => {
       await reset();

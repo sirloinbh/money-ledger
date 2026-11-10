@@ -4,6 +4,7 @@ import { test } from 'node:test';
 
 import { Pool } from 'pg';
 
+import { saveSnapshot, snapshotOpenAccount } from '../src/mock-snapshots.js';
 import { runMigration, withApi } from './helpers.js';
 
 const url = process.env.TEST_DATABASE_URL;
@@ -45,7 +46,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
   let accountId = 0;
   const reset = async (cash = 10_000_000) => {
     await pool.query(
-      `DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets, mock_orders, mock_holdings, mock_accounts, security_prices, fx_rates,
+      `DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets, mock_snapshots, mock_orders, mock_holdings, mock_accounts, security_prices, fx_rates,
          price_fetch_state, price_api_calls, krx_market_days, securities`,
     );
     for (const file of [
@@ -58,10 +59,12 @@ test('mock trading market orders against the real database', { skip: !url }, asy
       '010_prepaid_assets.sql',
       '013_asset_trades.sql',
       '016_asset_valuation.sql',
+      '018_mock_snapshots.sql',
     ]) {
       await runMigration(pool, file);
     }
     await runMigration(pool, '015_mock_orders.sql'); // re-running is safe
+    await runMigration(pool, '018_mock_snapshots.sql');
     const securities = await pool.query<{ id: string; symbol: string }>(
       `INSERT INTO securities (market, symbol, name, kind, currency, active) VALUES
          ('KOSPI', '005930', '삼성전자', 'stock', 'KRW', true),
@@ -716,6 +719,238 @@ test('mock trading market orders against the real database', { skip: !url }, asy
           );
 
           const missing = await call('/api/mock/accounts/999999/holdings');
+          assert.deepEqual(
+            [missing.status, missing.data],
+            [404, { error: '모의투자 계좌를 찾을 수 없습니다' }],
+          );
+        },
+        { today },
+      );
+    },
+  );
+  await t.test(
+    'the order history filters by KST order day and security, newest first, a page at a time (#54)',
+    async () => {
+      type History = {
+        orders: { id: number; side: string; security: { symbol: string } }[];
+        hasMore: boolean;
+        securities: { id: number; symbol: string }[];
+      };
+      await reset();
+      await addRate();
+      await withApi(
+        pool,
+        async (call) => {
+          const history = async (query = '') => (await call(`${path()}${query}`)).data as History;
+          assert.deepEqual(await history(), { orders: [], hasMore: false, securities: [] });
+
+          for (const order of [
+            await body('005930', 'buy', '10'),
+            await body('AAPL', 'buy', '1'),
+            await body('005930', 'sell', '3'),
+          ]) {
+            assert.equal((await call(path(), { method: 'POST', body: order })).status, 201);
+          }
+          // Order times around KST day boundaries: 11-02 00:30, 11-05 12:00 and 11-08 23:59 in Seoul.
+          const orderIds = (
+            await pool.query<{ id: string }>('SELECT id FROM mock_orders ORDER BY id')
+          ).rows.map((row) => Number(row.id));
+          const times = ['2026-11-01T15:30:00Z', '2026-11-05T03:00:00Z', '2026-11-08T14:59:00Z'];
+          for (const [index, at] of times.entries()) {
+            await pool.query('UPDATE mock_orders SET created_at = $2 WHERE id = $1', [
+              orderIds[index],
+              at,
+            ]);
+          }
+
+          const all = await history();
+          assert.deepEqual(
+            all.orders.map((order) => [order.id, order.side, order.security.symbol]),
+            [
+              [orderIds[2], 'sell', '005930'],
+              [orderIds[1], 'buy', 'AAPL'],
+              [orderIds[0], 'buy', '005930'],
+            ],
+          );
+          assert.equal(all.hasMore, false);
+          // Every traded security once, for the filter.
+          assert.deepEqual(all.securities.map((security) => security.symbol).sort(), [
+            '005930',
+            'AAPL',
+          ]);
+
+          const found = async (query: string) =>
+            (await history(query)).orders.map((order) => order.id);
+          // 11-02 00:30 KST is 11-01 in UTC; the day is the Seoul one.
+          assert.deepEqual(await found('?from=2026-11-02&to=2026-11-05'), [
+            orderIds[1],
+            orderIds[0],
+          ]);
+          assert.deepEqual(await found('?to=2026-11-01'), []);
+          assert.deepEqual(await found('?from=2026-11-08&to=2026-11-08'), [orderIds[2]]);
+          assert.deepEqual(await found(`?securityId=${ids['005930']}`), [orderIds[2], orderIds[0]]);
+          assert.deepEqual(await found(`?securityId=${ids.AAPL}&to=2026-11-04`), []);
+          // Nothing comes before the oldest order.
+          assert.deepEqual(
+            (await call(`/api/mock/accounts/${accountId}/orders?before=${orderIds[0]}`)).data,
+            { orders: [], hasMore: false, securities: (await history()).securities },
+          );
+
+          // 51 more orders: 50 on the first page, the rest after the last one shown.
+          await pool.query(
+            `INSERT INTO mock_orders (account_id, security_id, request_key, side, quantity, price, currency,
+               price_date, amount_krw, fee_krw, cash_after_krw, created_at)
+             SELECT $1, $2, gen_random_uuid(), 'buy', 1, 100, 'KRW', '2026-11-06', 100, 0, 0,
+                    '2026-11-09T01:00:00Z'::timestamptz + make_interval(secs => n)
+             FROM generate_series(1, 51) n`,
+            [accountId, ids['005930']],
+          );
+          const first = await history();
+          assert.deepEqual([first.orders.length, first.hasMore], [50, true]);
+          const next = await history(`?before=${first.orders.at(-1)!.id}`);
+          assert.deepEqual([next.orders.length, next.hasMore], [4, false]);
+          assert.ok(next.orders[0].id < first.orders.at(-1)!.id);
+
+          for (const [query, error] of [
+            ['?from=2026-13-01', '없는 날짜입니다'],
+            ['?from=2026-11-09&to=2026-11-01', '시작일은 종료일보다 늦을 수 없습니다'],
+            ['?securityId=abc', '종목 ID가 올바르지 않습니다'],
+            ['?before=0', '이어 볼 위치가 올바르지 않습니다'],
+          ]) {
+            const refused = await call(`${path()}${query}`);
+            assert.deepEqual([refused.status, refused.data], [400, { error }], query);
+          }
+          const missing = await call('/api/mock/accounts/999999/orders');
+          assert.deepEqual(
+            [missing.status, missing.data],
+            [404, { error: '모의투자 계좌를 찾을 수 없습니다' }],
+          );
+        },
+        { today },
+      );
+    },
+  );
+  await t.test(
+    'one snapshot a KST day from orders and the daily fetch, kept as saved (#54)',
+    async () => {
+      type Snapshots = {
+        startDate: string;
+        initialCashKrw: number;
+        snapshots: { date: string; totalKrw: number; profitKrw: number; returnPct: string }[];
+      };
+      await reset();
+      await addRate();
+      // The account started on 11-09 00:30 in Seoul (11-08 in UTC).
+      await pool.query(
+        "UPDATE mock_accounts SET created_at = '2026-11-08T15:30:00Z' WHERE id = $1",
+        [accountId],
+      );
+      await withApi(
+        pool,
+        async (call) => {
+          const snapshots = async () =>
+            (await call(`/api/mock/accounts/${accountId}/snapshots`)).data as Snapshots;
+          assert.deepEqual(await snapshots(), {
+            startDate: '2026-11-09',
+            initialCashKrw: 10_000_000,
+            snapshots: [],
+          });
+
+          // Two orders on 11-09: one row for the day, with the value after the last one.
+          for (const order of [await body('005930', 'buy', '10'), await body('AAPL', 'buy', '2')]) {
+            assert.equal((await call(path(), { method: 'POST', body: order })).status, 201);
+          }
+          const holdings = (await call(`/api/mock/accounts/${accountId}/holdings`)).data as {
+            summary: { totalKrw: number; profitKrw: number; returnPct: string };
+          };
+          const afterOrders = {
+            date: '2026-11-09',
+            totalKrw: holdings.summary.totalKrw,
+            profitKrw: holdings.summary.profitKrw,
+            returnPct: holdings.summary.returnPct,
+          };
+          // round(2 × 231.5 × 1384.5) = 641,024: cash 8,652,976 + 706,000 + 641,024 = 10,000,000.
+          assert.deepEqual(afterOrders, {
+            date: '2026-11-09',
+            totalKrw: 10_000_000,
+            profitKrw: 0,
+            returnPct: '0.00',
+          });
+          assert.deepEqual((await snapshots()).snapshots, [afterOrders]);
+
+          // The daily fetch of 11-10 (KST) saves that day with the new close; a closed account gets nothing.
+          await pool.query(
+            `INSERT INTO security_prices (security_id, trade_date, close, currency, source)
+             VALUES ($1, '2026-11-09', 80000, 'KRW', 'T')`,
+            [ids['005930']],
+          );
+          const closed = await pool.query<{ id: string }>(
+            `INSERT INTO mock_accounts (initial_cash_krw, cash_krw, created_at, closed_at)
+             VALUES (10000000, 10000000, now(), now()) RETURNING id`,
+          );
+          await snapshotOpenAccount(pool, new Date('2026-11-10T03:00:00Z'));
+          // 10 × 80,000 = 800,000: total 10,094,000, +0.94%.
+          const day2 = {
+            date: '2026-11-10',
+            totalKrw: 10_094_000,
+            profitKrw: 94_000,
+            returnPct: '0.94',
+          };
+          assert.deepEqual((await snapshots()).snapshots, [afterOrders, day2]);
+          const others = await pool.query('SELECT 1 FROM mock_snapshots WHERE account_id = $1', [
+            closed.rows[0].id,
+          ]);
+          assert.equal(others.rowCount, 0);
+
+          // A saved day is not recomputed when prices change later; the same day saved again is replaced.
+          await pool.query(
+            `INSERT INTO security_prices (security_id, trade_date, close, currency, source)
+             VALUES ($1, '2026-11-10', 90000, 'KRW', 'T')`,
+            [ids['005930']],
+          );
+          assert.deepEqual((await snapshots()).snapshots, [afterOrders, day2]);
+          await snapshotOpenAccount(pool, new Date('2026-11-10T09:00:00Z'));
+          assert.deepEqual((await snapshots()).snapshots, [
+            afterOrders,
+            { date: '2026-11-10', totalKrw: 10_194_000, profitKrw: 194_000, returnPct: '1.94' },
+          ]);
+          const rows = await pool.query('SELECT 1 FROM mock_snapshots WHERE account_id = $1', [
+            accountId,
+          ]);
+          assert.equal(rows.rowCount, 2);
+
+          // An order in flight holds the account row: the fetch waits for it and saves the value after it.
+          const order = await pool.connect();
+          try {
+            await order.query('BEGIN');
+            await order.query('SELECT 1 FROM mock_accounts WHERE id = $1 FOR UPDATE', [accountId]);
+            let saved = false;
+            const waiting = snapshotOpenAccount(pool, new Date('2026-11-10T10:00:00Z')).then(() => {
+              saved = true;
+            });
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            assert.equal(saved, false);
+            await order.query('UPDATE mock_accounts SET cash_krw = cash_krw + 1000 WHERE id = $1', [
+              accountId,
+            ]);
+            await order.query('COMMIT');
+            await waiting;
+          } finally {
+            order.release();
+          }
+          assert.deepEqual((await snapshots()).snapshots.at(-1), {
+            date: '2026-11-10',
+            totalKrw: 10_195_000,
+            profitKrw: 195_000,
+            returnPct: '1.95',
+          });
+
+          // Without a USD rate the value is unknown: no row rather than a wrong one.
+          await pool.query("DELETE FROM fx_rates WHERE currency = 'USD'");
+          assert.equal(await saveSnapshot(pool, accountId, '2026-11-11', '2026-11-11'), false);
+          assert.equal((await snapshots()).snapshots.length, 2);
+
+          const missing = await call('/api/mock/accounts/999999/snapshots');
           assert.deepEqual(
             [missing.status, missing.data],
             [404, { error: '모의투자 계좌를 찾을 수 없습니다' }],

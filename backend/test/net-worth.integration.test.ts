@@ -25,7 +25,7 @@ test('net worth snapshots against the real database', { skip: !url }, async (t) 
   const reset = async () => {
     await pool.query(
       `DROP TABLE IF EXISTS net_worth_snapshots, portfolio_trades, portfolio_prepaid_usages, portfolio_assets,
-         mock_orders, mock_holdings, mock_accounts, security_prices, fx_rates, price_fetch_state, price_api_calls,
+         mock_snapshots, mock_orders, mock_holdings, mock_accounts, security_prices, fx_rates, price_fetch_state, price_api_calls,
          krx_market_days, securities`,
     );
     for (const file of [
@@ -38,6 +38,7 @@ test('net worth snapshots against the real database', { skip: !url }, async (t) 
       '012_krx_listing.sql',
       '015_mock_orders.sql',
       '016_asset_valuation.sql',
+      '018_mock_snapshots.sql',
       '019_net_worth_snapshots.sql',
     ]) {
       await runMigration(pool, file);

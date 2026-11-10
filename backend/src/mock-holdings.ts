@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
 import { HttpError, parseId } from './standard/http.js';
 
@@ -42,24 +42,23 @@ type AccountRow = {
 };
 
 /** A won amount from SQL as a JSON number; refuses one past the exact integer range instead of rounding it. */
-function won(text: string): number;
-function won(text: string | null): number | null;
-function won(text: string | null) {
+export function won(text: string): number;
+export function won(text: string | null): number | null;
+export function won(text: string | null) {
   if (text === null) return null;
   const amount = Number(text);
   if (!Number.isSafeInteger(amount)) throw new Error(`won amount out of range: ${text}`);
   return amount;
 }
 
-export function mockHoldingsRouter(pool: Pool, today: () => string) {
-  const router = Router({ mergeParams: true });
-
-  router.get('/', async (req, res) => {
-    const accountId = parseId((req.params as { accountId?: string }).accountId, '모의투자 계좌');
-    // One statement, so the holdings and the account cash come from the same snapshot even while an order
-    // commits in between.
-    const { rows } = await pool.query<Row & AccountRow>(
-      `WITH account AS (
+/**
+ * What an account holds and is worth now (rules at the top), or undefined if there is no such account. The
+ * daily snapshots (#54) save its summary. One statement, so the holdings and the account cash come from the
+ * same moment even while an order commits in between.
+ */
+export async function accountValue(db: Pool | PoolClient, accountId: number, today: string) {
+  const { rows } = await db.query<Row & AccountRow>(
+    `WITH account AS (
          SELECT id, initial_cash_krw, cash_krw FROM mock_accounts WHERE id = $1
        ), held AS (
          SELECT h.security_id, s.symbol, s.name, s.currency, s.active, h.quantity, h.cost_krw,
@@ -97,43 +96,52 @@ export function mockHoldingsRouter(pool: Pool, today: () => string) {
               h.*
        FROM account a CROSS JOIN totals t LEFT JOIN held h ON true
        ORDER BY h.value_krw DESC NULLS LAST, h.symbol`,
-      [accountId, today()],
-    );
-    const first = rows[0];
-    if (!first) throw new HttpError(404, '모의투자 계좌를 찾을 수 없습니다');
+    [accountId, today],
+  );
+  const first = rows[0];
+  if (!first) return undefined;
+  return {
+    summary: {
+      initialCashKrw: won(first.initial_cash_krw),
+      cashKrw: won(first.cash_krw),
+      costKrw: won(first.summary_cost_krw),
+      valueKrw: won(first.summary_value_krw),
+      totalKrw: won(first.total_krw),
+      profitKrw: won(first.summary_profit_krw),
+      returnPct: first.summary_return_pct,
+    },
+    holdings: rows
+      .filter((row) => row.security_id !== null)
+      .map((row) => ({
+        security: {
+          id: Number(row.security_id),
+          symbol: row.symbol,
+          name: row.name,
+          currency: row.currency,
+          active: row.active,
+        },
+        quantity: row.quantity,
+        price: row.close,
+        priceDate: row.trade_date,
+        priceStale: row.stale === true,
+        fxRate: row.fx_rate,
+        fxDate: row.rate_date,
+        costKrw: won(row.cost_krw),
+        valueKrw: won(row.value_krw),
+        profitKrw: won(row.profit_krw),
+        returnPct: row.return_pct,
+      })),
+  };
+}
 
-    res.json({
-      summary: {
-        initialCashKrw: won(first.initial_cash_krw),
-        cashKrw: won(first.cash_krw),
-        costKrw: won(first.summary_cost_krw),
-        valueKrw: won(first.summary_value_krw),
-        totalKrw: won(first.total_krw),
-        profitKrw: won(first.summary_profit_krw),
-        returnPct: first.summary_return_pct,
-      },
-      holdings: rows
-        .filter((row) => row.security_id !== null)
-        .map((row) => ({
-          security: {
-            id: Number(row.security_id),
-            symbol: row.symbol,
-            name: row.name,
-            currency: row.currency,
-            active: row.active,
-          },
-          quantity: row.quantity,
-          price: row.close,
-          priceDate: row.trade_date,
-          priceStale: row.stale === true,
-          fxRate: row.fx_rate,
-          fxDate: row.rate_date,
-          costKrw: won(row.cost_krw),
-          valueKrw: won(row.value_krw),
-          profitKrw: won(row.profit_krw),
-          returnPct: row.return_pct,
-        })),
-    });
+export function mockHoldingsRouter(pool: Pool, today: () => string) {
+  const router = Router({ mergeParams: true });
+
+  router.get('/', async (req, res) => {
+    const accountId = parseId((req.params as { accountId?: string }).accountId, '모의투자 계좌');
+    const value = await accountValue(pool, accountId, today());
+    if (!value) throw new HttpError(404, '모의투자 계좌를 찾을 수 없습니다');
+    res.json(value);
   });
 
   return router;
