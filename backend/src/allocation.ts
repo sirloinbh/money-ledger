@@ -12,7 +12,7 @@ import type { PoolClient } from 'pg';
 //   shown by name); the table lists every asset.
 
 /** Assets the chart shows one by one before the rest are put together. */
-export const chartAssets = 8;
+const chartAssets = 8;
 
 export type ShareRow = {
   kind: 'type' | 'asset' | 'chart';
