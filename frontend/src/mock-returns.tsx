@@ -114,7 +114,9 @@ export function MockReturns({ accountId, refreshKey }: { accountId: number; refr
         <Notice id="mock-returns-notice" notice={notice.notice} />
         {!loaded ? (
           notice.notice?.kind === 'error' ? null : (
-            <p className="text-body-sm text-muted-foreground">수익률 추이를 불러오는 중입니다</p>
+            <p role="status" className="text-body-sm text-muted-foreground">
+              수익률 추이를 불러오는 중입니다
+            </p>
           )
         ) : points.length < 2 ? (
           <p className="text-body-sm text-muted-foreground">

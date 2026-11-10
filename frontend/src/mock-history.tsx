@@ -57,7 +57,8 @@ const securityName = (security: { symbol: string; name: string | null }) =>
 export function MockHistory({ accountId, refreshKey }: { accountId: number; refreshKey: number }) {
   const [draft, setDraft] = useState<Filter>(emptyFilter);
   const [filter, setFilter] = useState<Filter>(emptyFilter);
-  const [page, setPage] = useState<Page | undefined>(undefined);
+  // `request` is the load that gave this page: "더 보기" only continues the list of the latest load.
+  const [page, setPage] = useState<(Page & { request: number }) | undefined>(undefined);
   const [invalid, setInvalid] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   // Only the latest request may fill the list.
@@ -84,7 +85,7 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
       .then((loaded) => {
         if (latest.current !== request) return;
         clear();
-        setPage(loaded);
+        setPage({ ...loaded, request });
       })
       .catch((cause: unknown) => {
         if (latest.current === request) showError(cause, '거래 내역을 불러오지 못했습니다');
@@ -111,13 +112,14 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
 
   const more = async () => {
     const last = page?.orders.at(-1);
-    if (!page || !last || loadingMore) return;
-    const request = latest.current;
+    // A new filter or an order on the page is loading: the shown page is about to be replaced, not continued.
+    if (!page || !last || loadingMore || page.request !== latest.current) return;
+    const { request } = page;
     setLoadingMore(true);
     try {
       const next = await requestJson<Page>(path(filter, last.id));
       if (latest.current !== request) return;
-      setPage({ ...next, orders: [...page.orders, ...next.orders] });
+      setPage({ ...next, orders: [...page.orders, ...next.orders], request });
     } catch (cause) {
       if (latest.current === request) showError(cause, '거래 내역을 더 불러오지 못했습니다');
     } finally {
@@ -191,7 +193,9 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
         <Notice id="mock-history-notice" notice={notice.notice} />
         {!page ? (
           notice.notice?.kind === 'error' ? null : (
-            <p className="text-body-sm text-muted-foreground">거래 내역을 불러오는 중입니다</p>
+            <p role="status" className="text-body-sm text-muted-foreground">
+              거래 내역을 불러오는 중입니다
+            </p>
           )
         ) : page.orders.length === 0 ? (
           <p className="text-body-sm text-muted-foreground">

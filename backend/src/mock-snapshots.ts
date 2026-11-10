@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Pool, PoolClient } from 'pg';
 
+import { inTransaction } from './db.js';
 import { accountValue, won } from './mock-holdings.js';
 import { HttpError, parseId, serviceDate, serviceTimeZone } from './standard/http.js';
 
@@ -43,13 +44,18 @@ export async function saveSnapshot(
   return true;
 }
 
-/** After the daily price fetch: the open account's value for today. */
+/**
+ * After the daily price fetch: the open account's value for today. The account row is locked as an order locks
+ * it, so an order cannot commit between reading the value and saving it (the day keeps its latest value).
+ */
 export async function snapshotOpenAccount(pool: Pool, now: Date) {
-  const { rows } = await pool.query<{ id: string }>(
-    'SELECT id FROM mock_accounts WHERE closed_at IS NULL',
-  );
   const today = serviceDate(now);
-  for (const row of rows) await saveSnapshot(pool, Number(row.id), today, today);
+  await inTransaction(pool, async (client) => {
+    const { rows } = await client.query<{ id: string }>(
+      'SELECT id FROM mock_accounts WHERE closed_at IS NULL FOR UPDATE',
+    );
+    for (const row of rows) await saveSnapshot(client, Number(row.id), today, today);
+  });
 }
 
 type SnapshotRow = {
@@ -79,7 +85,7 @@ export function mockSnapshotsRouter(pool: Pool) {
     );
     res.json({
       startDate: found.start_date,
-      initialCashKrw: Number(found.initial_cash_krw),
+      initialCashKrw: won(found.initial_cash_krw),
       snapshots: rows.map((row) => ({
         date: row.snapshot_date,
         totalKrw: won(row.total_krw),

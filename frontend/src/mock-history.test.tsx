@@ -115,6 +115,35 @@ test('더 보기 adds the next 50 after the last one shown, with the same filter
   expect(screen.queryByRole('button', { name: '더 보기' })).toBeNull();
 });
 
+test('더 보기 while a new filter is loading does not add the old list to the new one', async () => {
+  answer = () => ({
+    orders: Array.from({ length: 50 }, (_, index) => order(60 - index)),
+    hasMore: true,
+    securities,
+  });
+  render(<MockHistory accountId={7} refreshKey={0} />);
+  await screen.findByRole('list');
+
+  let finish: (response: Response) => void = () => undefined;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string) => {
+      urls.push(url);
+      return new Promise<Response>((resolve) => {
+        finish = resolve;
+      });
+    }),
+  );
+  fireEvent.change(screen.getByLabelText('종목'), { target: { value: '2' } });
+  fireEvent.click(screen.getByRole('button', { name: '조회' }));
+  fireEvent.click(screen.getByRole('button', { name: '더 보기' }));
+  expect(urls).toEqual(['/api/mock/accounts/7/orders', '/api/mock/accounts/7/orders?securityId=2']);
+
+  finish(new Response(JSON.stringify({ orders: [apple], hasMore: false, securities })));
+  await vi.waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
+  expect(screen.getByRole('listitem')).toHaveTextContent('Apple Inc');
+});
+
 test('no order yet says so; a new refresh key (an order on the page) reloads', async () => {
   answer = () => ({ orders: [], hasMore: false, securities: [] });
   const { rerender } = render(<MockHistory accountId={7} refreshKey={0} />);

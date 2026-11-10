@@ -240,7 +240,8 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
     if (query.to) add((n) => `${day} <= ${n}::date`, query.to);
     if (query.securityId) add((n) => `o.security_id = ${n}`, query.securityId);
     if (query.before) add((n) => `o.id < ${n}`, query.before);
-    // One more than a page tells whether there is a next one. Ids grow with each order, so they order them.
+    // One more than a page tells whether there is a next one. Ids grow with each order, so they order them;
+    // orders of one account are in a line behind its row lock, so an id never commits after a later one.
     const { rows } = await pool.query<OrderRow>(
       `SELECT ${orderColumns} FROM mock_orders o JOIN securities s ON s.id = o.security_id
        WHERE ${where.join(' AND ')} ORDER BY o.id DESC LIMIT ${historyPage + 1}`,
