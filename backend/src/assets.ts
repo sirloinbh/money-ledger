@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod/v4';
 
+import { readAllocation } from './allocation.js';
 import { inTransaction } from './db.js';
 import { date } from './entries.js';
 import { particles } from './korean.js';
@@ -518,10 +519,11 @@ export function assetsRouter(pool: Pool, { today, now, prices, log }: Options) {
 
   // Totals add up current won values (see assetQuery) on `asOf`, by default today in the service time zone.
   // `uncounted` says how many were left out: no price, no USD rate, or too large. Debts are kept apart.
-  // Both come from one snapshot, so the list and the totals always agree.
+  // #48 `allocation` spreads the asset total by type and by asset (allocation.ts).
+  // All come from one snapshot, so the list, the totals and the allocation always agree.
   router.get('/', async (req, res) => {
     const asOf = listQuery.parse(req.query).asOf ?? today();
-    const { assets, sums } = await inTransaction(pool, async (client) => {
+    const { assets, sums, allocation } = await inTransaction(pool, async (client) => {
       await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
       const list = await client.query<Row>(`${assetQuery('true')} ORDER BY asset_type, id`, [asOf]);
       const totals = await client.query<{
@@ -538,7 +540,8 @@ export function assetsRouter(pool: Pool, { today, now, prices, log }: Options) {
          FROM (${assetQuery('true')}) valued`,
         [asOf],
       );
-      return { assets: list.rows, sums: totals.rows[0] };
+      const allocation = await readAllocation(client, assetQuery('true'), asOf);
+      return { assets: list.rows, sums: totals.rows[0], allocation };
     });
     res.json({
       asOf,
@@ -548,6 +551,30 @@ export function assetsRouter(pool: Pool, { today, now, prices, log }: Options) {
         debtsKrw: total(sums.debts),
         netKrw: total(sums.net),
         uncounted: sums.uncounted,
+      },
+      allocation: {
+        excluded: allocation.excluded,
+        byType: allocation.byType.map((row) => ({
+          type: row.type,
+          amountKrw: total(row.amount_krw),
+          share: row.share,
+          count: row.count,
+        })),
+        byAsset: allocation.byAsset.map((row) => ({
+          id: Number(row.key),
+          name: row.label,
+          type: row.type,
+          amountKrw: total(row.amount_krw),
+          share: row.share,
+        })),
+        // The 8 largest assets, then key 'rest' for the others together (count says how many).
+        chart: allocation.chart.map((row) => ({
+          key: row.key,
+          name: row.key === 'rest' ? null : row.label,
+          amountKrw: total(row.amount_krw),
+          share: row.share,
+          count: row.count,
+        })),
       },
     });
   });
