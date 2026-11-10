@@ -7,6 +7,7 @@ import { Toaster } from './components/ui/sonner';
 import type { Health } from './health';
 import { LedgerPage } from './ledger';
 import { MockTradingPage } from './mock-trading';
+import { saveTodayOnce } from './net-worth';
 import { Page } from './page';
 import { PortfolioPage } from './portfolio';
 
@@ -49,6 +50,10 @@ function useHealth() {
 
 export function App() {
   const health = useHealth();
+  // #49 Opening the app saves today's net worth once (decision 2026-11-10), whichever page opens first.
+  useEffect(() => {
+    void saveTodayOnce();
+  }, []);
   return (
     <BrowserRouter>
       <AppShell appName="가계부·자산·모의투자" nav={nav}>

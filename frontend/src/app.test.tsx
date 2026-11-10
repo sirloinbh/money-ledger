@@ -16,6 +16,7 @@ const health = (body: object, status = 200) =>
                 categories: [],
                 entries: [],
                 months: [],
+                snapshots: [],
                 assets: [],
                 totals: { assetsKrw: 0, debtsKrw: 0, netKrw: 0, uncounted: 0 },
                 account: null,
@@ -88,4 +89,25 @@ test('an unknown address falls back to the overview', async () => {
   render(<App />);
   expect(await screen.findByRole('heading', { level: 1, name: '대시보드' })).toBeInTheDocument();
   expect(window.location.pathname).toBe('/');
+});
+
+test("opening the app saves today's net worth once, whichever page opens (#49)", async () => {
+  // A fresh module, so this page load has not saved yet.
+  vi.resetModules();
+  const { App: FreshApp } = await import('./app');
+  health({ today: '2026-11-10' });
+  window.history.replaceState(null, '', '/ledger');
+  const { unmount } = render(<FreshApp />);
+  await screen.findByText('서버 연결됨 · 2026-11-10');
+  const saves = () =>
+    vi
+      .mocked(fetch)
+      .mock.calls.filter(
+        ([url, init]) => url === '/api/portfolio/net-worth' && init?.method === 'POST',
+      );
+  await vi.waitFor(() => expect(saves()).toHaveLength(1));
+  unmount();
+  render(<FreshApp />);
+  await screen.findByText('서버 연결됨 · 2026-11-10');
+  expect(saves()).toHaveLength(1);
 });

@@ -431,7 +431,30 @@ function won(value: string) {
 }
 
 // A total as a JSON number, or null when it no longer fits one exactly.
-function total(value: string) {
+/**
+ * The asset screen's totals on `asOf` as exact decimal strings: assets, debts, net (assets − debts) and how many
+ * were left out (no price, no USD rate, too large). #49 saves the same values as the day's net worth.
+ */
+export async function readTotals(client: PoolClient, asOf: string) {
+  const { rows } = await client.query<{
+    assets: string;
+    debts: string;
+    net: string;
+    uncounted: number;
+  }>(
+    `SELECT coalesce(sum(current_value_krw) FILTER (WHERE asset_type <> 'debt'), 0) AS assets,
+            coalesce(sum(current_value_krw) FILTER (WHERE asset_type = 'debt'), 0) AS debts,
+            coalesce(sum(CASE WHEN asset_type = 'debt' THEN -current_value_krw ELSE current_value_krw END), 0)
+              AS net,
+            count(*) FILTER (WHERE current_value_krw IS NULL)::int AS uncounted
+     FROM (${assetQuery('true')}) valued`,
+    [asOf],
+  );
+  return rows[0];
+}
+
+/** A won total as a JS number, or null when it is too large to be exact. */
+export function total(value: string) {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) ? parsed : null;
 }
@@ -526,22 +549,9 @@ export function assetsRouter(pool: Pool, { today, now, prices, log }: Options) {
     const { assets, sums, allocation } = await inTransaction(pool, async (client) => {
       await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
       const list = await client.query<Row>(`${assetQuery('true')} ORDER BY asset_type, id`, [asOf]);
-      const totals = await client.query<{
-        assets: string;
-        debts: string;
-        net: string;
-        uncounted: number;
-      }>(
-        `SELECT coalesce(sum(current_value_krw) FILTER (WHERE asset_type <> 'debt'), 0) AS assets,
-                coalesce(sum(current_value_krw) FILTER (WHERE asset_type = 'debt'), 0) AS debts,
-                coalesce(sum(CASE WHEN asset_type = 'debt' THEN -current_value_krw ELSE current_value_krw END), 0)
-                  AS net,
-                count(*) FILTER (WHERE current_value_krw IS NULL)::int AS uncounted
-         FROM (${assetQuery('true')}) valued`,
-        [asOf],
-      );
+      const sums = await readTotals(client, asOf);
       const allocation = await readAllocation(client, assetQuery('true'), asOf);
-      return { assets: list.rows, sums: totals.rows[0], allocation };
+      return { assets: list.rows, sums, allocation };
     });
     res.json({
       asOf,
