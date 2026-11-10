@@ -416,3 +416,17 @@ test('a failed page load keeps the page buttons, and focus, next to the message'
   expect(screen.queryByText('불러오는 중…')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
 });
+
+test('applying filters keeps the summary month (#40) in the address', async () => {
+  await show('/ledger?month=2026-09');
+  fireEvent.change(screen.getByLabelText('검색어'), { target: { value: '점심' } });
+  fireEvent.click(screen.getByRole('button', { name: '조회' }));
+  await vi.waitFor(() => expect(address()).toContain('q='));
+  expect(new URLSearchParams(address()).get('month')).toBe('2026-09');
+  expect(
+    writeFilters(
+      readFilters(new URLSearchParams(''), '2026-11-03'),
+      new URLSearchParams('month=2026-09&page=3'),
+    ).toString(),
+  ).toBe('month=2026-09&from=2026-11-01&to=2026-11-30');
+});
