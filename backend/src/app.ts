@@ -51,7 +51,15 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   app.use('/api/ledger/categories', categoriesRouter(pool));
   app.use('/api/ledger/entries', entriesRouter(pool));
   app.use('/api/ledger/rules', rulesRouter(pool));
-  app.use('/api/portfolio/assets', assetsRouter(pool, today));
+  app.use(
+    '/api/portfolio/assets',
+    assetsRouter(pool, {
+      today,
+      now,
+      prices: options.prices ?? {},
+      log: options.priceLog ?? (() => undefined),
+    }),
+  );
   app.use('/api/mock/accounts/:accountId/orders', mockOrdersRouter(pool, today));
   app.use('/api/mock/accounts', mockAccountsRouter(pool));
   app.use(

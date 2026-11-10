@@ -48,6 +48,10 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
     await runMigration(pool, '007_depreciable_assets.sql');
     await runMigration(pool, '010_prepaid_assets.sql');
     await runMigration(pool, '013_asset_trades.sql');
+    await runMigration(pool, '009_prices.sql');
+    await runMigration(pool, '012_krx_listing.sql');
+    await runMigration(pool, '016_asset_valuation.sql');
+    await runMigration(pool, '016_asset_valuation.sql'); // re-running is safe
   };
 
   await t.test('quantities and USD values are stored in the agreed formats', async () => {
@@ -72,7 +76,16 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
           depreciation: null,
           prepaid: null,
           hasTrades: false,
+          security: null,
+          manualPrice: null,
+          price: null,
+          fx: null,
           currentValueKrw: null,
+          currentValueForeign: null,
+          valueIssue: 'no_price',
+          costKrw: null,
+          profitKrw: null,
+          returnPercent: null,
         },
       );
 
@@ -322,6 +335,7 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
       await runMigration(pool, '007_depreciable_assets.sql');
       await runMigration(pool, '010_prepaid_assets.sql');
       await runMigration(pool, '013_asset_trades.sql');
+      await runMigration(pool, '016_asset_valuation.sql');
       await withApi(pool, async (call) => {
         const { data } = await call('/api/portfolio/assets');
         const [old] = data.assets as Asset[];

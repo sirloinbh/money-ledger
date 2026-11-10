@@ -10,7 +10,7 @@ import { formatDecimal } from './format';
 import { requestJson } from './lib/api';
 import { errorText, type NoticeValue } from './lib/use-notice';
 import { MockOrder } from './mock-order';
-import { formatClose, formatMonthDay, type Quote, quoteBasis } from './quote-format';
+import { formatClose, formatMonthDay, marketNames, type Quote, quoteBasis } from './quote-format';
 
 // #51 Security search and quote detail on the shared price API (/api/prices). Korean securities are found by
 // name or code, US ones by ticker; a US name is saved once its detail is opened (2026-11-08 decision).
@@ -32,15 +32,6 @@ type Detail = {
   quote: Quote | null;
   quoteIssue: QuoteIssue | null;
   fx: { fxRate: string; rateDate: string; stale: boolean } | null;
-};
-
-const marketNames: Record<string, string> = {
-  KOSPI: '유가증권',
-  KOSDAQ: '코스닥',
-  KRX_ETF: '국내 ETF',
-  NYSE: 'NYSE',
-  NASDAQ: 'NASDAQ',
-  NYSE_ARCA: 'NYSE Arca',
 };
 
 const issueText: Record<QuoteIssue | 'none', string> = {
