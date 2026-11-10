@@ -12,14 +12,20 @@ import {
   formatUsd,
   formatWon,
   realDate,
+  serviceToday,
   withoutThousands as digits,
 } from './format';
 import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 import { PrepaidUsages } from './prepaid-usages';
+import { formatMonthDay, formatPrice, securityText } from './quote-format';
+import { type LinkedSecurity, SecurityPicker } from './security-picker';
 
 // #45 Held assets and debts. Won values are numbers, quantities and USD values decimal strings (#35 rules).
-// Trades come with #46, prices and FX conversion with #47.
+// Trades come with #46.
+// #47 A stock can be linked to a security and is valued at the stored close; an unlinked stock or other asset
+// can take a price entered by hand. USD values are converted with the newest stored USD rate, and assets with
+// trades show their gain against the won cost (decisions 2026-11-10).
 // #63 A depreciating asset is entered as a purchase price, date and useful life; the server returns its
 // current value (straight-line by month, never below the salvage value).
 // #64 A prepaid asset is a stored value (금액권, lowered by uses) or a pass (기간권, lowered by the day);
@@ -55,8 +61,28 @@ type Asset = {
   prepaid: Prepaid | null;
   // #46 With trades the quantity is their total and cannot be entered here.
   hasTrades: boolean;
-  // The won value counted in the totals: the depreciated or prepaid value today, else the entered won value.
+  // #47 The linked security (stocks) and the price entered by hand (unlinked stock or other).
+  security: Omit<LinkedSecurity, 'currency'> | null;
+  manualPrice: { price: string; pricedOn: string } | null;
+  // The unit price the value uses and where it comes from.
+  price: {
+    price: string;
+    currency: Currency;
+    source: 'close' | 'manual';
+    date: string;
+    stale: boolean;
+  } | null;
+  // USD assets: the newest stored USD rate.
+  fx: { fxRate: string; rateDate: string; stale: boolean } | null;
+  // The won value counted in the totals today; null when it cannot be counted (valueIssue says why).
   currentValueKrw: number | null;
+  // USD assets: the dollar value.
+  currentValueForeign: string | null;
+  valueIssue: 'no_price' | 'no_fx' | 'too_large' | null;
+  // Assets with trades: won cost still held, the gain against it, and its rate in percent.
+  costKrw: number | null;
+  profitKrw: number | null;
+  returnPercent: string | null;
 };
 // A total is null when it is too large to show exactly.
 type Totals = {
@@ -80,6 +106,9 @@ type Draft = {
   prepaidAmount: string;
   startsOn: string;
   expiresOn: string;
+  security: LinkedSecurity | null;
+  manualPrice: string;
+  manualPricedOn: string;
 };
 type Field =
   | 'name'
@@ -91,7 +120,9 @@ type Field =
   | 'salvage'
   | 'prepaidAmount'
   | 'startsOn'
-  | 'expiresOn';
+  | 'expiresOn'
+  | 'manualPrice'
+  | 'manualPricedOn';
 
 const minDate = '1900-01-01';
 const maxDate = '2100-12-31';
@@ -135,6 +166,9 @@ const emptyDraft = (): Draft => ({
   prepaidAmount: '',
   startsOn: '',
   expiresOn: '',
+  security: null,
+  manualPrice: '',
+  manualPricedOn: '',
 });
 
 function prepaidBody(draft: Draft): { prepaid: object } | { field: Field; message: string } {
@@ -273,7 +307,12 @@ function toBody(
   ) {
     return { field: 'quantity', message: '수량은 0보다 큰 수로, 소수 8자리까지 입력하세요' };
   }
-  const valueText = digits(draft.value);
+  const security = draft.type === 'stock' ? draft.security : null;
+  // A linked stock is valued at quantity × close only (decision 2026-11-10): no value is sent with it.
+  if (security !== null && !tradeManaged && !quantityText) {
+    return { field: 'quantity', message: '종목을 연결하려면 수량을 입력하세요' };
+  }
+  const valueText = security !== null ? '' : digits(draft.value);
   let valueKrw: number | null = null;
   let valueForeign: string | null = null;
   if (valueText && draft.currency === 'KRW') {
@@ -295,23 +334,116 @@ function toBody(
   if (!tradeManaged && !quantityText && valueKrw === null && valueForeign === null) {
     return { field: 'value', message: '수량이 없는 자산은 평가금액을 입력하세요' };
   }
+  const price = handPrice(draft, security !== null);
+  if (price !== null && 'field' in price) return price;
+  if (price !== null && !quantityText && !tradeManaged) {
+    return { field: 'quantity', message: '현재가를 넣으려면 수량을 입력하세요' };
+  }
   return {
     body: {
       name,
       type: draft.type,
-      currency: draft.currency,
+      // A linked asset is in the security's currency (decision 2026-11-10).
+      currency: security?.currency ?? draft.currency,
       quantity: quantityText || null,
       valueKrw,
       valueForeign,
       memo: draft.memo,
+      securityId: security?.id ?? null,
+      manualPrice: price,
     },
   };
 }
 
+/**
+ * #47 The price entered by hand for an unlinked stock or other asset: null when left empty, else the body
+ * part or the wrong field. A price without a date is from today.
+ */
+function handPrice(
+  draft: Draft,
+  linked: boolean,
+): { price: string; pricedOn: string } | { field: Field; message: string } | null {
+  if (!tradeableTypes.includes(draft.type) || linked) return null;
+  const price = digits(draft.manualPrice);
+  if (!price && !draft.manualPricedOn) return null;
+  if (!price) return { field: 'manualPrice', message: '현재가를 입력하세요' };
+  const pattern = draft.currency === 'KRW' ? /^\d{1,16}$/ : /^\d{1,16}(\.\d{1,4})?$/;
+  if (!pattern.test(price) || !/[1-9]/.test(price)) {
+    return {
+      field: 'manualPrice',
+      message:
+        draft.currency === 'KRW'
+          ? '현재가는 0보다 큰 원 단위 정수로 입력하세요'
+          : '현재가는 0보다 큰 수로, 소수 4자리까지 입력하세요',
+    };
+  }
+  const pricedOn = draft.manualPricedOn || serviceToday();
+  if (!realDate(pricedOn)) {
+    return {
+      field: 'manualPricedOn',
+      message: '현재가 기준일을 1900년부터 2100년 사이로 입력하세요',
+    };
+  }
+  return { price, pricedOn };
+}
+
+const signedWon = (amount: number) =>
+  amount > 0 ? `+${formatWon(amount)}` : amount < 0 ? `-${formatWon(-amount)}` : formatWon(0);
+
 function valueText(asset: Asset) {
   if (asset.currentValueKrw !== null) return formatWon(asset.currentValueKrw);
-  if (asset.valueForeign !== null) return formatUsd(asset.valueForeign);
-  return '평가금액 없음';
+  if (asset.currentValueForeign !== null) return formatUsd(asset.currentValueForeign);
+  if (asset.valueIssue === 'too_large') return '너무 커서 표시할 수 없음';
+  return asset.valueIssue === 'no_price' && asset.quantity !== null ? '시세 없음' : '평가금액 없음';
+}
+
+/**
+ * #47 Where the value comes from, one line each (docs/price-source.md): the price and its date, "시세 지연" for a
+ * close more than 5 days old, "직접 입력" for a hand price, "거래 중단", the USD rate, and why a value is left
+ * out of the totals. Then the gain of an asset with trades, or "원가 없음" for a priced one without them.
+ */
+function valuationLines(asset: Asset) {
+  const lines: string[] = [];
+  const { price, fx } = asset;
+  if (
+    asset.currency === 'USD' &&
+    asset.currentValueKrw !== null &&
+    asset.currentValueForeign !== null
+  ) {
+    lines.push(formatUsd(asset.currentValueForeign));
+  }
+  if (price) {
+    lines.push(
+      price.source === 'close'
+        ? `${formatPrice(price.price, price.currency)} · ${price.stale ? '시세 지연 · ' : ''}${formatMonthDay(price.date)} 종가 기준`
+        : `${formatPrice(price.price, price.currency)} · 직접 입력 · ${formatMonthDay(price.date)}`,
+    );
+  }
+  if (asset.security && !asset.security.active) lines.push('거래 중단');
+  if (fx) {
+    lines.push(
+      `환율 ${formatDecimal(fx.fxRate)}원 · ${fx.stale ? '환율 지연 · ' : ''}${formatMonthDay(fx.rateDate)} 기준`,
+    );
+  }
+  if (asset.valueIssue === 'no_fx') lines.push('환율 없음 · 합계에서 뺐습니다');
+  if (asset.valueIssue === 'no_price') {
+    lines.push(
+      asset.security
+        ? '아직 받은 종가가 없어 합계에서 뺐습니다'
+        : '평가금액이 없어 합계에서 뺐습니다',
+    );
+  }
+  if (asset.valueIssue === 'too_large') lines.push('값이 너무 커서 합계에서 뺐습니다');
+  if (asset.hasTrades && asset.profitKrw !== null) {
+    const rate =
+      asset.returnPercent === null
+        ? ''
+        : ` (${asset.returnPercent.startsWith('-') ? '' : '+'}${formatDecimal(asset.returnPercent)}%)`;
+    lines.push(`평가 손익 ${signedWon(asset.profitKrw)}${rate}`);
+  } else if (!asset.hasTrades && price) {
+    lines.push('원가 없음 · 거래를 기록하면 손익을 보여 줍니다');
+  }
+  return lines;
 }
 
 /** "구입가 1,200,000원 · 2026-01-15 구입 · 사용 기간 60개월" (+ " · 잔존 가치 …" when not 0). */
@@ -338,6 +470,8 @@ export function AssetManager() {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [editing, setEditing] = useState<Asset | undefined>(undefined);
   const tradeManaged = editing?.hasTrades === true;
+  // #47 A linked stock takes the security's currency and its stored close (no hand price).
+  const linked = draft.type === 'stock' && draft.security !== null;
   const [invalid, setInvalid] = useState<Field | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const saving = useRef(false);
@@ -425,6 +559,11 @@ export function AssetManager() {
       prepaidAmount: asset.prepaid ? String(asset.prepaid.amountKrw) : '',
       startsOn: asset.prepaid?.startsOn ?? '',
       expiresOn: asset.prepaid?.expiresOn ?? '',
+      security: asset.security ? { ...asset.security, currency: asset.currency } : null,
+      manualPrice: asset.manualPrice
+        ? formatDecimal(asset.manualPrice.price).replaceAll(',', '')
+        : '',
+      manualPricedOn: asset.manualPrice?.pricedOn ?? '',
     });
     notice.clear();
   };
@@ -501,9 +640,10 @@ export function AssetManager() {
         <CardHeader>
           <CardTitle asHeading="h2">{editing ? '자산 수정' : '새 자산'}</CardTitle>
           <CardDescription>
-            수량만 넣은 자산과 달러 자산은 시세·환율 기능이 생기면 원화로 환산됩니다. 감가상각
-            대상은 구입가에서 매달 같은 금액을 빼 현재 가치를 계산합니다. 선입금은 결제한 날
-            가계부에 지출로 적고, 여기에는 남은 가치만 둡니다.
+            주식은 종목을 연결하면 받은 종가로, 연결하지 않으면 직접 넣은 현재가로 평가합니다. 달러
+            자산은 저장된 최신 매매기준율로 원화로 바꿉니다. 감가상각 대상은 구입가에서 매달 같은
+            금액을 빼 현재 가치를 계산합니다. 선입금은 결제한 날 가계부에 지출로 적고, 여기에는 남은
+            가치만 둡니다.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -707,8 +847,19 @@ export function AssetManager() {
               </>
             ) : (
               <>
-                <fieldset className="flex flex-col gap-2">
-                  <legend className="mb-2 text-body-sm font-medium">통화</legend>
+                {draft.type === 'stock' ? (
+                  <SecurityPicker
+                    value={draft.security}
+                    locked={tradeManaged ? (editing?.currency ?? false) : false}
+                    onChange={(security) =>
+                      change(security ? { security, currency: security.currency } : { security })
+                    }
+                  />
+                ) : null}
+                <fieldset className="flex flex-col gap-2" disabled={linked}>
+                  <legend className="mb-2 text-body-sm font-medium">
+                    {linked ? '통화(종목 통화)' : '통화'}
+                  </legend>
                   <div className="flex gap-4">
                     {(['KRW', 'USD'] as const).map((currency) => (
                       <label key={currency} className="flex items-center gap-2 text-body-sm">
@@ -756,24 +907,71 @@ export function AssetManager() {
                     ) : null}
                   </div>
                 )}
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="asset-value">
-                    {draft.type === 'debt' ? '남은 금액' : '평가금액'}(
-                    {draft.currency === 'KRW' ? '원' : '달러'})
-                  </Label>
-                  <Input
-                    id="asset-value"
-                    inputMode={draft.currency === 'KRW' ? 'numeric' : 'decimal'}
-                    autoComplete="off"
-                    placeholder={draft.currency === 'KRW' ? '예: 5000000' : '예: 1234.56'}
-                    value={draft.value}
-                    {...fieldProps('value')}
-                    onChange={(event) => {
-                      clearInvalid('value');
-                      change({ value: event.target.value });
-                    }}
-                  />
-                </div>
+                {linked ? null : (
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="asset-value">
+                      {draft.type === 'debt' ? '남은 금액' : '평가금액'}(
+                      {draft.currency === 'KRW' ? '원' : '달러'})
+                    </Label>
+                    <Input
+                      id="asset-value"
+                      inputMode={draft.currency === 'KRW' ? 'numeric' : 'decimal'}
+                      autoComplete="off"
+                      placeholder={draft.currency === 'KRW' ? '예: 5000000' : '예: 1234.56'}
+                      value={draft.value}
+                      {...fieldProps('value')}
+                      onChange={(event) => {
+                        clearInvalid('value');
+                        change({ value: event.target.value });
+                      }}
+                    />
+                  </div>
+                )}
+                {tradeableTypes.includes(draft.type) && !linked ? (
+                  <>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="asset-manual-price">
+                        현재가(1개당, {draft.currency === 'KRW' ? '원' : '달러'}, 선택)
+                      </Label>
+                      <Input
+                        id="asset-manual-price"
+                        inputMode={draft.currency === 'KRW' ? 'numeric' : 'decimal'}
+                        autoComplete="off"
+                        placeholder={draft.currency === 'KRW' ? '예: 95000000' : '예: 12.34'}
+                        value={draft.manualPrice}
+                        {...fieldProps('manualPrice')}
+                        aria-describedby={
+                          fieldProps('manualPrice')['aria-describedby'] ?? 'asset-manual-price-hint'
+                        }
+                        onChange={(event) => {
+                          clearInvalid('manualPrice');
+                          change({ manualPrice: event.target.value });
+                        }}
+                      />
+                      <p
+                        id="asset-manual-price-hint"
+                        className="text-caption text-muted-foreground"
+                      >
+                        시세를 받지 않는 자산은 수량 × 현재가로 평가합니다.
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="asset-manual-priced-on">현재가 기준일(비우면 오늘)</Label>
+                      <Input
+                        id="asset-manual-priced-on"
+                        type="date"
+                        min={minDate}
+                        max={maxDate}
+                        value={draft.manualPricedOn}
+                        {...fieldProps('manualPricedOn')}
+                        onChange={(event) => {
+                          clearInvalid('manualPricedOn');
+                          change({ manualPricedOn: event.target.value });
+                        }}
+                      />
+                    </div>
+                  </>
+                ) : null}
               </>
             )}
             <div className="flex flex-col gap-2">
@@ -850,7 +1048,7 @@ function Summary({ totals }: { totals: Totals }) {
       <p className="text-caption text-muted-foreground">
         부채는 자산 합계에 더하지 않고 순자산에서만 뺍니다.
         {totals.uncounted > 0
-          ? ` 원화 평가금액이 없는 ${totals.uncounted}개(수량만 넣은 자산, 달러 자산)는 합계에서 빠졌습니다.`
+          ? ` 시세·환율이 없거나 평가금액이 없는 ${totals.uncounted}개는 합계에서 빠졌습니다.`
           : ''}
       </p>
     </section>
@@ -913,10 +1111,17 @@ function AssetList({
                           ? depreciationText(asset.depreciation)
                           : asset.prepaid
                             ? prepaidText(asset.prepaid)
-                            : asset.currency}
+                            : asset.security
+                              ? `${securityText(asset.security)} · ${asset.currency}`
+                              : asset.currency}
                         {asset.quantity === null ? '' : ` · 수량 ${formatDecimal(asset.quantity)}`}
                         {asset.memo ? ` · ${asset.memo}` : ''}
                       </span>
+                      {valuationLines(asset).map((line) => (
+                        <span key={line} className="text-caption text-muted-foreground">
+                          {line}
+                        </span>
+                      ))}
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-medium tabular-nums">{valueText(asset)}</span>
@@ -1000,6 +1205,7 @@ function AssetList({
                           assetName={asset.name}
                           currency={asset.currency}
                           handQuantity={asset.hasTrades ? null : asset.quantity}
+                          latestFx={asset.fx}
                           onChanged={onUsagesChanged}
                         />
                       </div>
