@@ -33,6 +33,16 @@ const json = (body: unknown, status = 200) =>
 // The server works out a depreciated value from the date; the fake says it is half the purchase price.
 const withCurrent = (asset: Asset) => ({
   ...asset,
+  // #47 fields: no link, no price, no rate unless a test sets them.
+  security: null,
+  manualPrice: null,
+  price: null,
+  fx: null,
+  currentValueForeign: asset.valueForeign ?? null,
+  valueIssue: null,
+  costKrw: null,
+  profitKrw: null,
+  returnPercent: null,
   depreciation: asset.depreciation ?? null,
   prepaid: null,
   hasTrades: false,
@@ -127,7 +137,7 @@ test('assets are grouped by type and debts are totalled apart from assets', asyn
   expect(summary('자산 합계')).toHaveTextContent('5,000,000원');
   expect(summary('부채 합계')).toHaveTextContent('7,000,000원');
   expect(summary('순자산')).toHaveTextContent('-2,000,000원');
-  expect(screen.getByText(/원화 평가금액이 없는 1개/)).toBeInTheDocument();
+  expect(screen.getByText(/평가금액이 없는 1개는 합계에서 빠졌습니다/)).toBeInTheDocument();
   const stocks = screen.getByRole('list', { name: '주식(ETF·펀드 포함)' });
   expect(within(stocks).getByText('USD · 수량 1.5 · 해외')).toBeInTheDocument();
   expect(within(stocks).getByText('평가금액 없음')).toBeInTheDocument();
@@ -154,6 +164,8 @@ test('a won asset is added with its value as a whole number', async () => {
       valueKrw: 300000000,
       valueForeign: null,
       memo: '',
+      securityId: null,
+      manualPrice: null,
     },
   });
   expect(summary('자산 합계')).toHaveTextContent('305,000,000원');
@@ -253,6 +265,8 @@ test('editing fills the form, moves focus to it, and saves with PUT', async () =
       valueKrw: null,
       valueForeign: '300',
       memo: '해외',
+      securityId: null,
+      manualPrice: null,
     },
   });
   expect(screen.getByRole('heading', { name: '새 자산' })).toBeInTheDocument();

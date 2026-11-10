@@ -15,10 +15,12 @@ import {
 } from './format';
 import { RequestError, requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
+import { formatMonthDay } from './quote-format';
 
 // #46 Buy and sell records of a stock or other asset. The server works out the held quantity, the
 // moving-average price and the realized profit (decisions 2026-11-08): buy fees go into the cost, sell fees
 // and taxes come off the profit, a USD asset averages in dollars and realizes in won with the entered rate.
+// #47 A new USD trade starts with the newest stored USD rate in its rate field (decision 2026-11-10).
 
 type Side = 'buy' | 'sell';
 type Currency = 'KRW' | 'USD';
@@ -135,6 +137,7 @@ export function AssetTrades({
   assetName,
   currency,
   handQuantity,
+  latestFx = null,
   onChanged,
 }: {
   assetId: number;
@@ -142,12 +145,18 @@ export function AssetTrades({
   currency: Currency;
   /** The quantity entered by hand while the asset has no trades yet (the first trade replaces it). */
   handQuantity: string | null;
+  /** The newest stored USD rate, filled into a new USD trade (it can be changed). */
+  latestFx?: { fxRate: string; rateDate: string } | null;
   /** Reloads the asset list so the quantity follows the trades. */
   onChanged: () => Promise<void>;
 }) {
   const [trades, setTrades] = useState<Trade[] | undefined>(undefined);
   const [position, setPosition] = useState<Position | undefined>(undefined);
-  const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const prefillFx =
+    currency === 'USD' && latestFx ? formatDecimal(latestFx.fxRate).replaceAll(',', '') : '';
+  // A blank trade: the rate starts from the newest stored rate.
+  const blank = useCallback(() => ({ ...emptyDraft(), fxRate: prefillFx }), [prefillFx]);
+  const [draft, setDraft] = useState<Draft>(blank);
   const [editing, setEditing] = useState<Trade | undefined>(undefined);
   const [invalid, setInvalid] = useState<Field | undefined>(undefined);
   const [busy, setBusy] = useState(false);
@@ -180,6 +189,18 @@ export function AssetTrades({
     }
   };
 
+  // The note says the rate was filled in; once changed it is the user's own rate.
+  const showFxHint = !editing && latestFx !== null && draft.fxRate === prefillFx;
+  const filledFx = useRef(prefillFx);
+  useEffect(() => {
+    const previous = filledFx.current;
+    filledFx.current = prefillFx;
+    if (editing) return;
+    setDraft((current) =>
+      current.fxRate === previous ? { ...current, fxRate: prefillFx } : current,
+    );
+  }, [prefillFx, editing]);
+
   const change = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
   const fieldProps = (field: Field) => ({
     'aria-invalid': invalid === field || undefined,
@@ -211,7 +232,7 @@ export function AssetTrades({
   const stopEdit = () => {
     setInvalid(undefined);
     setEditing(undefined);
-    setDraft(emptyDraft());
+    setDraft(blank());
   };
 
   const submit = async (event: FormEvent) => {
@@ -241,7 +262,7 @@ export function AssetTrades({
       }
       const done = `${draft.tradedOn} ${sideLabels[draft.side]}를 ${editing ? '수정' : '기록'}했습니다`;
       if (editing) stopEdit();
-      else setDraft((current) => ({ ...emptyDraft(), side: current.side }));
+      else setDraft((current) => ({ ...blank(), side: current.side }));
       await refresh(done);
     } finally {
       saving.current = false;
@@ -383,8 +404,19 @@ export function AssetTrades({
               placeholder="예: 1385.25"
               value={draft.fxRate}
               {...fieldProps('fxRate')}
+              aria-describedby={
+                [fieldProps('fxRate')['aria-describedby'], showFxHint ? `${prefix}-fx-hint` : '']
+                  .filter(Boolean)
+                  .join(' ') || undefined
+              }
               onChange={(event) => change({ fxRate: event.target.value })}
             />
+            {showFxHint && latestFx ? (
+              <p id={`${prefix}-fx-hint`} className="text-caption text-muted-foreground">
+                {formatMonthDay(latestFx.rateDate)} 매매기준율을 미리 채웠습니다. 거래한 날 환율로
+                고칠 수 있습니다.
+              </p>
+            ) : null}
           </div>
         ) : null}
         <div className="flex flex-col gap-1">
