@@ -228,20 +228,25 @@ test('asset allocation against the real database', { skip: !url }, async (t) => 
     });
   });
 
-  await t.test('0 won assets fall into the rest line without changing it', async () => {
+  await t.test('0 won assets stay out of the chart and its count', async () => {
     await reset();
     await api(async (call) => {
       for (let i = 1; i <= 8; i++) await add(call, cash(`통장 ${i}`, i * 1000));
       await add(call, cash('빈 통장 1', 0));
       await add(call, cash('빈 통장 2', 0));
-      const { allocation } = await read(call);
-      assert.deepEqual(allocation.chart[8], {
-        key: 'rest',
-        name: null,
-        amountKrw: 0,
-        share: '0.0',
-        count: 2,
-      });
+      let { allocation } = await read(call);
+      // 8 drawn assets: no rest line, and the table still has all 10.
+      assert.equal(allocation.byAsset.length, 10);
+      assert.deepEqual(
+        allocation.chart.map((row) => row.key),
+        allocation.byAsset.slice(0, 8).map((row) => String(row.id)),
+      );
+      assert.equal(sumOf(allocation.chart), 1000);
+      // A 9th asset above 0 won is shown by name, not as "그 밖의 3개" with the two empty ones.
+      await add(call, cash('통장 9', 500));
+      ({ allocation } = await read(call));
+      assert.equal(allocation.chart.length, 9);
+      assert.equal(allocation.chart[8].name, '통장 9');
       assert.equal(sumOf(allocation.chart), 1000);
     });
   });

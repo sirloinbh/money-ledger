@@ -7,9 +7,9 @@ import type { PoolClient } from 'pg';
 //   is the integer quotient of amount × 1000 by the total, and the tenths still missing to 1000 go to the
 //   largest remainders (largest remainder method), so they always add up to exactly 100.0%. Ties go to the
 //   larger amount, then the earlier asset.
-// - By asset: one line per asset, named after its linked security when it has one. The chart shows the 8
-//   largest and puts the rest in one "그 밖의 N개" line (only when that is 2 or more assets: a 9th asset is
-//   shown by name); the table lists every asset.
+// - By asset: one line per asset, named after its linked security when it has one. The chart leaves out 0 won
+//   assets, shows the 8 largest and puts the rest in one "그 밖의 N개" line (only when that is 2 or more assets:
+//   a 9th asset is shown by name); the table lists every asset.
 
 /** Assets the chart shows one by one before the rest are put together. */
 const chartAssets = 8;
@@ -59,8 +59,10 @@ const withShares = (items: string) => `
  * same rows as the list and totals in the caller's snapshot, and the valuation runs once.
  */
 export async function readAllocation(client: PoolClient, valued: string, asOf: string) {
-  // A position past the 8th goes into the rest, unless it would be the only one there.
-  const grouped = `CASE WHEN position <= ${chartAssets} OR item_count = ${chartAssets + 1} THEN key ELSE 'rest' END`;
+  // The chart counts only assets above 0 won (0 won ones are in the table only). A place past the 8th goes into
+  // the rest, unless it would be the only one there. 0 won assets never take a missing tenth (their remainder is
+  // 0), so the drawn shares still add up to 100.0%.
+  const grouped = `CASE WHEN drawn_position <= ${chartAssets} OR drawn_count = ${chartAssets + 1} THEN key ELSE 'rest' END`;
   const { rows } = await client.query<ShareRow | (Omit<ShareRow, 'kind'> & { kind: 'excluded' })>(
     `WITH valued AS MATERIALIZED (${valued}),
      counted AS (SELECT * FROM valued WHERE asset_type <> 'debt' AND current_value_krw IS NOT NULL),
@@ -77,7 +79,12 @@ export async function readAllocation(client: PoolClient, valued: string, asOf: s
      chart AS (
        SELECT ${grouped} AS key, min(label) AS label, min(type) AS type, sum(amount) AS amount,
               count(*)::int AS count, sum(share) AS share, min(position) AS position
-       FROM per_asset GROUP BY ${grouped}
+       FROM (
+         SELECT per_asset.*, row_number() OVER (ORDER BY position) AS drawn_position,
+                count(*) OVER () AS drawn_count
+         FROM per_asset WHERE amount > 0
+       ) drawn
+       GROUP BY ${grouped}
      ),
      listed AS (
        SELECT 'type' AS kind, key, label, type, amount, count, share, position FROM per_type
