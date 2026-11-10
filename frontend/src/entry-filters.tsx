@@ -46,6 +46,19 @@ export function EntryFilters({
   };
   const apply = (next: Filters) => onApply({ ...next, page: 1 });
   const goMonth = (month: string) => apply({ ...draft, ...monthRange(month) });
+  // The address may already hold these values, so the form clears what is typed itself.
+  const reset = () => {
+    const defaults: Filters = {
+      ...monthRange(today.slice(0, 7)),
+      kind: '',
+      category: '',
+      q: '',
+      page: 1,
+    };
+    setDraft(defaults);
+    setInvalid(false);
+    apply(defaults);
+  };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -182,13 +195,7 @@ export function EntryFilters({
         ) : null}
         <div className="col-span-full flex gap-2">
           <Button type="submit">조회</Button>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() =>
-              apply({ ...monthRange(today.slice(0, 7)), kind: '', category: '', q: '', page: 1 })
-            }
-          >
+          <Button type="button" variant="ghost" onClick={reset}>
             초기화
           </Button>
         </div>

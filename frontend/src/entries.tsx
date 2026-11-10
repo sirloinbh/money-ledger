@@ -92,9 +92,13 @@ export function EntryManager({
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const today = serviceToday();
-  const search = searchParams.toString();
-  // Memoized by the address: the filter form compares by identity to notice a change.
-  const filters = useMemo(() => readFilters(new URLSearchParams(search), today), [search, today]);
+  // Memoized by the filter keys of the address only: the filter form compares by identity to notice a change,
+  // and another key changing (the summary's `month`, #40) must not reset what is being typed.
+  const filterSearch = writeFilters(readFilters(searchParams, today)).toString();
+  const filters = useMemo(
+    () => readFilters(new URLSearchParams(filterSearch), today),
+    [filterSearch, today],
+  );
   const query = apiQuery(filters, pageSize);
   const [listing, setListing] = useState<Listing | undefined>(undefined);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -189,7 +193,7 @@ export function EntryManager({
     if (!listing || listing.query !== query || listing.entries.length > 0) return;
     const last = Math.max(1, Math.ceil(listing.total / pageSize));
     if (filters.page > last) {
-      setSearchParams(writeFilters({ ...filters, page: last }), { replace: true });
+      setSearchParams((prev) => writeFilters({ ...filters, page: last }, prev), { replace: true });
     }
   }, [listing, query, filters, setSearchParams]);
 
@@ -199,7 +203,9 @@ export function EntryManager({
     if (!categoriesLoaded || !/^\d+$/.test(filters.category)) return;
     const category = categories.find((c) => String(c.id) === filters.category);
     if (!category || (filters.kind && category.kind !== filters.kind)) {
-      setSearchParams(writeFilters({ ...filters, category: '', page: 1 }), { replace: true });
+      setSearchParams((prev) => writeFilters({ ...filters, category: '', page: 1 }, prev), {
+        replace: true,
+      });
     }
   }, [categoriesLoaded, categories, filters, setSearchParams]);
 
@@ -473,7 +479,7 @@ export function EntryManager({
         filters={filters}
         categories={categories}
         today={today}
-        onApply={(next) => setSearchParams(writeFilters(next))}
+        onApply={(next) => setSearchParams((prev) => writeFilters(next, prev))}
       />
       <EntryList
         entries={entries}
@@ -486,7 +492,7 @@ export function EntryManager({
           )
         }
         page={filters.page}
-        onPage={(page) => setSearchParams(writeFilters({ ...filters, page }))}
+        onPage={(page) => setSearchParams((prev) => writeFilters({ ...filters, page }, prev))}
         onEdit={startEdit}
         onDelete={remove}
         returnFocusRef={afterDelete}
