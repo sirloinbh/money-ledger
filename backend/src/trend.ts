@@ -26,8 +26,9 @@ const trendQuery = z
 type Row = { month: string; income: string; expense: string; balance: string };
 
 // entry_date is already the date in Seoul (a plain date, no time zone), so its month is taken as text with
-// to_char: nothing here depends on the session time zone. Every month of the period comes from
-// generate_series and gets 0 when it has no entries.
+// to_char. Every month of the period comes from generate_series and gets 0 when it has no entries; that series
+// is of timestamps in the session time zone, but to_char reads each one back in the same zone, so the months
+// do not move (tested with sessions in Seoul, UTC, Los Angeles and +14).
 const trendSql = `
   WITH months AS (
     SELECT to_char(m, 'YYYY-MM') AS month
