@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { MemoryRouter, useLocation } from 'react-router';
+import { MemoryRouter, useLocation, useSearchParams } from 'react-router';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { EntryManager } from './entries';
@@ -248,6 +248,24 @@ test('the month buttons move by whole months and keep the other filters', async 
   await vi.waitFor(() => expect(address()).toBe('?from=2026-11-01&to=2026-11-30'));
 });
 
+test('초기화 clears what was typed even when the address already holds this month', async () => {
+  await show();
+  await screen.findByRole('list', { name: '내역 목록' });
+  fireEvent.change(screen.getByLabelText('검색어'), { target: { value: '커피' } });
+  fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '2026-11-20' } });
+  fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-11-10' } });
+  fireEvent.click(screen.getByRole('button', { name: '조회' }));
+  expect(screen.getByRole('alert')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '초기화' }));
+  await vi.waitFor(() => expect(address()).toBe('?from=2026-11-01&to=2026-11-30'));
+  // Again: now the address already holds the default period, so nothing in it changes.
+  fireEvent.change(screen.getByLabelText('검색어'), { target: { value: '커피' } });
+  fireEvent.click(screen.getByRole('button', { name: '초기화' }));
+  expect(screen.getByLabelText('검색어')).toHaveValue('');
+  expect(screen.getByLabelText('시작일')).toHaveValue('2026-11-01');
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+
 test('pages: the count, the page number and the next page', async () => {
   answer = (url) => {
     const page = Number(new URL(url, 'http://x').searchParams.get('page'));
@@ -415,4 +433,56 @@ test('a failed page load keeps the page buttons, and focus, next to the message'
   expect(screen.getByRole('button', { name: '다음 쪽' })).toHaveFocus();
   expect(screen.queryByText('불러오는 중…')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
+});
+
+test('applying filters keeps the summary month (#40) in the address', async () => {
+  await show('/ledger?month=2026-09');
+  fireEvent.change(screen.getByLabelText('검색어'), { target: { value: '점심' } });
+  fireEvent.click(screen.getByRole('button', { name: '조회' }));
+  await vi.waitFor(() => expect(address()).toContain('q='));
+  expect(new URLSearchParams(address()).get('month')).toBe('2026-09');
+  expect(
+    writeFilters(
+      readFilters(new URLSearchParams(''), '2026-11-03'),
+      new URLSearchParams('month=2026-09&page=3'),
+    ).toString(),
+  ).toBe('month=2026-09&from=2026-11-01&to=2026-11-30');
+});
+
+function MonthButton() {
+  const [, setSearchParams] = useSearchParams();
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        setSearchParams((prev) => {
+          const params = new URLSearchParams(prev);
+          params.set('month', '2026-09');
+          return params;
+        })
+      }
+    >
+      요약 달 바꾸기
+    </button>
+  );
+}
+
+test('changing the summary month (#40) keeps what is typed in the filter form', async () => {
+  render(
+    <MemoryRouter initialEntries={['/ledger']}>
+      <EntryManager />
+      <MonthButton />
+      <Address />
+    </MemoryRouter>,
+  );
+  await screen.findByRole('list', { name: '내역 목록' });
+  fireEvent.change(screen.getByLabelText('검색어'), { target: { value: '점심' } });
+  fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'income' } });
+  const loads = listUrls.length;
+  fireEvent.click(screen.getByRole('button', { name: '요약 달 바꾸기' }));
+  await vi.waitFor(() => expect(address()).toContain('month=2026-09'));
+  expect(screen.getByLabelText('검색어')).toHaveValue('점심');
+  expect(screen.getByLabelText('종류')).toHaveValue('income');
+  // The list does not reload for a key that is not a filter.
+  expect(listUrls.length).toBe(loads);
 });

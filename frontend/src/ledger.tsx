@@ -4,6 +4,7 @@ import { CategoryManager } from './categories';
 import { RuleManager, UncategorizedEntries } from './classification';
 import { EntryManager } from './entries';
 import type { Health } from './health';
+import { MonthlySummary } from './monthly-summary';
 import { Page } from './page';
 
 export function LedgerPage({ health }: { health: Health }) {
@@ -19,6 +20,8 @@ export function LedgerPage({ health }: { health: Health }) {
       health={health}
     >
       <div className="flex flex-col gap-10">
+        {/* Both counters only grow, so their sum changes whenever entries or category names do. */}
+        <MonthlySummary version={ledgerVersion + categoriesVersion} />
         <EntryManager
           categoriesVersion={categoriesVersion}
           entriesVersion={ledgerVersion}

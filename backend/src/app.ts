@@ -11,6 +11,7 @@ import { mockOrdersRouter } from './mock-orders.js';
 import { type PriceLog, type PriceSources, pricesRouter } from './prices/index.js';
 import { rulesRouter } from './rules.js';
 import { errorHandler, notFound, serviceDate } from './standard/http.js';
+import { summaryRouter } from './summary.js';
 
 // DATE columns stay YYYY-MM-DD strings so the service time zone never shifts them.
 types.setTypeParser(1082, (value) => value);
@@ -51,6 +52,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   app.use('/api/ledger/categories', categoriesRouter(pool));
   app.use('/api/ledger/entries', entriesRouter(pool));
   app.use('/api/ledger/rules', rulesRouter(pool));
+  app.use('/api/ledger/summary', summaryRouter(pool));
   app.use('/api/portfolio/assets', assetsRouter(pool, today));
   app.use('/api/mock/accounts/:accountId/orders', mockOrdersRouter(pool, today));
   app.use('/api/mock/accounts', mockAccountsRouter(pool));

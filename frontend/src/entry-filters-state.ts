@@ -66,9 +66,17 @@ export function readFilters(params: URLSearchParams, today: string): Filters {
   };
 }
 
-/** The address for `filters`: the period is always written, so an empty one stays "every date". */
-export function writeFilters(filters: Filters) {
-  const params = new URLSearchParams({ from: filters.from, to: filters.to });
+const filterKeys = ['from', 'to', 'kind', 'category', 'q', 'page'];
+
+/**
+ * The address for `filters`: the period is always written, so an empty one stays "every date". Other keys of
+ * `base` (e.g. the summary's `month`, #40) are kept.
+ */
+export function writeFilters(filters: Filters, base?: URLSearchParams) {
+  const params = new URLSearchParams(base);
+  for (const key of filterKeys) params.delete(key);
+  params.set('from', filters.from);
+  params.set('to', filters.to);
   if (filters.kind) params.set('kind', filters.kind);
   if (filters.category) params.set('category', filters.category);
   if (filters.q.trim()) params.set('q', filters.q.trim());
