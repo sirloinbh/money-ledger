@@ -52,6 +52,8 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
     await runMigration(pool, '012_krx_listing.sql');
     await runMigration(pool, '016_asset_valuation.sql');
     await runMigration(pool, '016_asset_valuation.sql'); // re-running is safe
+    // Rates saved by other tests (or a local run) would convert the USD assets below.
+    await pool.query('DELETE FROM fx_rates');
   };
 
   await t.test('quantities and USD values are stored in the agreed formats', async () => {

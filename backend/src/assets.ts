@@ -179,6 +179,10 @@ const assetBody = z
     if (body.type !== 'stock' && body.securityId !== null) {
       issue('종목은 주식 자산에만 연결할 수 있습니다');
     }
+    // A linked asset is quantity × close only: a value typed before (maybe in another currency) is never used.
+    if (body.securityId !== null && (body.valueKrw !== null || body.valueForeign !== null)) {
+      issue('종목에 연결한 자산은 받은 종가로 평가하므로 평가금액을 입력하지 않습니다');
+    }
     if (body.manualPrice !== null) {
       if (!tradeableTypes.includes(body.type)) {
         issue('현재가는 주식이나 기타(코인 등) 자산에만 입력할 수 있습니다');
@@ -239,6 +243,9 @@ const listQuery = z.object({ asOf: date.optional() });
  */
 function requireQuantityOrValue(body: z.infer<typeof assetBody>) {
   if (body.type === 'depreciable' || body.type === 'prepaid') return;
+  if (body.quantity === null && body.securityId !== null) {
+    throw new HttpError(400, '종목을 연결하려면 수량을 입력하세요');
+  }
   if (body.quantity === null && body.valueKrw === null && body.valueForeign === null) {
     throw new HttpError(400, '수량이 없는 자산은 평가금액을 입력하세요');
   }
@@ -298,12 +305,16 @@ const staleAfterDays = 5;
  *
  * - Depreciating and prepaid assets: their computed value (migrations 007, 010).
  * - A quantity with a unit price: quantity × price in the asset's currency. The price is the newest close on or
- *   before $1 for a linked security, else the price entered by hand. A linked security without a close has
- *   no price; a hand price is never mixed in (decision 2026-11-10).
+ *   before $1 for a linked security, else the price entered by hand if dated on or before $1. A linked
+ *   security without a close has no value at all: no hand price or hand value is mixed in (decision
+ *   2026-11-10, #47 review).
  * - An asset whose quantity comes from trades and that holds nothing: 0.
  * - Otherwise the value entered by hand.
  * - USD: converted with the newest USD rate on or before $1, so round(quantity × price × rate) once.
  * - A value over 1,000조 (won or dollars) is not counted, like the values entered by hand are capped.
+ *
+ * $1 picks the close, rate, hand price and depreciated or prepaid value of that date; the quantity and the
+ * trade cost are the current ones (a past quantity comes with the net worth history, #49).
  */
 const assetQuery = (where: string) => `
   WITH base AS (
@@ -314,7 +325,10 @@ const assetQuery = (where: string) => `
       s.market AS security_market, s.symbol AS security_symbol, s.name AS security_name,
       s.active AS security_active,
       p.trade_date AS close_date, fx.fx_rate, fx.rate_date AS fx_date, pos.cost_krw_after AS position_cost,
-      CASE WHEN a.security_id IS NOT NULL THEN p.close ELSE a.manual_price END AS unit_price
+      CASE
+        WHEN a.security_id IS NOT NULL THEN p.close
+        WHEN a.manual_price_on <= $1::date THEN a.manual_price
+      END AS unit_price
     FROM portfolio_assets a
     LEFT JOIN securities s ON s.id = a.security_id
     LEFT JOIN LATERAL (
@@ -336,6 +350,7 @@ const assetQuery = (where: string) => `
       CASE
         WHEN quantity IS NOT NULL AND unit_price IS NOT NULL THEN quantity * unit_price
         WHEN quantity IS NULL AND quantity_from_trades THEN 0
+        WHEN security_id IS NOT NULL THEN NULL
         WHEN currency = 'KRW' THEN value_krw
         ELSE value_foreign
       END AS local_value
@@ -590,14 +605,19 @@ export function assetsRouter(pool: Pool, { today, now, prices, log }: Options) {
    */
   const fetchIfMissing = async (security: Awaited<ReturnType<typeof checkSecurity>>) => {
     if (!security || security.currency !== 'USD' || !prices.tiingo) return;
-    const { rowCount } = await pool.query(
-      'SELECT 1 FROM security_prices WHERE security_id = $1 LIMIT 1',
-      [security.id],
-    );
-    if (rowCount) return;
-    const result = await fetchUsCloses(pool, prices.tiingo, security, now(), tiingoHourlyLimit);
-    if (result !== 'saved' && result !== 'up_to_date') {
-      log({ event: 'price_fetch_now', symbol: security.symbol, result });
+    try {
+      const { rowCount } = await pool.query(
+        'SELECT 1 FROM security_prices WHERE security_id = $1 LIMIT 1',
+        [security.id],
+      );
+      if (rowCount) return;
+      const result = await fetchUsCloses(pool, prices.tiingo, security, now(), tiingoHourlyLimit);
+      if (result !== 'saved' && result !== 'up_to_date') {
+        log({ event: 'price_fetch_now', symbol: security.symbol, result });
+      }
+    } catch {
+      // The asset is already saved: a failed fetch must not become a 500 that invites saving it twice.
+      log({ event: 'price_fetch_now', symbol: security.symbol, result: 'error' });
     }
   };
 

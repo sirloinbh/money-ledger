@@ -23,7 +23,8 @@ CREATE INDEX IF NOT EXISTS portfolio_assets_security_idx ON portfolio_assets (se
 
 ALTER TABLE portfolio_assets DROP CONSTRAINT IF EXISTS portfolio_assets_valuation_check;
 ALTER TABLE portfolio_assets ADD CONSTRAINT portfolio_assets_valuation_check CHECK (
-  (security_id IS NULL OR asset_type = 'stock')
+  -- A linked stock is valued at quantity × close only, so it keeps no hand value.
+  (security_id IS NULL OR (asset_type = 'stock' AND value_krw IS NULL AND value_foreign IS NULL))
   -- A hand price: both parts, on an unlinked stock or other asset, positive, whole won for KRW.
   AND (manual_price IS NULL) = (manual_price_on IS NULL)
   AND (

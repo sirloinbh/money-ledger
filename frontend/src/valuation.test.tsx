@@ -235,6 +235,8 @@ test('a stock is linked from the search and takes the security currency', async 
   expect(screen.getByRole('radio', { name: '원화(KRW)' })).toBeDisabled();
   // A linked stock is valued at the close: no hand price.
   expect(screen.queryByLabelText(/현재가\(1개당/)).not.toBeInTheDocument();
+  // Nor a hand value: a value typed before linking would be read in the security's currency (#47 review).
+  expect(screen.queryByLabelText(/평가금액\(/)).not.toBeInTheDocument();
 
   fireEvent.change(screen.getByLabelText('수량(선택)'), { target: { value: '3' } });
   fireEvent.click(screen.getByRole('button', { name: '추가' }));
@@ -333,4 +335,7 @@ test('a new USD trade starts with the newest stored rate', async () => {
   // A changed rate is kept; the won trade panel has no rate at all.
   fireEvent.change(rate, { target: { value: '1390' } });
   expect(rate).toHaveValue('1390');
+  // Once changed it is the user's own rate: the "filled in" note goes away.
+  expect(rate).not.toHaveAccessibleDescription(/미리 채웠습니다/);
+  expect(screen.queryByText(/매매기준율을 미리 채웠습니다/)).not.toBeInTheDocument();
 });

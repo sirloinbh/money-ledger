@@ -150,8 +150,7 @@ test('asset valuation against the real database', { skip: !url }, async (t) => {
           name: '애플',
           type: 'stock',
           currency: 'USD',
-          quantity: null,
-          valueForeign: '1',
+          quantity: '1',
           securityId: ids.AAPL,
         });
         const bought = await call(`${assets}/${asset.id}/trades`, {
@@ -278,9 +277,101 @@ test('asset valuation against the real database', { skip: !url }, async (t) => {
         assert.deepEqual([asset.price, asset.valueIssue], [null, 'no_price']);
         const { totals } = await list(call);
         assert.equal(totals.uncounted, 1);
+
+        // #47 review: a #45 stock with a hand value, then linked. The hand value is dropped with the link,
+        // so "no close yet" never counts the old value (or that number read as dollars).
+        const old = await create(call, {
+          name: '옛 주식',
+          type: 'stock',
+          currency: 'KRW',
+          quantity: '10',
+          valueKrw: 5_000_000,
+        });
+        assert.equal(old.currentValueKrw, 5_000_000);
+        const refused = await call(`${assets}/${old.id}`, {
+          method: 'PUT',
+          body: {
+            name: '옛 주식',
+            type: 'stock',
+            currency: 'USD',
+            quantity: '10',
+            valueForeign: '5000000',
+            securityId: ids.MSFT,
+          },
+        });
+        assert.equal(refused.status, 400);
+        assert.match(String(refused.data.error), /평가금액을 입력하지 않습니다/);
+        const linked = await call(`${assets}/${old.id}`, {
+          method: 'PUT',
+          body: {
+            name: '옛 주식',
+            type: 'stock',
+            currency: 'USD',
+            quantity: '10',
+            securityId: ids.MSFT,
+          },
+        });
+        assert.equal(linked.status, 200, JSON.stringify(linked.data));
+        const after = linked.data.asset as Asset;
+        assert.deepEqual([after.currentValueKrw, after.valueIssue], [null, 'no_price']);
+        assert.equal((await list(call)).totals.assetsKrw, 0);
+
+        const noQuantity = await call(assets, {
+          method: 'POST',
+          body: { name: '수량 없음', type: 'stock', currency: 'USD', securityId: ids.MSFT },
+        });
+        assert.equal(noQuantity.status, 400);
+        assert.equal(noQuantity.data.error, '종목을 연결하려면 수량을 입력하세요');
       });
     },
   );
+
+  await t.test('a hand price dated after the reference date is not used yet', async () => {
+    await reset();
+    await api(async (call) => {
+      await create(call, {
+        name: '비트코인',
+        type: 'other',
+        currency: 'KRW',
+        quantity: '1',
+        manualPrice: { price: '1000', pricedOn: '2026-11-09' },
+      });
+      const [before] = (await list(call, '2026-11-08')).assets;
+      assert.deepEqual([before.price, before.valueIssue], [null, 'no_price']);
+      const [on] = (await list(call, '2026-11-09')).assets;
+      assert.equal(on.currentValueKrw, 1000);
+    });
+  });
+
+  await t.test('an error while fetching on link still answers with the saved asset', async () => {
+    await reset();
+    const logged: object[] = [];
+    // The fetch bookkeeping table is missing for a moment: the fetch throws instead of returning a result.
+    await pool.query('ALTER TABLE price_fetch_state RENAME TO price_fetch_state_off');
+    try {
+      await withApi(
+        pool,
+        async (call) => {
+          const asset = await create(call, {
+            name: '애플',
+            type: 'stock',
+            currency: 'USD',
+            quantity: '2',
+            securityId: ids.AAPL,
+          });
+          assert.equal(asset.valueIssue, 'no_price');
+        },
+        { today: () => today, prices: fakeSources(), priceLog: (event) => logged.push(event) },
+      );
+    } finally {
+      await pool.query('ALTER TABLE price_fetch_state_off RENAME TO price_fetch_state');
+    }
+    assert.deepEqual(logged, [{ event: 'price_fetch_now', symbol: 'AAPL', result: 'error' }]);
+    const count = await pool.query<{ n: number }>(
+      'SELECT count(*)::int AS n FROM portfolio_assets',
+    );
+    assert.equal(count.rows[0].n, 1);
+  });
 
   await t.test('a stopped security is valued at its last close', async () => {
     await reset();
@@ -342,7 +433,7 @@ test('asset valuation against the real database', { skip: !url }, async (t) => {
         tracked.map((security) => security.symbol),
         ['AAPL'],
       );
-      await pool.query('UPDATE portfolio_assets SET quantity = NULL, value_foreign = 1');
+      await pool.query('UPDATE portfolio_assets SET quantity = NULL, quantity_from_trades = true');
       assert.deepEqual(await trackedUsSecurities(pool, new Date(`${today}T03:00:00Z`)), []);
     },
   );
@@ -459,5 +550,13 @@ test('asset valuation against the real database', { skip: !url }, async (t) => {
     );
     await assert.rejects(insert(`('a', 'stock', 'KRW', 1, NULL, 100, NULL)`), /valuation_check/);
     await insert(`('a', 'stock', 'USD', 1, NULL, 100.5, '2026-11-01')`);
+    // A linked stock keeps no hand value.
+    await assert.rejects(
+      pool.query(
+        `INSERT INTO portfolio_assets (name, asset_type, currency, quantity, value_krw, security_id)
+         VALUES ('a', 'stock', 'KRW', 1, 1000, ${ids['005930']})`,
+      ),
+      /valuation_check/,
+    );
   });
 });

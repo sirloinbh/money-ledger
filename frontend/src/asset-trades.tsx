@@ -189,6 +189,8 @@ export function AssetTrades({
     }
   };
 
+  // The note says the rate was filled in; once changed it is the user's own rate.
+  const showFxHint = !editing && latestFx !== null && draft.fxRate === prefillFx;
   const filledFx = useRef(prefillFx);
   useEffect(() => {
     const previous = filledFx.current;
@@ -403,16 +405,13 @@ export function AssetTrades({
               value={draft.fxRate}
               {...fieldProps('fxRate')}
               aria-describedby={
-                [
-                  fieldProps('fxRate')['aria-describedby'],
-                  !editing && latestFx ? `${prefix}-fx-hint` : '',
-                ]
+                [fieldProps('fxRate')['aria-describedby'], showFxHint ? `${prefix}-fx-hint` : '']
                   .filter(Boolean)
                   .join(' ') || undefined
               }
               onChange={(event) => change({ fxRate: event.target.value })}
             />
-            {!editing && latestFx ? (
+            {showFxHint && latestFx ? (
               <p id={`${prefix}-fx-hint`} className="text-caption text-muted-foreground">
                 {formatMonthDay(latestFx.rateDate)} 매매기준율을 미리 채웠습니다. 거래한 날 환율로
                 고칠 수 있습니다.

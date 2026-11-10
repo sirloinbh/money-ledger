@@ -307,7 +307,12 @@ function toBody(
   ) {
     return { field: 'quantity', message: '수량은 0보다 큰 수로, 소수 8자리까지 입력하세요' };
   }
-  const valueText = digits(draft.value);
+  const security = draft.type === 'stock' ? draft.security : null;
+  // A linked stock is valued at quantity × close only (decision 2026-11-10): no value is sent with it.
+  if (security !== null && !tradeManaged && !quantityText) {
+    return { field: 'quantity', message: '종목을 연결하려면 수량을 입력하세요' };
+  }
+  const valueText = security !== null ? '' : digits(draft.value);
   let valueKrw: number | null = null;
   let valueForeign: string | null = null;
   if (valueText && draft.currency === 'KRW') {
@@ -329,7 +334,6 @@ function toBody(
   if (!tradeManaged && !quantityText && valueKrw === null && valueForeign === null) {
     return { field: 'value', message: '수량이 없는 자산은 평가금액을 입력하세요' };
   }
-  const security = draft.type === 'stock' ? draft.security : null;
   const price = handPrice(draft, security !== null);
   if (price !== null && 'field' in price) return price;
   if (price !== null && !quantityText && !tradeManaged) {
@@ -903,24 +907,26 @@ export function AssetManager() {
                     ) : null}
                   </div>
                 )}
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="asset-value">
-                    {draft.type === 'debt' ? '남은 금액' : '평가금액'}(
-                    {draft.currency === 'KRW' ? '원' : '달러'})
-                  </Label>
-                  <Input
-                    id="asset-value"
-                    inputMode={draft.currency === 'KRW' ? 'numeric' : 'decimal'}
-                    autoComplete="off"
-                    placeholder={draft.currency === 'KRW' ? '예: 5000000' : '예: 1234.56'}
-                    value={draft.value}
-                    {...fieldProps('value')}
-                    onChange={(event) => {
-                      clearInvalid('value');
-                      change({ value: event.target.value });
-                    }}
-                  />
-                </div>
+                {linked ? null : (
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="asset-value">
+                      {draft.type === 'debt' ? '남은 금액' : '평가금액'}(
+                      {draft.currency === 'KRW' ? '원' : '달러'})
+                    </Label>
+                    <Input
+                      id="asset-value"
+                      inputMode={draft.currency === 'KRW' ? 'numeric' : 'decimal'}
+                      autoComplete="off"
+                      placeholder={draft.currency === 'KRW' ? '예: 5000000' : '예: 1234.56'}
+                      value={draft.value}
+                      {...fieldProps('value')}
+                      onChange={(event) => {
+                        clearInvalid('value');
+                        change({ value: event.target.value });
+                      }}
+                    />
+                  </div>
+                )}
                 {tradeableTypes.includes(draft.type) && !linked ? (
                   <>
                     <div className="flex flex-col gap-2">
