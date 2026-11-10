@@ -20,6 +20,12 @@ test('a checkbox is named by its label and toggles', () => {
   expect(onCheckedChange).toHaveBeenCalledWith(true);
 });
 
+test('touch screens get a 44px tap area around the 16px box', () => {
+  render(<Checkbox aria-label="알림" />);
+  // 15px outside the content box inside the 1px border: (16 - 2) + 15 × 2 = 44px (#415).
+  expect(screen.getByRole('checkbox', { name: '알림' })).toHaveClass('size-4', 'border', 'pointer-coarse:after:-inset-[15px]');
+});
+
 test('a disabled checkbox does not toggle', () => {
   render(<Checkbox aria-label="알림" disabled />);
   const box = screen.getByRole('checkbox', { name: '알림' });
