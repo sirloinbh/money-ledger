@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { BudgetProgress } from './budget-progress';
 import { CategoryManager } from './categories';
 import { RuleManager, UncategorizedEntries } from './classification';
 import { EntryManager } from './entries';
@@ -23,6 +24,7 @@ export function LedgerPage({ health }: { health: Health }) {
       <div className="flex flex-col gap-10">
         {/* Both counters only grow, so their sum changes whenever entries or category names do. */}
         <MonthlySummary version={ledgerVersion + categoriesVersion} />
+        <BudgetProgress version={ledgerVersion + categoriesVersion} />
         <MonthlyTrend version={ledgerVersion} />
         <EntryManager
           categoriesVersion={categoriesVersion}
