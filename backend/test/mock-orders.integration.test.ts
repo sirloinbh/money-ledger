@@ -919,6 +919,32 @@ test('mock trading market orders against the real database', { skip: !url }, asy
           ]);
           assert.equal(rows.rowCount, 2);
 
+          // An order in flight holds the account row: the fetch waits for it and saves the value after it.
+          const order = await pool.connect();
+          try {
+            await order.query('BEGIN');
+            await order.query('SELECT 1 FROM mock_accounts WHERE id = $1 FOR UPDATE', [accountId]);
+            let saved = false;
+            const waiting = snapshotOpenAccount(pool, new Date('2026-11-10T10:00:00Z')).then(() => {
+              saved = true;
+            });
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            assert.equal(saved, false);
+            await order.query('UPDATE mock_accounts SET cash_krw = cash_krw + 1000 WHERE id = $1', [
+              accountId,
+            ]);
+            await order.query('COMMIT');
+            await waiting;
+          } finally {
+            order.release();
+          }
+          assert.deepEqual((await snapshots()).snapshots.at(-1), {
+            date: '2026-11-10',
+            totalKrw: 10_195_000,
+            profitKrw: 195_000,
+            returnPct: '1.95',
+          });
+
           // Without a USD rate the value is unknown: no row rather than a wrong one.
           await pool.query("DELETE FROM fx_rates WHERE currency = 'USD'");
           assert.equal(await saveSnapshot(pool, accountId, '2026-11-11', '2026-11-11'), false);
