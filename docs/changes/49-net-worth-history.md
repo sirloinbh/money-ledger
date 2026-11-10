@@ -65,7 +65,13 @@
 ## 검증
 
 - 테스트 DB: 전용 컨테이너 `money-ledger-test-agent1`(127.0.0.1:15491)에 019를 적용했다. 두 번 적용해도 오류가 없다. `TEST_DATABASE_URL`은 매번 직접 지정했다.
-- `npm run knip`, `TEST_DATABASE_URL=<테스트 DB> npm run check`: 통과(결과는 PR과 아래 리뷰 기록).
+- `npm run knip`: 통과.
+- `TEST_DATABASE_URL=<테스트 DB> npm run check`:
+  - origin/main을 병합하기 전에는 통과했다. 백엔드 315개 통과(건너뜀 0), 프론트엔드 278개 중 276개 통과·2개 건너뜀(기존), 빌드 성공. 차트는 별도 파일 `net-worth-chart-*.js`(2.3 kB)이다.
+  - origin/main(#54, #42 포함)을 병합한 뒤에는 백엔드 318개가 통과(건너뜀 0)했다. 프론트엔드는 290개 중 287개 통과, 2개 건너뜀(기존), 1개 실패다. 실패한 것은 #54에서 들어온 `mock-account.test.tsx`의 "without an account the form suggests 1,000만 원 and creates it"이다.
+    - 원인: `findByRole('status')`가 모의 계좌 알림과 #54 수익률 추이 카드의 "불러오는 중" 문구(`role="status"`)를 함께 찾는다.
+    - 그 파일만 세 번 돌리면 한 번 실패한다. 이 PR은 그 화면과 파일을 건드리지 않는다. 컨트롤 타워에 알렸다.
+- #54의 `mock_snapshots`(018) 때문에 이 PR 통합 테스트의 초기화가 `mock_snapshots`를 함께 지우고 018을 다시 적용하게 했다.
 - 브라우저: API(3191)를 테스트 DB에 연결하고 Vite(5291)를 띄워 headless Chrome(CDP)으로 `/portfolio`를 확인했다.
   - 준비한 데이터: 지난 기록 8일(2025-12-20 ~ 2026-11-03, 그중 3일은 빠진 자산 1개)을 SQL로 넣었다. 오늘 자산은 API로 넣었다(아파트, 통장, 수량만 넣은 주식, 대출).
   - 앱을 열자 오늘 기록(순자산 282,500,000원, 1개 빠짐)이 저장되어 바로 차트 끝에 나왔다.
