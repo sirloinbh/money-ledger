@@ -557,4 +557,172 @@ test('mock trading market orders against the real database', { skip: !url }, asy
       /mock_accounts_fee_rate_check/,
     );
   });
+  await t.test(
+    'holdings are valued at the latest close and rate, and the return counts from the initial cash (#53)',
+    async () => {
+      type Holdings = {
+        summary: Record<string, number | string | null>;
+        holdings: {
+          security: { symbol: string; active: boolean };
+          quantity: string;
+          price: string;
+          priceDate: string;
+          fxRate: string | null;
+          costKrw: number;
+          valueKrw: number;
+          profitKrw: number;
+          returnPct: string;
+        }[];
+      };
+      await reset();
+      await addRate();
+      await withApi(
+        pool,
+        async (call) => {
+          const holdings = async () =>
+            (await call(`/api/mock/accounts/${accountId}/holdings`)).data as Holdings;
+
+          // Nothing held: the total is the cash and the return 0.
+          assert.deepEqual((await holdings()).summary, {
+            initialCashKrw: 10_000_000,
+            cashKrw: 10_000_000,
+            costKrw: 0,
+            valueKrw: 0,
+            totalKrw: 10_000_000,
+            profitKrw: 0,
+            returnPct: '0.00',
+          });
+
+          for (const order of [
+            await body('005930', 'buy', '10'), // 706,000
+            await body('AAPL', 'buy', '2'), // round(2 × 231.5 × 1384.5) = 641,024
+          ]) {
+            assert.equal((await call(path(), { method: 'POST', body: order })).status, 201);
+          }
+          // Prices move after the orders; a holding is worth what the latest close and rate say.
+          await pool.query(
+            `INSERT INTO security_prices (security_id, trade_date, close, currency, source)
+             VALUES ($1, '2026-11-09', 80000, 'KRW', 'T')`,
+            [ids['005930']],
+          );
+          await pool.query(
+            "INSERT INTO fx_rates (currency, rate_date, fx_rate, source) VALUES ('USD', '2026-11-09', 1400, 'T')",
+          );
+          // An inactive security keeps its last stored close (#97).
+          await pool.query('UPDATE securities SET active = false WHERE id = $1', [ids['005930']]);
+
+          const data = await holdings();
+          assert.deepEqual(
+            data.holdings.map((held) => [
+              held.security.symbol,
+              held.security.active,
+              held.quantity,
+              held.price,
+              held.priceDate,
+              held.fxRate,
+              held.costKrw,
+              held.valueKrw,
+              held.profitKrw,
+              held.returnPct,
+            ]),
+            [
+              // 10 × 80,000; 94,000 / 706,000 = 13.314…%
+              [
+                '005930',
+                false,
+                '10.00000000',
+                '80000.0000',
+                '2026-11-09',
+                null,
+                706_000,
+                800_000,
+                94_000,
+                '13.31',
+              ],
+              // 2 × 231.5 × 1,400 = 648,200; 7,176 / 641,024 = 1.119…%
+              [
+                'AAPL',
+                true,
+                '2.00000000',
+                '231.5000',
+                '2026-11-06',
+                '1400.0000',
+                641_024,
+                648_200,
+                7_176,
+                '1.12',
+              ],
+            ],
+          );
+          // The total is the cash plus the value of every holding; the return is against the initial cash.
+          const cash = 10_000_000 - 706_000 - 641_024;
+          assert.equal(await cashOf(), cash);
+          assert.deepEqual(data.summary, {
+            initialCashKrw: 10_000_000,
+            cashKrw: cash,
+            costKrw: 706_000 + 641_024,
+            valueKrw: 800_000 + 648_200,
+            totalKrw: cash + 800_000 + 648_200,
+            profitKrw: cash + 800_000 + 648_200 - 10_000_000,
+            returnPct: '1.01', // 101,176 / 10,000,000
+          });
+
+          // A loss is negative and rounds half away from zero: −4,955 / 10,000,000 = −0.04955% → −0.05%.
+          await pool.query('UPDATE mock_accounts SET cash_krw = $2 WHERE id = $1', [
+            accountId,
+            10_000_000 - 800_000 - 648_200 - 4_955,
+          ]);
+          const loss = (await holdings()).summary;
+          assert.deepEqual([loss.profitKrw, loss.returnPct], [-4_955, '-0.05']);
+
+          // Without a USD rate the US holding has no value, and the totals are unknown rather than wrong.
+          await pool.query("DELETE FROM fx_rates WHERE currency = 'USD'");
+          const unknown = await holdings();
+          const us = unknown.holdings.find((held) => held.security.symbol === 'AAPL')!;
+          assert.deepEqual(
+            [us.valueKrw, us.profitKrw, us.returnPct, us.costKrw],
+            [null, null, null, 641_024],
+          );
+          assert.deepEqual(
+            [
+              unknown.summary.valueKrw,
+              unknown.summary.totalKrw,
+              unknown.summary.profitKrw,
+              unknown.summary.returnPct,
+              unknown.summary.costKrw,
+            ],
+            [null, null, null, null, 706_000 + 641_024],
+          );
+          // A holding without a value sorts after the valued ones.
+          assert.deepEqual(
+            unknown.holdings.map((held) => held.security.symbol),
+            ['005930', 'AAPL'],
+          );
+          await addRate();
+
+          // Selling everything takes the holding off the list.
+          await pool.query(
+            "INSERT INTO security_prices (security_id, trade_date, close, currency, source) VALUES ($1, '2026-11-09', 240, 'USD', 'T')",
+            [ids.AAPL],
+          );
+          const sold = await call(path(), {
+            method: 'POST',
+            body: await body('AAPL', 'sell', '2'),
+          });
+          assert.equal(sold.status, 201);
+          assert.deepEqual(
+            (await holdings()).holdings.map((held) => held.security.symbol),
+            ['005930'],
+          );
+
+          const missing = await call('/api/mock/accounts/999999/holdings');
+          assert.deepEqual(
+            [missing.status, missing.data],
+            [404, { error: '모의투자 계좌를 찾을 수 없습니다' }],
+          );
+        },
+        { today },
+      );
+    },
+  );
 });

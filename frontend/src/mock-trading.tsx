@@ -6,16 +6,17 @@ import { Page } from './page';
 import { SecuritySearch } from './security-search';
 
 export function MockTradingPage({ health }: { health: Health }) {
-  // Bumped after each filled order so the account card shows the new cash.
+  // Bumped after each filled order (from a holding or a security's detail) so the account card reloads.
   const [orders, setOrders] = useState(0);
+  const ordered = () => setOrders((count) => count + 1);
   return (
     <Page
       title="모의투자"
       description="실제 자산과 분리된 가상 투자금으로 투자를 연습하고 수익률을 확인합니다"
       health={health}
     >
-      <MockAccount refreshKey={orders} />
-      <SecuritySearch onOrdered={() => setOrders((count) => count + 1)} />
+      <MockAccount refreshKey={orders} onOrdered={ordered} />
+      <SecuritySearch onOrdered={ordered} />
     </Page>
   );
 }

@@ -1,4 +1,4 @@
-import { type FormEvent, useRef, useState } from 'react';
+import { type FormEvent, useId, useRef, useState } from 'react';
 
 import { Button } from './components/ui/button';
 import { ConfirmDialog } from './components/ui/confirm-dialog';
@@ -69,6 +69,8 @@ export function MockOrder({
   const [busy, setBusy] = useState(false);
   const notice = useNotice();
   const { error: showError, status: showStatus } = notice;
+  // Unique ids: a holding (#53) and the security detail can both show an order form on one page.
+  const id = useId();
   const quantityInput = useRef<HTMLInputElement>(null);
   // One key per order: kept while the same order is retried (also after closing the dialog, in case the
   // answer to a filled order was lost), replaced once it filled, was refused or the order changed.
@@ -172,6 +174,12 @@ export function MockOrder({
           바꿉니다.
         </span>
       ) : null}
+      {preview?.side === 'sell' ? (
+        <span>
+          보유 {formatDecimal(ready.heldQuantity)}주 중 {formatDecimal(preview.quantity)}주를
+          팝니다.
+        </span>
+      ) : null}
       <span>
         체결 금액 {formatWon(ready.amountKrw)} · 수수료 {formatWon(ready.feeKrw)}
       </span>
@@ -180,15 +188,14 @@ export function MockOrder({
   ) : undefined;
 
   return (
-    <section aria-labelledby="mock-order-title" className="flex flex-col gap-3">
-      <h3 id="mock-order-title" className="text-body font-semibold">
-        모의 주문
-      </h3>
-      <p id="mock-order-hint" className="text-caption text-muted-foreground">
+    // Named after the security: a holding (#53) and the security detail can each show a form on one page.
+    <section aria-label={`${title} 모의 주문`} className="flex flex-col gap-3">
+      <h3 className="text-body font-semibold">모의 주문</h3>
+      <p id={`${id}-hint`} className="text-caption text-muted-foreground">
         저장된 최신 종가로 바로 체결합니다. 1주 단위로 주문할 수 있습니다.
       </p>
       <form
-        aria-label="모의 주문"
+        aria-label={`${title} 모의 주문`}
         onSubmit={(event) => void check(event)}
         className="flex flex-col gap-3 sm:flex-row sm:items-end"
       >
@@ -209,15 +216,15 @@ export function MockOrder({
           </div>
         </fieldset>
         <div className="flex flex-col gap-2 sm:w-40">
-          <Label htmlFor="mock-order-quantity">수량(주)</Label>
+          <Label htmlFor={`${id}-quantity`}>수량(주)</Label>
           <Input
-            id="mock-order-quantity"
+            id={`${id}-quantity`}
             ref={quantityInput}
             inputMode="numeric"
             autoComplete="off"
             value={quantity}
             aria-invalid={invalid || undefined}
-            aria-describedby={invalid ? 'mock-order-notice' : 'mock-order-hint'}
+            aria-describedby={invalid ? `${id}-notice` : `${id}-hint`}
             onChange={(event) => {
               if (invalid) setInvalid(false);
               setQuantity(event.target.value);
@@ -229,7 +236,7 @@ export function MockOrder({
           {busy ? '확인하는 중…' : '주문 확인'}
         </Button>
       </form>
-      <Notice id="mock-order-notice" notice={notice.notice} />
+      <Notice id={`${id}-notice`} notice={notice.notice} />
       <ConfirmDialog
         title={
           preview

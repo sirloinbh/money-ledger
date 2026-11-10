@@ -3,16 +3,23 @@
 @import 'tw-animate-css';
 @import '@sirloinbh/design-tokens/tailwind.css';
 
-/* #40 Chart series color: slot 1 (blue) of the dataviz reference palette, validated against the card surface in
-   each mode (lightness band, chroma, >= 3:1 contrast). Same dark-mode rule as the shared tokens. */
+/* #40 #41 Chart series colors: slots 1-3 (blue, orange, aqua) of the dataviz reference palette in this fixed order,
+   validated against the card surface in each mode (lightness band, chroma, color-blind separation; light aqua is
+   2.8:1, so every chart using it has a legend and a table). Same dark-mode rule as the shared tokens. */
 :root {
   --chart-series-1: #2a78d6;
+  --chart-series-2: #eb6834;
+  --chart-series-3: #1baf7a;
 }
 .dark {
   --chart-series-1: #3987e5;
+  --chart-series-2: #d95926;
+  --chart-series-3: #199e70;
 }
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
     --chart-series-1: #3987e5;
+    --chart-series-2: #d95926;
+    --chart-series-3: #199e70;
   }
 }

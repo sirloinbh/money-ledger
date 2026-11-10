@@ -9,10 +9,11 @@ import { Notice } from './components/ui/notice';
 import { formatDateTime, formatWon, withoutThousands } from './format';
 import { RequestError, requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
+import { MockHoldings } from './mock-holdings';
 
 // #50 Mock trading account. Virtual won only, never added to the ledger or portfolio totals.
 // One open account; resetting keeps the old one as a closed record (2026-11-03 decision).
-// Orders, holdings and returns come with #52-#54.
+// Holdings and returns (#53) show inside the account card; orders are placed from a security's detail (#52).
 
 type Account = {
   id: number;
@@ -38,8 +39,14 @@ function parseAmount(text: string): { amount: number } | { message: string } {
 
 const grouped = (amount: number) => new Intl.NumberFormat('ko-KR').format(amount);
 
-/** `refreshKey` changes after an order elsewhere on the page, so the cash shown is reloaded (#52). */
-export function MockAccount({ refreshKey = 0 }: { refreshKey?: number } = {}) {
+/**
+ * `refreshKey` changes after an order elsewhere on the page, so the cash shown is reloaded (#52). `onOrdered`
+ * is called after an order from a holding (#53), so the page bumps the key.
+ */
+export function MockAccount({
+  refreshKey = 0,
+  onOrdered = () => undefined,
+}: { refreshKey?: number; onOrdered?: () => void } = {}) {
   const [state, setState] = useState<State | undefined>(undefined);
   const [createAmount, setCreateAmount] = useState(defaultAmount);
   const [resetAmount, setResetAmount] = useState(defaultAmount);
@@ -199,6 +206,13 @@ export function MockAccount({ refreshKey = 0 }: { refreshKey?: number } = {}) {
                 </dd>
               </div>
             </dl>
+            {/* Keyed by account, so an open order form and its state never carry over to a reset account. */}
+            <MockHoldings
+              key={account.id}
+              accountId={account.id}
+              refreshKey={refreshKey}
+              onOrdered={onOrdered}
+            />
             <section aria-labelledby="mock-reset-title" className="flex flex-col gap-3">
               <h3 id="mock-reset-title" className="text-body font-semibold">
                 처음부터 다시 시작

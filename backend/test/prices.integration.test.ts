@@ -90,12 +90,16 @@ test('shared price store against the real database', { skip: !url }, async (t) =
     // re-running is safe
     await runMigration(pool, '009_prices.sql');
     await runMigration(pool, '012_krx_listing.sql');
+    // The daily fetch also covers US securities linked to portfolio assets (#47) and held in the mock
+    // account (#53).
     for (const file of [
       '004_portfolio_assets.sql',
       '007_depreciable_assets.sql',
       '010_prepaid_assets.sql',
       '013_asset_trades.sql',
       '016_asset_valuation.sql',
+      '005_mock_accounts.sql',
+      '015_mock_orders.sql',
     ]) {
       await runMigration(pool, file);
     }
@@ -516,6 +520,33 @@ test('shared price store against the real database', { skip: !url }, async (t) =
     assert.deepEqual(result, { complete: false });
     assert.equal(calls.closes.length, 2); // 4 tracked, room for 2
     assert.ok(logged.some((event) => event.event === 'price_fetch_limited'));
+  });
+
+  await t.test('US securities the open mock account holds stay on the daily fetch', async () => {
+    await reset();
+    await runDailyFetch(pool, counted().sources, noon, quiet);
+    // Earlier tests in this database may have left an open account; only one can be open.
+    await pool.query('UPDATE mock_accounts SET closed_at = now() WHERE closed_at IS NULL');
+    const closed = await pool.query<{ id: string }>(
+      `INSERT INTO mock_accounts (initial_cash_krw, cash_krw, created_at, closed_at)
+       VALUES (10000000, 0, now(), now()) RETURNING id`,
+    );
+    const open = await pool.query<{ id: string }>(
+      'INSERT INTO mock_accounts (initial_cash_krw, cash_krw) VALUES (10000000, 0) RETURNING id',
+    );
+    await pool.query(
+      `INSERT INTO mock_holdings (account_id, security_id, quantity, cost_krw)
+       SELECT $1::bigint, id, 1, 300000 FROM securities WHERE symbol = 'AAPL'
+       UNION ALL SELECT $2::bigint, id, 1, 600000 FROM securities WHERE symbol = 'MSFT'`,
+      [open.rows[0].id, closed.rows[0].id],
+    );
+    const { sources, calls } = counted();
+    await runDailyFetch(pool, sources, at('2026-11-10T03:00:00Z'), quiet);
+    // AAPL is held by the open account and never opened; MSFT only by a closed one.
+    assert.deepEqual(
+      calls.closes.map((call) => call.split(' ')[0]),
+      ['AAPL'],
+    );
   });
 
   await t.test(
