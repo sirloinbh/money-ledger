@@ -2,28 +2,12 @@ import { Router } from 'express';
 import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
+import { monthField, won } from './month.js';
+
 // #40 One month of the ledger: income, expense, the balance between them and the expense by category.
 // Sums and shares are computed in SQL (numeric), never with JavaScript floats.
 
-const monthQuery = z.object({
-  month: z
-    .string({ error: '월을 YYYY-MM 형식으로 입력하세요' })
-    .regex(/^\d{4}-(0[1-9]|1[0-2])$/, { error: '월을 YYYY-MM 형식으로 입력하세요', abort: true })
-    .refine(
-      (value) => {
-        const year = Number(value.slice(0, 4));
-        return year >= 1900 && year <= 2100;
-      },
-      { error: '월은 1900년부터 2100년 사이로 입력하세요' },
-    ),
-});
-
-/** A sum of whole-won amounts from SQL (numeric as text); exact as long as it is a safe integer. */
-function won(value: string) {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed)) throw new Error(`sum out of safe range: ${value}`);
-  return parsed;
-}
+const monthQuery = z.object({ month: monthField('월') });
 
 type Row = {
   income: string;
