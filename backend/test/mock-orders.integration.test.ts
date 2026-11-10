@@ -725,4 +725,106 @@ test('mock trading market orders against the real database', { skip: !url }, asy
       );
     },
   );
+  await t.test(
+    'the order history filters by KST order day and security, newest first, a page at a time (#54)',
+    async () => {
+      type History = {
+        orders: { id: number; side: string; security: { symbol: string } }[];
+        hasMore: boolean;
+        securities: { id: number; symbol: string }[];
+      };
+      await reset();
+      await addRate();
+      await withApi(
+        pool,
+        async (call) => {
+          const history = async (query = '') => (await call(`${path()}${query}`)).data as History;
+          assert.deepEqual(await history(), { orders: [], hasMore: false, securities: [] });
+
+          for (const order of [
+            await body('005930', 'buy', '10'),
+            await body('AAPL', 'buy', '1'),
+            await body('005930', 'sell', '3'),
+          ]) {
+            assert.equal((await call(path(), { method: 'POST', body: order })).status, 201);
+          }
+          // Order times around KST day boundaries: 11-02 00:30, 11-05 12:00 and 11-08 23:59 in Seoul.
+          const orderIds = (
+            await pool.query<{ id: string }>('SELECT id FROM mock_orders ORDER BY id')
+          ).rows.map((row) => Number(row.id));
+          const times = ['2026-11-01T15:30:00Z', '2026-11-05T03:00:00Z', '2026-11-08T14:59:00Z'];
+          for (const [index, at] of times.entries()) {
+            await pool.query('UPDATE mock_orders SET created_at = $2 WHERE id = $1', [
+              orderIds[index],
+              at,
+            ]);
+          }
+
+          const all = await history();
+          assert.deepEqual(
+            all.orders.map((order) => [order.id, order.side, order.security.symbol]),
+            [
+              [orderIds[2], 'sell', '005930'],
+              [orderIds[1], 'buy', 'AAPL'],
+              [orderIds[0], 'buy', '005930'],
+            ],
+          );
+          assert.equal(all.hasMore, false);
+          // Every traded security once, for the filter.
+          assert.deepEqual(all.securities.map((security) => security.symbol).sort(), [
+            '005930',
+            'AAPL',
+          ]);
+
+          const found = async (query: string) =>
+            (await history(query)).orders.map((order) => order.id);
+          // 11-02 00:30 KST is 11-01 in UTC; the day is the Seoul one.
+          assert.deepEqual(await found('?from=2026-11-02&to=2026-11-05'), [
+            orderIds[1],
+            orderIds[0],
+          ]);
+          assert.deepEqual(await found('?to=2026-11-01'), []);
+          assert.deepEqual(await found('?from=2026-11-08&to=2026-11-08'), [orderIds[2]]);
+          assert.deepEqual(await found(`?securityId=${ids['005930']}`), [orderIds[2], orderIds[0]]);
+          assert.deepEqual(await found(`?securityId=${ids.AAPL}&to=2026-11-04`), []);
+          // Nothing comes before the oldest order.
+          assert.deepEqual(
+            (await call(`/api/mock/accounts/${accountId}/orders?before=${orderIds[0]}`)).data,
+            { orders: [], hasMore: false, securities: (await history()).securities },
+          );
+
+          // 51 more orders: 50 on the first page, the rest after the last one shown.
+          await pool.query(
+            `INSERT INTO mock_orders (account_id, security_id, request_key, side, quantity, price, currency,
+               price_date, amount_krw, fee_krw, cash_after_krw, created_at)
+             SELECT $1, $2, gen_random_uuid(), 'buy', 1, 100, 'KRW', '2026-11-06', 100, 0, 0,
+                    '2026-11-09T01:00:00Z'::timestamptz + make_interval(secs => n)
+             FROM generate_series(1, 51) n`,
+            [accountId, ids['005930']],
+          );
+          const first = await history();
+          assert.deepEqual([first.orders.length, first.hasMore], [50, true]);
+          const next = await history(`?before=${first.orders.at(-1)!.id}`);
+          assert.deepEqual([next.orders.length, next.hasMore], [4, false]);
+          assert.ok(next.orders[0].id < first.orders.at(-1)!.id);
+
+          for (const [query, error] of [
+            ['?from=2026-13-01', '없는 날짜입니다'],
+            ['?from=2026-11-09&to=2026-11-01', '시작일은 종료일보다 늦을 수 없습니다'],
+            ['?securityId=abc', '종목 ID가 올바르지 않습니다'],
+            ['?before=0', '이어 볼 위치가 올바르지 않습니다'],
+          ]) {
+            const refused = await call(`${path()}${query}`);
+            assert.deepEqual([refused.status, refused.data], [400, { error }], query);
+          }
+          const missing = await call('/api/mock/accounts/999999/orders');
+          assert.deepEqual(
+            [missing.status, missing.data],
+            [404, { error: '모의투자 계좌를 찾을 수 없습니다' }],
+          );
+        },
+        { today },
+      );
+    },
+  );
 });
