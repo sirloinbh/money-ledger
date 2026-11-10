@@ -7,7 +7,7 @@ import { monthField, won } from './month.js';
 // #41 Income, expense and balance for each month of a period, oldest first. A month without entries is a row of
 // zeros, so the trend has no gaps. Sums are computed in SQL (numeric), never with JavaScript floats.
 
-export const maxTrendMonths = 24;
+const maxTrendMonths = 24;
 
 /** Months from `from` to `to`, both included: 2026-01..2026-12 is 12. */
 const monthCount = (from: string, to: string) =>

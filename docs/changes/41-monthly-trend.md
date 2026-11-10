@@ -79,3 +79,8 @@
 2. 데이터는 왔는데 차트 파일만 못 불러오면 그 자리에 "다시 시도"가 없다. 기간을 바꾸면 다시 불러오고, 값은 표에 있다. #40 요약과 같은 동작이라 그대로 두었다.
 
 검증: 주석만 바뀌어 `npm run format:check`·`npm run lint`·`npm run typecheck`를 다시 돌려 통과했다.
+
+## CI 실패와 수정
+
+- 1차 리뷰 반영 커밋의 CI `verify`가 `npm run knip` 단계에서 실패했다. `backend/src/trend.ts`의 `maxTrendMonths`가 export만 되고 다른 곳에서 쓰이지 않았다. 테스트와 빌드는 통과했다.
+- → export를 뺐다. `npm run knip`은 `npm run check`에 들어 있지 않아 로컬에서 놓쳤다. 이번에는 직접 실행해 통과를 확인했고, `typecheck`와 백엔드 테스트도 통과했다.
