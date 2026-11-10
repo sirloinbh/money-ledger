@@ -537,6 +537,117 @@ test('shared price store against the real database', { skip: !url }, async (t) =
     },
   );
 
+  await t.test(
+    'a ticker Tiingo does not know is asked for again only after 7 days (#96)',
+    async () => {
+      await reset();
+      const { sources, calls } = counted();
+      await runDailyFetch(pool, sources, noon, quiet);
+      await pool.query(
+        `INSERT INTO securities (market, symbol, kind, currency, viewed_at)
+         VALUES ('NYSE', 'GONE', 'stock', 'USD', $1)`,
+        [noon],
+      );
+      const gone = () => calls.closes.filter((call) => call.startsWith('GONE ')).length;
+      const day = (days: number) => new Date(noon.getTime() + days * 86_400_000);
+
+      const logged: Record<string, unknown>[] = [];
+      const log = (event: Record<string, unknown>) => logged.push(event);
+      await runDailyFetch(pool, sources, day(1), log);
+      assert.equal(gone(), 1);
+      assert.equal((await state('TIINGO', 'GONE'))?.last_error, 'Tiingo에 없는 종목입니다');
+
+      // The next 6 days skip it, without a failure line each day.
+      logged.length = 0;
+      for (let days = 2; days <= 7; days += 1) {
+        assert.deepEqual(await runDailyFetch(pool, sources, day(days), log), { complete: true });
+      }
+      assert.equal(gone(), 1);
+      assert.ok(!logged.some((event) => event.scope === 'GONE'));
+
+      // Opening it in those days answers from the last result without a call.
+      await withApi(
+        pool,
+        async (call) => {
+          const id = (await pool.query("SELECT id FROM securities WHERE symbol = 'GONE'")).rows[0]
+            .id as string;
+          const detail = (await call(`/api/prices/securities/${id}`)).data as Detail;
+          assert.deepEqual([detail.quote, detail.quoteIssue], [null, 'not_found']);
+          assert.equal(gone(), 1);
+        },
+        { now: () => day(7), prices: sources },
+      );
+
+      // 7 days after the last answer it is asked for once more.
+      await runDailyFetch(pool, sources, day(8), log);
+      assert.equal(gone(), 2);
+      assert.ok(logged.some((event) => event.scope === 'GONE' && event.result === 'not_found'));
+    },
+  );
+
+  await t.test(
+    'a US security still without closes is asked for at most once an hour from screens (#96)',
+    async () => {
+      await reset();
+      const { sources, calls } = counted();
+      await runDailyFetch(pool, sources, noon, quiet);
+      // HALT is listed but Tiingo answers no closes (a halted ticker); BROKEN fails.
+      await pool.query(
+        `INSERT INTO securities (market, symbol, kind, currency)
+         VALUES ('NYSE', 'HALT', 'stock', 'USD'), ('NYSE', 'BROKEN', 'stock', 'USD')`,
+      );
+      const asked: string[] = [];
+      const screens = {
+        ...sources,
+        tiingo: {
+          ...sources.tiingo,
+          closes: (symbol: string, start: string, end: string) => {
+            asked.push(symbol);
+            if (symbol === 'HALT') return Promise.resolve([]);
+            if (symbol === 'BROKEN') {
+              return Promise.reject(new SourceError('Tiingo 시세 응답 오류 (HTTP 503)'));
+            }
+            return sources.tiingo.closes(symbol, start, end);
+          },
+        },
+      };
+      // Tuesday 13:00 in Seoul: the latest US date is Monday, so an empty answer leaves it unchecked.
+      const first = at('2026-11-10T04:00:00Z');
+      const open = async (symbol: string, now: Date) => {
+        let detail: Detail | undefined;
+        await withApi(
+          pool,
+          async (call) => {
+            const id = (
+              (await call(`/api/prices/securities?q=${symbol}`)).data.securities as Found[]
+            )[0].id;
+            detail = (await call(`/api/prices/securities/${id}`)).data as Detail;
+          },
+          { now: () => now, prices: screens },
+        );
+        assert.ok(detail);
+        return detail;
+      };
+
+      for (const symbol of ['HALT', 'BROKEN']) {
+        const detail = await open(symbol, first);
+        assert.equal(detail.quote, null);
+        assert.equal(detail.quoteIssue, symbol === 'HALT' ? null : 'fetch_failed');
+      }
+      assert.deepEqual(asked, ['HALT', 'BROKEN']);
+
+      // Within the hour the last answer stands: no call, the same message.
+      const soon = at('2026-11-10T04:59:00Z');
+      assert.equal((await open('HALT', soon)).quoteIssue, null);
+      assert.equal((await open('BROKEN', soon)).quoteIssue, 'fetch_failed');
+      assert.deepEqual(asked, ['HALT', 'BROKEN']);
+
+      // After an hour it is asked for again.
+      await open('HALT', at('2026-11-10T05:00:00Z'));
+      assert.deepEqual(asked, ['HALT', 'BROKEN', 'HALT']);
+    },
+  );
+
   await t.test('the daily fetch leaves 10 Tiingo calls an hour for screens', async () => {
     await reset();
     const { sources, calls } = counted();
