@@ -248,6 +248,24 @@ test('the month buttons move by whole months and keep the other filters', async 
   await vi.waitFor(() => expect(address()).toBe('?from=2026-11-01&to=2026-11-30'));
 });
 
+test('초기화 clears what was typed even when the address already holds this month', async () => {
+  await show();
+  await screen.findByRole('list', { name: '내역 목록' });
+  fireEvent.change(screen.getByLabelText('검색어'), { target: { value: '커피' } });
+  fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '2026-11-20' } });
+  fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-11-10' } });
+  fireEvent.click(screen.getByRole('button', { name: '조회' }));
+  expect(screen.getByRole('alert')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '초기화' }));
+  await vi.waitFor(() => expect(address()).toBe('?from=2026-11-01&to=2026-11-30'));
+  // Again: now the address already holds the default period, so nothing in it changes.
+  fireEvent.change(screen.getByLabelText('검색어'), { target: { value: '커피' } });
+  fireEvent.click(screen.getByRole('button', { name: '초기화' }));
+  expect(screen.getByLabelText('검색어')).toHaveValue('');
+  expect(screen.getByLabelText('시작일')).toHaveValue('2026-11-01');
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+
 test('pages: the count, the page number and the next page', async () => {
   answer = (url) => {
     const page = Number(new URL(url, 'http://x').searchParams.get('page'));

@@ -47,9 +47,12 @@ function readMonth(params: URLSearchParams, today: string) {
 }
 
 // Recharts is large: the chart loads in its own file when a month with expense is shown, not with the app.
-const CategoryShareChart = lazy(() =>
-  import('./category-share-chart').then((module) => ({ default: module.CategoryShareChart })),
-);
+// `lazy` keeps a failed load, so a failure starts a new one for the next month or retry.
+const loadChart = () =>
+  lazy(() =>
+    import('./category-share-chart').then((module) => ({ default: module.CategoryShareChart })),
+  );
+const chart = { Chart: loadChart() };
 
 /** "2026-11" → "2026년 11월" */
 const monthLabel = (month: string) => `${month.slice(0, 4)}년 ${Number(month.slice(5))}월`;
@@ -61,6 +64,8 @@ export function MonthlySummary({ version = 0 }: { version?: number }) {
   const month = readMonth(searchParams, today);
   const [summary, setSummary] = useState<Summary | undefined>(undefined);
   const [failed, setFailed] = useState(false);
+  // Bumped by 다시 시도 so a chart that failed to load is tried again.
+  const [attempt, setAttempt] = useState(0);
   // Only the latest request may fill the summary.
   const latest = useRef(0);
   const title = useRef<HTMLHeadingElement>(null);
@@ -96,6 +101,7 @@ export function MonthlySummary({ version = 0 }: { version?: number }) {
   const retry = () => {
     // The retry button goes away at once: focus the section title instead of losing it.
     title.current?.focus();
+    setAttempt((count) => count + 1);
     void load();
   };
 
@@ -166,7 +172,7 @@ export function MonthlySummary({ version = 0 }: { version?: number }) {
                 <p className="text-body-sm text-muted-foreground">이 달에는 지출이 없습니다.</p>
               ) : (
                 <>
-                  <ChartBoundary>
+                  <ChartBoundary key={`${month}:${attempt}`}>
                     <Suspense
                       fallback={
                         <p className="text-body-sm text-muted-foreground">
@@ -174,7 +180,7 @@ export function MonthlySummary({ version = 0 }: { version?: number }) {
                         </p>
                       }
                     >
-                      <CategoryShareChart categories={shown.categories} />
+                      <chart.Chart categories={shown.categories} />
                     </Suspense>
                   </ChartBoundary>
                   <ShareTable categories={shown.categories} total={shown.expense} />
@@ -197,6 +203,10 @@ class ChartBoundary extends Component<{ children: ReactNode }, { failed: boolean
 
   static getDerivedStateFromError() {
     return { failed: true };
+  }
+
+  componentDidCatch() {
+    chart.Chart = loadChart();
   }
 
   render() {
