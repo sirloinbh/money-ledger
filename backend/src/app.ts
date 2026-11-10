@@ -9,6 +9,7 @@ import { entriesRouter } from './entries.js';
 import { mockAccountsRouter } from './mock-accounts.js';
 import { mockHoldingsRouter } from './mock-holdings.js';
 import { mockOrdersRouter } from './mock-orders.js';
+import { netWorthRouter } from './net-worth.js';
 import { type PriceLog, type PriceSources, pricesRouter } from './prices/index.js';
 import { rulesRouter } from './rules.js';
 import { errorHandler, notFound, serviceDate } from './standard/http.js';
@@ -65,6 +66,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
       log: options.priceLog ?? (() => undefined),
     }),
   );
+  app.use('/api/portfolio/net-worth', netWorthRouter(pool, { today }));
   app.use('/api/mock/accounts/:accountId/orders', mockOrdersRouter(pool, today));
   app.use('/api/mock/accounts/:accountId/holdings', mockHoldingsRouter(pool, today));
   app.use('/api/mock/accounts', mockAccountsRouter(pool));

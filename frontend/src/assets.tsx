@@ -1,4 +1,12 @@
-import { type FormEvent, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  type FormEvent,
+  type ReactNode,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { type Allocation, AssetAllocation } from './asset-allocation';
 import { AssetTrades } from './asset-trades';
@@ -466,7 +474,8 @@ function prepaidText(prepaid: Prepaid) {
   return `금액권 · 충전액 ${formatWon(prepaid.amountKrw)} · 사용 ${formatWon(prepaid.usedKrw)}${expiry}`;
 }
 
-export function AssetManager() {
+/** `afterAllocation` goes right under the allocation card (#49: the net worth history). */
+export function AssetManager({ afterAllocation }: { afterAllocation?: ReactNode } = {}) {
   const [assets, setAssets] = useState<Asset[] | undefined>(undefined);
   const [totals, setTotals] = useState<Totals | undefined>(undefined);
   const [allocation, setAllocation] = useState<Allocation | undefined>(undefined);
@@ -643,6 +652,7 @@ export function AssetManager() {
       <Notice id="assets-notice" notice={notice.notice} />
       {totals ? <Summary totals={totals} /> : null}
       {allocation ? <AssetAllocation allocation={allocation} typeLabel={typeLabel} /> : null}
+      {afterAllocation}
       <Card>
         <CardHeader>
           <CardTitle asHeading="h2">{editing ? '자산 수정' : '새 자산'}</CardTitle>
