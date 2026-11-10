@@ -77,6 +77,13 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
     void load();
   }, [load, version]);
 
+  // A save started on one month may finish after the summary moved to another: it must reload the month shown
+  // then, not the one it started on.
+  const loadShown = useRef(load);
+  useEffect(() => {
+    loadShown.current = load;
+  }, [load]);
+
   // 수정 opens the form: the amount field takes the focus.
   useEffect(() => {
     if (editing !== undefined) document.getElementById(`budget-${editing}`)?.focus();
@@ -99,8 +106,9 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
   const stopEdit = (categoryId: number) => {
     setEditing(undefined);
     setInvalid(false);
-    // The form goes away: put focus back on the row's 수정 button.
-    requestAnimationFrame(() => editButtons.current.get(categoryId)?.focus());
+    // The form goes away: put focus back on the row's 수정 button, or on the title when the row went away
+    // (a hidden category whose budget was just unset is no longer listed).
+    requestAnimationFrame(() => (editButtons.current.get(categoryId) ?? title.current)?.focus());
   };
 
   const save = async (event: FormEvent, budget: Budget) => {
@@ -123,8 +131,9 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
           ? `${budget.name} 예산을 ${monthLabel(month)}부터 미설정으로 바꿨습니다`
           : `${budget.name} 예산을 ${monthLabel(month)}부터 ${formatWon(amount)}으로 정했습니다`,
       );
+      // Reload first, so the focus goes to the row as it is listed after the save.
+      await loadShown.current();
       stopEdit(budget.categoryId);
-      await load();
     } catch (cause) {
       showError(cause, '예산을 저장하지 못했습니다');
     } finally {

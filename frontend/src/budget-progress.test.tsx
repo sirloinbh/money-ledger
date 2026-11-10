@@ -246,3 +246,57 @@ test('a change elsewhere (version) reloads the same month', async () => {
   await vi.waitFor(() => expect(gets()).toHaveLength(2));
   expect(gets()[1]).toBe(gets()[0]);
 });
+
+test('a save that ends after the summary moved to another month reloads that month', async () => {
+  let finish: (value: Response) => void = () => undefined;
+  answer = (call) =>
+    call.method === 'PUT'
+      ? new Promise<Response>((resolve) => {
+          finish = resolve;
+        })
+      : json(call.url.endsWith('2026-11') ? november : { month: '2026-10', budgets: [] });
+  show();
+  fireEvent.click(await screen.findByRole('button', { name: '식비 예산 수정' }));
+  fireEvent.change(screen.getByLabelText('식비 예산(원)'), { target: { value: '1000' } });
+  fireEvent.click(screen.getByRole('button', { name: '저장' }));
+  fireEvent.click(screen.getByRole('button', { name: '2026-10로' }));
+  expect(await screen.findByText('지출 카테고리가 없습니다.')).toBeInTheDocument();
+
+  finish(new Response(JSON.stringify({ budget: {} })));
+  await vi.waitFor(() => expect(gets()).toHaveLength(3));
+  expect(gets()[2]).toBe('/api/ledger/budgets?month=2026-10');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(screen.getByText('2026년 10월 기준')).toBeInTheDocument();
+  expect(screen.getByText('지출 카테고리가 없습니다.')).toBeInTheDocument();
+  expect(
+    screen
+      .getByRole('heading', { name: '카테고리별 예산' })
+      .closest('section')!
+      .querySelector('[aria-busy]'),
+  ).toBeNull();
+});
+
+test('a row that is no longer listed after the save gives the focus to the title', async () => {
+  let saved = false;
+  answer = (call) => {
+    if (call.method === 'PUT') {
+      saved = true;
+      return json({ budget: call.body });
+    }
+    // A hidden category listed only for its budget: unset, it is left out.
+    return json(
+      saved
+        ? { ...november, budgets: november.budgets.filter((budget) => budget.name !== '통신') }
+        : november,
+    );
+  };
+  show();
+  fireEvent.click(await screen.findByRole('button', { name: '통신 예산 수정' }));
+  fireEvent.click(screen.getByRole('button', { name: '저장' }));
+  await vi.waitFor(() =>
+    expect(screen.queryByRole('button', { name: '통신 예산 수정' })).not.toBeInTheDocument(),
+  );
+  await vi.waitFor(() =>
+    expect(screen.getByRole('heading', { name: '카테고리별 예산' })).toHaveFocus(),
+  );
+});
