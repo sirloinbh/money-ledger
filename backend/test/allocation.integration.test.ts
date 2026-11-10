@@ -123,6 +123,52 @@ test('asset allocation against the real database', { skip: !url }, async (t) => 
     });
   });
 
+  await t.test('equal remainders: the larger amount gets the missing tenth', async () => {
+    await reset();
+    await api(async (call) => {
+      // 1/30, 4/30, 25/30 all leave 1/3 of a tenth: floors 3.3 + 13.3 + 83.3 = 99.9.
+      await add(call, cash('작은', 1));
+      await add(call, cash('중간', 4));
+      await add(call, cash('큰', 25));
+      const { allocation } = await read(call);
+      assert.deepEqual(
+        allocation.byAsset.map((row) => [row.name, row.share]),
+        [
+          ['큰', '83.4'],
+          ['중간', '13.3'],
+          ['작은', '3.3'],
+        ],
+      );
+    });
+  });
+
+  await t.test('shares stay exact and add up to 100.0% past 10^17 won in all', async () => {
+    await reset();
+    // Every share sits just below a whole tenth (each 10^15 asset is 9.99999999999999999… tenths). div/mod keep
+    // the quotient exact at any size; a plain division only rounds it up past about 20 digits (10^20 won).
+    // Many rows, so straight into the table: 99 × 10^15, 9 × 10^14, 10^14 and 1 (10^17 + 1 in all).
+    await pool.query(
+      `INSERT INTO portfolio_assets (name, asset_type, currency, value_krw)
+       SELECT '큰 자산 ' || i, 'cash', 'KRW', 1000000000000000 FROM generate_series(1, 99) i
+       UNION ALL VALUES ('중간', 'cash', 'KRW', 900000000000000), ('작은', 'cash', 'KRW', 100000000000000),
+         ('1원', 'cash', 'KRW', 1)`,
+    );
+    await api(async (call) => {
+      const { allocation } = await read(call);
+      assert.equal(allocation.byAsset.length, 102);
+      assert.equal(sumOf(allocation.byAsset), 1000);
+      assert.equal(sumOf(allocation.chart), 1000);
+      assert.deepEqual(
+        allocation.byAsset.slice(-3).map((row) => [row.name, row.share]),
+        [
+          ['중간', '0.9'],
+          ['작은', '0.1'],
+          ['1원', '0.0'],
+        ],
+      );
+    });
+  });
+
   await t.test(
     'an asset without a won value is left out and counted; a 0 won one stays at 0.0%',
     async () => {
@@ -168,6 +214,35 @@ test('asset allocation against the real database', { skip: !url }, async (t) => 
       assert.equal(sumOf(allocation.chart), 1000);
       // The rest line is the sum of the table's own shares.
       assert.equal(tenths(rest.share), sumOf(allocation.byAsset.slice(8)));
+    });
+  });
+
+  await t.test('a 9th asset is shown by name, not as "그 밖의 1개"', async () => {
+    await reset();
+    await api(async (call) => {
+      for (let i = 1; i <= 9; i++) await add(call, cash(`통장 ${i}`, i * 1000));
+      const { allocation } = await read(call);
+      assert.equal(allocation.chart.length, 9);
+      assert.equal(allocation.chart[8].name, '통장 1');
+      assert.ok(allocation.chart.every((row) => row.key !== 'rest'));
+    });
+  });
+
+  await t.test('0 won assets fall into the rest line without changing it', async () => {
+    await reset();
+    await api(async (call) => {
+      for (let i = 1; i <= 8; i++) await add(call, cash(`통장 ${i}`, i * 1000));
+      await add(call, cash('빈 통장 1', 0));
+      await add(call, cash('빈 통장 2', 0));
+      const { allocation } = await read(call);
+      assert.deepEqual(allocation.chart[8], {
+        key: 'rest',
+        name: null,
+        amountKrw: 0,
+        share: '0.0',
+        count: 2,
+      });
+      assert.equal(sumOf(allocation.chart), 1000);
     });
   });
 

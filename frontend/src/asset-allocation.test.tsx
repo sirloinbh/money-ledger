@@ -125,6 +125,34 @@ test('nothing to spread: no tabs, a short note instead', () => {
   expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
 });
 
+test('a line too large to show in won is still drawn by its share', async () => {
+  render(
+    <AssetAllocation
+      allocation={{
+        ...allocation,
+        byType: [
+          { type: 'cash', amountKrw: null, share: '99.9', count: 10 },
+          { type: 'real_estate', amountKrw: 300_000_000, share: '0.1', count: 1 },
+        ],
+      }}
+      typeLabel={typeLabel}
+    />,
+  );
+  expect(await screen.findByTestId('chart')).toHaveTextContent('종류별:현금 99.9,부동산 0.1');
+  expect(rowsOf(screen.getByRole('table'))[0]).toBe('현금(예적금 포함) (10개)-99.9%');
+});
+
+test('each tab controls its own panel; the other one is hidden', () => {
+  render(<AssetAllocation allocation={allocation} typeLabel={typeLabel} />);
+  for (const name of ['종류별', '종목별']) {
+    const tab = screen.getByRole('tab', { name });
+    const panel = document.getElementById(tab.getAttribute('aria-controls')!)!;
+    expect(panel).toHaveAttribute('role', 'tabpanel');
+    expect(panel).toHaveAttribute('aria-labelledby', tab.id);
+    expect(panel.hidden).toBe(tab.getAttribute('aria-selected') !== 'true');
+  }
+});
+
 test('only 0 won assets: the table without a chart', () => {
   render(
     <AssetAllocation
@@ -178,8 +206,8 @@ test('the real chart is one image named by its largest line', async () => {
     <Real
       title="종목별"
       bars={[
-        { key: '3', name: '아파트', amountKrw: 300_000_000, share: '75.0' },
-        { key: '1', name: '통장', amountKrw: 100_000_000, share: '25.0' },
+        { key: '3', name: '아파트', amountKrw: 300_000_000, share: '75.0', value: 75 },
+        { key: '1', name: '통장', amountKrw: 100_000_000, share: '25.0', value: 25 },
       ]}
     />,
   );

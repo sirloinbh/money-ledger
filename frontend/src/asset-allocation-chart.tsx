@@ -16,7 +16,14 @@ import { formatWon } from './format';
 // One series, so no legend: the tab names it. The exact values are in the table below the chart, so the chart
 // is one image for screen readers. Colors: --chart-series-1 (index.css) for the bars, text tokens for labels.
 
-export type AllocationBar = { key: string; name: string; amountKrw: number; share: string };
+/** `value` is the share as a number, for the bar length only; the label shows `share` as the server sent it. */
+export type AllocationBar = {
+  key: string;
+  name: string;
+  amountKrw: number | null;
+  share: string;
+  value: number;
+};
 
 const rowHeight = 36;
 const nameLength = 8;
@@ -25,13 +32,9 @@ const nameLength = 8;
 const shortName = (name: string) =>
   name.length > nameLength ? `${name.slice(0, nameLength - 1)}…` : name;
 
-/** Axis ticks: 0 / 5만 / 1억 … in 만원 or 억원, full numbers below 10,000. */
-const compactWon = (value: number) => {
-  const format = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 });
-  if (value >= 100_000_000) return `${format.format(value / 100_000_000)}억`;
-  if (value >= 10_000) return `${format.format(value / 10_000)}만`;
-  return format.format(value);
-};
+/** The won amount, or a note when it is too large to show exactly (the table says the same). */
+const amountText = (amount: number | null) =>
+  amount === null ? '금액이 너무 커 표시 불가' : formatWon(amount);
 
 function ShareTooltip({ active, payload }: TooltipContentProps) {
   const bar = active ? (payload[0]?.payload as AllocationBar | undefined) : undefined;
@@ -40,7 +43,7 @@ function ShareTooltip({ active, payload }: TooltipContentProps) {
     <div className="rounded-md border bg-popover px-3 py-2 text-body-sm text-popover-foreground shadow-sm">
       <p className="font-medium">{bar.name}</p>
       <p className="tabular-nums">
-        {formatWon(bar.amountKrw)} · {bar.share}%
+        {amountText(bar.amountKrw)} · {bar.share}%
       </p>
     </div>
   );
@@ -53,7 +56,7 @@ export function AssetAllocationChart({ bars, title }: { bars: AllocationBar[]; t
   return (
     <div
       role="img"
-      aria-label={`${title} 자산 배분 가로 막대 차트. 가장 큰 항목은 ${largest.name} ${formatWon(largest.amountKrw)}(${largest.share}%)입니다. 모든 값은 아래 표에 있습니다.`}
+      aria-label={`${title} 자산 배분 가로 막대 차트. 가장 큰 항목은 ${largest.name} ${amountText(largest.amountKrw)}(${largest.share}%)입니다. 모든 값은 아래 표에 있습니다.`}
       className="w-full"
       style={{ height }}
     >
@@ -68,8 +71,8 @@ export function AssetAllocationChart({ bars, title }: { bars: AllocationBar[]; t
           <CartesianGrid horizontal={false} stroke="var(--border)" strokeWidth={1} />
           <XAxis
             type="number"
-            dataKey="amountKrw"
-            tickFormatter={compactWon}
+            dataKey="value"
+            tickFormatter={(value: number) => `${value}%`}
             tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
             axisLine={false}
             tickLine={false}
@@ -92,7 +95,7 @@ export function AssetAllocationChart({ bars, title }: { bars: AllocationBar[]; t
             isAnimationActive={false}
           />
           <Bar
-            dataKey="amountKrw"
+            dataKey="value"
             fill="var(--chart-series-1)"
             maxBarSize={24}
             radius={[0, 4, 4, 0]}

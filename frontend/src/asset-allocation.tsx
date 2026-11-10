@@ -41,9 +41,12 @@ const loadChart = () =>
   );
 const chart = { Chart: loadChart() };
 
-/** Bars with a won amount above 0: a 0 won asset is only in the table. */
-const drawn = (bars: { key: string; name: string; amountKrw: number | null; share: string }[]) =>
-  bars.filter((bar): bar is AllocationBar => bar.amountKrw !== null && bar.amountKrw > 0);
+/**
+ * Bars except 0 won lines (those are only in the table). The bar length is the share, so a line whose amount is
+ * too large to show exactly (amountKrw null) is still drawn.
+ */
+const drawn = (bars: Omit<AllocationBar, 'value'>[]): AllocationBar[] =>
+  bars.filter((bar) => bar.amountKrw !== 0).map((bar) => ({ ...bar, value: Number(bar.share) }));
 
 export function AssetAllocation({
   allocation,
@@ -104,7 +107,7 @@ export function AssetAllocation({
         <CardDescription>
           자산 합계를 종류와 종목으로 나눈 비중입니다. 부채는 넣지 않습니다.
           {allocation.excluded > 0
-            ? ` 시세·환율이 없거나 평가금액이 없는 ${allocation.excluded}개는 빠졌습니다.`
+            ? ` 시세·환율이나 평가금액이 없거나 금액이 너무 커서 계산하지 못한 ${allocation.excluded}개는 빠졌습니다.`
             : ''}
         </CardDescription>
       </CardHeader>
@@ -130,7 +133,7 @@ export function AssetAllocation({
                   role="tab"
                   id={`${baseId}-tab-${item.id}`}
                   aria-selected={tab === item.id}
-                  aria-controls={`${baseId}-panel`}
+                  aria-controls={`${baseId}-panel-${item.id}`}
                   tabIndex={tab === item.id ? 0 : -1}
                   onClick={() => setTab(item.id)}
                   onKeyDown={onKeyDown}
@@ -144,9 +147,20 @@ export function AssetAllocation({
                 </button>
               ))}
             </div>
+            {tabs
+              .filter((item) => item.id !== tab)
+              .map((item) => (
+                <div
+                  key={item.id}
+                  role="tabpanel"
+                  id={`${baseId}-panel-${item.id}`}
+                  aria-labelledby={`${baseId}-tab-${item.id}`}
+                  hidden
+                />
+              ))}
             <div
               role="tabpanel"
-              id={`${baseId}-panel`}
+              id={`${baseId}-panel-${tab}`}
               aria-labelledby={`${baseId}-tab-${tab}`}
               className="flex flex-col gap-4"
             >
