@@ -118,3 +118,8 @@
 리뷰 횟수 한도(2회)에 도달했다.
 
 검증: `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과(백엔드 327개, 프론트엔드 280개 중 278개 통과·2개 건너뜀(기존)), `npm run knip` 통과.
+
+## main 다시 병합 (병합 전)
+
+- #54(018 `mock_snapshots`)가 main에 들어와 origin/main을 다시 병합했다. 충돌은 없었다. 이 PR의 테스트는 `mock_accounts`를 지우지 않아 고칠 것이 없다.
+- 테스트 DB에 018을 적용했다. `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과(백엔드 330개(건너뜀 0), 프론트엔드 292개 중 290개 통과·2개 건너뜀(기존)), `npm run knip` 통과.
