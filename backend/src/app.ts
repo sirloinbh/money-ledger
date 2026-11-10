@@ -7,6 +7,7 @@ import { assetsRouter } from './assets.js';
 import { categoriesRouter } from './categories.js';
 import { entriesRouter } from './entries.js';
 import { mockAccountsRouter } from './mock-accounts.js';
+import { mockHoldingsRouter } from './mock-holdings.js';
 import { mockOrdersRouter } from './mock-orders.js';
 import { type PriceLog, type PriceSources, pricesRouter } from './prices/index.js';
 import { rulesRouter } from './rules.js';
@@ -53,6 +54,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   app.use('/api/ledger/rules', rulesRouter(pool));
   app.use('/api/portfolio/assets', assetsRouter(pool, today));
   app.use('/api/mock/accounts/:accountId/orders', mockOrdersRouter(pool, today));
+  app.use('/api/mock/accounts/:accountId/holdings', mockHoldingsRouter(pool, today));
   app.use('/api/mock/accounts', mockAccountsRouter(pool));
   app.use(
     '/api/prices',

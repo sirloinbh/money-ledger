@@ -254,13 +254,16 @@ export const trackedDays = 30;
 export type UsSecurity = { id: number; symbol: string; name: string | null };
 
 /**
- * US securities the daily fetch covers. Today that is the ones opened in the last 30 days (#51); portfolio
- * holdings (#47) and mock trading holdings (#53) are to be added to this query.
+ * US securities the daily fetch covers: the ones opened in the last 30 days (#51) and the ones the open mock
+ * trading account holds (#53), so their value keeps up. Portfolio holdings (#47) are to be added here.
  */
 export async function trackedUsSecurities(db: Db, now: Date): Promise<UsSecurity[]> {
   const { rows } = await db.query<{ id: string; symbol: string; name: string | null }>(
-    `SELECT id, symbol, name FROM securities
-     WHERE currency = 'USD' AND viewed_at > $1::timestamptz - make_interval(days => $2)
+    `SELECT id, symbol, name FROM securities s
+     WHERE currency = 'USD'
+       AND (viewed_at > $1::timestamptz - make_interval(days => $2)
+            OR EXISTS (SELECT 1 FROM mock_holdings h JOIN mock_accounts a ON a.id = h.account_id
+                       WHERE h.security_id = s.id AND a.closed_at IS NULL))
      ORDER BY symbol`,
     [now, trackedDays],
   );
