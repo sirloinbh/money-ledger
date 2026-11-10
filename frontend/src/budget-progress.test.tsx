@@ -300,3 +300,83 @@ test('a row that is no longer listed after the save gives the focus to the title
     expect(screen.getByRole('heading', { name: '카테고리별 예산' })).toHaveFocus(),
   );
 });
+
+test('a save that ends late leaves another row being edited alone, and the focus where it is', async () => {
+  let finish: (value: Response) => void = () => undefined;
+  answer = (call) =>
+    call.method === 'PUT'
+      ? new Promise<Response>((resolve) => {
+          finish = resolve;
+        })
+      : json(november);
+  show();
+  fireEvent.click(await screen.findByRole('button', { name: '식비 예산 수정' }));
+  fireEvent.change(screen.getByLabelText('식비 예산(원)'), { target: { value: '1000' } });
+  fireEvent.click(screen.getByRole('button', { name: '저장' }));
+  // While the save is on its way, another row is opened and typed in.
+  fireEvent.click(screen.getByRole('button', { name: '주거 예산 수정' }));
+  const other = screen.getByLabelText('주거 예산(원)');
+  fireEvent.change(other, { target: { value: '90000' } });
+  await vi.waitFor(() => expect(other).toHaveFocus());
+
+  finish(new Response(JSON.stringify({ budget: {} })));
+  expect(
+    await screen.findByText('식비 예산을 2026년 11월부터 1,000원으로 정했습니다'),
+  ).toBeInTheDocument();
+  await vi.waitFor(() => expect(gets()).toHaveLength(2));
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(screen.getByLabelText('주거 예산(원)')).toHaveValue('90000');
+  expect(screen.getByLabelText('주거 예산(원)')).toHaveFocus();
+});
+
+test('a save that ends after a month change leaves the focus on what was pressed', async () => {
+  let finish: (value: Response) => void = () => undefined;
+  answer = (call) =>
+    call.method === 'PUT'
+      ? new Promise<Response>((resolve) => {
+          finish = resolve;
+        })
+      : json(call.url.endsWith('2026-11') ? november : { month: '2026-10', budgets: [] });
+  show();
+  fireEvent.click(await screen.findByRole('button', { name: '식비 예산 수정' }));
+  fireEvent.click(screen.getByRole('button', { name: '저장' }));
+  const monthButton = screen.getByRole('button', { name: '2026-10로' });
+  monthButton.focus();
+  fireEvent.click(monthButton);
+  await screen.findByText('지출 카테고리가 없습니다.');
+  finish(new Response(JSON.stringify({ budget: {} })));
+  await vi.waitFor(() => expect(gets()).toHaveLength(3));
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(monthButton).toHaveFocus();
+});
+
+test('while another month loads, the dimmed rows of the last one cannot be edited', async () => {
+  let october: (value: Response) => void = () => undefined;
+  answer = (call) =>
+    call.url.endsWith('2026-11')
+      ? json(november)
+      : new Promise<Response>((resolve) => {
+          october = resolve;
+        });
+  show();
+  await screen.findByRole('button', { name: '식비 예산 수정' });
+  fireEvent.click(screen.getByRole('button', { name: '2026-10로' }));
+  await vi.waitFor(() => expect(screen.getByText('2026년 10월 기준')).toBeInTheDocument());
+  // November's rows stay dimmed until October arrives: no 수정, and their own month in the labels.
+  expect(screen.getByRole('button', { name: '식비 예산 수정' })).toBeDisabled();
+  expect(screen.getByText('2026년 8월에 정한 예산')).toBeInTheDocument();
+  expect(screen.queryByText('2026년 11월에 정한 예산')).not.toBeInTheDocument();
+  october(new Response(JSON.stringify({ month: '2026-10', budgets: [] })));
+  expect(await screen.findByText('지출 카테고리가 없습니다.')).toBeInTheDocument();
+});
+
+test('an error about a form goes away with the form when the month changes', async () => {
+  show();
+  fireEvent.click(await screen.findByRole('button', { name: '식비 예산 수정' }));
+  fireEvent.change(screen.getByLabelText('식비 예산(원)'), { target: { value: 'abc' } });
+  fireEvent.click(screen.getByRole('button', { name: '저장' }));
+  expect(screen.getByRole('alert')).toHaveTextContent('예산은 0원 이상의 정수로 입력하세요');
+  fireEvent.click(screen.getByRole('button', { name: '2026-10로' }));
+  await screen.findByText('지출 카테고리가 없습니다.');
+  expect(screen.queryByText('예산은 0원 이상의 정수로 입력하세요')).not.toBeInTheDocument();
+});

@@ -80,9 +80,12 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
   // A save started on one month may finish after the summary moved to another: it must reload the month shown
   // then, not the one it started on.
   const loadShown = useRef(load);
+  // What is on the screen now, for a save that ends later: the month and the open form.
+  const now = useRef({ month, editing });
   useEffect(() => {
     loadShown.current = load;
-  }, [load]);
+    now.current = { month, editing };
+  }, [load, month, editing]);
 
   // 수정 opens the form: the amount field takes the focus.
   useEffect(() => {
@@ -95,6 +98,7 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
     setFormMonth(month);
     setEditing(undefined);
     setInvalid(false);
+    clear();
   }
 
   const startEdit = (budget: Budget) => {
@@ -131,9 +135,13 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
           ? `${budget.name} 예산을 ${monthLabel(month)}부터 미설정으로 바꿨습니다`
           : `${budget.name} 예산을 ${monthLabel(month)}부터 ${formatWon(amount)}으로 정했습니다`,
       );
-      // Reload first, so the focus goes to the row as it is listed after the save.
+      // Reload first, so the focus goes to the row as it is listed after the save. Only this save's own form
+      // closes and takes the focus back: if the user meanwhile opened another row or moved to another month,
+      // that is left as it is.
       await loadShown.current();
-      stopEdit(budget.categoryId);
+      if (now.current.month === month && now.current.editing === budget.categoryId) {
+        stopEdit(budget.categoryId);
+      }
     } catch (cause) {
       showError(cause, '예산을 저장하지 못했습니다');
     } finally {
@@ -194,7 +202,10 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
                   >
                     <BudgetRow
                       budget={budget}
-                      month={month}
+                      // The rows are of shown.month; while another month loads they are not editable, so an
+                      // old amount is never saved into the new month.
+                      month={shown.month}
+                      disabled={loading}
                       onEdit={() => startEdit(budget)}
                       editRef={(button) => {
                         if (button) editButtons.current.set(budget.categoryId, button);
@@ -258,11 +269,13 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
 function BudgetRow({
   budget,
   month,
+  disabled,
   onEdit,
   editRef,
 }: {
   budget: Budget;
   month: string;
+  disabled: boolean;
   onEdit: () => void;
   editRef: (button: HTMLButtonElement | null) => void;
 }) {
@@ -289,6 +302,7 @@ function BudgetRow({
             size="sm"
             variant="ghost"
             aria-label={`${budget.name} 예산 수정`}
+            disabled={disabled}
             onClick={onEdit}
           >
             수정
