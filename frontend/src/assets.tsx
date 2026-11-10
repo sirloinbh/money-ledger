@@ -1,5 +1,6 @@
 import { type FormEvent, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 
+import { type Allocation, AssetAllocation } from './asset-allocation';
 import { AssetTrades } from './asset-trades';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
@@ -146,6 +147,7 @@ const typeLabels: Record<AssetType, string> = {
   debt: '부채',
 };
 const typeOrder = Object.keys(typeLabels) as AssetType[];
+const typeLabel = (type: string) => typeLabels[type as AssetType] ?? type;
 // #46 Types that can have buy and sell records (decision 2026-11-08).
 const tradeableTypes: readonly AssetType[] = ['stock', 'other'];
 const selectClass =
@@ -467,6 +469,7 @@ function prepaidText(prepaid: Prepaid) {
 export function AssetManager() {
   const [assets, setAssets] = useState<Asset[] | undefined>(undefined);
   const [totals, setTotals] = useState<Totals | undefined>(undefined);
+  const [allocation, setAllocation] = useState<Allocation | undefined>(undefined);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [editing, setEditing] = useState<Asset | undefined>(undefined);
   const tradeManaged = editing?.hasTrades === true;
@@ -483,9 +486,12 @@ export function AssetManager() {
   const { error: showError, status: showStatus } = notice;
 
   const load = useCallback(async () => {
-    const data = await requestJson<{ assets: Asset[]; totals: Totals }>(assetsPath);
+    const data = await requestJson<{ assets: Asset[]; totals: Totals; allocation: Allocation }>(
+      assetsPath,
+    );
     setAssets(data.assets);
     setTotals(data.totals);
+    setAllocation(data.allocation);
   }, []);
 
   useEffect(() => {
@@ -636,6 +642,7 @@ export function AssetManager() {
     <div className="flex flex-col gap-6">
       <Notice id="assets-notice" notice={notice.notice} />
       {totals ? <Summary totals={totals} /> : null}
+      {allocation ? <AssetAllocation allocation={allocation} typeLabel={typeLabel} /> : null}
       <Card>
         <CardHeader>
           <CardTitle asHeading="h2">{editing ? '자산 수정' : '새 자산'}</CardTitle>
