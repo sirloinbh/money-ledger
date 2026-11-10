@@ -25,3 +25,18 @@ export const formatClose = (quote: Quote) => formatPrice(quote.close, quote.curr
 /** "11월 6일 종가 기준", or "시세 지연 · 11월 6일 종가 기준" for a close more than 5 days old. */
 export const quoteBasis = (quote: Quote) =>
   `${quote.stale ? '시세 지연 · ' : ''}${formatMonthDay(quote.tradeDate)} 종가 기준`;
+
+export const marketNames: Record<string, string> = {
+  KOSPI: '유가증권',
+  KOSDAQ: '코스닥',
+  KRX_ETF: '국내 ETF',
+  NYSE: 'NYSE',
+  NASDAQ: 'NASDAQ',
+  NYSE_ARCA: 'NYSE Arca',
+};
+
+/** "삼성전자 · 005930 · 유가증권" (#47). A US security without a saved name shows its ticker only. */
+export const securityText = (security: { name: string | null; symbol: string; market: string }) =>
+  [security.name, security.symbol, marketNames[security.market] ?? security.market]
+    .filter(Boolean)
+    .join(' · ');

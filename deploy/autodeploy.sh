@@ -1,20 +1,23 @@
 #!/bin/bash
 # 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
 # Pull-based continuous deployment, run every 2 minutes by money-autodeploy.timer.
-# Deploys origin/main only after every GitHub Actions check run of that commit passed.
+# Deploys origin/main only after every workflow run of the repository for that commit passed.
 # The firewall stays closed to GitHub: the server polls the public repository and API.
 #   autodeploy.sh            check and deploy if needed
-#   autodeploy.sh ci-state   print pass|fail|pending for check-runs JSON on stdin (tests)
+#   autodeploy.sh ci-state   print pass|fail|pending for workflow-runs JSON on stdin (tests)
 set -euo pipefail
 repo=sirloinbh/money-ledger
 app=/opt/money-ledger
 
-# pass: every check run completed with success/skipped/neutral; fail: any other result;
+# pass: every workflow run completed with success/skipped/neutral; fail: any other result;
 # pending: none reported yet or still running.
+# Runs GitHub starts on its own (event "dynamic": Dependabot updates, CodeQL default setup)
+# do not count: a Dependabot update failing for lack of a fixed version, or CodeQL failing to
+# download its CLI, says nothing about the commit, and those runs cannot be re-run (#417).
 ci_state() {
   python3 -c '
 import json, sys
-runs = json.load(sys.stdin).get("check_runs", [])
+runs = [r for r in json.load(sys.stdin).get("workflow_runs", []) if r.get("event") != "dynamic"]
 if not runs or any(r["status"] != "completed" for r in runs):
     print("pending")
 elif all(r["conclusion"] in ("success", "skipped", "neutral") for r in runs):
@@ -50,7 +53,7 @@ if [ "$sha" = "$(cat .autodeploy-failed 2>/dev/null || true)" ]; then
 fi
 
 state=$(curl -fsS -H 'Accept: application/vnd.github+json' \
-  "https://api.github.com/repos/$repo/commits/$full/check-runs?per_page=100" | ci_state)
+  "https://api.github.com/repos/$repo/actions/runs?head_sha=$full&per_page=100" | ci_state)
 case "$state" in
   pending)
     echo "waiting for CI of $sha"

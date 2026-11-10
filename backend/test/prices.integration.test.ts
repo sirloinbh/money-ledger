@@ -83,16 +83,26 @@ test('shared price store against the real database', { skip: !url }, async (t) =
 
   const reset = async () => {
     await pool.query(
-      'DROP TABLE IF EXISTS mock_orders, mock_holdings, security_prices, fx_rates, price_fetch_state, price_api_calls, krx_market_days, securities',
+      'DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets, mock_orders, mock_holdings, security_prices, fx_rates, price_fetch_state, price_api_calls, krx_market_days, securities',
     );
     await runMigration(pool, '009_prices.sql');
     await runMigration(pool, '012_krx_listing.sql');
     // re-running is safe
     await runMigration(pool, '009_prices.sql');
     await runMigration(pool, '012_krx_listing.sql');
-    // The daily fetch also covers US securities the mock account holds (#53).
-    await runMigration(pool, '005_mock_accounts.sql');
-    await runMigration(pool, '015_mock_orders.sql');
+    // The daily fetch also covers US securities linked to portfolio assets (#47) and held in the mock
+    // account (#53).
+    for (const file of [
+      '004_portfolio_assets.sql',
+      '007_depreciable_assets.sql',
+      '010_prepaid_assets.sql',
+      '013_asset_trades.sql',
+      '016_asset_valuation.sql',
+      '005_mock_accounts.sql',
+      '015_mock_orders.sql',
+    ]) {
+      await runMigration(pool, file);
+    }
   };
   const closesOf = async (symbol: string) =>
     (

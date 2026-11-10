@@ -51,6 +51,8 @@ test('prepaid assets against the real database', { skip: !url }, async (t) => {
     await runMigration(pool, '010_prepaid_assets.sql');
     await runMigration(pool, '013_asset_trades.sql');
     await runMigration(pool, '010_prepaid_assets.sql'); // re-running is safe
+    await runMigration(pool, '009_prices.sql');
+    await runMigration(pool, '016_asset_valuation.sql');
   };
 
   await t.test(

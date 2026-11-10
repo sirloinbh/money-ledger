@@ -120,7 +120,7 @@ verify() {
   restore_container=$container
   docker run -d --rm --name "$container" -e POSTGRES_PASSWORD=restore-check -e POSTGRES_DB=restore_check "$image" > /dev/null
   for _ in $(seq 1 60); do
-    if docker exec "$container" pg_isready -q -U postgres -d restore_check 2> /dev/null; then break; fi
+    if docker exec "$container" pg_isready -q -h 127.0.0.1 -U postgres -d restore_check 2> /dev/null; then break; fi
     sleep 2
   done
   gunzip -c "$latest" | docker exec -i "$container" psql -q -v ON_ERROR_STOP=1 -U postgres -d restore_check > /dev/null

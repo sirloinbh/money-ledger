@@ -49,6 +49,8 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
       '010_prepaid_assets.sql',
       '013_asset_trades.sql',
       '013_asset_trades.sql', // re-running is safe
+      '009_prices.sql',
+      '016_asset_valuation.sql',
     ]) {
       await runMigration(pool, file);
     }

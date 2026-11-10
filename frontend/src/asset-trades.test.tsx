@@ -31,6 +31,16 @@ const json = (body: unknown, status = 200) =>
 
 const view = (asset: Asset) => ({
   ...asset,
+  // #47 fields: no link, no price, no rate unless a test sets them.
+  security: null,
+  manualPrice: null,
+  price: null,
+  fx: null,
+  currentValueForeign: asset.valueForeign ?? null,
+  valueIssue: null,
+  costKrw: null,
+  profitKrw: null,
+  returnPercent: null,
   depreciation: null,
   prepaid: null,
   currentValueKrw: asset.valueKrw,
