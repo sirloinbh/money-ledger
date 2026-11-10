@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { MemoryRouter, useLocation } from 'react-router';
+import { MemoryRouter, useLocation, useSearchParams } from 'react-router';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { EntryManager } from './entries';
@@ -429,4 +429,42 @@ test('applying filters keeps the summary month (#40) in the address', async () =
       new URLSearchParams('month=2026-09&page=3'),
     ).toString(),
   ).toBe('month=2026-09&from=2026-11-01&to=2026-11-30');
+});
+
+function MonthButton() {
+  const [, setSearchParams] = useSearchParams();
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        setSearchParams((prev) => {
+          const params = new URLSearchParams(prev);
+          params.set('month', '2026-09');
+          return params;
+        })
+      }
+    >
+      요약 달 바꾸기
+    </button>
+  );
+}
+
+test('changing the summary month (#40) keeps what is typed in the filter form', async () => {
+  render(
+    <MemoryRouter initialEntries={['/ledger']}>
+      <EntryManager />
+      <MonthButton />
+      <Address />
+    </MemoryRouter>,
+  );
+  await screen.findByRole('list', { name: '내역 목록' });
+  fireEvent.change(screen.getByLabelText('검색어'), { target: { value: '점심' } });
+  fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'income' } });
+  const loads = listUrls.length;
+  fireEvent.click(screen.getByRole('button', { name: '요약 달 바꾸기' }));
+  await vi.waitFor(() => expect(address()).toContain('month=2026-09'));
+  expect(screen.getByLabelText('검색어')).toHaveValue('점심');
+  expect(screen.getByLabelText('종류')).toHaveValue('income');
+  // The list does not reload for a key that is not a filter.
+  expect(listUrls.length).toBe(loads);
 });

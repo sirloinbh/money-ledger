@@ -19,6 +19,7 @@ const invalid = [
   { query: 'month=2026-11-01', error: '월을 YYYY-MM 형식으로 입력하세요' },
   { query: 'month=2026-11&month=2026-12', error: '월을 YYYY-MM 형식으로 입력하세요' },
   { query: 'month=1899-12', error: '월은 1900년부터 2100년 사이로 입력하세요' },
+  { query: 'month=2101-01', error: '월은 1900년부터 2100년 사이로 입력하세요' },
 ];
 
 for (const { query, error } of invalid) {

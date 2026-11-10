@@ -1,4 +1,13 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Component,
+  lazy,
+  type ReactNode,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { useSearchParams } from 'react-router';
 
 import { Button } from './components/ui/button';
@@ -54,6 +63,7 @@ export function MonthlySummary({ version = 0 }: { version?: number }) {
   const [failed, setFailed] = useState(false);
   // Only the latest request may fill the summary.
   const latest = useRef(0);
+  const title = useRef<HTMLHeadingElement>(null);
 
   const load = useCallback(async () => {
     const request = ++latest.current;
@@ -78,14 +88,23 @@ export function MonthlySummary({ version = 0 }: { version?: number }) {
       return params;
     });
 
-  // While another month loads, the previous one stays dimmed so the buttons and focus hold.
-  const shown = summary;
-  const loading = !failed && shown !== undefined && shown.month !== month;
+  // While another month loads, the previous one stays dimmed so the buttons and focus hold. If that load
+  // fails, the previous month is not shown at all: under the new month's name it would read as its numbers.
+  const stale = summary !== undefined && summary.month !== month;
+  const shown = failed && stale ? undefined : summary;
+  const loading = stale && !failed;
+  const retry = () => {
+    // The retry button goes away at once: focus the section title instead of losing it.
+    title.current?.focus();
+    void load();
+  };
 
   return (
     <section aria-labelledby="summary-title" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="summary-title">월별 요약</h2>
+        <h2 id="summary-title" ref={title} tabIndex={-1} className="outline-none">
+          월별 요약
+        </h2>
         <div className="flex items-center gap-2">
           <Button
             type="button"
@@ -113,7 +132,13 @@ export function MonthlySummary({ version = 0 }: { version?: number }) {
       {failed ? (
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-body-sm text-muted-foreground">요약을 불러오지 못했습니다.</p>
-          <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-label="요약 다시 시도"
+            onClick={retry}
+          >
             다시 시도
           </Button>
         </div>
@@ -141,13 +166,17 @@ export function MonthlySummary({ version = 0 }: { version?: number }) {
                 <p className="text-body-sm text-muted-foreground">이 달에는 지출이 없습니다.</p>
               ) : (
                 <>
-                  <Suspense
-                    fallback={
-                      <p className="text-body-sm text-muted-foreground">차트를 불러오는 중입니다</p>
-                    }
-                  >
-                    <CategoryShareChart categories={shown.categories} />
-                  </Suspense>
+                  <ChartBoundary>
+                    <Suspense
+                      fallback={
+                        <p className="text-body-sm text-muted-foreground">
+                          차트를 불러오는 중입니다
+                        </p>
+                      }
+                    >
+                      <CategoryShareChart categories={shown.categories} />
+                    </Suspense>
+                  </ChartBoundary>
                   <ShareTable categories={shown.categories} total={shown.expense} />
                 </>
               )}
@@ -157,6 +186,28 @@ export function MonthlySummary({ version = 0 }: { version?: number }) {
       )}
     </section>
   );
+}
+
+/**
+ * The chart file failing to load (an old tab after a deploy, offline) must not take the page down: say so in
+ * place of the chart. The table next to it still has every value.
+ */
+class ChartBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    return this.state.failed ? (
+      <p className="text-body-sm text-muted-foreground">
+        차트를 불러오지 못했습니다. 아래 표에서 값을 확인하세요.
+      </p>
+    ) : (
+      this.props.children
+    );
+  }
 }
 
 function Total({ label, value, hint }: { label: string; value: string; hint?: string }) {

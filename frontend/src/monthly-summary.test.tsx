@@ -127,7 +127,7 @@ test('a failed load says so and can be retried', async () => {
   show();
   expect(await screen.findByText('요약을 불러오지 못했습니다.')).toBeInTheDocument();
   answer = () => json(november);
-  fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+  fireEvent.click(screen.getByRole('button', { name: '요약 다시 시도' }));
   await screen.findByRole('table');
   expect(screen.queryByText('요약을 불러오지 못했습니다.')).not.toBeInTheDocument();
 });
@@ -174,4 +174,38 @@ test('an older month that answers last does not replace the month shown', async 
   await screen.findByRole('table');
   expect(screen.getByText('2026년 11월')).toBeInTheDocument();
   expect(total('수입')).toBe('3,050,000원');
+});
+
+test('a month that fails to load does not show the previous month under its name', async () => {
+  show();
+  await screen.findByRole('table');
+  answer = () => json({ error: '서버 오류' }, 500);
+  fireEvent.click(screen.getByRole('button', { name: '요약 이전 달' }));
+  expect(await screen.findByText('요약을 불러오지 못했습니다.')).toBeInTheDocument();
+  expect(screen.getByText('2026년 10월')).toBeInTheDocument();
+  expect(screen.queryByText('3,050,000원')).not.toBeInTheDocument();
+  expect(screen.queryByRole('table')).not.toBeInTheDocument();
+});
+
+test('retrying keeps focus in the summary: on its title', async () => {
+  answer = () => json({ error: '서버 오류' }, 500);
+  show();
+  const retry = await screen.findByRole('button', { name: '요약 다시 시도' });
+  answer = () => json(november);
+  retry.focus();
+  fireEvent.click(retry);
+  expect(screen.getByRole('heading', { name: '월별 요약' })).toHaveFocus();
+  await screen.findByRole('table');
+});
+
+test('months outside 1900–2100 in the address fall back to this month', async () => {
+  const first = show('/ledger?month=2101-01');
+  await screen.findByRole('table');
+  expect(urls.at(-1)).toBe('/api/ledger/summary?month=2026-11');
+  first.unmount();
+  show('/ledger?month=1899-12');
+  await screen.findByRole('table');
+  expect(urls.at(-1)).toBe('/api/ledger/summary?month=2026-11');
+  show('/ledger?month=2100-12');
+  await vi.waitFor(() => expect(urls.at(-1)).toBe('/api/ledger/summary?month=2100-12'));
 });

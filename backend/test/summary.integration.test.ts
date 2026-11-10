@@ -143,4 +143,10 @@ test('monthly summary against the real database', { skip: !url }, async (t) => {
     const may = await summary('2026-05');
     assert.equal(may.balance, -1500);
   });
+
+  await t.test('the first and last months the API accepts are answered', async () => {
+    await reset();
+    assert.equal((await summary('1900-01')).expense, 0);
+    assert.equal((await summary('2100-12')).expense, 0);
+  });
 });
