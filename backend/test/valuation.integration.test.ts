@@ -54,6 +54,9 @@ test('asset valuation against the real database', { skip: !url }, async (t) => {
       '012_krx_listing.sql',
       '016_asset_valuation.sql',
       '016_asset_valuation.sql', // re-running is safe
+      // The daily fetch also reads mock trading holdings (#53).
+      '005_mock_accounts.sql',
+      '015_mock_orders.sql',
     ]) {
       await runMigration(pool, file);
     }

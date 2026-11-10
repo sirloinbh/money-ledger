@@ -111,6 +111,7 @@ test('a US sale shows the rate and a delayed close, and sends side sell', async 
   const dialog = await screen.findByRole('dialog', { name: 'Apple Inc 3주 매도' });
   expect(dialog).toHaveTextContent('11월 6일 종가 231.5달러로 체결합니다 (시세 지연)');
   expect(dialog).toHaveTextContent('환율 1,384.5원(11월 6일 매매기준율)으로 원화로 바꿉니다');
+  expect(dialog).toHaveTextContent('보유 3주 중 3주를 팝니다');
   fireEvent.click(within(dialog).getByRole('button', { name: '매도' }));
   await screen.findByText(/종가로 (매수|매도)했습니다/);
   expect(posts()[0].body?.side).toBe('sell');
