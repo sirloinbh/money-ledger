@@ -14,6 +14,8 @@ type Account = {
 let open: Account | null;
 let closed: Account[];
 let requests: { method: string; url: string; body: unknown }[];
+// The account that holds one share of 삼성전자 (#53), if any.
+let heldBy: number | undefined;
 // When set, the next POST answers with this error instead.
 let failNext: { status: number; error: string } | undefined;
 
@@ -49,7 +51,30 @@ function fakeApi() {
             profitKrw: 0,
             returnPct: '0.00',
           },
-          holdings: [],
+          holdings:
+            open && open.id === heldBy
+              ? [
+                  {
+                    security: {
+                      id: 1,
+                      symbol: '005930',
+                      name: '삼성전자',
+                      currency: 'KRW',
+                      active: true,
+                    },
+                    quantity: '1.00000000',
+                    price: '70600.0000',
+                    priceDate: '2026-11-06',
+                    priceStale: false,
+                    fxRate: null,
+                    fxDate: null,
+                    costKrw: 70_600,
+                    valueKrw: 70_600,
+                    profitKrw: 0,
+                    returnPct: '0.00',
+                  },
+                ]
+              : [],
         });
       }
       if (method === 'GET') return json({ account: open, closedAccounts: closed });
@@ -74,6 +99,7 @@ beforeEach(() => {
   closed = [];
   requests = [];
   failNext = undefined;
+  heldBy = undefined;
   fakeApi();
 });
 
@@ -242,4 +268,21 @@ test('a new refresh key (an order elsewhere on the page) reloads the cash', asyn
   const gets = (path: string) => requests.filter((request) => request.url === path);
   expect(gets('/api/mock/accounts')).toHaveLength(2);
   expect(gets('/api/mock/accounts/1/holdings')).toHaveLength(2);
+});
+
+test('a holding order form left open does not carry over to the account after a reset', async () => {
+  open = account(1, 10_000_000);
+  heldBy = 1;
+  render(<MockAccount />);
+  fireEvent.click(await screen.findByRole('button', { name: '삼성전자 주문' }));
+  expect(screen.getByRole('form', { name: '삼성전자 모의 주문' })).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: '초기화' }));
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.click(within(dialog).getByRole('button', { name: '초기화' }));
+  expect(await screen.findByText(/계좌를 초기화했습니다/)).toBeInTheDocument();
+  await screen.findByText(/보유 종목이 없습니다/);
+  // The new account never held 삼성전자, so nothing says it was sold.
+  expect(screen.queryByText(/보유분을 모두 팔았습니다/)).toBeNull();
+  expect(screen.queryByRole('form', { name: '삼성전자 모의 주문' })).toBeNull();
 });

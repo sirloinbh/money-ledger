@@ -206,7 +206,13 @@ export function MockAccount({
                 </dd>
               </div>
             </dl>
-            <MockHoldings accountId={account.id} refreshKey={refreshKey} onOrdered={onOrdered} />
+            {/* Keyed by account, so an open order form and its state never carry over to a reset account. */}
+            <MockHoldings
+              key={account.id}
+              accountId={account.id}
+              refreshKey={refreshKey}
+              onOrdered={onOrdered}
+            />
             <section aria-labelledby="mock-reset-title" className="flex flex-col gap-3">
               <h3 id="mock-reset-title" className="text-body font-semibold">
                 처음부터 다시 시작

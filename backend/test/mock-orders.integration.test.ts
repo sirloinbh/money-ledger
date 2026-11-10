@@ -670,6 +670,31 @@ test('mock trading market orders against the real database', { skip: !url }, asy
           const loss = (await holdings()).summary;
           assert.deepEqual([loss.profitKrw, loss.returnPct], [-4_955, '-0.05']);
 
+          // Without a USD rate the US holding has no value, and the totals are unknown rather than wrong.
+          await pool.query("DELETE FROM fx_rates WHERE currency = 'USD'");
+          const unknown = await holdings();
+          const us = unknown.holdings.find((held) => held.security.symbol === 'AAPL')!;
+          assert.deepEqual(
+            [us.valueKrw, us.profitKrw, us.returnPct, us.costKrw],
+            [null, null, null, 641_024],
+          );
+          assert.deepEqual(
+            [
+              unknown.summary.valueKrw,
+              unknown.summary.totalKrw,
+              unknown.summary.profitKrw,
+              unknown.summary.returnPct,
+              unknown.summary.costKrw,
+            ],
+            [null, null, null, null, 706_000 + 641_024],
+          );
+          // A holding without a value sorts after the valued ones.
+          assert.deepEqual(
+            unknown.holdings.map((held) => held.security.symbol),
+            ['005930', 'AAPL'],
+          );
+          await addRate();
+
           // Selling everything takes the holding off the list.
           await pool.query(
             "INSERT INTO security_prices (security_id, trade_date, close, currency, source) VALUES ($1, '2026-11-09', 240, 'USD', 'T')",

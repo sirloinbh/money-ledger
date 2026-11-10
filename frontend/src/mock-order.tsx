@@ -188,15 +188,14 @@ export function MockOrder({
   ) : undefined;
 
   return (
-    <section aria-labelledby={`${id}-title`} className="flex flex-col gap-3">
-      <h3 id={`${id}-title`} className="text-body font-semibold">
-        모의 주문
-      </h3>
+    // Named after the security: a holding (#53) and the security detail can each show a form on one page.
+    <section aria-label={`${title} 모의 주문`} className="flex flex-col gap-3">
+      <h3 className="text-body font-semibold">모의 주문</h3>
       <p id={`${id}-hint`} className="text-caption text-muted-foreground">
         저장된 최신 종가로 바로 체결합니다. 1주 단위로 주문할 수 있습니다.
       </p>
       <form
-        aria-label="모의 주문"
+        aria-label={`${title} 모의 주문`}
         onSubmit={(event) => void check(event)}
         className="flex flex-col gap-3 sm:flex-row sm:items-end"
       >
