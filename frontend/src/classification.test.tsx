@@ -287,7 +287,7 @@ test('deleting a rule asks first and then moves focus to the rules heading', asy
   fireEvent.click(await screen.findByRole('button', { name: '스타벅스 규칙 삭제' }));
   const dialog = await screen.findByRole('dialog', { name: '규칙을 삭제할까요?' });
   expect(dialog).toHaveTextContent('이미 분류한 내역은 그대로 둡니다');
-  fireEvent.click(within(dialog).getByRole('button', { name: '삭제' }));
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
   // The confirm button's spinner is a status too: wait for the message itself.
   expect(await screen.findByText("'스타벅스' 규칙을 삭제했습니다")).toBeInTheDocument();
   expect(screen.getByText('아직 분류 규칙이 없습니다.')).toBeInTheDocument();

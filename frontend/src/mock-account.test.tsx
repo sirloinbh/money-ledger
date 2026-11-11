@@ -216,7 +216,7 @@ test('cancelling the reset sends nothing', async () => {
   render(<MockAccount />);
   fireEvent.click(await screen.findByRole('button', { name: '초기화' }));
   const dialog = await screen.findByRole('dialog');
-  fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
   await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   expect(posts()).toEqual([]);
 });

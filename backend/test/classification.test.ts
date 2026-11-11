@@ -46,7 +46,7 @@ const invalid = [
     path: '/api/ledger/entries/classify',
     label: 'an entry id that is not a positive integer',
     body: { entryIds: [0], categoryId: 1 },
-    error: '내역 ID가 올바르지 않습니다',
+    error: 'Invalid 내역 ID',
   },
   {
     path: '/api/ledger/entries/classify',
@@ -78,6 +78,6 @@ test('a malformed rule id is a Korean 400', async () => {
   await withApi(noDb, async (call) => {
     const response = await call('/api/ledger/rules/x', { method: 'DELETE' });
     assert.equal(response.status, 400);
-    assert.deepEqual(response.data, { error: '규칙 ID가 올바르지 않습니다' });
+    assert.deepEqual(response.data, { error: 'Invalid 규칙 ID' });
   });
 });

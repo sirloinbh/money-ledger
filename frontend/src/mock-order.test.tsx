@@ -145,14 +145,14 @@ test('a lost connection keeps the request key for the retry; a refusal starts a 
   fireEvent.click(within(dialog).getByRole('button', { name: '매수' }));
   expect(
     await screen.findByText(
-      '서버에 연결할 수 없습니다. 주문이 체결됐을 수 있으니 계좌 현금을 확인하세요',
+      'Cannot reach the server. 주문이 체결됐을 수 있으니 계좌 현금을 확인하세요',
     ),
   ).toBeInTheDocument();
   // The account card is reloaded in case the order filled.
   expect(onOrdered).toHaveBeenCalledTimes(1);
 
   // Closed and confirmed again: the same order goes with the same key, so it cannot fill twice.
-  fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
   postAnswers = [{ status: 409, body: { error: '현금이 부족합니다' } }];
   orderFor('10');
   dialog = await screen.findByRole('dialog');

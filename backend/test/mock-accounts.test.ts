@@ -51,6 +51,6 @@ test('a malformed account id on reset is a Korean 400', async () => {
   await withApi(noDb, async (call) => {
     const response = await call('/api/mock/accounts/abc/reset', { method: 'POST', body: {} });
     assert.equal(response.status, 400);
-    assert.deepEqual(response.data, { error: '모의투자 계좌 ID가 올바르지 않습니다' });
+    assert.deepEqual(response.data, { error: 'Invalid 모의투자 계좌 ID' });
   });
 });

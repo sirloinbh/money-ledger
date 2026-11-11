@@ -86,8 +86,8 @@ test('a trade dated after today is a Korean 400 before the DB', async () => {
 test('malformed asset and trade ids are Korean 400s', async () => {
   await withApi(noDb, async (call) => {
     const asset = await call('/api/portfolio/assets/x/trades');
-    assert.deepEqual(asset.data, { error: '자산 ID가 올바르지 않습니다' });
+    assert.deepEqual(asset.data, { error: 'Invalid 자산 ID' });
     const trade = await call('/api/portfolio/assets/1/trades/x', { method: 'DELETE' });
-    assert.deepEqual(trade.data, { error: '거래 ID가 올바르지 않습니다' });
+    assert.deepEqual(trade.data, { error: 'Invalid 거래 ID' });
   });
 });

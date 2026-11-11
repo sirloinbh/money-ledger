@@ -148,7 +148,7 @@ test('a failure to load is reported as an alert', async () => {
     vi.fn(() => Promise.reject(new TypeError('offline'))),
   );
   render(<CategoryManager />);
-  expect(await screen.findByRole('alert')).toHaveTextContent('서버에 연결할 수 없습니다');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Cannot reach the server');
   expect(screen.queryByText('카테고리를 불러오는 중입니다')).not.toBeInTheDocument();
 });
 

@@ -47,7 +47,7 @@ const invalidSaves = [
   {
     path: 'abc',
     body: { month: '2026-11', amount: 1000 },
-    error: '카테고리 ID가 올바르지 않습니다',
+    error: 'Invalid 카테고리 ID',
   },
 ];
 

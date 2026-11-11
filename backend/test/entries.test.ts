@@ -77,7 +77,7 @@ test('a malformed entry id is a Korean 400', async () => {
   await withApi(noDb, async (call) => {
     const response = await call('/api/ledger/entries/abc', { method: 'DELETE' });
     assert.equal(response.status, 400);
-    assert.deepEqual(response.data, { error: '내역 ID가 올바르지 않습니다' });
+    assert.deepEqual(response.data, { error: 'Invalid 내역 ID' });
   });
 });
 
