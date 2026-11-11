@@ -263,7 +263,7 @@ const totalText = (value: number | null) =>
   value === null ? 'Too large to show' : value < 0 ? `-${formatWon(-value)}` : formatWon(value);
 
 /**
- * The request body for a draft, or the field and Korean message that is wrong. Mirrors the server rules
+ * The request body for a draft, or the field and message that is wrong. Mirrors the server rules
  * so the common mistakes are caught before sending; the server checks again.
  */
 function toBody(
@@ -869,7 +869,7 @@ export function AssetManager() {
                 ) : null}
                 <fieldset className="flex flex-col gap-2" disabled={linked}>
                   <legend className="mb-2 text-body-sm font-medium">
-                    {linked ? 'Currency (the security’s currency)' : 'Currency'}
+                    {linked ? 'Currency (from the security)' : 'Currency'}
                   </legend>
                   <div className="flex gap-4">
                     {(['KRW', 'USD'] as const).map((currency) => (

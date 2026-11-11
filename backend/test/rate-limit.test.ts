@@ -7,7 +7,7 @@ import { withApi } from './helpers.js';
 
 const pool = { query: async () => ({ rows: [] }) } as unknown as Pool;
 
-test('requests over the per-minute limit get a Korean 429', async () => {
+test('requests over the per-minute limit get a 429', async () => {
   await withApi(
     pool,
     async (call) => {
@@ -15,7 +15,7 @@ test('requests over the per-minute limit get a Korean 429', async () => {
       assert.equal((await call('/api/health')).status, 200);
       const limited = await call('/api/health');
       assert.equal(limited.status, 429);
-      assert.deepEqual(limited.data, { error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요' });
+      assert.deepEqual(limited.data, { error: 'Too many requests. Try again in a moment' });
     },
     { requestsPerMinute: 2 },
   );

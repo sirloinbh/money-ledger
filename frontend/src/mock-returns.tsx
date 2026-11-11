@@ -122,7 +122,7 @@ export function MockReturns({ accountId, refreshKey }: { accountId: number; refr
           <p className="text-body-sm text-muted-foreground">
             {points.length === 0
               ? 'No values are saved for this period.'
-              : 'Only one value so far. Receive a day of quotes or place an order to save that day’s value.'}
+              : 'Only one value so far. Receive a day of quotes or place an order to save the value for that day.'}
           </p>
         ) : (
           <>

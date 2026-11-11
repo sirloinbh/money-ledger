@@ -12,56 +12,56 @@ const noDb = {
   },
 } as unknown as Pool;
 
-const valid = { date: '2026-11-03', kind: 'expense', amount: 12500, categoryId: 1, memo: '점심' };
+const valid = { date: '2026-11-03', kind: 'expense', amount: 12500, categoryId: 1, memo: 'Lunch' };
 
 const invalid = [
-  { label: 'a negative amount', change: { amount: -1 }, error: '금액은 0원 이상이어야 합니다' },
+  { label: 'a negative amount', change: { amount: -1 }, error: 'The amount must be ₩0 or more' },
   {
     label: 'a fractional amount',
     change: { amount: 1.5 },
-    error: '금액은 원 단위 정수로 입력하세요',
+    error: 'Enter the amount as a whole number of won',
   },
   {
     label: 'an amount sent as text',
     change: { amount: '1000' },
-    error: '금액을 숫자로 입력하세요',
+    error: 'Enter the amount as a number',
   },
-  { label: 'February 30', change: { date: '2026-02-30' }, error: '없는 날짜입니다' },
+  { label: 'February 30', change: { date: '2026-02-30' }, error: 'That date does not exist' },
   {
     label: 'the year 0000',
     change: { date: '0000-01-01' },
-    error: '날짜는 1900년부터 2100년 사이로 입력하세요',
+    error: 'Enter a date between 1900 and 2100',
   },
   {
     label: 'the year 2101',
     change: { date: '2101-01-01' },
-    error: '날짜는 1900년부터 2100년 사이로 입력하세요',
+    error: 'Enter a date between 1900 and 2100',
   },
   {
     label: 'a slash date',
     change: { date: '2026/11/03' },
-    error: '날짜를 YYYY-MM-DD 형식으로 입력하세요',
+    error: 'Enter the date as YYYY-MM-DD',
   },
-  { label: 'a category id of 0', change: { categoryId: 0 }, error: '카테고리를 고르세요' },
+  { label: 'a category id of 0', change: { categoryId: 0 }, error: 'Choose a category' },
   {
     label: 'a merchant over 50 characters',
     change: { merchant: '가'.repeat(51) },
-    error: '가맹점은 50자 이하로 입력하세요',
+    error: 'The merchant must be 50 characters or fewer',
   },
   {
     label: 'an unknown kind',
     change: { kind: 'transfer' },
-    error: '종류는 수입 또는 지출 중에서 고르세요',
+    error: 'Choose income or expense as the kind',
   },
   {
     label: 'a memo over 200 characters',
     change: { memo: '가'.repeat(201) },
-    error: '메모는 200자 이하로 입력하세요',
+    error: 'The note must be 200 characters or fewer',
   },
 ];
 
 for (const { label, change, error } of invalid) {
-  test(`an entry with ${label} is a Korean 400 before the DB`, async () => {
+  test(`an entry with ${label} is a 400 before the DB`, async () => {
     await withApi(noDb, async (call) => {
       const response = await call('/api/ledger/entries', {
         method: 'POST',
@@ -73,11 +73,11 @@ for (const { label, change, error } of invalid) {
   });
 }
 
-test('a malformed entry id is a Korean 400', async () => {
+test('a malformed entry id is a 400', async () => {
   await withApi(noDb, async (call) => {
     const response = await call('/api/ledger/entries/abc', { method: 'DELETE' });
     assert.equal(response.status, 400);
-    assert.deepEqual(response.data, { error: 'Invalid 내역 ID' });
+    assert.deepEqual(response.data, { error: 'Invalid entry ID' });
   });
 });
 
@@ -92,21 +92,21 @@ const withCategory = (category?: { kind: string; hidden: boolean }) =>
   }) as unknown as Pool;
 
 const categoryCases = [
-  { label: 'does not exist', category: undefined, error: '카테고리를 찾을 수 없습니다' },
+  { label: 'does not exist', category: undefined, error: 'Category not found' },
   {
     label: 'is of the other kind',
     category: { kind: 'income', hidden: false },
-    error: '카테고리의 종류가 내역의 종류와 다릅니다',
+    error: "The category's kind does not match the entry's kind",
   },
   {
     label: 'is hidden',
     category: { kind: 'expense', hidden: true },
-    error: '숨긴 카테고리에는 새 내역을 넣을 수 없습니다',
+    error: 'Cannot add a new entry to a hidden category',
   },
 ];
 
 for (const { label, category, error } of categoryCases) {
-  test(`a new entry whose category ${label} is a Korean 400`, async () => {
+  test(`a new entry whose category ${label} is a 400`, async () => {
     await withApi(withCategory(category), async (call) => {
       const response = await call('/api/ledger/entries', { method: 'POST', body: valid });
       assert.equal(response.status, 400);
@@ -132,7 +132,7 @@ test('a category hidden between the check and the write is refused, not written'
   await withApi(racing, async (call) => {
     const response = await call('/api/ledger/entries', { method: 'POST', body: valid });
     assert.equal(response.status, 400);
-    assert.deepEqual(response.data, { error: '숨긴 카테고리에는 새 내역을 넣을 수 없습니다' });
+    assert.deepEqual(response.data, { error: 'Cannot add a new entry to a hidden category' });
   });
   assert.match(
     sql.find((text) => text.includes('INSERT'))!,
@@ -148,7 +148,7 @@ function updateRace(categories: { kind: string; hidden: boolean }[]) {
     kind: 'expense',
     amount: '5000',
     category_id: '2',
-    category_name: '여가',
+    category_name: 'Leisure',
     memo: '',
   };
   return {
@@ -170,11 +170,11 @@ test('an edit whose new category was hidden meanwhile is refused, not written', 
   await withApi(pool, async (call) => {
     const response = await call('/api/ledger/entries/7', { method: 'PUT', body: valid });
     assert.equal(response.status, 400);
-    assert.deepEqual(response.data, { error: '숨긴 카테고리에는 새 내역을 넣을 수 없습니다' });
+    assert.deepEqual(response.data, { error: 'Cannot add a new entry to a hidden category' });
   });
 });
 
-test('a write that matched nothing for no known reason is a Korean 409', async () => {
+test('a write that matched nothing for no known reason is a 409', async () => {
   const pool = updateRace([
     { kind: 'expense', hidden: false },
     { kind: 'expense', hidden: false },
@@ -182,26 +182,26 @@ test('a write that matched nothing for no known reason is a Korean 409', async (
   await withApi(pool, async (call) => {
     const response = await call('/api/ledger/entries/7', { method: 'PUT', body: valid });
     assert.equal(response.status, 409);
-    assert.deepEqual(response.data, { error: '카테고리가 방금 바뀌었습니다. 다시 시도하세요' });
+    assert.deepEqual(response.data, { error: 'The category just changed. Try again' });
   });
 });
 
-// #39 List filters are checked before the DB, with Korean messages.
+// #39 List filters are checked before the DB, with messages.
 const invalidQueries = [
-  { query: 'from=2026-02-30', error: '없는 날짜입니다' },
-  { query: 'to=2026/11/30', error: '날짜를 YYYY-MM-DD 형식으로 입력하세요' },
-  { query: 'from=2026-11-30&to=2026-11-01', error: '시작일이 종료일보다 늦습니다' },
-  { query: 'kind=transfer', error: '종류는 수입 또는 지출 중에서 고르세요' },
-  { query: 'category=0', error: '카테고리가 올바르지 않습니다' },
-  { query: 'category=abc', error: '카테고리가 올바르지 않습니다' },
-  { query: `q=${'가'.repeat(51)}`, error: '검색어는 50자 이하로 입력하세요' },
-  { query: 'page=0', error: '쪽 번호가 올바르지 않습니다' },
-  { query: 'page=1&page=2', error: '쪽 번호가 올바르지 않습니다' },
-  { query: 'size=101', error: '한 쪽에 100건까지 볼 수 있습니다' },
+  { query: 'from=2026-02-30', error: 'That date does not exist' },
+  { query: 'to=2026/11/30', error: 'Enter the date as YYYY-MM-DD' },
+  { query: 'from=2026-11-30&to=2026-11-01', error: 'The start date is after the end date' },
+  { query: 'kind=transfer', error: 'Choose income or expense as the kind' },
+  { query: 'category=0', error: 'The category is not valid' },
+  { query: 'category=abc', error: 'The category is not valid' },
+  { query: `q=${'가'.repeat(51)}`, error: 'The search term must be 50 characters or fewer' },
+  { query: 'page=0', error: 'The page number is not valid' },
+  { query: 'page=1&page=2', error: 'The page number is not valid' },
+  { query: 'size=101', error: 'You can view at most 100 entries per page' },
 ];
 
 for (const { query, error } of invalidQueries) {
-  test(`listing with ${query.slice(0, 40)} is a Korean 400 before the DB`, async () => {
+  test(`listing with ${query.slice(0, 40)} is a 400 before the DB`, async () => {
     await withApi(noDb, async (call) => {
       const response = await call(`/api/ledger/entries?${encodeURI(query)}`);
       assert.equal(response.status, 400);

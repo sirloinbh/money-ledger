@@ -189,7 +189,7 @@ test('an entry without a category is sent as Uncategorized with its merchant', a
   expect(first).toHaveTextContent('Starbucks Gangnam');
 });
 
-test('a server refusal shows its Korean message and keeps the input', async () => {
+test('a server refusal shows its message and keeps the input', async () => {
   await ready();
   vi.mocked(fetch).mockImplementationOnce(() => json({ error: 'That date does not exist' }, 400));
   fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '1000' } });

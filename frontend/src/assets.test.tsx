@@ -286,7 +286,7 @@ test('deleting asks first, then removes the asset and moves focus to the list ti
   );
 });
 
-test('a server refusal shows its Korean message', async () => {
+test('a server refusal shows its message', async () => {
   await ready();
   vi.mocked(fetch).mockImplementationOnce(() =>
     json({ error: 'Enter the valuation of a dollar asset in dollars' }, 400),

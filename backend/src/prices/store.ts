@@ -166,7 +166,9 @@ export async function saveUsTickers(pool: Pool, tickers: UsTicker[], today: stri
       "SELECT count(*)::int AS active FROM securities WHERE currency = 'USD' AND active",
     );
     if (tickers.length < (rows[0]?.active ?? 0) * minimumListShare) {
-      throw new SourceError('Tiingo 종목 목록이 평소보다 너무 짧아 저장하지 않았습니다');
+      throw new SourceError(
+        'The Tiingo security list is much shorter than usual, so it was not saved',
+      );
     }
     if (tickers.length > 0) {
       const symbols = tickers.map((ticker) => ticker.symbol);

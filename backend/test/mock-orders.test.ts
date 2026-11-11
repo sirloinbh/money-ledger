@@ -25,44 +25,48 @@ const invalid = [
   {
     label: 'a fractional quantity',
     body: { ...valid, quantity: '1.5' },
-    error: '수량은 1주 단위의 정수로 입력하세요',
+    error: 'Enter the quantity as a whole number of shares',
   },
   {
     label: 'a zero quantity',
     body: { ...valid, quantity: '0' },
-    error: '수량은 1주 단위의 정수로 입력하세요',
+    error: 'Enter the quantity as a whole number of shares',
   },
   {
     label: 'a quantity sent as a number',
     body: { ...valid, quantity: 10 },
-    error: '수량을 입력하세요',
+    error: 'Enter the quantity',
   },
   {
     label: 'more than 1,000,000 shares',
     body: { ...valid, quantity: '1000001' },
-    error: '수량은 1,000,000주 이하로 입력하세요',
+    error: 'Enter 1,000,000 shares or fewer',
   },
   {
     label: 'an unknown side',
     body: { ...valid, side: 'short' },
-    error: '매수 또는 매도를 고르세요',
+    error: 'Choose buy or sell',
   },
-  { label: 'no security', body: { ...valid, securityId: undefined }, error: '종목을 고르세요' },
+  { label: 'no security', body: { ...valid, securityId: undefined }, error: 'Choose a security' },
   {
     label: 'a malformed request key',
     body: { ...valid, requestKey: 'abc' },
-    error: '주문 키가 올바르지 않습니다',
+    error: 'The order key is not valid',
   },
   {
     label: 'no confirmed price',
     body: { ...valid, expectedPrice: undefined },
-    error: '확인한 시세가 없습니다. 주문을 다시 확인하세요',
+    error: 'No confirmed quote. Review the order again',
   },
-  { label: 'a body that is not an object', body: [1], error: '요청 본문은 JSON 객체여야 합니다' },
+  {
+    label: 'a body that is not an object',
+    body: [1],
+    error: 'The request body must be a JSON object',
+  },
 ];
 
 for (const { label, body, error } of invalid) {
-  test(`an order with ${label} is a Korean 400 before the DB`, async () => {
+  test(`an order with ${label} is a 400 before the DB`, async () => {
     await withApi(noDb, async (call) => {
       const response = await call('/api/mock/accounts/1/orders', { method: 'POST', body });
       assert.equal(response.status, 400);
@@ -71,27 +75,24 @@ for (const { label, body, error } of invalid) {
   });
 }
 
-test('a malformed account id is a Korean 400', async () => {
+test('a malformed account id is a 400', async () => {
   await withApi(noDb, async (call) => {
     const response = await call('/api/mock/accounts/abc/orders', { method: 'POST', body: valid });
-    assert.deepEqual(
-      [response.status, response.data],
-      [400, { error: 'Invalid 모의투자 계좌 ID' }],
-    );
+    assert.deepEqual([response.status, response.data], [400, { error: 'Invalid mock account ID' }]);
   });
 });
 
-test('a preview with a bad quantity or side is a Korean 400 before the DB', async () => {
+test('a preview with a bad quantity or side is a 400 before the DB', async () => {
   await withApi(noDb, async (call) => {
     const quantity = await call(
       '/api/mock/accounts/1/orders/preview?securityId=1&side=buy&quantity=-1',
     );
-    assert.deepEqual(quantity.data, { error: '수량은 1주 단위의 정수로 입력하세요' });
+    assert.deepEqual(quantity.data, { error: 'Enter the quantity as a whole number of shares' });
     const side = await call('/api/mock/accounts/1/orders/preview?securityId=1&side=x&quantity=1');
-    assert.deepEqual(side.data, { error: '매수 또는 매도를 고르세요' });
+    assert.deepEqual(side.data, { error: 'Choose buy or sell' });
     const security = await call(
       '/api/mock/accounts/1/orders/preview?securityId=0&side=buy&quantity=1',
     );
-    assert.deepEqual(security.data, { error: '종목 ID가 올바르지 않습니다' });
+    assert.deepEqual(security.data, { error: 'The security ID is not valid' });
   });
 });

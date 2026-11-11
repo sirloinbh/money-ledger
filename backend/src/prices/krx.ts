@@ -17,14 +17,14 @@ const endpoints: Record<KrxMarket, string> = {
   KOSDAQ: 'sto/ksq_bydd_trd',
   KRX_ETF: 'etp/etf_bydd_trd',
 };
-const label = 'KRX 시세';
+const label = 'KRX quote';
 
 type KrxItem = { ISU_CD?: unknown; ISU_SRT_CD?: unknown; ISU_NM?: unknown; TDD_CLSPRC?: unknown };
 
 /** The rows of one response; rows without a usable code, name or close (no trade that day) are left out. */
 export function parseKrxDaily(body: unknown): KrxRow[] {
   const items = (body as { OutBlock_1?: unknown } | null)?.OutBlock_1;
-  if (!Array.isArray(items)) throw new SourceError(`${label} 응답 형식이 올바르지 않습니다`);
+  if (!Array.isArray(items)) throw new SourceError(`${label} response format is not valid`);
   const rows: KrxRow[] = [];
   for (const item of items as KrxItem[]) {
     const code = item.ISU_SRT_CD ?? item.ISU_CD;

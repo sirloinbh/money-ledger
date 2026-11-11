@@ -15,29 +15,33 @@ const invalid = [
   {
     label: 'an amount sent as text',
     body: { initialCashKrw: '10000000' },
-    error: '시작 금액을 숫자로 입력하세요',
+    error: 'Enter the starting amount as a number',
   },
   {
     label: 'a fractional amount',
     body: { initialCashKrw: 10000.5 },
-    error: '시작 금액은 원 단위 정수로 입력하세요',
+    error: 'Enter the starting amount as a whole number of won',
   },
   {
-    label: 'an amount under 1만 원',
+    label: 'an amount under ₩10,000',
     body: { initialCashKrw: 9999 },
-    error: '시작 금액은 1만 원 이상이어야 합니다',
+    error: 'The starting amount must be at least ₩10,000',
   },
   {
-    label: 'an amount over 100억 원',
+    label: 'an amount over ₩10 billion',
     body: { initialCashKrw: 10_000_000_001 },
-    error: '시작 금액은 100억 원 이하로 입력하세요',
+    error: 'Enter a starting amount of ₩10 billion or less',
   },
-  { label: 'a body that is not an object', body: [1], error: '요청 본문은 JSON 객체여야 합니다' },
+  {
+    label: 'a body that is not an object',
+    body: [1],
+    error: 'The request body must be a JSON object',
+  },
 ];
 
 for (const { label, body, error } of invalid) {
   for (const path of ['/api/mock/accounts', '/api/mock/accounts/1/reset']) {
-    test(`${path} with ${label} is a Korean 400 before the DB`, async () => {
+    test(`${path} with ${label} is a 400 before the DB`, async () => {
       await withApi(noDb, async (call) => {
         const response = await call(path, { method: 'POST', body });
         assert.equal(response.status, 400);
@@ -47,10 +51,10 @@ for (const { label, body, error } of invalid) {
   }
 }
 
-test('a malformed account id on reset is a Korean 400', async () => {
+test('a malformed account id on reset is a 400', async () => {
   await withApi(noDb, async (call) => {
     const response = await call('/api/mock/accounts/abc/reset', { method: 'POST', body: {} });
     assert.equal(response.status, 400);
-    assert.deepEqual(response.data, { error: 'Invalid 모의투자 계좌 ID' });
+    assert.deepEqual(response.data, { error: 'Invalid mock account ID' });
   });
 });

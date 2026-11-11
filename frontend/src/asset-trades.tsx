@@ -75,7 +75,7 @@ const signedWon = (amount: number) =>
 const priceText = (price: string, currency: Currency) =>
   currency === 'USD' ? formatUsd(price) : `₩${formatDecimal(price)}`;
 
-/** The request body, or the field and Korean message that is wrong (the server checks again). */
+/** The request body, or the field and message that is wrong (the server checks again). */
 function toBody(
   draft: Draft,
   currency: Currency,

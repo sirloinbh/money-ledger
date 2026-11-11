@@ -29,7 +29,7 @@ type State = { account: Account | null; closedAccounts: Account[] };
 const accountsPath = '/api/mock/accounts';
 const defaultAmount = '10,000,000';
 
-/** The starting amount in won, or the Korean message for what is wrong. Mirrors the server rules. */
+/** The starting amount in won, or the message for what is wrong. Mirrors the server rules. */
 function parseAmount(text: string): { amount: number } | { message: string } {
   const digits = withoutThousands(text);
   if (!/^\d{1,12}$/.test(digits))

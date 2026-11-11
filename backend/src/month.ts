@@ -4,13 +4,13 @@ import { z } from 'zod/v4';
 
 /**
  * A month the server accepts: YYYY-MM between 1900 and 2100 (the entry dates' range). `label` names the field in
- * the messages ("월", "시작 월"), so two month fields in one query say which one is wrong.
+ * the messages ("the month", "the start month"), so two month fields in one query say which one is wrong.
  */
 export const monthField = (label: string) =>
   z
-    .string({ error: `${label}을 YYYY-MM 형식으로 입력하세요` })
+    .string({ error: `Enter ${label} as YYYY-MM` })
     .regex(/^\d{4}-(0[1-9]|1[0-2])$/, {
-      error: `${label}을 YYYY-MM 형식으로 입력하세요`,
+      error: `Enter ${label} as YYYY-MM`,
       abort: true,
     })
     .refine(
@@ -18,7 +18,7 @@ export const monthField = (label: string) =>
         const year = Number(value.slice(0, 4));
         return year >= 1900 && year <= 2100;
       },
-      { error: `${label}은 1900년부터 2100년 사이로 입력하세요` },
+      { error: `Enter ${label} between 1900 and 2100` },
     );
 
 /** A sum of whole-won amounts from SQL (numeric as text); exact as long as it is a safe integer. */

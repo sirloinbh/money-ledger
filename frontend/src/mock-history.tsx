@@ -39,7 +39,7 @@ const emptyFilter: Filter = { from: '', to: '', securityId: '' };
 const selectClass =
   'flex h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none pointer-coarse:min-h-11 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-body-sm dark:bg-input/30';
 
-/** The Korean reason a filter cannot be sent, or null. Mirrors the server rules. */
+/** The reason a filter cannot be sent, or null. Mirrors the server rules. */
 function filterProblem(filter: Filter) {
   if ((filter.from && !realDate(filter.from)) || (filter.to && !realDate(filter.to))) {
     return 'Enter a valid date';
