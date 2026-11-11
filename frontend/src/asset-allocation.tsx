@@ -15,7 +15,7 @@ import { formatWon } from './format';
 
 // #48 How the asset total is spread, by type and by asset (decisions 2026-11-10, server: allocation.ts).
 // Debts and assets without a won value are left out; the shares add up to exactly 100.0%. The chart shows the
-// 8 largest assets and the rest as "그 밖의 N개"; the table under it lists every asset, 0 won ones at 0.0%.
+// 8 largest assets and the rest as "Other N"; the table under it lists every asset, 0 won ones at 0.0%.
 
 type Share = { amountKrw: number | null; share: string };
 export type Allocation = {
@@ -27,8 +27,8 @@ export type Allocation = {
 
 type Tab = 'type' | 'asset';
 const tabs: { id: Tab; label: string }[] = [
-  { id: 'type', label: '종류별' },
-  { id: 'asset', label: '종목별' },
+  { id: 'type', label: 'By type' },
+  { id: 'asset', label: 'By asset' },
 ];
 
 // Recharts is large: the chart loads in its own file when there is something to draw, not with the app.
@@ -84,8 +84,8 @@ export function AssetAllocation({
       ? drawn(
           allocation.byType.map((row) => ({
             key: row.type,
-            // "현금(예적금 포함)" → "현금" on the narrow axis; the table gives the whole name.
-            name: typeLabel(row.type).replace(/\(.*\)$/, ''),
+            // "Cash (incl. savings)" → "Cash" on the narrow axis; the table gives the whole name.
+            name: typeLabel(row.type).replace(/\s*\(.*\)$/, ''),
             amountKrw: row.amountKrw,
             share: row.share,
           })),
@@ -93,7 +93,7 @@ export function AssetAllocation({
       : drawn(
           allocation.chart.map((row) => ({
             key: row.key,
-            name: row.name ?? `그 밖의 ${row.count}개`,
+            name: row.name ?? `Other ${row.count}`,
             amountKrw: row.amountKrw,
             share: row.share,
           })),
@@ -103,24 +103,24 @@ export function AssetAllocation({
   return (
     <Card>
       <CardHeader>
-        <CardTitle asHeading="h2">자산 배분</CardTitle>
+        <CardTitle asHeading="h2">Asset allocation</CardTitle>
         <CardDescription>
-          자산 합계를 종류와 종목으로 나눈 비중입니다. 부채는 넣지 않습니다.
+          Share of the asset total by type and by asset. Liabilities are not included.
           {allocation.excluded > 0
-            ? ` 시세·환율이나 평가금액이 없거나 금액이 너무 커서 계산하지 못한 ${allocation.excluded}개는 빠졌습니다.`
+            ? ` ${allocation.excluded} without a quote, exchange rate, or valuation, or with an amount too large to calculate, left out.`
             : ''}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {counted === 0 ? (
           <p className="text-body-sm text-muted-foreground">
-            비중을 계산할 자산이 없습니다. 평가금액이 있는 자산을 추가하면 여기에 나타납니다.
+            No assets to allocate. Add an asset with a valuation and it appears here.
           </p>
         ) : (
           <>
             <div
               role="tablist"
-              aria-label="자산 배분 기준"
+              aria-label="Asset allocation basis"
               className="inline-flex w-fit gap-1 rounded-lg bg-muted p-1"
             >
               {tabs.map((item) => (
@@ -166,13 +166,13 @@ export function AssetAllocation({
             >
               {bars.length === 0 ? (
                 <p className="text-body-sm text-muted-foreground">
-                  모든 자산이 0원이라 차트에 그릴 비중이 없습니다.
+                  Every asset is ₩0, so there is nothing to draw in the chart.
                 </p>
               ) : (
                 <ChartBoundary key={tab}>
                   <Suspense
                     fallback={
-                      <p className="text-body-sm text-muted-foreground">차트를 불러오는 중입니다</p>
+                      <p className="text-body-sm text-muted-foreground">Loading the chart</p>
                     }
                   >
                     <chart.Chart bars={bars} title={title} />
@@ -181,19 +181,19 @@ export function AssetAllocation({
               )}
               {tab === 'type' ? (
                 <ShareTable
-                  caption="종류별 자산 금액과 비중"
-                  heading="종류"
+                  caption="Asset amounts and shares by type"
+                  heading="Type"
                   rows={allocation.byType.map((row) => ({
                     key: row.type,
-                    name: `${typeLabel(row.type)} (${row.count}개)`,
+                    name: `${typeLabel(row.type)} (${row.count})`,
                     amountKrw: row.amountKrw,
                     share: row.share,
                   }))}
                 />
               ) : (
                 <ShareTable
-                  caption="종목별 자산 금액과 비중"
-                  heading="자산"
+                  caption="Asset amounts and shares by asset"
+                  heading="Asset"
                   rows={allocation.byAsset.map((row) => ({
                     key: String(row.id),
                     name: row.name,
@@ -229,7 +229,7 @@ class ChartBoundary extends Component<{ children: ReactNode }, { failed: boolean
   render() {
     return this.state.failed ? (
       <p className="text-body-sm text-muted-foreground">
-        차트를 불러오지 못했습니다. 아래 표에서 값을 확인하세요.
+        Could not load the chart. Check the values in the table below.
       </p>
     ) : (
       this.props.children
@@ -259,10 +259,10 @@ function ShareTable({
             {heading}
           </th>
           <th scope="col" className="py-2 text-right font-medium">
-            금액
+            Amount
           </th>
           <th scope="col" className="py-2 text-right font-medium">
-            비중
+            Share
           </th>
         </tr>
       </thead>

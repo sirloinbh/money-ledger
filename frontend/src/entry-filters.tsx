@@ -29,7 +29,7 @@ export function EntryFilters({
   today: string;
   onApply: (filters: Filters) => void;
 }) {
-  // What is typed is applied with 조회; the month buttons and 초기화 apply at once.
+  // What is typed is applied with Apply; the month buttons and Reset apply at once.
   const [draft, setDraft] = useState(filters);
   const [applied, setApplied] = useState(filters);
   const [invalid, setInvalid] = useState(false);
@@ -85,7 +85,7 @@ export function EntryFilters({
             size="sm"
             onClick={() => goMonth(shiftMonth(month, -1))}
           >
-            이전 달
+            Previous month
           </Button>
           <Button
             type="button"
@@ -93,7 +93,7 @@ export function EntryFilters({
             size="sm"
             onClick={() => goMonth(today.slice(0, 7))}
           >
-            이번 달
+            This month
           </Button>
           <Button
             type="button"
@@ -101,17 +101,17 @@ export function EntryFilters({
             size="sm"
             onClick={() => goMonth(shiftMonth(month, 1))}
           >
-            다음 달
+            Next month
           </Button>
         </div>
       </div>
       <form
-        aria-label="내역 필터"
+        aria-label="Entry filters"
         onSubmit={submit}
         className="grid grid-cols-2 gap-3 rounded-xl border p-4 lg:grid-cols-6"
       >
         <div className="flex flex-col gap-2">
-          <Label htmlFor="filter-from">시작일</Label>
+          <Label htmlFor="filter-from">Start date</Label>
           <Input
             id="filter-from"
             type="date"
@@ -122,7 +122,7 @@ export function EntryFilters({
           />
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="filter-to">종료일</Label>
+          <Label htmlFor="filter-to">End date</Label>
           <Input
             id="filter-to"
             type="date"
@@ -133,7 +133,7 @@ export function EntryFilters({
           />
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="filter-kind">종류</Label>
+          <Label htmlFor="filter-kind">Kind</Label>
           <select
             id="filter-kind"
             className={selectClass}
@@ -149,27 +149,27 @@ export function EntryFilters({
               change({ kind, category: keep ? draft.category : '' });
             }}
           >
-            <option value="">전체</option>
-            <option value="expense">지출</option>
-            <option value="income">수입</option>
+            <option value="">All</option>
+            <option value="expense">Expense</option>
+            <option value="income">Income</option>
           </select>
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="filter-category">카테고리</Label>
+          <Label htmlFor="filter-category">Category</Label>
           <select
             id="filter-category"
             className={selectClass}
             value={draft.category}
             onChange={(event) => change({ category: event.target.value })}
           >
-            <option value="">전체</option>
-            <option value="none">미분류</option>
+            <option value="">All</option>
+            <option value="none">Uncategorized</option>
             {choices.map((category) => (
               <option key={category.id} value={category.id}>
                 {[
                   category.name,
                   draft.kind ? '' : `(${kindLabel[category.kind]})`,
-                  category.hidden ? '(숨김)' : '',
+                  category.hidden ? '(hidden)' : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
@@ -178,25 +178,25 @@ export function EntryFilters({
           </select>
         </div>
         <div className="col-span-2 flex flex-col gap-2">
-          <Label htmlFor="filter-q">검색어</Label>
+          <Label htmlFor="filter-q">Search</Label>
           <Input
             id="filter-q"
             type="search"
             maxLength={50}
-            placeholder="가맹점이나 메모"
+            placeholder="Merchant or note"
             value={draft.q}
             onChange={(event) => change({ q: event.target.value })}
           />
         </div>
         {invalid ? (
           <p id="filter-error" role="alert" className="col-span-full text-body-sm text-destructive">
-            시작일이 종료일보다 늦습니다
+            Start date is after the end date
           </p>
         ) : null}
         <div className="col-span-full flex gap-2">
-          <Button type="submit">조회</Button>
+          <Button type="submit">Apply</Button>
           <Button type="button" variant="ghost" onClick={reset}>
-            초기화
+            Reset
           </Button>
         </div>
       </form>

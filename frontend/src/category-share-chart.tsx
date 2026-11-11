@@ -25,18 +25,20 @@ const nameLength = 8;
 const shortName = (name: string) =>
   name.length > nameLength ? `${name.slice(0, nameLength - 1)}…` : name;
 
-/** Axis ticks: 0 / 5만 / 10만 … in 만원, full numbers below 10,000. */
+/** Axis ticks: 0 / 50K / 100K … compact, full numbers below 10,000. */
 const compactWon = (value: number) =>
   value >= 10_000
-    ? `${new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 }).format(value / 10_000)}만`
-    : new Intl.NumberFormat('ko-KR').format(value);
+    ? new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(
+        value,
+      )
+    : new Intl.NumberFormat('en-US').format(value);
 
 function ShareTooltip({ active, payload }: TooltipContentProps) {
   const category = active ? (payload[0]?.payload as CategoryShare | undefined) : undefined;
   if (!category) return null;
   return (
     <div className="rounded-md border bg-popover px-3 py-2 text-body-sm text-popover-foreground shadow-sm">
-      <p className="font-medium">{category.hidden ? `${category.name} (숨김)` : category.name}</p>
+      <p className="font-medium">{category.hidden ? `${category.name} (hidden)` : category.name}</p>
       <p className="tabular-nums">
         {formatWon(category.amount)} · {category.share}%
       </p>
@@ -50,7 +52,7 @@ export function CategoryShareChart({ categories }: { categories: CategoryShare[]
   return (
     <div
       role="img"
-      aria-label={`카테고리별 지출 가로 막대 차트. 가장 큰 항목은 ${largest.name} ${formatWon(largest.amount)}(${largest.share}%)입니다. 모든 값은 아래 표에 있습니다.`}
+      aria-label={`Expense by category horizontal bar chart. The largest item is ${largest.name} ${formatWon(largest.amount)} (${largest.share}%). All values are in the table below.`}
       className="w-full"
       style={{ height }}
     >

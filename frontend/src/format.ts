@@ -16,11 +16,11 @@ export function realDate(text: string) {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === text;
 }
 
-const won = new Intl.NumberFormat('ko-KR');
+const won = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'KRW' });
 
-/** 12500 → "12,500원" */
+/** 12500 → "₩12,500" */
 export function formatWon(amount: number) {
-  return `${won.format(amount)}원`;
+  return won.format(amount);
 }
 
 /** A decimal string from the API without trailing zeros and with thousands separators: "1234.5000" → "1,234.5". */
@@ -31,9 +31,9 @@ export function formatDecimal(text: string) {
   return trimmed ? `${grouped}.${trimmed}` : grouped;
 }
 
-/** "1234.5000" → "1,234.5달러" */
+/** "1234.5000" → "$1,234.5" */
 export function formatUsd(text: string) {
-  return `${formatDecimal(text)}달러`;
+  return `$${formatDecimal(text)}`;
 }
 
 /** Commas only as thousands separators ("1,234.5" → "1234.5"); anything else is left in so the check fails. */
@@ -42,13 +42,13 @@ export function withoutThousands(text: string) {
   return /^\d{1,3}(,\d{3})+(\.\d*)?$/.test(trimmed) ? trimmed.replaceAll(',', '') : trimmed;
 }
 
-const dateTime = new Intl.DateTimeFormat('ko-KR', {
+const dateTime = new Intl.DateTimeFormat('en-US', {
   timeZone: 'Asia/Seoul',
   dateStyle: 'medium',
   timeStyle: 'short',
 });
 
-/** An ISO time from the API in the service time zone, e.g. "2026. 11. 5. 오전 10:30". */
+/** An ISO time from the API in the service time zone, e.g. "Nov 5, 2026, 10:30 AM". */
 export function formatDateTime(iso: string) {
   return dateTime.format(new Date(iso));
 }

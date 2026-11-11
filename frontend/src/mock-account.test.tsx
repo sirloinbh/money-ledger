@@ -14,7 +14,7 @@ type Account = {
 let open: Account | null;
 let closed: Account[];
 let requests: { method: string; url: string; body: unknown }[];
-// The account that holds one share of 삼성전자 (#53), if any.
+// The account that holds one share of Samsung Electronics (#53), if any.
 let heldBy: number | undefined;
 // When set, the next POST answers with this error instead.
 let failNext: { status: number; error: string } | undefined;
@@ -58,7 +58,7 @@ function fakeApi() {
                     security: {
                       id: 1,
                       symbol: '005930',
-                      name: '삼성전자',
+                      name: 'Samsung Electronics',
                       currency: 'KRW',
                       active: true,
                     },
@@ -109,46 +109,46 @@ beforeEach(() => {
   fakeApi();
 });
 
-test('without an account the form suggests 1,000만 원 and creates it', async () => {
+test('without an account the form suggests ₩10,000,000 and creates it', async () => {
   render(<MockAccount />);
-  const amount = await screen.findByLabelText('시작 금액(원)');
+  const amount = await screen.findByLabelText('Starting amount (KRW)');
   expect(amount).toHaveValue('10,000,000');
-  expect(screen.getByText(/가계부와 자산 포트폴리오 합계에 들어가지 않습니다/)).toBeInTheDocument();
+  expect(screen.getByText(/not part of the ledger or asset portfolio totals/)).toBeInTheDocument();
 
-  fireEvent.click(screen.getByRole('button', { name: '계좌 만들기' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
 
-  const title = await screen.findByRole('heading', { level: 2, name: '모의투자 계좌' });
+  const title = await screen.findByRole('heading', { level: 2, name: 'Mock trading account' });
   expect(posts()).toEqual([
     { method: 'POST', url: '/api/mock/accounts', body: { initialCashKrw: 10_000_000 } },
   ]);
   await vi.waitFor(() => expect(title).toHaveFocus());
-  expect(screen.getByRole('status')).toHaveTextContent(
-    '10,000,000원으로 모의투자 계좌를 만들었습니다',
+  expect(screen.getAllByRole('status')[0]).toHaveTextContent(
+    'Mock trading account created with ₩10,000,000',
   );
-  const balance = screen.getByText('현금 잔고').parentElement!;
-  expect(balance).toHaveTextContent('10,000,000원');
+  const balance = screen.getByText('Cash balance').parentElement!;
+  expect(balance).toHaveTextContent('₩10,000,000');
 });
 
 test('a custom starting amount is sent as a won integer', async () => {
   render(<MockAccount />);
-  fireEvent.change(await screen.findByLabelText('시작 금액(원)'), {
+  fireEvent.change(await screen.findByLabelText('Starting amount (KRW)'), {
     target: { value: '50000000' },
   });
-  fireEvent.click(screen.getByRole('button', { name: '계좌 만들기' }));
-  await screen.findByRole('heading', { level: 2, name: '모의투자 계좌' });
+  fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
+  await screen.findByRole('heading', { level: 2, name: 'Mock trading account' });
   expect(posts()[0].body).toEqual({ initialCashKrw: 50_000_000 });
 });
 
 test.each([
-  { value: '9,999', message: '시작 금액은 1만 원 이상이어야 합니다' },
-  { value: '10,000,000,001', message: '시작 금액은 100억 원 이하로 입력하세요' },
-  { value: '1,2,3', message: '시작 금액은 원 단위 정수로 입력하세요' },
-  { value: '10000.5', message: '시작 금액은 원 단위 정수로 입력하세요' },
+  { value: '9,999', message: 'The starting amount must be at least ₩10,000' },
+  { value: '10,000,000,001', message: 'Enter a starting amount of ₩10 billion or less' },
+  { value: '1,2,3', message: 'Enter the starting amount as a whole number of won' },
+  { value: '10000.5', message: 'Enter the starting amount as a whole number of won' },
 ])('a starting amount of $value is refused before sending', async ({ value, message }) => {
   render(<MockAccount />);
-  const amount = await screen.findByLabelText('시작 금액(원)');
+  const amount = await screen.findByLabelText('Starting amount (KRW)');
   fireEvent.change(amount, { target: { value } });
-  fireEvent.click(screen.getByRole('button', { name: '계좌 만들기' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
   expect(await screen.findByRole('alert')).toHaveTextContent(message);
   expect(amount).toHaveAttribute('aria-invalid', 'true');
   expect(posts()).toEqual([]);
@@ -156,14 +156,16 @@ test.each([
 
 test('a 409 from another tab shows the error and the account the server has', async () => {
   render(<MockAccount />);
-  await screen.findByLabelText('시작 금액(원)');
-  failNext = { status: 409, error: '이미 모의투자 계좌가 있습니다' };
+  await screen.findByLabelText('Starting amount (KRW)');
+  failNext = { status: 409, error: 'A mock trading account already exists' };
   open = account(7, 20_000_000);
-  const submit = screen.getByRole('button', { name: '계좌 만들기' });
+  const submit = screen.getByRole('button', { name: 'Create account' });
   submit.focus();
   fireEvent.click(submit);
-  expect(await screen.findByRole('alert')).toHaveTextContent('이미 모의투자 계좌가 있습니다');
-  const title = await screen.findByRole('heading', { level: 2, name: '모의투자 계좌' });
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'A mock trading account already exists',
+  );
+  const title = await screen.findByRole('heading', { level: 2, name: 'Mock trading account' });
   // The create button went away with the form; focus is not left on the page body.
   await vi.waitFor(() => expect(title).toHaveFocus());
 });
@@ -171,13 +173,13 @@ test('a 409 from another tab shows the error and the account the server has', as
 test('an account that is gone (404) closes the dialog and focuses the create form', async () => {
   open = account(1, 10_000_000);
   render(<MockAccount />);
-  fireEvent.click(await screen.findByRole('button', { name: '초기화' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Reset' }));
   const dialog = await screen.findByRole('dialog');
-  failNext = { status: 404, error: '모의투자 계좌를 찾을 수 없습니다' };
+  failNext = { status: 404, error: 'Mock trading account not found' };
   open = null;
-  fireEvent.click(within(dialog).getByRole('button', { name: '초기화' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('모의투자 계좌를 찾을 수 없습니다');
-  const amount = await screen.findByLabelText('시작 금액(원)');
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Reset' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Mock trading account not found');
+  const amount = await screen.findByLabelText('Starting amount (KRW)');
   await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   await vi.waitFor(() => expect(amount).toHaveFocus());
 });
@@ -185,36 +187,36 @@ test('an account that is gone (404) closes the dialog and focuses the create for
 test('reset asks first, then keeps the old account and starts again', async () => {
   open = { ...account(1, 10_000_000), cashKrw: 4_000_000 };
   render(<MockAccount />);
-  const amount = await screen.findByLabelText('새 시작 금액(원)');
+  const amount = await screen.findByLabelText('New starting amount (KRW)');
   expect(amount).toHaveValue('10,000,000');
   fireEvent.change(amount, { target: { value: '30,000,000' } });
 
-  const trigger = screen.getByRole('button', { name: '초기화' });
+  const trigger = screen.getByRole('button', { name: 'Reset' });
   fireEvent.click(trigger);
-  const dialog = await screen.findByRole('dialog', { name: '모의투자 계좌를 초기화할까요?' });
-  expect(dialog).toHaveTextContent('현금 4,000,000원');
-  expect(dialog).toHaveTextContent('새 계좌는 30,000,000원으로 시작합니다');
+  const dialog = await screen.findByRole('dialog', { name: 'Reset the mock trading account?' });
+  expect(dialog).toHaveTextContent('cash ₩4,000,000');
+  expect(dialog).toHaveTextContent('The new account starts with ₩30,000,000');
   expect(posts()).toEqual([]);
 
-  fireEvent.click(within(dialog).getByRole('button', { name: '초기화' }));
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Reset' }));
 
   await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   expect(posts()).toEqual([
     { method: 'POST', url: '/api/mock/accounts/1/reset', body: { initialCashKrw: 30_000_000 } },
   ]);
   expect(await screen.findByRole('status')).toHaveTextContent(
-    '계좌를 초기화했습니다. 30,000,000원으로 다시 시작합니다',
+    'Account reset. Starting over with ₩30,000,000',
   );
-  expect(screen.getByText('현금 잔고').parentElement!).toHaveTextContent('30,000,000원');
-  const history = screen.getByRole('list', { name: '이전 계좌' });
-  expect(history).toHaveTextContent('시작 10,000,000원 · 마지막 현금 4,000,000원');
+  expect(screen.getByText('Cash balance').parentElement!).toHaveTextContent('₩30,000,000');
+  const history = screen.getByRole('list', { name: 'Previous accounts' });
+  expect(history).toHaveTextContent('Started with ₩10,000,000 · last cash ₩4,000,000');
   await vi.waitFor(() => expect(trigger).toHaveFocus());
 });
 
 test('cancelling the reset sends nothing', async () => {
   open = account(1, 10_000_000);
   render(<MockAccount />);
-  fireEvent.click(await screen.findByRole('button', { name: '초기화' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Reset' }));
   const dialog = await screen.findByRole('dialog');
   fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
   await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
@@ -224,11 +226,11 @@ test('cancelling the reset sends nothing', async () => {
 test('an invalid reset amount is refused without opening the dialog', async () => {
   open = account(1, 10_000_000);
   render(<MockAccount />);
-  const amount = await screen.findByLabelText('새 시작 금액(원)');
+  const amount = await screen.findByLabelText('New starting amount (KRW)');
   fireEvent.change(amount, { target: { value: '0' } });
-  fireEvent.click(screen.getByRole('button', { name: '초기화' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
   expect(await screen.findByRole('alert')).toHaveTextContent(
-    '시작 금액은 1만 원 이상이어야 합니다',
+    'The starting amount must be at least ₩10,000',
   );
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(amount).toHaveAttribute('aria-invalid', 'true');
@@ -237,40 +239,40 @@ test('an invalid reset amount is refused without opening the dialog', async () =
 test('an account already reset elsewhere closes the dialog and shows the new account', async () => {
   open = account(1, 10_000_000);
   render(<MockAccount />);
-  fireEvent.click(await screen.findByRole('button', { name: '초기화' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Reset' }));
   const dialog = await screen.findByRole('dialog');
   failNext = {
     status: 409,
-    error: '이미 초기화된 계좌입니다. 화면을 새로 고친 뒤 다시 시도하세요',
+    error: 'This account was already reset. Refresh the page and try again',
   };
   open = { ...account(2, 20_000_000), cashKrw: 20_000_000 };
-  fireEvent.click(within(dialog).getByRole('button', { name: '초기화' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('이미 초기화된 계좌입니다');
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Reset' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('This account was already reset');
   await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-  expect(screen.getByText('현금 잔고').parentElement!).toHaveTextContent('20,000,000원');
+  expect(screen.getByText('Cash balance').parentElement!).toHaveTextContent('₩20,000,000');
   expect(posts()).toHaveLength(1);
 });
 
 test('a failed load is shown as an error instead of the form', async () => {
   vi.stubGlobal(
     'fetch',
-    vi.fn(() => json({ error: '서버 오류가 발생했습니다' }, 500)),
+    vi.fn(() => json({ error: 'A server error occurred' }, 500)),
   );
   render(<MockAccount />);
-  expect(await screen.findByRole('alert')).toHaveTextContent('서버 오류가 발생했습니다');
-  expect(screen.queryByRole('button', { name: '계좌 만들기' })).not.toBeInTheDocument();
+  expect(await screen.findByRole('alert')).toHaveTextContent('A server error occurred');
+  expect(screen.queryByRole('button', { name: 'Create account' })).not.toBeInTheDocument();
 });
 
 test('a new refresh key (an order elsewhere on the page) reloads the cash', async () => {
   open = account(1, 10_000_000);
   const { rerender } = render(<MockAccount refreshKey={0} />);
-  await screen.findByText(/보유 종목이 없습니다/);
+  await screen.findByText(/No holdings/);
   // Cash and the initial amount in the account card, and the total of the holdings summary.
-  expect(screen.getAllByText('10,000,000원')).toHaveLength(3);
+  expect(screen.getAllByText('₩10,000,000')).toHaveLength(3);
   open = { ...open, cashKrw: 9_294_000 };
   rerender(<MockAccount refreshKey={1} />);
   // The cash and the total both follow the order.
-  await vi.waitFor(() => expect(screen.getAllByText('9,294,000원')).toHaveLength(2));
+  await vi.waitFor(() => expect(screen.getAllByText('₩9,294,000')).toHaveLength(2));
   const gets = (path: string) => requests.filter((request) => request.url === path);
   expect(gets('/api/mock/accounts')).toHaveLength(2);
   expect(gets('/api/mock/accounts/1/holdings')).toHaveLength(2);
@@ -280,15 +282,15 @@ test('a holding order form left open does not carry over to the account after a 
   open = account(1, 10_000_000);
   heldBy = 1;
   render(<MockAccount />);
-  fireEvent.click(await screen.findByRole('button', { name: '삼성전자 주문' }));
-  expect(screen.getByRole('form', { name: '삼성전자 모의 주문' })).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole('button', { name: 'Samsung Electronics order' }));
+  expect(screen.getByRole('form', { name: 'Samsung Electronics mock order' })).toBeInTheDocument();
 
-  fireEvent.click(screen.getByRole('button', { name: '초기화' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
   const dialog = await screen.findByRole('dialog');
-  fireEvent.click(within(dialog).getByRole('button', { name: '초기화' }));
-  expect(await screen.findByText(/계좌를 초기화했습니다/)).toBeInTheDocument();
-  await screen.findByText(/보유 종목이 없습니다/);
-  // The new account never held 삼성전자, so nothing says it was sold.
-  expect(screen.queryByText(/보유분을 모두 팔았습니다/)).toBeNull();
-  expect(screen.queryByRole('form', { name: '삼성전자 모의 주문' })).toBeNull();
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Reset' }));
+  expect(await screen.findByText(/Account reset/)).toBeInTheDocument();
+  await screen.findByText(/No holdings/);
+  // The new account never held Samsung Electronics, so nothing says it was sold.
+  expect(screen.queryByText(/Sold all your/)).toBeNull();
+  expect(screen.queryByRole('form', { name: 'Samsung Electronics mock order' })).toBeNull();
 });

@@ -20,9 +20,9 @@ type Snapshots = {
 type Period = '1m' | '3m' | 'all';
 
 const periods: { value: Period; label: string; months: number | null }[] = [
-  { value: '1m', label: '1개월', months: 1 },
-  { value: '3m', label: '3개월', months: 3 },
-  { value: 'all', label: '전체', months: null },
+  { value: '1m', label: '1 month', months: 1 },
+  { value: '3m', label: '3 months', months: 3 },
+  { value: 'all', label: 'All', months: null },
 ];
 
 // Recharts is large: the chart loads in its own file, as in #40. `lazy` keeps a failed load, so a failure
@@ -61,7 +61,7 @@ const signedWon = (amount: number) =>
 export function MockReturns({ accountId, refreshKey }: { accountId: number; refreshKey: number }) {
   const [data, setData] = useState<{ accountId: number; data: Snapshots } | undefined>(undefined);
   const [period, setPeriod] = useState<Period>('1m');
-  // Bumped by 다시 시도 so a chart that failed to load is tried again.
+  // Bumped by Try again so a chart that failed to load is tried again.
   const [attempt, setAttempt] = useState(0);
   const notice = useNotice();
   const { error: showError, clear } = notice;
@@ -75,7 +75,7 @@ export function MockReturns({ accountId, refreshKey }: { accountId: number; refr
         setData({ accountId, data: loaded });
       })
       .catch((cause: unknown) => {
-        if (current) showError(cause, '수익률 추이를 불러오지 못했습니다');
+        if (current) showError(cause, 'Could not load the return trend');
       });
     return () => {
       current = false;
@@ -90,14 +90,14 @@ export function MockReturns({ accountId, refreshKey }: { accountId: number; refr
   return (
     <Card>
       <CardHeader>
-        <CardTitle asHeading="h2">수익률 추이</CardTitle>
+        <CardTitle asHeading="h2">Return trend</CardTitle>
         <CardDescription>
-          시작 금액 대비 수익률입니다. 계좌를 시작한 날 0%에서 출발하고, 하루치 시세를 받을 때와
-          주문할 때 그날 값을 저장합니다.
+          Return against the starting amount. It starts at 0% on the day the account began, and one
+          value per day is saved when quotes are received and when you place an order.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div role="group" aria-label="기간" className="flex gap-2">
+        <div role="group" aria-label="Period" className="flex gap-2">
           {periods.map((item) => (
             <Button
               key={item.value}
@@ -115,43 +115,41 @@ export function MockReturns({ accountId, refreshKey }: { accountId: number; refr
         {!loaded ? (
           notice.notice?.kind === 'error' ? null : (
             <p role="status" className="text-body-sm text-muted-foreground">
-              수익률 추이를 불러오는 중입니다
+              Loading the return trend
             </p>
           )
         ) : points.length < 2 ? (
           <p className="text-body-sm text-muted-foreground">
             {points.length === 0
-              ? '이 기간에 저장된 값이 없습니다.'
-              : '아직 그릴 값이 하나뿐입니다. 하루치 시세를 받거나 주문하면 그날 값이 저장됩니다.'}
+              ? 'No values are saved for this period.'
+              : 'Only one value so far. Receive a day of quotes or place an order to save that day’s value.'}
           </p>
         ) : (
           <>
             <ChartBoundary key={`${period}:${attempt}`} onRetry={() => setAttempt((n) => n + 1)}>
               <Suspense
-                fallback={
-                  <p className="text-body-sm text-muted-foreground">차트를 불러오는 중입니다</p>
-                }
+                fallback={<p className="text-body-sm text-muted-foreground">Loading the chart</p>}
               >
                 <chart.Chart points={points} />
               </Suspense>
             </ChartBoundary>
             <details className="rounded-xl border px-4 py-3">
-              <summary className="cursor-pointer text-body-sm font-medium">표로 보기</summary>
+              <summary className="cursor-pointer text-body-sm font-medium">View as table</summary>
               <table className="mt-2 w-full text-body-sm">
-                <caption className="sr-only">날짜별 총자산, 손익, 수익률</caption>
+                <caption className="sr-only">Total assets, gain/loss, and return by date</caption>
                 <thead>
                   <tr className="border-b text-left text-muted-foreground">
                     <th scope="col" className="py-2 font-medium">
-                      날짜
+                      Date
                     </th>
                     <th scope="col" className="py-2 text-right font-medium">
-                      총자산
+                      Total assets
                     </th>
                     <th scope="col" className="py-2 text-right font-medium">
-                      손익
+                      Gain/loss
                     </th>
                     <th scope="col" className="py-2 text-right font-medium">
-                      수익률
+                      Return
                     </th>
                   </tr>
                 </thead>
@@ -203,10 +201,10 @@ class ChartBoundary extends Component<
     return this.state.failed ? (
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-body-sm text-muted-foreground">
-          차트를 불러오지 못했습니다. 아래 표에서 값을 확인하세요.
+          Could not load the chart. Check the values in the table below.
         </p>
         <Button type="button" variant="outline" size="sm" onClick={this.props.onRetry}>
-          다시 시도
+          Try again
         </Button>
       </div>
     ) : (

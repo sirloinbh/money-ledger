@@ -57,7 +57,7 @@ afterEach(() => {
 });
 
 function Address() {
-  return <output aria-label="주소">{useLocation().search}</output>;
+  return <output aria-label="Address">{useLocation().search}</output>;
 }
 
 const show = (path = '/ledger', version = 0) =>
@@ -67,7 +67,7 @@ const show = (path = '/ledger', version = 0) =>
       <Address />
     </MemoryRouter>,
   );
-const address = () => screen.getByLabelText('주소').textContent;
+const address = () => screen.getByLabelText('Address').textContent;
 const rows = () =>
   within(screen.getByRole('table'))
     .getAllByRole('row')
@@ -80,15 +80,15 @@ test('12 months up to this month in Seoul, every month in the chart and in the t
     '2026-01,2026-02,2026-03,2026-04,2026-05,2026-06,2026-07,2026-08,2026-09,2026-10,2026-11,2026-12',
   );
   expect(urls).toEqual(['/api/ledger/trend?from=2026-01&to=2026-12']);
-  expect(screen.getByText('2026년 1월 ~ 2026년 12월')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '12개월' })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByText('January 2026 ~ December 2026')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '12 months' })).toHaveAttribute('aria-pressed', 'true');
 
   // The table, newest first; months without entries are 0, so nothing is missing.
   expect(rows().slice(0, 4)).toEqual([
-    '월수입(원)지출(원)잔액(원)',
-    '2026년 12월000',
-    '2026년 11월50,000900,000-850,000',
-    '2026년 10월3,000,00030,0002,970,000',
+    'MonthIncome (KRW)Expense (KRW)Balance (KRW)',
+    'December 2026000',
+    'November 202650,000900,000-850,000',
+    'October 20263,000,00030,0002,970,000',
   ]);
   expect(rows()).toHaveLength(13);
 });
@@ -96,19 +96,19 @@ test('12 months up to this month in Seoul, every month in the chart and in the t
 test('the period buttons: 6 and 24 months in the address, 12 is the default', async () => {
   show('/ledger?month=2026-10&from=2026-11-01');
   await screen.findByTestId('chart');
-  fireEvent.click(screen.getByRole('button', { name: '6개월' }));
-  expect(await screen.findByText('2026년 7월 ~ 2026년 12월')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '6 months' }));
+  expect(await screen.findByText('July 2026 ~ December 2026')).toBeInTheDocument();
   expect(urls.at(-1)).toBe('/api/ledger/trend?from=2026-07&to=2026-12');
   expect(address()).toBe('?month=2026-10&from=2026-11-01&trend=6');
-  expect(screen.getByRole('button', { name: '6개월' })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByRole('button', { name: '6 months' })).toHaveAttribute('aria-pressed', 'true');
 
-  fireEvent.click(screen.getByRole('button', { name: '24개월' }));
-  await screen.findByText('2025년 1월 ~ 2026년 12월');
+  fireEvent.click(screen.getByRole('button', { name: '24 months' }));
+  await screen.findByText('January 2025 ~ December 2026');
   expect(urls.at(-1)).toBe('/api/ledger/trend?from=2025-01&to=2026-12');
   await vi.waitFor(() => expect(rows()).toHaveLength(25));
 
-  fireEvent.click(screen.getByRole('button', { name: '12개월' }));
-  await screen.findByText('2026년 1월 ~ 2026년 12월');
+  fireEvent.click(screen.getByRole('button', { name: '12 months' }));
+  await screen.findByText('January 2026 ~ December 2026');
   expect(address()).toBe('?month=2026-10&from=2026-11-01');
 });
 
@@ -116,7 +116,7 @@ test('a period from the address, and one that is not a choice falls back to 12 m
   show('/ledger?trend=24');
   await screen.findByTestId('chart');
   expect(urls).toEqual(['/api/ledger/trend?from=2025-01&to=2026-12']);
-  screen.getByRole('button', { name: '24개월' });
+  screen.getByRole('button', { name: '24 months' });
 });
 
 test('a period with no entries at all says so instead of a flat chart', async () => {
@@ -131,28 +131,28 @@ test('a period with no entries at all says so instead of a flat chart', async ()
     return json({ from, to, months });
   };
   show('/ledger?trend=6');
-  expect(await screen.findByText('이 기간에는 내역이 없습니다.')).toBeInTheDocument();
+  expect(await screen.findByText('There are no entries in this period.')).toBeInTheDocument();
   expect(screen.queryByTestId('chart')).not.toBeInTheDocument();
   expect(rows()).toHaveLength(7);
 });
 
-test('a failure says so, hides the previous period, and 다시 시도 loads it again', async () => {
+test('a failure says so, hides the previous period, and Try again loads it again', async () => {
   show();
   await screen.findByTestId('chart');
-  answer = () => json({ error: '서버 오류' }, 500);
-  fireEvent.click(screen.getByRole('button', { name: '6개월' }));
-  expect(await screen.findByText('추이를 불러오지 못했습니다.')).toBeInTheDocument();
+  answer = () => json({ error: 'Server error' }, 500);
+  fireEvent.click(screen.getByRole('button', { name: '6 months' }));
+  expect(await screen.findByText('Could not load the trend.')).toBeInTheDocument();
   // The 12 months are not shown under the 6-month title.
   expect(screen.queryByTestId('chart')).not.toBeInTheDocument();
   expect(screen.queryByRole('table')).not.toBeInTheDocument();
 
   answer = (url) => json(period(...range(url)));
-  fireEvent.click(screen.getByRole('button', { name: '추이 다시 시도' }));
-  expect(screen.getByRole('heading', { name: '월별 추이' })).toHaveFocus();
+  fireEvent.click(screen.getByRole('button', { name: 'Retry loading trend' }));
+  expect(screen.getByRole('heading', { name: 'Monthly trend' })).toHaveFocus();
   expect(await screen.findByTestId('chart')).toHaveTextContent(
     '2026-07,2026-08,2026-09,2026-10,2026-11,2026-12',
   );
-  expect(screen.queryByText('추이를 불러오지 못했습니다.')).not.toBeInTheDocument();
+  expect(screen.queryByText('Could not load the trend.')).not.toBeInTheDocument();
 });
 
 test('a change elsewhere (version) reloads the same period', async () => {
@@ -177,7 +177,7 @@ test('a late answer for a period left behind is ignored', async () => {
         })
       : json(period(...range(url)));
   show();
-  fireEvent.click(screen.getByRole('button', { name: '6개월' }));
+  fireEvent.click(screen.getByRole('button', { name: '6 months' }));
   expect(await screen.findByTestId('chart')).toHaveTextContent('2026-07');
   late(new Response(JSON.stringify(period('2026-01', '2026-12'))));
   await new Promise((resolve) => setTimeout(resolve, 0));

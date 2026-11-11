@@ -17,6 +17,7 @@ import { formatWon, serviceToday } from './format';
 import { requestJson } from './lib/api';
 import { cn } from './lib/utils';
 import { readSummaryMonth } from './summary-month';
+import { monthLabel } from './trend-series';
 
 // #40 One month at a glance: income, expense, balance, and the expense by category as a horizontal bar chart
 // with the same values in a table. The month is in the address (`?month=2026-11`, default this month in Seoul),
@@ -46,9 +47,6 @@ const loadChart = () =>
   );
 const chart = { Chart: loadChart() };
 
-/** "2026-11" → "2026년 11월" */
-const monthLabel = (month: string) => `${month.slice(0, 4)}년 ${Number(month.slice(5))}월`;
-
 /** `version` changes when entries change elsewhere on the page, so the totals reload. */
 export function MonthlySummary({ version = 0 }: { version?: number }) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -56,7 +54,7 @@ export function MonthlySummary({ version = 0 }: { version?: number }) {
   const month = readSummaryMonth(searchParams, today);
   const [summary, setSummary] = useState<Summary | undefined>(undefined);
   const [failed, setFailed] = useState(false);
-  // Bumped by 다시 시도 so a chart that failed to load is tried again.
+  // Bumped by Try again so a chart that failed to load is tried again.
   const [attempt, setAttempt] = useState(0);
   // Only the latest request may fill the summary.
   const latest = useRef(0);
@@ -101,17 +99,17 @@ export function MonthlySummary({ version = 0 }: { version?: number }) {
     <section aria-labelledby="summary-title" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="summary-title" ref={title} tabIndex={-1} className="outline-none">
-          월별 요약
+          Monthly summary
         </h2>
         <div className="flex items-center gap-2">
           <Button
             type="button"
             variant="outline"
             size="sm"
-            aria-label="요약 이전 달"
+            aria-label="Summary previous month"
             onClick={() => goMonth(shiftMonth(month, -1))}
           >
-            이전 달
+            Previous month
           </Button>
           <p aria-live="polite" className="min-w-24 text-center text-body-sm font-medium">
             {monthLabel(month)}
@@ -120,30 +118,30 @@ export function MonthlySummary({ version = 0 }: { version?: number }) {
             type="button"
             variant="outline"
             size="sm"
-            aria-label="요약 다음 달"
+            aria-label="Summary next month"
             onClick={() => goMonth(shiftMonth(month, 1))}
           >
-            다음 달
+            Next month
           </Button>
         </div>
       </div>
       {failed ? (
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-body-sm text-muted-foreground">요약을 불러오지 못했습니다.</p>
+          <p className="text-body-sm text-muted-foreground">Could not load the summary.</p>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            aria-label="요약 다시 시도"
+            aria-label="Retry loading summary"
             onClick={retry}
           >
-            다시 시도
+            Try again
           </Button>
         </div>
       ) : null}
       {shown === undefined ? (
         failed ? null : (
-          <p className="text-body-sm text-muted-foreground">요약을 불러오는 중입니다</p>
+          <p className="text-body-sm text-muted-foreground">Loading the summary</p>
         )
       ) : (
         <div
@@ -151,25 +149,25 @@ export function MonthlySummary({ version = 0 }: { version?: number }) {
           className={cn('flex flex-col gap-4', loading && 'opacity-60')}
         >
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Total label="수입" value={formatWon(shown.income)} />
-            <Total label="지출" value={formatWon(shown.expense)} />
-            <Total label="잔액" value={formatWon(shown.balance)} hint="수입 − 지출" />
+            <Total label="Income" value={formatWon(shown.income)} />
+            <Total label="Expense" value={formatWon(shown.expense)} />
+            <Total label="Balance" value={formatWon(shown.balance)} hint="Income − expense" />
           </dl>
           <Card>
             <CardHeader>
-              <CardTitle asHeading="h3">카테고리별 지출</CardTitle>
+              <CardTitle asHeading="h3">Expense by category</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               {shown.categories.length === 0 ? (
-                <p className="text-body-sm text-muted-foreground">이 달에는 지출이 없습니다.</p>
+                <p className="text-body-sm text-muted-foreground">
+                  There is no expense this month.
+                </p>
               ) : (
                 <>
                   <ChartBoundary key={`${month}:${attempt}`}>
                     <Suspense
                       fallback={
-                        <p className="text-body-sm text-muted-foreground">
-                          차트를 불러오는 중입니다
-                        </p>
+                        <p className="text-body-sm text-muted-foreground">Loading the chart</p>
                       }
                     >
                       <chart.Chart categories={shown.categories} />
@@ -204,7 +202,7 @@ class ChartBoundary extends Component<{ children: ReactNode }, { failed: boolean
   render() {
     return this.state.failed ? (
       <p className="text-body-sm text-muted-foreground">
-        차트를 불러오지 못했습니다. 아래 표에서 값을 확인하세요.
+        Could not load the chart. Check the values in the table below.
       </p>
     ) : (
       this.props.children
@@ -228,17 +226,17 @@ function Total({ label, value, hint }: { label: string; value: string; hint?: st
 function ShareTable({ categories, total }: { categories: CategoryShare[]; total: number }) {
   return (
     <table className="w-full text-body-sm">
-      <caption className="sr-only">카테고리별 지출 금액과 비중</caption>
+      <caption className="sr-only">Expense amounts and shares by category</caption>
       <thead>
         <tr className="border-b text-left text-muted-foreground">
           <th scope="col" className="py-2 font-medium">
-            카테고리
+            Category
           </th>
           <th scope="col" className="py-2 text-right font-medium">
-            금액
+            Amount
           </th>
           <th scope="col" className="py-2 text-right font-medium">
-            비중
+            Share
           </th>
         </tr>
       </thead>
@@ -246,7 +244,7 @@ function ShareTable({ categories, total }: { categories: CategoryShare[]; total:
         {categories.map((category) => (
           <tr key={category.categoryId ?? 'none'} className="border-b last:border-b-0">
             <th scope="row" className="py-2 text-left font-normal break-words">
-              {category.hidden ? `${category.name} (숨김)` : category.name}
+              {category.hidden ? `${category.name} (hidden)` : category.name}
             </th>
             <td className="py-2 text-right tabular-nums">{formatWon(category.amount)}</td>
             <td className="py-2 text-right tabular-nums">{category.share}%</td>
@@ -256,7 +254,7 @@ function ShareTable({ categories, total }: { categories: CategoryShare[]; total:
       <tfoot>
         <tr className="border-t font-medium">
           <th scope="row" className="py-2 text-left">
-            합계
+            Total
           </th>
           <td className="py-2 text-right tabular-nums">{formatWon(total)}</td>
           <td className="py-2 text-right tabular-nums">{total > 0 ? '100%' : '-'}</td>
