@@ -46,7 +46,7 @@ const invalid = [
     path: '/api/ledger/entries/classify',
     label: 'an entry id that is not a positive integer',
     body: { entryIds: [0], categoryId: 1 },
-    error: 'Invalid 내역 ID',
+    error: '내역 ID가 올바르지 않습니다',
   },
   {
     path: '/api/ledger/entries/classify',
