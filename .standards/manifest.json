@@ -1,11 +1,11 @@
 {
-  "centralSha": "623da2309802649d2520ab09a5d6eccf85df05a1",
+  "centralSha": "38782daae57d421c871d12944d6159d213c10f3c",
   "profile": "app",
   "project": "money-ledger",
   "files": {
     ".claude/hooks/block-forbidden-commands.mjs": {
       "mode": "full",
-      "sha256": "592dd77f8197118d353b5bd0801f30c945acb838879e90c107a6c07d1757840d",
+      "sha256": "7d30df06eeeb2d1b7c0b1775ddac809f7988691ac621bd51b180f6ec880568ec",
       "source": "templates/common/.claude/hooks/block-forbidden-commands.mjs"
     },
     ".claude/hooks/block-package-installs.mjs": {

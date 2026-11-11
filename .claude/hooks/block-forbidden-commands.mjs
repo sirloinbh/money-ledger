@@ -10,6 +10,7 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
 import { programName, splitCommands } from './block-package-installs.mjs';
 
 const MAX_DEPTH = 6;
