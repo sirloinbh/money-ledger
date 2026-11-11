@@ -3,7 +3,7 @@ import type * as React from 'react';
 
 import { cn } from '../../lib/utils';
 
-// Loading placeholders in the shape of the real content (docs/design-system.md "로딩 표시").
+// Loading placeholders in the shape of the real content (docs/design-system.md "Loading indicators").
 // The pulse is hidden from screen readers; wrap a loading region in aria-busy and give it a label.
 
 function Skeleton({ className, ...props }: React.ComponentProps<'div'>) {

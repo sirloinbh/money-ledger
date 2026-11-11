@@ -11,51 +11,51 @@ function deferred() {
   let reject = () => {};
   const promise = new Promise<void>((res, rej) => {
     resolve = () => res();
-    reject = () => rej(new Error('삭제하지 못했습니다'));
+    reject = () => rej(new Error('Could not delete'));
   });
   return { promise, resolve, reject };
 }
 
 test('the trigger opens a named dialog; confirming runs the action and closes it', () => {
   const onConfirm = vi.fn();
-  render(<ConfirmDialog title="기록을 삭제할까요?" description="삭제하면 되돌릴 수 없습니다." onConfirm={onConfirm} trigger={<Button>삭제하기</Button>} />);
-  fireEvent.click(screen.getByRole('button', { name: '삭제하기' }));
-  const dialog = screen.getByRole('dialog', { name: '기록을 삭제할까요?' });
-  expect(dialog).toHaveAccessibleDescription('삭제하면 되돌릴 수 없습니다.');
-  expect(screen.getByRole('button', { name: '삭제' })).toHaveAttribute('data-slot', 'button');
-  fireEvent.click(screen.getByRole('button', { name: '삭제' }));
+  render(<ConfirmDialog title="Delete this entry?" description="This cannot be undone." onConfirm={onConfirm} trigger={<Button>Delete item</Button>} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Delete item' }));
+  const dialog = screen.getByRole('dialog', { name: 'Delete this entry?' });
+  expect(dialog).toHaveAccessibleDescription('This cannot be undone.');
+  expect(screen.getByRole('button', { name: 'Delete' })).toHaveAttribute('data-slot', 'button');
+  fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
   expect(onConfirm).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole('dialog')).toBeNull();
 });
 
 test('cancel closes without running the action', () => {
   const onConfirm = vi.fn();
-  render(<ConfirmDialog title="목표를 삭제할까요?" onConfirm={onConfirm} trigger={<Button>삭제하기</Button>} />);
-  fireEvent.click(screen.getByRole('button', { name: '삭제하기' }));
-  fireEvent.click(screen.getByRole('button', { name: '취소' }));
+  render(<ConfirmDialog title="Delete this goal?" onConfirm={onConfirm} trigger={<Button>Delete item</Button>} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Delete item' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(onConfirm).not.toHaveBeenCalled();
   expect(screen.queryByRole('dialog')).toBeNull();
 });
 
 test('while the action runs the buttons wait; the dialog closes when it succeeds', async () => {
   const work = deferred();
-  render(<ConfirmDialog title="삭제할까요?" onConfirm={() => work.promise} trigger={<Button>열기</Button>} />);
-  fireEvent.click(screen.getByRole('button', { name: '열기' }));
-  fireEvent.click(screen.getByRole('button', { name: /삭제/ }));
-  expect(screen.getByRole('button', { name: /삭제/ })).toBeDisabled();
-  expect(screen.getByRole('button', { name: '취소' })).toBeDisabled();
-  expect(screen.getByRole('status', { name: '처리하는 중' })).toBeInTheDocument();
+  render(<ConfirmDialog title="Delete it?" onConfirm={() => work.promise} trigger={<Button>Open</Button>} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+  fireEvent.click(screen.getByRole('button', { name: /Delete/ }));
+  expect(screen.getByRole('button', { name: /Delete/ })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+  expect(screen.getByRole('status', { name: 'Working' })).toBeInTheDocument();
   work.resolve();
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 });
 
 test('a failed action leaves the dialog open so the screen can show why', async () => {
   const work = deferred();
-  render(<ConfirmDialog title="삭제할까요?" onConfirm={() => work.promise} trigger={<Button>열기</Button>} />);
-  fireEvent.click(screen.getByRole('button', { name: '열기' }));
-  fireEvent.click(screen.getByRole('button', { name: /삭제/ }));
+  render(<ConfirmDialog title="Delete it?" onConfirm={() => work.promise} trigger={<Button>Open</Button>} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+  fireEvent.click(screen.getByRole('button', { name: /Delete/ }));
   work.reject();
-  await waitFor(() => expect(screen.getByRole('button', { name: '삭제' })).toBeEnabled());
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled());
   expect(screen.getByRole('dialog')).toBeInTheDocument();
 });
 
@@ -64,15 +64,15 @@ test('it can be controlled, e.g. opened for the row the user picked', () => {
     const [target, setTarget] = React.useState<string | null>(null);
     return (
       <>
-        <Button onClick={() => setTarget('3월 2일')}>3월 2일 삭제</Button>
-        <ConfirmDialog open={target !== null} onOpenChange={(open) => !open && setTarget(null)} title={`${target ?? ''} 기록을 삭제할까요?`} confirmLabel="지우기" destructive={false} onConfirm={() => setTarget(null)} />
+        <Button onClick={() => setTarget('Mar 2')}>Delete Mar 2</Button>
+        <ConfirmDialog open={target !== null} onOpenChange={(open) => !open && setTarget(null)} title={`Delete the ${target ?? ''} entry?`} confirmLabel="Remove" destructive={false} onConfirm={() => setTarget(null)} />
       </>
     );
   }
   render(<Rows />);
-  fireEvent.click(screen.getByRole('button', { name: '3월 2일 삭제' }));
-  expect(screen.getByRole('dialog', { name: '3월 2일 기록을 삭제할까요?' })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: '지우기' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Delete Mar 2' }));
+  expect(screen.getByRole('dialog', { name: 'Delete the Mar 2 entry?' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
   expect(screen.queryByRole('dialog')).toBeNull();
 });
 
@@ -82,31 +82,31 @@ function ControlledWithReturn() {
   return (
     <>
       <Button ref={opener} onClick={() => setOpen(true)}>
-        상태 바꾸기
+        Change status
       </Button>
-      <ConfirmDialog open={open} onOpenChange={setOpen} title="바꿀까요?" onConfirm={() => setOpen(false)} returnFocusRef={opener} />
+      <ConfirmDialog open={open} onOpenChange={setOpen} title="Change it?" onConfirm={() => setOpen(false)} returnFocusRef={opener} />
     </>
   );
 }
 
 test('without a trigger, closing returns focus to returnFocusRef (#356)', async () => {
   render(<ControlledWithReturn />);
-  fireEvent.click(screen.getByRole('button', { name: '상태 바꾸기' }));
-  fireEvent.click(screen.getByRole('button', { name: '취소' }));
-  await waitFor(() => expect(screen.getByRole('button', { name: '상태 바꾸기' })).toHaveFocus());
+  fireEvent.click(screen.getByRole('button', { name: 'Change status' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Change status' })).toHaveFocus());
 });
 
 test('with a trigger, closing still returns focus to the trigger', async () => {
-  render(<ConfirmDialog title="삭제할까요?" onConfirm={vi.fn()} trigger={<Button>열기</Button>} />);
-  fireEvent.click(screen.getByRole('button', { name: '열기' }));
-  fireEvent.click(screen.getByRole('button', { name: '취소' }));
-  await waitFor(() => expect(screen.getByRole('button', { name: '열기' })).toHaveFocus());
+  render(<ConfirmDialog title="Delete it?" onConfirm={vi.fn()} trigger={<Button>Open</Button>} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Open' })).toHaveFocus());
 });
 
 test('an empty returnFocusRef keeps the trigger behaviour', async () => {
   const empty = React.createRef<HTMLElement>();
-  render(<ConfirmDialog title="삭제할까요?" onConfirm={vi.fn()} trigger={<Button>열기</Button>} returnFocusRef={empty} />);
-  fireEvent.click(screen.getByRole('button', { name: '열기' }));
-  fireEvent.click(screen.getByRole('button', { name: '취소' }));
-  await waitFor(() => expect(screen.getByRole('button', { name: '열기' })).toHaveFocus());
+  render(<ConfirmDialog title="Delete it?" onConfirm={vi.fn()} trigger={<Button>Open</Button>} returnFocusRef={empty} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Open' })).toHaveFocus());
 });

@@ -275,7 +275,7 @@ test('editing fills the form, moves focus to it, and saves with PUT', async () =
 test('deleting asks first, then removes the asset and moves focus to the list title', async () => {
   await ready();
   fireEvent.click(screen.getByRole('button', { name: '전세 대출 삭제' }));
-  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
   expect(await screen.findByText('전세 대출을(를) 삭제했습니다')).toBeInTheDocument();
   expect(screen.queryByRole('list', { name: '부채' })).not.toBeInTheDocument();
   expect(summary('순자산')).toHaveTextContent('5,000,000원');

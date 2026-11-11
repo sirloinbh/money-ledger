@@ -9,16 +9,16 @@ function Confirm() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button>삭제</Button>
+        <Button>Delete</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>기록을 삭제할까요?</DialogTitle>
-          <DialogDescription>삭제하면 되돌릴 수 없습니다.</DialogDescription>
+          <DialogTitle>Delete this entry?</DialogTitle>
+          <DialogDescription>This cannot be undone.</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline">취소</Button>
+            <Button variant="outline">Cancel</Button>
           </DialogClose>
         </DialogFooter>
       </DialogContent>
@@ -28,15 +28,15 @@ function Confirm() {
 
 test('the trigger opens a named modal dialog with focus inside', () => {
   render(<Confirm />);
-  fireEvent.click(screen.getByRole('button', { name: '삭제' }));
-  const dialog = screen.getByRole('dialog', { name: '기록을 삭제할까요?' });
-  expect(dialog).toHaveAccessibleDescription('삭제하면 되돌릴 수 없습니다.');
+  fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+  const dialog = screen.getByRole('dialog', { name: 'Delete this entry?' });
+  expect(dialog).toHaveAccessibleDescription('This cannot be undone.');
   expect(dialog).toContainElement(document.activeElement as HTMLElement);
 });
 
 test('Escape closes the dialog and returns focus to the trigger', async () => {
   render(<Confirm />);
-  const trigger = screen.getByRole('button', { name: '삭제' });
+  const trigger = screen.getByRole('button', { name: 'Delete' });
   fireEvent.click(trigger);
   fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
   expect(screen.queryByRole('dialog')).toBeNull();
@@ -45,10 +45,10 @@ test('Escape closes the dialog and returns focus to the trigger', async () => {
 
 test('the close button and a DialogClose button both close it', () => {
   render(<Confirm />);
-  fireEvent.click(screen.getByRole('button', { name: '삭제' }));
-  fireEvent.click(screen.getByRole('button', { name: '닫기' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Close' }));
   expect(screen.queryByRole('dialog')).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: '삭제' }));
-  fireEvent.click(screen.getByRole('button', { name: '취소' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(screen.queryByRole('dialog')).toBeNull();
 });

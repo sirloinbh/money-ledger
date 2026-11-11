@@ -29,18 +29,18 @@ afterEach(() => {
 test('a toast message appears in the notification region', async () => {
   render(<Toaster />);
   act(() => {
-    toast.success('저장했습니다');
+    toast.success('Saved');
   });
-  expect(await screen.findByText('저장했습니다')).toBeInTheDocument();
-  expect(screen.getByRole('region', { name: /알림/ })).toBeInTheDocument();
+  expect(await screen.findByText('Saved')).toBeInTheDocument();
+  expect(screen.getByRole('region', { name: /Notifications/ })).toBeInTheDocument();
 });
 
 test('the toaster follows the html light/dark class', async () => {
   document.documentElement.classList.add('dark');
   render(<Toaster />);
   act(() => {
-    toast('확인');
+    toast('Confirm');
   });
-  await screen.findByText('확인');
+  await screen.findByText('Confirm');
   expect(document.querySelector('[data-sonner-toaster]')).toHaveAttribute('data-sonner-theme', 'dark');
 });

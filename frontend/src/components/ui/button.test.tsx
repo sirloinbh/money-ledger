@@ -6,8 +6,8 @@ import { Button } from './button';
 
 test('a button is reachable by its name and reports clicks', () => {
   const onClick = vi.fn();
-  render(<Button onClick={onClick}>저장</Button>);
-  fireEvent.click(screen.getByRole('button', { name: '저장' }));
+  render(<Button onClick={onClick}>Save</Button>);
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   expect(onClick).toHaveBeenCalledOnce();
 });
 
@@ -15,29 +15,29 @@ test('a disabled button ignores clicks', () => {
   const onClick = vi.fn();
   render(
     <Button disabled onClick={onClick}>
-      저장
+      Save
     </Button>,
   );
-  fireEvent.click(screen.getByRole('button', { name: '저장' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   expect(onClick).not.toHaveBeenCalled();
 });
 
 test('variants and sizes change the classes, and touch screens get 44px', () => {
   render(
     <>
-      <Button variant="destructive">삭제</Button>
-      <Button variant="outline" size="icon" aria-label="닫기" />
+      <Button variant="destructive">Delete</Button>
+      <Button variant="outline" size="icon" aria-label="Close" />
     </>,
   );
-  expect(screen.getByRole('button', { name: '삭제' })).toHaveClass('bg-destructive', 'pointer-coarse:min-h-11');
-  expect(screen.getByRole('button', { name: '닫기' })).toHaveClass('border', 'pointer-coarse:size-11');
+  expect(screen.getByRole('button', { name: 'Delete' })).toHaveClass('bg-destructive', 'pointer-coarse:min-h-11');
+  expect(screen.getByRole('button', { name: 'Close' })).toHaveClass('border', 'pointer-coarse:size-11');
 });
 
 test('asChild renders the child element, e.g. a link', () => {
   render(
     <Button asChild>
-      <a href="/journal">일지</a>
+      <a href="/journal">Journal</a>
     </Button>,
   );
-  expect(screen.getByRole('link', { name: '일지' })).toHaveAttribute('data-slot', 'button');
+  expect(screen.getByRole('link', { name: 'Journal' })).toHaveAttribute('data-slot', 'button');
 });

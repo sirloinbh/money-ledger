@@ -61,22 +61,22 @@ function AppShell({
         href="#main"
         className="sr-only z-[var(--z-toast)] rounded-md bg-primary px-4 py-2 text-primary-foreground focus:not-sr-only focus:fixed focus:top-[calc(env(safe-area-inset-top)+0.5rem)] focus:left-2"
       >
-        본문으로 건너뛰기
+        Skip to main content
       </a>
       <header className="sticky top-0 z-[var(--z-sticky)] border-b bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="flex h-14 items-center gap-2 pr-[max(env(safe-area-inset-right),0.5rem)] pl-[max(env(safe-area-inset-left),0.5rem)] md:px-4">
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden" aria-label="메뉴 열기">
+              <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu">
                 <MenuIcon aria-hidden />
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-72 bg-sidebar p-0 text-sidebar-foreground">
               <SheetHeader className="border-b">
                 <SheetTitle>{appName}</SheetTitle>
-                <SheetDescription className="sr-only">주 메뉴</SheetDescription>
+                <SheetDescription className="sr-only">Main menu</SheetDescription>
               </SheetHeader>
-              <nav aria-label="주 메뉴" className="overflow-y-auto">
+              <nav aria-label="Main menu" className="overflow-y-auto">
                 <NavList items={nav} onNavigate={() => setMenuOpen(false)} />
               </nav>
             </SheetContent>
@@ -96,7 +96,7 @@ function AppShell({
       </header>
       <div className="md:grid md:grid-cols-[15rem_minmax(0,1fr)]">
         <aside className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] overflow-y-auto border-r bg-sidebar text-sidebar-foreground md:block">
-          <nav aria-label="주 메뉴">
+          <nav aria-label="Main menu">
             <NavList items={nav} />
           </nav>
         </aside>

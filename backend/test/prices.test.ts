@@ -186,6 +186,6 @@ test('a malformed security id is a Korean 400', async () => {
   await withApi(noDb, async (call) => {
     const response = await call('/api/prices/securities/abc');
     assert.equal(response.status, 400);
-    assert.deepEqual(response.data, { error: '종목 ID가 올바르지 않습니다' });
+    assert.deepEqual(response.data, { error: 'Invalid 종목 ID' });
   });
 });

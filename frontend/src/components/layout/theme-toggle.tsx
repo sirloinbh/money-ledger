@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 
-const LABELS: Record<ThemeChoice, string> = { system: '시스템 설정', light: '라이트', dark: '다크' };
+const LABELS: Record<ThemeChoice, string> = { system: 'System', light: 'Light', dark: 'Dark' };
 const ICONS = { system: MonitorIcon, light: SunIcon, dark: MoonIcon };
 
 function ThemeToggle() {
@@ -22,12 +22,12 @@ function ThemeToggle() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={`화면 모드: ${LABELS[choice]}`}>
+        <Button variant="ghost" size="icon" aria-label={`Theme: ${LABELS[choice]}`}>
           <Icon aria-hidden />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuLabel>화면 모드</DropdownMenuLabel>
+        <DropdownMenuLabel>Theme</DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={choice}
           onValueChange={(value) => {

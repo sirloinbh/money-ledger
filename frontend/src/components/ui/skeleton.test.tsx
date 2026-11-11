@@ -13,7 +13,7 @@ test('skeletons are hidden from screen readers and stop moving for reduced motio
 
 test('text, card and list shapes draw the expected number of blocks', () => {
   render(
-    <section aria-busy="true" aria-label="기록 불러오는 중">
+    <section aria-busy="true" aria-label="Loading entries">
       <div data-testid="text">
         <SkeletonText lines={4} />
       </div>
@@ -29,5 +29,5 @@ test('text, card and list shapes draw the expected number of blocks', () => {
   expect(blocks('text')).toBe(4);
   expect(blocks('card')).toBe(1 + 2);
   expect(blocks('list')).toBe(2 * 3);
-  expect(screen.getByRole('region', { name: '기록 불러오는 중' })).toHaveAttribute('aria-busy', 'true');
+  expect(screen.getByRole('region', { name: 'Loading entries' })).toHaveAttribute('aria-busy', 'true');
 });

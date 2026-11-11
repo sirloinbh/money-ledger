@@ -9,22 +9,22 @@ test('the spinner is a named status in three sizes', () => {
   render(
     <>
       <Spinner size="sm" />
-      <Spinner label="저장하는 중" />
-      <Spinner size="lg" label="큰 스피너" />
+      <Spinner label="Saving" />
+      <Spinner size="lg" label="Large spinner" />
     </>,
   );
-  expect(screen.getByRole('status', { name: '불러오는 중' })).toHaveClass('size-4');
-  expect(screen.getByRole('status', { name: '저장하는 중' })).toHaveClass('size-6');
-  expect(screen.getByRole('status', { name: '큰 스피너' })).toHaveClass('size-8', 'motion-reduce:animate-none');
+  expect(screen.getByRole('status', { name: 'Loading' })).toHaveClass('size-4');
+  expect(screen.getByRole('status', { name: 'Saving' })).toHaveClass('size-6');
+  expect(screen.getByRole('status', { name: 'Large spinner' })).toHaveClass('size-8', 'motion-reduce:animate-none');
 });
 
 test('a saving button shows the spinner and stays named', () => {
   render(
     <Button disabled>
-      <Spinner size="sm" label="저장하는 중" />
-      저장
+      <Spinner size="sm" label="Saving" />
+      Save
     </Button>,
   );
-  expect(screen.getByRole('button', { name: /저장/ })).toBeDisabled();
-  expect(screen.getByRole('status', { name: '저장하는 중' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /Save/ })).toBeDisabled();
+  expect(screen.getByRole('status', { name: 'Saving' })).toBeInTheDocument();
 });

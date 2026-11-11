@@ -1,130 +1,135 @@
 ---
 name: std-git-writing
-description: Write GitHub issues, branch names, commit messages, and pull requests so a person can understand them at a glance, using the shared issue and PR templates. Use whenever creating or editing an issue, branch, commit, or PR in any sirloinbh project repository, together with std-backlog for labels and priorities.
+description: Write GitHub issues, branch names, commit messages, and pull requests in plain English so a person can understand them at a glance, using the shared issue and PR templates. Use whenever creating or editing an issue, branch, commit, or PR in any sirloinbh project repository, together with std-backlog for labels and priorities.
 ---
 
 <!-- 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/common/skills/std-git-writing/에서 -->
 
-# 이슈·브랜치·커밋·PR 작성 규칙
+<!-- Centrally managed file. Edit it in sirloinbh/project-standards templates/common/skills/std-git-writing/ -->
 
-Git과 GitHub에 남기는 글은 나중에 사람이 다시 읽는 기록이다. 처음 보는 사람도 제목만 읽고 무슨 일인지 알 수 있어야 하고, 본문을 읽으면 무엇을 해야 하는지 알 수 있어야 한다. 이슈 라벨과 우선순위는 [std-backlog](../std-backlog/SKILL.md)를 따른다.
+# Writing issues, branches, commits, and PRs
 
-## 1. 공통 원칙
+What goes into Git and GitHub is a record people read again later. Someone seeing it for the first time should know what happened from the title alone, and know what to do after reading the body. Labels and priorities follow [std-backlog](../std-backlog/SKILL.md).
 
-- **결과를 먼저 쓴다.** "무엇을 했는지/할 것인지"가 첫 문장에 와야 한다. 배경 설명으로 시작하지 않는다.
-- **쉬운 말로 쓴다.** 한국어로 쓰고, 처음 나오는 약어나 내부 키(`maxRollout`, `manifest` 등)는 짧게 풀어 쓴다. 파일 경로와 명령은 백틱으로 감싼다.
-- **한 문장에 한 가지 내용만 쓴다.** 여러 항목은 목록이나 표로 나눈다. 진행 상황을 확인해야 하는 목록은 체크박스(`- [ ]`)로 쓴다.
-- **확인할 수 있게 쓴다.** "개선", "정리" 같은 모호한 말 대신 바뀐 파일, 숫자, 명령 결과를 적는다.
-- **독자가 할 일을 분명히 한다.** 사용자가 직접 해야 하는 일은 따로 모아 맨 앞이나 "병합 전에 확인해 주세요"에 적는다.
-- **문체:** 이슈·PR 본문은 "~합니다"체로 쓴다. 커밋 메시지는 명사형 끝맺음("~ 추가", "~ 수정")으로 쓴다.
-- 토큰, 비밀값, 개인 경로의 민감한 정보는 어디에도 쓰지 않는다.
+## 1. Principles
 
-## 2. 이슈
+- **English only.** Titles, bodies, commit messages, and review comments are written in English. Older records written in Korean are translated by their own issue; do not mix languages in new text.
+- **Lead with the result.** The first sentence says what was done or will be done. Do not open with background.
+- **Use plain words.** Explain abbreviations and internal keys (`maxRollout`, `manifest`, ...) the first time they appear. Put file paths and commands in backticks.
+- **One point per sentence.** Split multiple items into a list or table. Use checkboxes (`- [ ]`) for lists whose progress must be tracked.
+- **Make it verifiable.** Instead of vague words like "improve" or "clean up", name the changed files, numbers, and command results.
+- **Make the reader's job clear.** Collect what the user must do themselves at the top or under "Check before merging".
+- **Style:** Issue and PR bodies use full sentences. Commit and PR titles use the imperative mood in lower case after the type ("add", "fix", "remove").
+- Never write tokens, secrets, or sensitive parts of personal paths anywhere.
 
-### 제목
+## 2. Issues
 
-- 접두어(`feat:` 등) 없이, **무엇을 하는지** 한 문장으로 쓴다. 종류는 라벨이 알려 준다.
-- "~만들기", "~정하기", "~옮기기", "~고치기"처럼 끝나는 결과 중심 문장. 40자 안팎.
-- 범위가 여러 개면 괄호로 묶는다: `Docker 빌드 파일 템플릿 만들기 (Dockerfile 2종, nginx)`
-- 사용자가 직접 해야 하는 이슈는 `[직접]`으로 시작한다: `[직접] GitHub App 만들기와 Actions 공유 설정`
-- 다른 리포 작업을 추적하는 이슈는 리포 이름으로 시작한다: `workout-memo 사전 정리 (포트 재배정, AGENTS 분리)`
-- 분야별 상위 이슈(`epic`, std-backlog 6장)는 분야 이름과 목표를 쓴다: `휴지통 삭제 안전성`, `압축 만들기·풀기 안정성`
+### Title
 
-| 나쁜 예 | 좋은 예 |
+- No prefix (`feat:` etc.). One sentence that says **what the issue does**; the label carries the type.
+- Start with a verb in the imperative: "Add ...", "Decide ...", "Move ...", "Fix ...". About 60 characters.
+- Put multiple scopes in parentheses: `Add Docker build templates (2 Dockerfiles, nginx)`
+- Issues the user must do themselves start with `[Manual]`: `[Manual] Create the GitHub App and share Actions settings`
+- Issues tracking work in other repos start with the repo name: `workout-memo prep (port reassignment, AGENTS split)`
+- Area parent issues (`epic`, std-backlog section 6) state the area and its goal: `Safe trash deletion`, `Reliable archive create and extract`
+
+| Bad | Good |
 |---|---|
-| `feat: registry/projects.json·platform.json과 스키마` | `레지스트리 원본 파일과 충돌 검사 만들기` |
-| `research: scripts/backup.ps1 workout-memo와 7개 앱 차이 분석` | (구현 이슈의 첫 할 일로 합친다) |
-| `개선` | `하위 리포 검사 스크립트(standards-check) 만들기` |
+| `feat: registry/projects.json, platform.json and schema` | `Add registry source files and conflict check` |
+| `research: diff scripts/backup.ps1 between workout-memo and 7 apps` | (merge it into the implementation issue as its first task) |
+| `Improvements` | `Add a sub-repo check script (standards-check)` |
 
-### 본문
+### Body
 
-이슈 템플릿(리포 루트의 `.github/ISSUE_TEMPLATE/task.md`)의 6개 절을 이 순서대로 쓴다. 빈 절은 지우지 않고 "없음"이라고 쓴다.
+Write the six sections of the issue template (`.github/ISSUE_TEMPLATE/task.md` at the repo root) in this order. Do not delete an empty section; write "None".
 
-| 절 | 쓰는 내용 |
+| Section | Contents |
 |---|---|
-| 한 줄 요약 | 이 이슈가 끝나면 무엇이 달라지는지 한 문장 |
-| 왜 필요한가요 | 지금의 문제와 근거(파일·문서 경로). 2~4줄 |
-| 할 일 | 체크박스 목록. 한 줄에 한 작업. 순서대로 |
-| 완료 기준 | 체크박스 목록. 테스트·명령 결과·파일 존재처럼 확인할 수 있는 문장 |
-| 먼저 끝나야 하는 것 | `- #50 템플릿 렌더러` 처럼 번호와 짧은 이름. 없으면 "없음" |
-| 참고 | 우선순위와 근거 한 줄(승격했으면 원래 등급), 상위 이슈(`#번호 분야 이름`, 상위 이슈 자신은 "없음"), 관련 문서, 합쳐진 이슈 |
+| Summary | One sentence on what is different once the issue is done |
+| Why | The current problem and the evidence (file or doc paths). 2–4 lines |
+| Tasks | A checkbox list. One task per line, in order |
+| Done when | A checkbox list of verifiable statements: tests, command results, files that exist |
+| Blocked by | Number and short name, such as `- #50 template renderer`. "None" if nothing |
+| Notes | Priority with a one-line reason (and the original level if promoted), parent issue (`#number area name`; "None" for an area parent itself), related docs, merged issues |
 
-## 3. 브랜치 이름
+## 3. Branch names
 
-- 형식: `<type>/<이슈번호>-<영문-요약>`
-- `type`: `feat`(기능), `fix`(버그), `docs`(문서), `chore`(설정·정리·이전), `refactor`(동작 변경 없는 구조 개선), `test`(테스트만), `ci`(CI만)
-- 영문 요약은 소문자와 하이픈으로 2~5단어. 무엇을 다루는지 알 수 있는 명사구로 쓴다.
+- Format: `<type>/<issue-number>-<english-summary>`
+- `type`: `feat` (feature), `fix` (bug), `docs` (docs), `chore` (config, cleanup, migration), `refactor` (structure without behavior change), `test` (tests only), `ci` (CI only)
+- The summary is 2–5 lower-case words joined by hyphens: a noun phrase that says what the branch is about.
 
-| 나쁜 예 | 좋은 예 |
+| Bad | Good |
 |---|---|
 | `feat/44` | `feat/44-registry-files` |
 | `chore/95-fix` | `chore/95-workout-memo-port-reassign` |
 | `feat/44-add-json-schema-validator-and-registry-and-versions-files` | `feat/44-registry-files` |
 
-### 로컬 브랜치 관리 (git CLI)
+### Local branch management (git CLI)
 
-로컬 브랜치는 git CLI로 관리한다. 에이전트가 아래 명령을 직접 실행하고, 사용자에게 안내할 때도 같은 명령을 쓴다.
+Local branches are managed with the git CLI. The agent runs these commands itself and uses the same commands when guiding the user.
 
-- **작업 시작:** `git status`로 현재 브랜치와 작업 트리를 확인한 뒤 `git fetch origin`, `git switch --create <브랜치> origin/main` 순서로 만든다. 로컬 main은 건드리지 않는다.
-- **병합 후 정리:** PR이 병합됐는지 확인한 뒤(`pr view <번호> --json state,mergedAt`) `git switch main`, `git pull --ff-only`, `git branch --delete <브랜치>`, `git fetch --prune origin` 순서로 실행한다.
-- **멈추고 사용자에게 알리는 경우:** 다음 중 하나면 브랜치를 바꾸거나 지우지 않는다.
-  - 커밋하지 않은 변경이 있다.
-  - 지우려는 브랜치가 병합되지 않았다.
-  - 지우려는 브랜치를 다른 세션이나 worktree가 쓰고 있다(`git worktree list`로 확인).
-  - `git pull --ff-only`가 실패한다.
-- **`git branch --delete`가 거부되면:** `--force`나 `-D`로 바꾸지 않고 이유를 보고한다.
-- **긴 옵션을 쓴다:** PowerShell 도구의 권한 규칙은 대소문자를 구별하지 않아 `-c`·`-d`를 `-C`·`-D`와 같게 본다. 그래서 `--create`, `--delete`로 쓴다.
-- **폴더 잠금:** OneDrive 등이 파일을 잡아 git이 다시 시도할지 물으면 `n`으로 끝내고, 같은 명령을 반복하지 않는다. 브랜치가 지워졌는지 `git branch --list <브랜치>`로 확인해 결과를 보고한다.
-- **쓰지 않는 명령:** `git branch -D`, `git reset --hard`, `git clean`, `git stash`, `git rebase`는 사용자가 요청하고 승인한 경우에만 쓴다. 강제 push와 main 직접 push는 하지 않는다.
-- **`pr merge --delete-branch`는 쓰지 않는다.** 원격 브랜치는 리포 설정 "병합 후 브랜치 자동 삭제"가 지우고, 로컬 브랜치는 위 정리 절차로 지운다.
+- **Start work:** Check the current branch and working tree with `git status`, then run `git fetch origin` and `git switch --create <branch> origin/main` in that order. Do not touch local main.
+- **Clean up after merge:** Confirm the PR is merged (`pr view <number> --json state,mergedAt`), then run `git switch main`, `git pull --ff-only`, `git branch --delete <branch>`, and `git fetch --prune origin` in that order.
+- **Stop and tell the user when any of these is true.** Do not switch or delete branches.
+  - There are uncommitted changes.
+  - The branch to delete is not merged.
+  - Another session or worktree uses the branch to delete (check with `git worktree list`).
+  - `git pull --ff-only` fails.
+- **If `git branch --delete` is refused:** do not switch to `--force` or `-D`; report the reason.
+- **Use long options:** the PowerShell tool's permission rules are case-insensitive and treat `-c`/`-d` like `-C`/`-D`. Write `--create` and `--delete`.
+- **Folder locks:** if OneDrive or similar holds a file and git asks whether to retry, answer `n` and do not repeat the command. Check with `git branch --list <branch>` whether the branch was deleted and report the result.
+- **Commands not used:** `git branch -D`, `git reset --hard`, `git clean`, `git stash`, and `git rebase` are used only when the user asked for and approved them. Never force-push or push directly to main.
+- **Do not use `pr merge --delete-branch`.** The repo setting "Automatically delete head branches" removes the remote branch; the cleanup steps above remove the local one.
 
-## 4. 커밋 메시지
+## 4. Commit messages
 
 ```
-<type>: <무엇을 했는지> (#이슈번호)
+<type>: <what was done> (#issue-number)
 
-- 왜: 이 변경이 필요한 이유 한 줄
-- 변경: 주요 변경 1~3줄
+- Why: one line on why the change is needed
+- Change: 1–3 lines on the main changes
 
-<공동 작성자 줄: 실행 환경의 안내를 따른다>
+<co-author line: follow the runtime environment's instructions>
 ```
 
-- 제목은 50자 안팎이다. `type`은 브랜치와 같은 목록을 쓴다. 끝은 명사형으로 맺는다: `feat: 레지스트리 충돌 검사 추가 (#44)`
-- 커밋 하나에는 논리적으로 한 가지 변경만 담는다. 구현과 그 테스트, 변경 기록(`docs/changes/`)은 함께 커밋한다.
-- 본문에는 diff만 봐서는 알 수 없는 이유를 쓴다. 파일 목록을 나열하지 않는다.
+- The title is about 50 characters. `type` uses the same list as branches. Use the imperative in lower case: `feat: add registry conflict check (#44)`
+- One commit holds one logical change. Commit the implementation, its tests, and its change record (`docs/changes/`) together.
+- The body explains what the diff cannot show. Do not list files.
+- Automated commits whose prefix tools rely on (the sync bot's `chore: 중앙 표준 동기화 (project-standards@` and the compliance report commit) keep their existing format until the tools are migrated.
 
-| 나쁜 예 | 좋은 예 |
+| Bad | Good |
 |---|---|
-| `update` | `fix: 동기화 PR이 중복 생성되는 문제 수정 (#63)` |
-| `feat: 작업` | `feat: 레지스트리 충돌 검사 추가 (#44)` |
+| `update` | `fix: stop sync PRs from being opened twice (#63)` |
+| `feat: work` | `feat: add registry conflict check (#44)` |
 
-## 5. PR
+## 5. PRs
 
-### 제목
+### Title
 
-커밋 제목과 같은 형식이다: `<type>: <무엇을 바꿨는지> (#이슈번호)`. 여러 이슈를 함께 닫으면 대표 이슈 번호를 쓴다.
+Same format as a commit title: `<type>: <what changed> (#issue-number)`. If one PR closes several issues, use the main issue number.
 
-### 본문
+### Body
 
-PR 템플릿(리포 루트의 `.github/pull_request_template.md`)의 절을 이 순서대로 쓴다.
+Write the sections of the PR template (`.github/pull_request_template.md` at the repo root) in this order.
 
-| 절 | 쓰는 내용 |
+| Section | Contents |
 |---|---|
-| 무엇을 바꿨나요 | 한두 문장. 이것만 읽어도 PR을 이해할 수 있게 |
-| 왜 바꿨나요 | 문제와 이유, 관련 이슈·문서 링크 |
-| 주요 변경 | 파일(또는 파일 묶음)과 내용 표. 10행을 넘으면 묶는다 |
-| 확인한 내용 | 실제로 실행한 명령과 결과 요약. 실행하지 못한 것은 이유와 함께 |
-| 병합 전에 확인해 주세요 | 사용자가 판단·실행할 체크박스. 요구사항과 다르게 정한 것은 반드시 여기에 적는다 |
-| 영향 범위 | 배포, 다른 리포, 로컬 환경(.env 등)에 미치는 영향. 없으면 "없음" |
-| `Closes #번호` | 닫을 이슈마다 한 줄. 본문 끝, 공동 작성 표기 바로 앞 |
+| What changed | One or two sentences. Reading only this should explain the PR |
+| Why | The problem and the reason, with links to issues and docs |
+| Main changes | A table of files (or groups of files) and what changed. Group rows past 10 |
+| Verification | Commands actually run and a summary of results. Anything not run, with the reason |
+| Check before merging | Checkboxes for what the user must decide or run. Anything decided differently from the requirements must be listed here |
+| Impact | Effect on deployment, other repos, and local setup (.env etc.). "None" if nothing |
+| `Closes #number` | One line per issue to close. At the end of the body, just before the co-author note |
 
-- 누가 병합하는지는 리포의 `AGENTS.md`를 따른다(정해져 있지 않으면 사용자만). 에이전트가 병합하는 리포에서도 "병합 전에 확인해 주세요"에 사용자 판단이 필요한 항목이 있으면 병합하지 않고 묻는다.
-- PR에 커밋을 추가하면 본문의 "주요 변경"과 `Closes`도 함께 갱신한다.
+- Who merges follows the repo's `AGENTS.md` (the user only, if it says nothing). Even in repos where the agent merges, do not merge and ask instead when "Check before merging" has an item that needs the user's judgment.
+- When you add commits to a PR, update "Main changes" and `Closes` in the body too.
 
-## 6. 올리기 전 점검
+## 6. Checklist before posting
 
-- [ ] 제목만 읽고 무슨 일인지 알 수 있는가
-- [ ] 처음 보는 약어나 내부 키를 풀어 썼는가
-- [ ] 사용자가 해야 할 일이 따로 모여 있는가
-- [ ] 완료 기준과 확인한 내용이 사실(명령 결과, 파일)로 쓰였는가
-- [ ] 비밀값이 없는가
+- [ ] Can someone tell what this is from the title alone?
+- [ ] Is it written in English?
+- [ ] Are abbreviations and internal keys explained the first time?
+- [ ] Are the user's own steps collected in one place?
+- [ ] Are "Done when" and "Verification" written as facts (command results, files)?
+- [ ] Is it free of secrets?

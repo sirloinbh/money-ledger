@@ -209,7 +209,7 @@ test('a malformed asset id is a Korean 400', async () => {
   await withApi(noDb, async (call) => {
     const response = await call('/api/portfolio/assets/x', { method: 'DELETE' });
     assert.equal(response.status, 400);
-    assert.deepEqual(response.data, { error: '자산 ID가 올바르지 않습니다' });
+    assert.deepEqual(response.data, { error: 'Invalid 자산 ID' });
   });
 });
 
@@ -255,6 +255,6 @@ test('a malformed use id is a Korean 400', async () => {
   await withApi(noDb, async (call) => {
     const response = await call('/api/portfolio/assets/1/usages/x', { method: 'DELETE' });
     assert.equal(response.status, 400);
-    assert.deepEqual(response.data, { error: '사용 기록 ID가 올바르지 않습니다' });
+    assert.deepEqual(response.data, { error: 'Invalid 사용 기록 ID' });
   });
 });

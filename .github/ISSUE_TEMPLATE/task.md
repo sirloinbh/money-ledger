@@ -1,31 +1,33 @@
 ---
-name: 작업
-about: 구현·문서·설정·조사 작업을 등록합니다
+name: Task
+about: Register an implementation, docs, config, or research task
 title: ''
 labels: ''
 ---
 
 <!-- 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/common/.github/ISSUE_TEMPLATE/에서 -->
-<!-- 작성법: std-git-writing 스킬. 제목은 접두어 없이 "무엇을 하는지" 한 문장으로 씁니다. 예) 레지스트리 원본 파일과 충돌 검사 만들기 -->
 
-## 한 줄 요약
-<!-- 이 이슈가 끝나면 무엇이 달라지는지 한 문장 -->
+<!-- Centrally managed file. Edit it in sirloinbh/project-standards templates/common/.github/ISSUE_TEMPLATE/ -->
+<!-- How to write: std-git-writing skill. The title has no prefix and says what the issue does in one sentence. e.g. Add registry source files and conflict check -->
 
-## 왜 필요한가요
-<!-- 지금 무엇이 문제인지. 근거 파일·문서 경로를 함께 -->
+## Summary
+<!-- One sentence: what is different once this issue is done -->
 
-## 할 일
+## Why
+<!-- What is wrong today. Include the files or docs that show it -->
+
+## Tasks
 - [ ] 
 
-## 완료 기준
-<!-- 누가 봐도 끝났는지 판단할 수 있는 문장. 테스트, 명령 결과, 파일 존재 -->
+## Done when
+<!-- Statements anyone can verify: tests, command results, files that exist -->
 - [ ] 
 
-## 먼저 끝나야 하는 것
-<!-- "#번호 짧은 이름" 형식. 없으면 "없음". 사용자가 직접 할 일이면 무엇을 하는지 -->
-- 없음
+## Blocked by
+<!-- "#number short name". "None" if nothing. If it is a step the user must do, say what it is -->
+- None
 
-## 참고
-- 우선순위: <!-- P1 — 근거 한 줄 -->
-- 상위 이슈: <!-- "#번호 분야 이름". 하위 이슈로도 연결합니다(std-backlog 6장). 이 이슈가 분야 상위 이슈(epic)면 "없음" -->
-- 관련 문서: 
+## Notes
+- Priority: <!-- P1 — one-line reason -->
+- Parent issue: <!-- "#number area name". Also link it as a sub-issue (std-backlog section 6). "None" if this issue is an area parent (epic) -->
+- Related docs: 

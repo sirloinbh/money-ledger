@@ -22,7 +22,7 @@ function Toaster(props: ToasterProps) {
       theme={theme}
       className="toaster group"
       position="top-center"
-      containerAriaLabel="알림"
+      containerAriaLabel="Notifications"
       style={
         {
           '--normal-bg': 'var(--popover)',

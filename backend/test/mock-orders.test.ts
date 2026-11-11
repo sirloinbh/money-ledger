@@ -76,7 +76,7 @@ test('a malformed account id is a Korean 400', async () => {
     const response = await call('/api/mock/accounts/abc/orders', { method: 'POST', body: valid });
     assert.deepEqual(
       [response.status, response.data],
-      [400, { error: '모의투자 계좌 ID가 올바르지 않습니다' }],
+      [400, { error: 'Invalid 모의투자 계좌 ID' }],
     );
   });
 });

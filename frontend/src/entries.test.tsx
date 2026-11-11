@@ -240,7 +240,7 @@ test('deleting asks first, then removes the entry', async () => {
   fireEvent.click(screen.getByRole('button', { name: '2026-11-01 여가 5,000원 삭제' }));
   const dialog = screen.getByRole('dialog', { name: '내역을 삭제할까요?' });
   expect(requests.some((request) => request.method === 'DELETE')).toBe(false);
-  fireEvent.click(within(dialog).getByRole('button', { name: '삭제' }));
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
   expect(await screen.findByText('조건에 맞는 내역이 없습니다.')).toBeInTheDocument();
   expect(requests).toContainEqual({
     method: 'DELETE',
@@ -354,11 +354,11 @@ test('after a delete focus goes to the section title; after cancelling, back to 
   await ready();
   const remove = screen.getByRole('button', { name: '2026-11-01 여가 5,000원 삭제' });
   fireEvent.click(remove);
-  fireEvent.click(screen.getByRole('button', { name: '취소' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   await vi.waitFor(() => expect(remove).toHaveFocus());
 
   fireEvent.click(remove);
-  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
   await screen.findByText('조건에 맞는 내역이 없습니다.');
   await vi.waitFor(() =>
     expect(screen.getByRole('heading', { name: '수입·지출 내역' })).toHaveFocus(),

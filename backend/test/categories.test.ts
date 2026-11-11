@@ -58,7 +58,7 @@ test('a malformed category id is a Korean 400', async () => {
       body: { hidden: true },
     });
     assert.equal(response.status, 400);
-    assert.deepEqual(response.data, { error: '카테고리 ID가 올바르지 않습니다' });
+    assert.deepEqual(response.data, { error: 'Invalid 카테고리 ID' });
   });
 });
 

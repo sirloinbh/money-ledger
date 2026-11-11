@@ -1,8 +1,13 @@
 {
-  "centralSha": "94790218848f47ad87d02b536cce7fdb1d13993d",
+  "centralSha": "38782daae57d421c871d12944d6159d213c10f3c",
   "profile": "app",
   "project": "money-ledger",
   "files": {
+    ".claude/hooks/block-forbidden-commands.mjs": {
+      "mode": "full",
+      "sha256": "7d30df06eeeb2d1b7c0b1775ddac809f7988691ac621bd51b180f6ec880568ec",
+      "source": "templates/common/.claude/hooks/block-forbidden-commands.mjs"
+    },
     ".claude/hooks/block-package-installs.mjs": {
       "mode": "full",
       "sha256": "eb4fd729989c4f45319020c8f5d993381c17136bfd5ec4e9ee52146bd49050ce",
@@ -13,19 +18,39 @@
       "sha256": "33b42fea0106532e8a7dbc9682f9c507a555028a6d21fa4d12ca58ccea2b5983",
       "source": "templates/common/.claude/hooks/pc-setup-notice.mjs"
     },
+    ".claude/rules/backend.md": {
+      "mode": "full",
+      "sha256": "d8042893f8a17c6c422960224c5e55e0953e4c0ec0fac1aaf98233bea2e6b38b",
+      "source": "templates/app/.claude/rules/backend.md"
+    },
+    ".claude/rules/database.md": {
+      "mode": "full",
+      "sha256": "0dcfb1b36f5ea36209ca5a540cd158c58135ebc9db47aff274292f73780242a0",
+      "source": "templates/app/.claude/rules/database.md"
+    },
+    ".claude/rules/docs-and-skills.md": {
+      "mode": "full",
+      "sha256": "baf408314be363cfa4f4627887a40f673540687e8e55c0f4af5350319ebe62d4",
+      "source": "templates/app/.claude/rules/docs-and-skills.md"
+    },
+    ".claude/rules/frontend.md": {
+      "mode": "full",
+      "sha256": "435e3fca18bfa709016af3f9d2724cf2d84ca1548c29626af96ce0c93076e3e1",
+      "source": "templates/app/.claude/rules/frontend.md"
+    },
     ".claude/settings.json": {
       "mode": "full",
-      "sha256": "7fd5612d18e2952f085afe612e07b83f9dd2c4789994c2e8b690a71cacc0eb2a",
+      "sha256": "0f4fe35fd6af44bbf9b99895a7daf80a9ae4e3938f17ae02c47f62d01062b25f",
       "source": "templates/common/.claude/settings.json.tmpl"
     },
     ".claude/skills/std-backlog/SKILL.md": {
       "mode": "full",
-      "sha256": "b34e21e85a76c995249d7acc73baebd75804208f46ec49581b48aad8f0822215",
+      "sha256": "77766b46678d554664e5361f7ba4bed70fa2dedd0e10e7b04a48ad4f2351d8ff",
       "source": "templates/common/skills/std-backlog/SKILL.md"
     },
     ".claude/skills/std-communication/SKILL.md": {
       "mode": "full",
-      "sha256": "1a3ad4cdb7776523a79f7eb32347ff387c63758e8991c83b7380e01da113fd13",
+      "sha256": "7202e0fed76711eb266a9c8de4b3ad8288d5ba81bd2fd71c7ca446fa92bcd173",
       "source": "templates/common/skills/std-communication/SKILL.md"
     },
     ".claude/skills/std-foundation/SKILL.md": {
@@ -35,7 +60,7 @@
     },
     ".claude/skills/std-git-writing/SKILL.md": {
       "mode": "full",
-      "sha256": "6bdd8344acfc9ce6c3108c3bdb9fd706131c48f6847695ff9d1057543860f68e",
+      "sha256": "2de21ed52925332418b6ebfdf5adf02266fec39f47da1fc42e1e5bfe5a8a9996",
       "source": "templates/common/skills/std-git-writing/SKILL.md"
     },
     ".claude/skills/std-implementation/SKILL.md": {
@@ -80,12 +105,12 @@
     },
     ".github/ISSUE_TEMPLATE/task.md": {
       "mode": "full",
-      "sha256": "2a7302c9ba872e11e2162cf4cc54880474a6bcbe8378c0c766223856453c9df1",
+      "sha256": "3127e85863365cb604922c3745bb9891a67a7eac6fa1434618b9df6c0f65c45e",
       "source": "templates/common/.github/ISSUE_TEMPLATE/task.md"
     },
     ".github/pull_request_template.md": {
       "mode": "full",
-      "sha256": "3ccf4a6bb7e3b9043c29c5adaad58e18af8af8a98195924b1eea5b4221d04e3e",
+      "sha256": "b9f0a8a4bc9aa693ee0aa0e52f5c74a941c29cb39d40f7b2b92e88c818f40d8c",
       "source": "templates/common/.github/pull_request_template.md"
     },
     ".github/workflows/ci.yml": {
@@ -115,7 +140,7 @@
     },
     ".prettierignore": {
       "mode": "section",
-      "sha256": "4f3d8810d994ea29299eb496afd7952b81899651ea4c8d40a83a18c1765423e3",
+      "sha256": "c02a735a287500888b8b013b59db04d85e67775afe85026b6e11d21178338c86",
       "source": "templates/app/.prettierignore.tmpl"
     },
     ".standards/blocked-packages.json": {
@@ -175,7 +200,7 @@
     },
     "AGENTS.md": {
       "mode": "full",
-      "sha256": "ebbcaa30a02b9974a75ac7863f90bc4fb9aac01f2d70d52ae845ce244b96a003",
+      "sha256": "11fd377ff12ca997ceade96e51b439e9877144474a299a11513ec5e468927df4",
       "source": "templates/app/AGENTS.md.tmpl"
     },
     "backend/.npmrc": {
@@ -208,7 +233,7 @@
     },
     "backend/src/standard/http.ts": {
       "mode": "full",
-      "sha256": "0affd441a71279f817fa657b9c8acf480536cdf4c1412f646194d1e7f6e67fd7",
+      "sha256": "cbd765ce922a1fe38b2422c8c5d9701182935ce4fef6a981d7e9d2122d3078bd",
       "source": "templates/app/backend/src/standard/http.ts"
     },
     "backend/tsconfig.json": {
@@ -218,7 +243,7 @@
     },
     "CLAUDE.md": {
       "mode": "full",
-      "sha256": "d5ed43e10b465994f45fc6657584f8235594b73eefa164136801bf2e999cdd0b",
+      "sha256": "d434b0efb3ffd745aa7620c9344f1d39cf29a5f850dde08ce64e1b252ff6822d",
       "source": "templates/app/CLAUDE.md.tmpl"
     },
     "deploy/autodeploy.service": {
@@ -371,7 +396,7 @@
     },
     "frontend/public/offline.html": {
       "mode": "full",
-      "sha256": "807b75c5f842d08ebe58d8ca7f53f0273b623c98f35afd9aabfbec4ef593039c",
+      "sha256": "3c88f0dd951f25ed3816a84c6adeb28c2a3ae544db65a0b440cc811458451cc6",
       "source": "templates/app/frontend/public/offline.html.tmpl"
     },
     "frontend/public/sw.js": {
@@ -386,22 +411,22 @@
     },
     "frontend/src/components/layout/app-shell.test.tsx": {
       "mode": "full",
-      "sha256": "3a70aad77ffe60485ba5d5a5c1f6afca0124e11d90d49750531cd867f65fd6b9",
+      "sha256": "1e4c7e9505100ff391a11c7ef736bf2153be3c6d6a5fb4bb0c00236558bf8b2e",
       "source": "templates/ui/frontend/src/components/layout/app-shell.test.tsx"
     },
     "frontend/src/components/layout/app-shell.tsx": {
       "mode": "full",
-      "sha256": "bcad61db2f33c5b97eb7b3bfac9977f5cc2027bf4c0f7cef497c520f67ad8a39",
+      "sha256": "1f6e5c6efc59cc0b704bcd1f3602023d2d2fddc175d0f666b875dc213c93d753",
       "source": "templates/ui/frontend/src/components/layout/app-shell.tsx"
     },
     "frontend/src/components/layout/theme-toggle.tsx": {
       "mode": "full",
-      "sha256": "1793fafe4cc363f5ac91302e0495996347dd1f2301487c56e4ce20db60aaa593",
+      "sha256": "202629eebde4267d222f82b5ec2678c2a1fc5635023192ebe2d0c9856408c08a",
       "source": "templates/ui/frontend/src/components/layout/theme-toggle.tsx"
     },
     "frontend/src/components/ui/badge.test.tsx": {
       "mode": "full",
-      "sha256": "c33567ac9ce077426a0ce03fe7b5b0a456626d7fa0ca5dccb698a7f91ebc3eeb",
+      "sha256": "f93b1556fbdf1839d6ffdb48f625fc906526e45f0a259d98f1cea46a581bfef2",
       "source": "templates/ui/frontend/src/components/ui/badge.test.tsx"
     },
     "frontend/src/components/ui/badge.tsx": {
@@ -411,7 +436,7 @@
     },
     "frontend/src/components/ui/button.test.tsx": {
       "mode": "full",
-      "sha256": "2b4f0a14fd18b04aa97169c4c7fc676704598c0bbcd2db97ea1cdc54ba39cf13",
+      "sha256": "1e2e1b0732b3c140d6f682844e49bbf8db4d620e1efd3a2daafd721450d013d0",
       "source": "templates/ui/frontend/src/components/ui/button.test.tsx"
     },
     "frontend/src/components/ui/button.tsx": {
@@ -421,7 +446,7 @@
     },
     "frontend/src/components/ui/card.test.tsx": {
       "mode": "full",
-      "sha256": "b4d21b162a0f1ac1bfb089a606e7398ef491dec4d096a635d6a6b455a83dd985",
+      "sha256": "8c49245ec90dfc3524b1ee5de0b5ee4cf7a1e39b574296cdda4b75c71e792ce5",
       "source": "templates/ui/frontend/src/components/ui/card.test.tsx"
     },
     "frontend/src/components/ui/card.tsx": {
@@ -431,7 +456,7 @@
     },
     "frontend/src/components/ui/checkbox.test.tsx": {
       "mode": "full",
-      "sha256": "93b7c258bf63d3ff59c8f6558dab0c8ee608e66b2a254b24801ef623e96a2bd6",
+      "sha256": "f06db435ef2acfbe0dc0fd9334543321f8164360a146707f6220ea71eb62f94b",
       "source": "templates/ui/frontend/src/components/ui/checkbox.test.tsx"
     },
     "frontend/src/components/ui/checkbox.tsx": {
@@ -441,27 +466,27 @@
     },
     "frontend/src/components/ui/confirm-dialog.test.tsx": {
       "mode": "full",
-      "sha256": "f4e9a83a415f3723b84e1b72b2f11a1d5e3e09eaf5e10f156f091a2a5d0e9b95",
+      "sha256": "07f1318a71652a7e9d69ef19f71c393140f9dcaad69aa916c27cdf2559e67cc7",
       "source": "templates/ui/frontend/src/components/ui/confirm-dialog.test.tsx"
     },
     "frontend/src/components/ui/confirm-dialog.tsx": {
       "mode": "full",
-      "sha256": "8e0b7b64a9b124514150377d6c50517d090aa35d541554f8fec1fa89576cf190",
+      "sha256": "f60597cb5f0e9d04676e07005d271bd906978da4cd56db4a5013760c2c799847",
       "source": "templates/ui/frontend/src/components/ui/confirm-dialog.tsx"
     },
     "frontend/src/components/ui/dialog.test.tsx": {
       "mode": "full",
-      "sha256": "1e545745ee84beaa769c4e1b8a1342bb63dc56fef3a062c3a1ac6ad42df5af71",
+      "sha256": "63a936ae6d1a7b66e29af83ff840bc294aa8230e6f428a72928e56fdb55a58ed",
       "source": "templates/ui/frontend/src/components/ui/dialog.test.tsx"
     },
     "frontend/src/components/ui/dialog.tsx": {
       "mode": "full",
-      "sha256": "df903ea87f44a79338c1e3d114518531a5a6bea28a736551c7cc13244db1fce3",
+      "sha256": "7c175ed8d781f945af3db1a611a9220e57533f1bc44b3080b4868144194f2bef",
       "source": "templates/ui/frontend/src/components/ui/dialog.tsx"
     },
     "frontend/src/components/ui/drawer.test.tsx": {
       "mode": "full",
-      "sha256": "f8467c83a85b5212690c75b35953eab6946336aadf375f4e0106649ff7d52c2b",
+      "sha256": "1026a7bba67416df8dcd907410fbed17965ffb7b1bb9a35b278323ef454c63f9",
       "source": "templates/ui/frontend/src/components/ui/drawer.test.tsx"
     },
     "frontend/src/components/ui/drawer.tsx": {
@@ -471,7 +496,7 @@
     },
     "frontend/src/components/ui/dropdown-menu.test.tsx": {
       "mode": "full",
-      "sha256": "3123737174999b4f73cd7b0c95da850cfef022a1d7889189c318d2ec70c8f4a5",
+      "sha256": "31aa7a71995d154c99d9b4f9f3a48d751d788b8d7d855d513c46be01adb4a04b",
       "source": "templates/ui/frontend/src/components/ui/dropdown-menu.test.tsx"
     },
     "frontend/src/components/ui/dropdown-menu.tsx": {
@@ -481,7 +506,7 @@
     },
     "frontend/src/components/ui/empty-state.test.tsx": {
       "mode": "full",
-      "sha256": "c25135b8589ab3469e1e71cae93be1b55dc27e5b3c7fcddaf44e2cbd8fc3fcb7",
+      "sha256": "f6abc791ef5ffcfa4661b274652427bd1f677c2e53a86ccd89d69116f1ff59c0",
       "source": "templates/ui/frontend/src/components/ui/empty-state.test.tsx"
     },
     "frontend/src/components/ui/empty-state.tsx": {
@@ -491,7 +516,7 @@
     },
     "frontend/src/components/ui/input.test.tsx": {
       "mode": "full",
-      "sha256": "0a741f90cd6e91bdf8eeafd7d0725225142e7fa535b467f39faf395f825eaa33",
+      "sha256": "6453e93f02dbdd28dbe11a0e677b7a31715f67fee60ac2235c7d89a19d4e538f",
       "source": "templates/ui/frontend/src/components/ui/input.test.tsx"
     },
     "frontend/src/components/ui/input.tsx": {
@@ -506,7 +531,7 @@
     },
     "frontend/src/components/ui/notice.test.tsx": {
       "mode": "full",
-      "sha256": "85e3d25d9e7179e392617617a151eec29a8ddc8758ebcc00c71e6b1714f8ad7c",
+      "sha256": "efb1b4b0ce69ccc23a51f03a5c6b5fd2b831eed802cfb2cfab8bba43b5e1935d",
       "source": "templates/ui/frontend/src/components/ui/notice.test.tsx"
     },
     "frontend/src/components/ui/notice.tsx": {
@@ -516,7 +541,7 @@
     },
     "frontend/src/components/ui/select.test.tsx": {
       "mode": "full",
-      "sha256": "4b89a3f19ac5a21e34d98e918f57c2fbeae0d50530df89340166ff90ab4e4f46",
+      "sha256": "5a931c462424ec4fb0df46ee587432fe249dd328858bfb9d53cb5e3ae1ec98c9",
       "source": "templates/ui/frontend/src/components/ui/select.test.tsx"
     },
     "frontend/src/components/ui/select.tsx": {
@@ -526,57 +551,57 @@
     },
     "frontend/src/components/ui/sheet.test.tsx": {
       "mode": "full",
-      "sha256": "cad89b1a61630678263257dca0256a9eb9a266282ebd71375320bec239b4b24d",
+      "sha256": "d727d0aad91ddbcb5e1792fcac4d7789526e5b844e7d8e0dc2e89b959d5405b1",
       "source": "templates/ui/frontend/src/components/ui/sheet.test.tsx"
     },
     "frontend/src/components/ui/sheet.tsx": {
       "mode": "full",
-      "sha256": "ef6e57eb312bc12829fc61732811f26f68c1a95945bd86744da644a944bce56d",
+      "sha256": "ee1f53c5bc29d38d3f1810203fd99f48118748a6116d710499397f7da6eaa78d",
       "source": "templates/ui/frontend/src/components/ui/sheet.tsx"
     },
     "frontend/src/components/ui/skeleton.test.tsx": {
       "mode": "full",
-      "sha256": "9af172e83544f27519c7bd9dff11aab9ce059d65954d6d5cf39f1d07dd8b35ab",
+      "sha256": "e38fe578e2001c9c7d2d37e34af82605d81aa2128f8e3d47b44153f694b83a0d",
       "source": "templates/ui/frontend/src/components/ui/skeleton.test.tsx"
     },
     "frontend/src/components/ui/skeleton.tsx": {
       "mode": "full",
-      "sha256": "f3dc0d31eef024b98824248c237eb13f29d0e45ac5e0d4998069c7eee8ad4fd9",
+      "sha256": "b77172f38b8a6fde03e774c5ec9f5494613aa0232626d5e902121626c65071d2",
       "source": "templates/ui/frontend/src/components/ui/skeleton.tsx"
     },
     "frontend/src/components/ui/sonner.test.tsx": {
       "mode": "full",
-      "sha256": "588b92457fa7c5c1cdc04b3c51e5a79f8c6090b35f3acd5709882f111a385e12",
+      "sha256": "1de9c44785c236ddf9809692e2199e65ac15c6311a66e952fd46c00d335cf187",
       "source": "templates/ui/frontend/src/components/ui/sonner.test.tsx"
     },
     "frontend/src/components/ui/sonner.tsx": {
       "mode": "full",
-      "sha256": "06bbebb2f1a9866539194bb3340e5204910e96e6e20721428ef3b3d4896eb74a",
+      "sha256": "730331a04565e24174b72150e00c05cd071321a3451ad1099ae1c1ef6dcb73bf",
       "source": "templates/ui/frontend/src/components/ui/sonner.tsx"
     },
     "frontend/src/components/ui/spinner.test.tsx": {
       "mode": "full",
-      "sha256": "73c02d693a2804cde4a8a51c66e07c1e7a98a01526a378670ad24b52b7b7437f",
+      "sha256": "b3b4408dffaf18054ce2e64f8b1a9183b94c14efed8e37acde5f1f95895a6529",
       "source": "templates/ui/frontend/src/components/ui/spinner.test.tsx"
     },
     "frontend/src/components/ui/spinner.tsx": {
       "mode": "full",
-      "sha256": "a5414a48ba881c86a245d37ae586d65bef94f8fdabb094e1ca11fd105b49a57f",
+      "sha256": "4778201382226a8a5d96b01a5e97e0d91b635c32aa6bd911b1f938d87f93c25f",
       "source": "templates/ui/frontend/src/components/ui/spinner.tsx"
     },
     "frontend/src/health.ts": {
       "mode": "full",
-      "sha256": "b8953539c401577a6ee8e516b5bb75e978d711a603c48841ca1f44e6548734bd",
+      "sha256": "f7820d483a992b9bbe16b35458d2292342f075976b53e9d33533c1a06b05a7a7",
       "source": "templates/ui/frontend/src/health.ts"
     },
     "frontend/src/lib/api.test.ts": {
       "mode": "full",
-      "sha256": "75a44b1745fdfa6a797d94f405f20ef0b83dd41484460fa5c21272b84e83fb77",
+      "sha256": "857a745d893a18717a561eed1ea1c72deebdab01536f6b8eea2b05341439d516",
       "source": "templates/ui/frontend/src/lib/api.test.ts"
     },
     "frontend/src/lib/api.ts": {
       "mode": "full",
-      "sha256": "ff3746f0a57138e46f1801a839f4b2f46a121157593a4900f6dc894416cc662a",
+      "sha256": "ac34fbdd2e3b54cac21c0fcfc0bac71b4df919ca35c3a98a413a5aab67ce43df",
       "source": "templates/ui/frontend/src/lib/api.ts"
     },
     "frontend/src/lib/theme-config.ts": {
@@ -591,12 +616,12 @@
     },
     "frontend/src/lib/theme.ts": {
       "mode": "full",
-      "sha256": "b59cc990e51114b6602e7bea5c77c8354f8d9d42478d3ea69b05db3d3b917ffb",
+      "sha256": "39002601b8894aa0667618bfdc6eab3128662b3feaf4f3e54bd616a2762720d6",
       "source": "templates/ui/frontend/src/lib/theme.ts"
     },
     "frontend/src/lib/use-notice.ts": {
       "mode": "full",
-      "sha256": "53805c5dbe7f8a47dc71b1b7e1f3acc55287c31d307193c92e9620add3456ec1",
+      "sha256": "dac2a2bd694c2f180f2eb71f332389104116a33e39f6455752fb96474f8975ff",
       "source": "templates/ui/frontend/src/lib/use-notice.ts"
     },
     "frontend/src/lib/utils.test.ts": {
@@ -677,12 +702,12 @@
     },
     "skills/std-backlog/SKILL.md": {
       "mode": "full",
-      "sha256": "b34e21e85a76c995249d7acc73baebd75804208f46ec49581b48aad8f0822215",
+      "sha256": "77766b46678d554664e5361f7ba4bed70fa2dedd0e10e7b04a48ad4f2351d8ff",
       "source": "templates/common/skills/std-backlog/SKILL.md"
     },
     "skills/std-communication/SKILL.md": {
       "mode": "full",
-      "sha256": "1a3ad4cdb7776523a79f7eb32347ff387c63758e8991c83b7380e01da113fd13",
+      "sha256": "7202e0fed76711eb266a9c8de4b3ad8288d5ba81bd2fd71c7ca446fa92bcd173",
       "source": "templates/common/skills/std-communication/SKILL.md"
     },
     "skills/std-foundation/SKILL.md": {
@@ -692,7 +717,7 @@
     },
     "skills/std-git-writing/SKILL.md": {
       "mode": "full",
-      "sha256": "6bdd8344acfc9ce6c3108c3bdb9fd706131c48f6847695ff9d1057543860f68e",
+      "sha256": "2de21ed52925332418b6ebfdf5adf02266fec39f47da1fc42e1e5bfe5a8a9996",
       "source": "templates/common/skills/std-git-writing/SKILL.md"
     },
     "skills/std-implementation/SKILL.md": {
