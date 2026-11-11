@@ -109,6 +109,13 @@ beforeEach(() => {
   fakeApi();
 });
 
+/** Waits until one of the status regions (notice or spinner) shows the text. */
+async function expectStatus(text: string) {
+  await vi.waitFor(() =>
+    expect(screen.getAllByRole('status').some((el) => el.textContent?.includes(text))).toBe(true),
+  );
+}
+
 test('without an account the form suggests ₩10,000,000 and creates it', async () => {
   render(<MockAccount />);
   const amount = await screen.findByLabelText('Starting amount (KRW)');
@@ -122,9 +129,8 @@ test('without an account the form suggests ₩10,000,000 and creates it', async 
     { method: 'POST', url: '/api/mock/accounts', body: { initialCashKrw: 10_000_000 } },
   ]);
   await vi.waitFor(() => expect(title).toHaveFocus());
-  expect(screen.getAllByRole('status')[0]).toHaveTextContent(
-    'Mock trading account created with ₩10,000,000',
-  );
+  // A loading spinner can also be a status while the account reloads, so find the notice by its text.
+  await expectStatus('Mock trading account created with ₩10,000,000');
   const balance = screen.getByText('Cash balance').parentElement!;
   expect(balance).toHaveTextContent('₩10,000,000');
 });
@@ -204,9 +210,7 @@ test('reset asks first, then keeps the old account and starts again', async () =
   expect(posts()).toEqual([
     { method: 'POST', url: '/api/mock/accounts/1/reset', body: { initialCashKrw: 30_000_000 } },
   ]);
-  expect(await screen.findByRole('status')).toHaveTextContent(
-    'Account reset. Starting over with ₩30,000,000',
-  );
+  await expectStatus('Account reset. Starting over with ₩30,000,000');
   expect(screen.getByText('Cash balance').parentElement!).toHaveTextContent('₩30,000,000');
   const history = screen.getByRole('list', { name: 'Previous accounts' });
   expect(history).toHaveTextContent('Started with ₩10,000,000 · last cash ₩4,000,000');
