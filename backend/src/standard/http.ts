@@ -9,7 +9,7 @@ import type { NextFunction, Request, Response } from 'express';
 
 export type ApiError = { error: string };
 
-/** An error with the status and Korean message to answer with, e.g. `throw new HttpError(404, '교재를 찾을 수 없습니다')`. */
+/** An error with the status and message to answer with, e.g. `throw new HttpError(404, 'Textbook not found')`. */
 export class HttpError extends Error {
   readonly status: number;
 
@@ -27,10 +27,10 @@ export function sendError(res: Response, status: number, error: string) {
 // Up to 15 digits: every such id is exact as a JS number, even for BIGINT columns.
 export const ID_PATTERN = /^[1-9]\d{0,14}$/;
 
-/** A path id as a number, or a 400 HttpError naming what the id is for: `parseId(req.params.id, '교재')`. */
+/** A path id as a number, or a 400 HttpError naming what the id is for: `parseId(req.params.id, 'textbook')`. */
 export function parseId(value: unknown, label: string): number {
   if (typeof value !== 'string' || !ID_PATTERN.test(value)) {
-    throw new HttpError(400, `${label} ID가 올바르지 않습니다`);
+    throw new HttpError(400, `Invalid ${label} ID`);
   }
   return Number(value);
 }
@@ -49,7 +49,7 @@ export function serviceDate(now = new Date()) {
 
 /** Registered after every feature route: an unknown /api path is a JSON 404, not Express's HTML page. */
 export function notFound(_req: Request, res: Response) {
-  sendError(res, 404, '요청한 API를 찾을 수 없습니다');
+  sendError(res, 404, 'API not found');
 }
 
 type ErrorFields = {
@@ -70,7 +70,7 @@ function zodMessages(error: ErrorFields) {
   if (error.name !== 'ZodError' || !Array.isArray(error.issues)) return null;
   const issues = error.issues as { message?: unknown }[];
   const shown = issues.slice(0, MAX_ISSUES).map((issue) => String(issue.message));
-  if (issues.length > MAX_ISSUES) shown.push(`외 ${issues.length - MAX_ISSUES}개`);
+  if (issues.length > MAX_ISSUES) shown.push(`and ${issues.length - MAX_ISSUES} more`);
   return shown.join(', ');
 }
 
@@ -87,26 +87,26 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
   }
   // express.json() rejects malformed or oversized bodies before any route runs.
   if (error.type === 'entity.parse.failed') {
-    sendError(res, 400, '요청 본문의 JSON 형식이 올바르지 않습니다');
+    sendError(res, 400, 'Request body is not valid JSON');
     return;
   }
   if (error.type === 'entity.too.large') {
-    sendError(res, 413, '요청 본문이 너무 큽니다');
+    sendError(res, 413, 'Request body is too large');
     return;
   }
   // Other client errors raised before routing (unsupported charset or encoding, aborted request)
   // keep their 4xx status instead of turning into a logged 500.
   if (typeof error.status === 'number' && error.status >= 400 && error.status < 500) {
-    sendError(res, error.status, '요청을 처리할 수 없습니다');
+    sendError(res, error.status, 'Cannot process the request');
     return;
   }
   // PostgreSQL text cannot hold a NUL character. That is the client's input, not a server fault.
   if (error.code === '22021') {
-    sendError(res, 400, '입력에 사용할 수 없는 문자(NUL)가 있습니다');
+    sendError(res, 400, 'Input contains a character that is not allowed (NUL)');
     return;
   }
   if (error.code === '23505') {
-    sendError(res, 409, '이미 등록된 항목입니다');
+    sendError(res, 409, 'This item already exists');
     return;
   }
   // The internal message goes to the log only; the response never exposes it.
@@ -116,5 +116,5 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
       message: err instanceof Error ? err.message : String(err),
     }),
   );
-  sendError(res, 500, '서버 오류가 발생했습니다');
+  sendError(res, 500, 'Server error');
 }

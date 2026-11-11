@@ -30,6 +30,7 @@ frontend/src/test/contract-api.test.ts
 .vscode/settings.json
 .claude/settings.json
 .claude/hooks/
+.claude/rules/
 .codex/hooks.json
 .devcontainer/
 eslint.config.mjs

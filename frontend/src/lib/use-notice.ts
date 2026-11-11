@@ -7,7 +7,7 @@ import { useCallback, useMemo, useState } from 'react';
 export type NoticeValue = { kind: 'status' | 'error'; text: string };
 
 /** The message of anything a request threw (RequestError from lib/api carries the server's Korean text). */
-export function errorText(error: unknown, fallback = '요청을 처리하지 못했습니다') {
+export function errorText(error: unknown, fallback = 'Could not process the request') {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 

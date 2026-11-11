@@ -185,6 +185,25 @@
             "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/block-package-installs.mjs"],
             "timeout": 10,
             "onFailure": "block"
+          },
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/block-forbidden-commands.mjs"],
+            "timeout": 10,
+            "onFailure": "block"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/block-forbidden-commands.mjs"],
+            "timeout": 10,
+            "onFailure": "block"
           }
         ]
       }

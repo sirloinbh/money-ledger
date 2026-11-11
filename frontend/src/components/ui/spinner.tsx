@@ -14,7 +14,7 @@ const spinnerVariants = cva('animate-spin motion-reduce:animate-none', {
 function Spinner({
   className,
   size,
-  label = '불러오는 중',
+  label = 'Loading',
   ...props
 }: Omit<React.ComponentProps<'svg'>, 'children'> & VariantProps<typeof spinnerVariants> & { label?: string }) {
   return (

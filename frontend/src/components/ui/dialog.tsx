@@ -56,7 +56,7 @@ function DialogContent({
             className="absolute top-3 right-3 flex size-8 items-center justify-center rounded-sm opacity-70 transition-opacity outline-none hover:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:size-11 [&_svg]:size-4"
           >
             <XIcon aria-hidden />
-            <span className="sr-only">닫기</span>
+            <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
         ) : null}
       </DialogPrimitive.Content>

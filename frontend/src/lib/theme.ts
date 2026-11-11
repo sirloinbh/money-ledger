@@ -1,5 +1,5 @@
 // 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/ui/frontend/src/lib/에서
-// Light/dark mode choice (docs/design-system.md "라이트·다크 모드").
+// Light/dark mode choice (docs/design-system.md "Light and dark modes").
 // "system" means no class on <html>, so the tokens follow prefers-color-scheme.
 // public/theme-init.js applies the saved choice before the first paint with the same key.
 

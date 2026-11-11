@@ -7,21 +7,21 @@ import { Badge } from './badge';
 test('badge variants use the shared colour tokens', () => {
   render(
     <>
-      <Badge>기본</Badge>
-      <Badge variant="warning">주의</Badge>
-      <Badge variant="outline">보조</Badge>
+      <Badge>Default</Badge>
+      <Badge variant="warning">Warning</Badge>
+      <Badge variant="outline">Secondary</Badge>
     </>,
   );
-  expect(screen.getByText('기본')).toHaveClass('bg-primary');
-  expect(screen.getByText('주의')).toHaveClass('bg-warning', 'text-warning-foreground');
-  expect(screen.getByText('보조')).toHaveClass('text-foreground');
+  expect(screen.getByText('Default')).toHaveClass('bg-primary');
+  expect(screen.getByText('Warning')).toHaveClass('bg-warning', 'text-warning-foreground');
+  expect(screen.getByText('Secondary')).toHaveClass('text-foreground');
 });
 
 test('asChild turns a badge into a link', () => {
   render(
     <Badge asChild>
-      <a href="/tags/legs">하체</a>
+      <a href="/tags/legs">Legs</a>
     </Badge>,
   );
-  expect(screen.getByRole('link', { name: '하체' })).toHaveAttribute('data-slot', 'badge');
+  expect(screen.getByRole('link', { name: 'Legs' })).toHaveAttribute('data-slot', 'badge');
 });

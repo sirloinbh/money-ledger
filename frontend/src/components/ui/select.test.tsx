@@ -15,14 +15,14 @@ beforeAll(() => {
 function Period({ onValueChange }: { onValueChange?: (value: string) => void }) {
   return (
     <>
-      <Label htmlFor="period">기간</Label>
+      <Label htmlFor="period">Period</Label>
       <Select onValueChange={onValueChange}>
         <SelectTrigger id="period">
-          <SelectValue placeholder="기간 선택" />
+          <SelectValue placeholder="Select period" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="week">1주</SelectItem>
-          <SelectItem value="month">1개월</SelectItem>
+          <SelectItem value="week">1 week</SelectItem>
+          <SelectItem value="month">1 month</SelectItem>
         </SelectContent>
       </Select>
     </>
@@ -31,18 +31,18 @@ function Period({ onValueChange }: { onValueChange?: (value: string) => void }) 
 
 test('the trigger is a named combobox that shows the placeholder', () => {
   render(<Period />);
-  const trigger = screen.getByRole('combobox', { name: '기간' });
-  expect(trigger).toHaveTextContent('기간 선택');
+  const trigger = screen.getByRole('combobox', { name: 'Period' });
+  expect(trigger).toHaveTextContent('Select period');
   expect(trigger).toHaveAttribute('aria-expanded', 'false');
 });
 
 test('the keyboard opens the list and picks an option', () => {
   const onValueChange = vi.fn();
   render(<Period onValueChange={onValueChange} />);
-  const trigger = screen.getByRole('combobox', { name: '기간' });
+  const trigger = screen.getByRole('combobox', { name: 'Period' });
   fireEvent.keyDown(trigger, { key: 'Enter' });
   expect(trigger).toHaveAttribute('aria-expanded', 'true');
-  fireEvent.click(screen.getByRole('option', { name: '1개월' }));
+  fireEvent.click(screen.getByRole('option', { name: '1 month' }));
   expect(onValueChange).toHaveBeenCalledWith('month');
-  expect(trigger).toHaveTextContent('1개월');
+  expect(trigger).toHaveTextContent('1 month');
 });

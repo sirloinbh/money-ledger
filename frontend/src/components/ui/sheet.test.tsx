@@ -7,18 +7,18 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 test('a sheet opens from its side, is named, and Escape closes it', async () => {
   render(
     <Sheet>
-      <SheetTrigger>필터</SheetTrigger>
+      <SheetTrigger>Filter</SheetTrigger>
       <SheetContent side="left">
         <SheetHeader>
-          <SheetTitle>필터</SheetTitle>
-          <SheetDescription>기간과 종류를 고릅니다.</SheetDescription>
+          <SheetTitle>Filter</SheetTitle>
+          <SheetDescription>Choose a period and type.</SheetDescription>
         </SheetHeader>
       </SheetContent>
     </Sheet>,
   );
-  const trigger = screen.getByRole('button', { name: '필터' });
+  const trigger = screen.getByRole('button', { name: 'Filter' });
   fireEvent.click(trigger);
-  const sheet = screen.getByRole('dialog', { name: '필터' });
+  const sheet = screen.getByRole('dialog', { name: 'Filter' });
   expect(sheet).toHaveClass('left-0', 'border-r');
   fireEvent.keyDown(sheet, { key: 'Escape' });
   expect(screen.queryByRole('dialog')).toBeNull();

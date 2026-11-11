@@ -5,132 +5,134 @@ description: Register requirements as small GitHub issue cards with priority and
 
 <!-- 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/common/skills/std-backlog/에서 -->
 
-# 이슈 세분화·우선순위·다음 작업 선택
+<!-- Centrally managed file. Edit it in sirloinbh/project-standards templates/common/skills/std-backlog/ -->
 
-요구사항을 GitHub Issue(이슈카드)로 등록하고, 다음에 구현할 이슈를 고르는 절차다. 구현 자체는 각 리포의 구현 스킬과 `AGENTS.md` 작업 절차를 따른다. GitHub 작업은 `ghp` 또는 `gh-project.ps1` 래퍼로 하고, 계정은 `sirloinbh`인지 먼저 확인한다.
+# Splitting issues, priorities, and choosing the next task
 
-## 규칙
+How to register requirements as GitHub issues (issue cards) and choose the next issue to implement. The implementation itself follows each repo's implementation skill and the work procedure in `AGENTS.md`. Do GitHub work through the `ghp` function or the `gh-project.ps1` wrapper, and first check that the account is `sirloinbh`. Issues are written in English ([std-git-writing](../std-git-writing/SKILL.md)).
 
-1. 요구사항을 이슈카드로 등록할 때는 작은 단위로 세분화한다.
-2. 각 이슈의 우선순위를 정하고 라벨(뱃지)로 단다.
-3. 각 이슈의 특성을 정하고 라벨(뱃지)로 단다.
-4. 이전 요구사항의 구현과 PR 병합이 끝나면, 추가 요구사항이 있으면 그 우선순위를 올려 먼저 진행한다. 없으면 다음 우선순위 이슈의 구현에 착수한다.
-5. 작업 이슈는 분야별 상위 이슈(`epic`) 아래 하위 이슈로 연결한다(6장). 하위 이슈를 끝내면 같은 상위 이슈의 다음 하위 이슈를 같은 워크트리에서 이어 가고, 마지막 하위 이슈가 닫히면 상위 이슈도 닫는다(5장, 6장).
+## Rules
 
-## 1. 세분화 기준
+1. Split requirements into small units when registering them as issues.
+2. Decide each issue's priority and attach it as a label (badge).
+3. Decide each issue's characteristics and attach them as labels (badges).
+4. When the previous requirement is implemented and its PR merged, raise the priority of any added requirement and do it first. If there is none, start the next issue by priority.
+5. Link work issues as sub-issues under a per-area parent issue (`epic`) (section 6). After finishing a sub-issue, continue with the next sub-issue of the same parent in the same worktree, and close the parent when its last sub-issue closes (sections 5 and 6).
 
-작게 나누되 지나치게 쪼개지 않는다. 이슈 하나는 **PR 하나로 리뷰할 수 있는 한 가지 목적**이다. 이슈 목록을 한눈에 읽을 수 있어야 한다.
+## 1. How to split
 
-나눠야 하는 경우:
+Split small, but not too small. One issue is **one purpose that one PR can review**. The issue list should be readable at a glance.
 
-- 한 PR로 리뷰하기에 너무 크다. 예를 들어 파일 20개 이상이 바뀌거나, 서로 관계없는 목적이 섞여 있다.
-- 리포가 다르다. 단, 여러 리포에 같은 작업을 반복하는 일은 중앙 리포에 **추적 이슈 하나**를 두고, 리포별 항목을 체크박스로 나열한다. 실제 이슈는 착수할 때 각 리포에 만든다.
-- 사용자가 직접 해야 하는 단계(App 생성, secret 등록, state 이동, 패키지 설치 승인)가 있다. 이런 단계는 같은 시점에 할 일끼리 묶어 `[직접]` 이슈로 만들고 `needs-user`를 단다.
-- 조사 결과에 따라 방향 자체가 바뀌는 일이다. 이때는 `type/research` 이슈로 먼저 등록한다.
+Split when:
 
-묶어야 하는 경우:
+- It is too large for one PR, for example 20 or more files change, or unrelated purposes are mixed.
+- The repos differ. However, when the same work repeats across repos, keep **one tracking issue** in the central repo and list each repo as a checkbox. Create the real issue in each repo when work starts.
+- There are steps the user must do themselves (creating an App, registering a secret, moving state, approving a package install). Group steps done at the same time into a `[Manual]` issue and label it `needs-user`.
+- The direction itself depends on research results. Register a `type/research` issue first.
 
-- 같은 목적을 이루는 파일·스크립트·테스트·문서는 한 이슈로 묶는다. 예: 스키마 검증기 + 레지스트리 파일 + 충돌 검사 + 생성 문서
-- 구현을 시작하기 전에 확인만 하면 되는 조사는 구현 이슈의 첫 번째 할 일로 넣는다.
-- 규칙 문서와 그 규칙을 검사하는 코드가 같은 PR에서 리뷰할 수 있는 크기면 묶는다.
-- 같은 종류의 문서 여러 개(규칙 문서, 운영 문서)는 한 이슈로 묶는다.
+Combine when:
 
-완료 기준은 테스트, 명령 결과, 파일 존재처럼 확인할 수 있는 문장으로 쓴다.
+- Files, scripts, tests, and docs serve the same purpose. Example: schema validator + registry files + conflict check + generated docs.
+- Research only needs confirming before implementation starts. Make it the first task of the implementation issue.
+- A rule doc and the code that checks it fit in one PR review.
+- Several docs of the same kind (rule docs, operations docs) belong together.
 
-등록하기 전에 같은 리포의 열린 이슈를 검색해서 중복을 만들지 않는다. 비슷한 이슈가 있으면 새로 만들지 않고 그 이슈의 할 일에 추가한다. 사용자가 지정한 기존 이슈가 있으면 재사용한다. 이슈를 합칠 때는 남는 이슈 본문의 "참고"에 합쳐진 번호를 적고, 닫는 이슈에는 어느 이슈로 합쳤는지 댓글을 남긴 뒤 `not planned`로 닫는다.
+Write "Done when" as verifiable statements: tests, command results, files that exist.
 
-## 2. 우선순위 라벨 (하나만)
+Before registering, search the repo's open issues to avoid duplicates. If a similar issue exists, add to its tasks instead of creating a new one. Reuse an existing issue the user names. When merging issues, record the merged numbers under "Notes" of the surviving issue, comment on the closed issue which issue it went into, and close it as `not planned`.
 
-| 라벨 | 기준 |
+## 2. Priority labels (exactly one)
+
+| Label | When |
 |---|---|
-| `priority/P0` | 운영·보안상 즉시 막아야 하는 문제, 또는 사용자가 긴급이라고 명시한 요구사항 |
-| `priority/P1` | 다른 이슈의 선행 조건이거나, 이미 여러 리포에 중복된 것을 정리하는 일 |
-| `priority/P2` | 보안·운영 기준을 세우는 일 |
-| `priority/P3` | 곧 필요해질 공통화, 지금 한 리포에만 있는 기능의 확산 |
-| `priority/P4` | 문서·규칙 정리, 하면 좋은 개선 |
+| `priority/P0` | Operations or security problems that must be stopped now, or requirements the user called urgent |
+| `priority/P1` | Prerequisites for other issues, or cleaning up something already duplicated across repos |
+| `priority/P2` | Setting security or operations standards |
+| `priority/P3` | Shared work needed soon, or spreading a feature that exists in one repo only |
+| `priority/P4` | Docs and rule cleanup, nice-to-have improvements |
 
-우선순위를 판단할 근거가 부족하면 P3로 등록하고, 이슈 본문에 판단 근거가 부족하다고 적는다.
+If there is not enough to judge the priority, register it as P3 and say in the body that the basis is thin.
 
-### 추가 요구사항 승격
+### Promoting added requirements
 
-작업 중 사용자가 추가한 요구사항(`origin/added`)은 위 기준으로 판단한 등급에서 **한 단계만** 올려 등록한다. 상한은 P1이다(P4→P3, P3→P2, P2→P1, P1→P1). P0로는 올리지 않는다. P0는 위 표의 긴급 기준에 해당할 때만 쓴다.
+Requirements the user adds mid-work (`origin/added`) are registered **one level** above the level the table gives, capped at P1 (P4→P3, P3→P2, P2→P1, P1→P1). Never promote to P0; P0 is only for the urgent cases in the table.
 
-- 승격은 등록할 때 한 번만 한다. 본문 "참고"의 우선순위 줄에 원래 등급을 기록하고(4장), 이후 다음 작업을 고를 때 다시 올리지 않는다.
-- 같은 등급 안에서는 `origin/added` 이슈가 기존 이슈보다 먼저 진행된다(5장).
+- Promote once, at registration. Record the original level in the priority line under "Notes" (section 4), and do not promote again when choosing the next task.
+- Within the same level, `origin/added` issues go before existing ones (section 5).
 
-## 3. 특성 라벨
+## 3. Characteristic labels
 
-- `type/*` (하나만): `feature`(새 기능·새 관리 대상), `docs`(문서·규칙), `security`(보안 기준·차단·점검), `chore`(이전·정리·설정 변경), `research`(조사, 코드 변경 없음)
-- `area/*` (하나 이상): `templates`, `tooling`, `compliance`, `registry`, `scaffold`, `ci`, `deploy`, `agent`, `app`(앱 기능: 화면·API·DB)
-- 해당되면 추가로: `needs-user`(사용자 직접 단계 포함), `origin/added`(작업 중 추가된 요구사항)
-- 분야별 상위 이슈에는 `epic`을 단다(6장).
+- `type/*` (exactly one): `feature` (new feature or managed item), `docs` (docs, rules), `security` (security standards, blocking, audits), `chore` (migration, cleanup, config change), `research` (research, no code change)
+- `area/*` (one or more): `templates`, `tooling`, `compliance`, `registry`, `scaffold`, `ci`, `deploy`, `agent`, `app` (app features: screens, API, DB)
+- When they apply: `needs-user` (includes a step the user does), `origin/added` (requirement added mid-work)
+- Area parent issues get `epic` (section 6).
 
-리포에 라벨이 없으면 sirloinbh/project-standards와 같은 이름·색·설명으로 만든다(`label create ... --force`). 새 라벨 종류가 필요하면 먼저 중앙 리포에 이슈를 연다.
+If a repo lacks a label, create it with the same name, color, and description as in sirloinbh/project-standards (`label create ... --force`). If a new kind of label is needed, open an issue in the central repo first.
 
-## 4. 이슈 제목과 본문
+## 4. Issue title and body
 
-제목과 본문은 [std-git-writing](../std-git-writing/SKILL.md)의 이슈 규칙과 이슈 템플릿(리포 루트의 `.github/ISSUE_TEMPLATE/task.md`)을 따른다.
+Titles and bodies follow the issue rules of [std-git-writing](../std-git-writing/SKILL.md) and the issue template (`.github/ISSUE_TEMPLATE/task.md` at the repo root).
 
-- 본문은 UTF-8(BOM 없음) 임시 파일로 쓰고 `--body-file`로 등록한다. 토큰과 비밀값은 넣지 않는다.
-- "참고"의 "상위 이슈" 줄에 연결한 상위 이슈를 `#번호 분야 이름` 형식으로 쓴다. 상위 이슈 자신은 "없음"이다(6장).
-- "먼저 끝나야 하는 것"에는 선행 이슈를 `#번호 짧은 이름` 형식으로 쓴다. 5장에서 다음 작업을 고를 때 이 절을 기준으로 삼는다.
-- "참고"의 우선순위 줄에 등급과 근거를 쓴다. 승격했으면 원래 등급도 함께 쓴다: `우선순위: P1 — 다른 작업의 선행 조건 (추가 요구사항, 원래 P2 → 승격)`
+- Write the body to a temporary UTF-8 file (no BOM) and register it with `--body-file`. Never include tokens or secrets.
+- In the "Parent issue" line under "Notes", write the linked parent as `#number area name`. A parent issue itself has "None" (section 6).
+- Under "Blocked by", write prerequisite issues as `#number short name`. Section 5 uses this section to choose the next task.
+- In the priority line under "Notes", write the level and the reason. If promoted, include the original level: `Priority: P1 — prerequisite for other work (added requirement, promoted from P2)`
 
-## 5. 다음 작업 선택
+## 5. Choosing the next task
 
-누가 PR을 병합하는지는 리포의 `AGENTS.md`가 정한다. `AGENTS.md`에 정해져 있지 않으면 사용자만 병합한다. 사용자가 병합하는 리포에서는 PR을 만든 뒤 병합될 때까지 기다린다. 에이전트가 병합하도록 정한 리포에서는 그 조건대로 병합한 뒤 바로 다음 작업을 고른다. 다음 작업을 고를 때는 이 순서를 따른다.
+The repo's `AGENTS.md` decides who merges PRs. If it says nothing, only the user merges. In repos where the user merges, wait after opening the PR until it is merged. In repos where the agent merges, merge under those conditions and choose the next task right away. Choose the next task in this order.
 
-1. 이전 PR이 병합됐는지 확인한다(`pr view <번호> --json state,mergedAt`). 병합되지 않았으면 다음 이슈 구현을 시작하지 않는다. 사용자가 병렬 진행을 지시한 경우는 예외다.
-2. 작업 중 사용자가 추가한 요구사항이 있는지 확인한다.
-   - 대화에서 받았지만 아직 등록하지 않은 요구사항은, 이 스킬의 세분화 규칙대로 등록하고 `origin/added`를 단다. 우선순위는 2장의 승격 규칙대로 한 단계 올린다.
-   - 이미 등록된 `origin/added` 이슈는 다시 승격하지 않는다.
-3. 착수할 이슈를 고른다.
-   - 열린 이슈 중 "먼저 끝나야 하는 것"이 모두 끝났고(선행 이슈가 닫힘), 사용자 단계가 남아 있지 않은 이슈만 후보로 삼는다. 상위 이슈(`epic`)는 후보가 아니다.
-   - 상위 이슈에 연결되지 않은 작업 이슈가 있으면 착수하기 전에 6장대로 연결한다.
-   - **같은 상위 이슈를 먼저 이어 간다.** 방금 끝낸 이슈가 상위 이슈의 하위 이슈였고 그 상위 이슈에 후보가 남아 있으면, 그중에서 아래 순서대로 고른다. 다른 상위 이슈에 우선순위 숫자가 더 작은 후보가 있을 때만 그쪽으로 옮긴다.
-   - 같은 상위 이슈의 다음 하위 이슈는 **방금 일한 워크트리(체크아웃)에서** 진행한다. 병합 뒤 정리(`git switch main`, `git pull --ff-only`, 브랜치 삭제)를 마친 그 자리에서 `origin/main` 기준 새 브랜치를 만든다. 새 워크트리를 만들지 않는다.
-   - 후보 중 우선순위 숫자가 가장 작은 것을 고른다. 같은 등급이면 `origin/added` 이슈를 먼저 고르고, 그래도 같으면 번호가 작은(먼저 등록된) 것을 고른다.
-   - `needs-user` 이슈가 가장 앞이면, 사용자에게 할 일을 안내한다. 기다리는 동안에는 그 이슈에 묶이지 않은 다음 후보를 진행한다.
-4. 고른 이슈와 그 이유(우선순위, 선행 조건 상태)를 사용자에게 한 줄로 알리고, 구현 스킬의 절차로 착수한다.
-5. 후보가 없으면 남은 이슈가 무엇에 막혀 있는지 정리해서 보고하고 멈춘다.
+1. Check that the previous PR is merged (`pr view <number> --json state,mergedAt`). If not, do not start the next issue, unless the user asked for parallel work.
+2. Check for requirements the user added mid-work.
+   - Requirements received in conversation but not yet registered are registered by this skill's splitting rules with `origin/added`, promoted one level by the rule in section 2.
+   - Already registered `origin/added` issues are not promoted again.
+3. Choose the issue to start.
+   - Candidates are open issues whose "Blocked by" items are all done (prerequisite issues closed) and that have no user steps left. Parent issues (`epic`) are not candidates.
+   - If a work issue has no parent, link it as in section 6 before starting.
+   - **Continue the same parent first.** If the issue just finished was a sub-issue and its parent still has candidates, choose among them in the order below. Move to another parent only if it has a candidate with a smaller priority number.
+   - Do the next sub-issue of the same parent **in the worktree (checkout) you just worked in**. After the post-merge cleanup (`git switch main`, `git pull --ff-only`, branch deletion), create a new branch from `origin/main` right there. Do not create a new worktree.
+   - Among candidates, pick the smallest priority number. Within a level, pick `origin/added` first, then the smaller (earlier) number.
+   - If a `needs-user` issue comes first, tell the user what to do. Meanwhile, continue with the next candidate that does not depend on it.
+4. Tell the user in one line which issue you chose and why (priority, prerequisite status), then start with the implementation skill's procedure.
+5. If there are no candidates, report what each remaining issue is blocked on and stop.
 
-`AGENTS.md`가 허용하지 않은 리포에서는 PR 병합, 자동 병합, 승인으로 병합을 대신하는 일을 하지 않는다.
+In repos whose `AGENTS.md` does not allow it, do not merge PRs, enable auto-merge, or approve in place of merging.
 
-## 6. 상위 이슈와 하위 이슈 (분야별 묶음)
+## 6. Parent and sub-issues (grouping by area)
 
-작업 이슈는 분야별 상위 이슈 아래에 GitHub 하위 이슈(sub-issue)로 연결한다. 상위 이슈 하나에서 그 분야에 남은 일과 진행률(하위 이슈 n개 중 m개 완료)을 본다.
+Link work issues as GitHub sub-issues under a per-area parent issue. One parent shows what is left in that area and its progress (m of n sub-issues done).
 
-- **분야**: 리포 안에서 같은 기능 영역·명령·모듈에 속하는 일의 묶음이다. 예: file-control의 "휴지통 삭제 안전성", "압축 만들기·풀기 안정성". 우선순위·종류·작업 시점으로는 묶지 않는다. 그것은 라벨이 맡는다.
-- **상위 이슈**: `epic` 라벨을 단다. 직접 구현하지 않고 하위 이슈를 묶기만 한다.
-  - 본문에는 목표, 범위(어떤 일이 이 분야에 들어오는지), 관련된 끝난 이슈를 쓴다.
-  - 우선순위 라벨은 열린 하위 이슈 중 가장 높은 등급으로 맞추고, 하위 이슈가 바뀌면 다시 맞춘다. `type/*`·`area/*`는 하위 이슈에 가장 많은 것을 단다.
-- **깊이는 2단계**: 상위 이슈 → 작업 이슈. 작업 이슈 아래에 다시 하위 이슈를 두지 않는다. 작업 이슈가 크면 같은 상위 이슈 아래 형제 이슈로 나눈다(1장).
-- **상위는 하나**: 작업 이슈는 상위 이슈 하나에만 연결한다(GitHub도 하나만 허용한다). 두 분야에 걸치면 주된 분야에 연결하고, 다른 분야는 본문 "참고"에 적는다.
-- **등록할 때**: 작업 이슈를 등록하면 바로 맞는 분야의 열린 상위 이슈에 연결한다.
-  - 맞는 상위 이슈가 없으면 상위 이슈를 먼저 만든다.
-  - 본문 "참고"의 "상위 이슈" 줄에도 번호를 적는다. 다만 본문 글만으로 연결을 대신하지 않는다.
-  - 리뷰에서 분리한 후속 이슈도 같다.
-- **닫힌 상위 이슈**: 새 작업이 그 상위 이슈의 목표 안에 있을 때만 다시 연다. 목표를 이미 이룬 기능 이슈면 다시 열지 않는다. 그 분야의 열린 상위 이슈에 연결하고, 없으면 새로 만든다. 닫힌 이슈는 새 상위 이슈 본문의 "관련된 끝난 이슈"에 적는다.
-- **닫는 시점**: 마지막 하위 이슈가 닫히면 그때 상위 이슈도 함께 닫는다. 다음 작업을 고르기 전에 한다.
-  - 닫기 전에 `sub_issues_summary`로 열린 하위 이슈가 0개인지 확인하고, 본문의 목표와 대조한 결과를 댓글로 남긴다.
-  - 목표에 남은 일이 있으면 닫지 않는다. 남은 일을 하위 이슈로 등록하고 이어 간다.
-  - 작업일마다 이어지는 분야처럼 본문에 "하위 이슈가 모두 닫혀도 열어 둔다"고 적은 상위 이슈는 닫지 않는다.
-- **여러 리포 추적 이슈**(1장)는 상위 이슈가 아니다. 중앙 리포의 체크박스 추적은 그대로 두고, 리포별 실제 이슈는 각 리포의 분야 상위 이슈에 연결한다.
-- **처음 도입할 때(리포마다 한 번)**: 이 규칙이 동기화된 뒤 그 리포에서 처음 이슈를 등록하거나 다음 작업을 고를 때, 상위 이슈에 연결되지 않은 열린 작업 이슈를 분야별로 묶는다.
-  - 묶음 계획(분야, 상위 이슈, 하위 이슈 번호)을 사용자에게 먼저 한 번 알리고 진행한다.
-  - 연결 뒤에는 모든 열린 작업 이슈에 상위 이슈가 있는지 확인하고 결과를 보고한다.
+- **Area**: a group of work in the same feature area, command, or module within a repo. Examples from file-control: "Safe trash deletion", "Reliable archive create and extract". Do not group by priority, type, or timing; labels handle those.
+- **Parent issue**: labeled `epic`. It is not implemented directly; it only groups sub-issues.
+  - The body states the goal, the scope (which work belongs in the area), and related closed issues.
+  - Its priority label matches the highest level among its open sub-issues; re-align it when sub-issues change. Its `type/*` and `area/*` are the most common among its sub-issues.
+- **Two levels deep**: parent → work issue. Work issues do not have sub-issues of their own. Split a large work issue into siblings under the same parent (section 1).
+- **One parent**: a work issue is linked to exactly one parent (GitHub allows only one). If it spans two areas, link it to the main one and mention the other under "Notes".
+- **At registration**: link a new work issue to the matching open parent right away.
+  - If no parent matches, create the parent first.
+  - Also write the number in the "Parent issue" line under "Notes". Body text alone does not replace the link.
+  - Follow-up issues split out of a review are handled the same way.
+- **Closed parents**: reopen one only when the new work is within its goal. If the goal is already met, do not reopen it; link to the area's open parent or create a new one, and list the closed issue under "Related closed issues" of the new parent.
+- **When to close**: when the last sub-issue closes, close the parent at the same time, before choosing the next task.
+  - Before closing, confirm with `sub_issues_summary` that no sub-issue is open, and comment the result of comparing against the goal in the body.
+  - If part of the goal is left, do not close it. Register the remaining work as sub-issues and continue.
+  - Do not close a parent whose body says "keep open even when all sub-issues are closed", such as an area that continues every working day.
+- **Multi-repo tracking issues** (section 1) are not parents. Keep the central repo's checkbox tracking as is, and link each repo's real issues to that repo's area parent.
+- **First adoption (once per repo)**: the first time you register issues or choose the next task in a repo after this rule is synced, group open work issues that have no parent by area.
+  - Tell the user the grouping plan (area, parent, sub-issue numbers) once before proceeding.
+  - After linking, check that every open work issue has a parent and report the result.
 
-연결 명령은 PowerShell 기준이다. 하위 이슈는 번호가 아니라 REST `id`로 붙인다.
+The link commands are for PowerShell. Sub-issues are attached by REST `id`, not by number.
 
 ```powershell
-$id = ghp api repos/<owner>/<repo>/issues/<하위 번호> --jq .id
-ghp api -X POST repos/<owner>/<repo>/issues/<상위 번호>/sub_issues -F sub_issue_id=$id
-# 다른 상위로 옮길 때
-ghp api -X POST repos/<owner>/<repo>/issues/<새 상위 번호>/sub_issues -F sub_issue_id=$id -F replace_parent=true
-# 떼어 낼 때
-ghp api -X DELETE repos/<owner>/<repo>/issues/<상위 번호>/sub_issue -F sub_issue_id=$id
-# 확인: 상위 번호가 나온다. 상위가 없으면 404 "No parent issue found"
-ghp api repos/<owner>/<repo>/issues/<하위 번호>/parent --jq .number
-# 상위 이슈의 진행률
-ghp api repos/<owner>/<repo>/issues/<상위 번호> --jq .sub_issues_summary
+$id = ghp api repos/<owner>/<repo>/issues/<sub-number> --jq .id
+ghp api -X POST repos/<owner>/<repo>/issues/<parent-number>/sub_issues -F sub_issue_id=$id
+# Move to another parent
+ghp api -X POST repos/<owner>/<repo>/issues/<new-parent-number>/sub_issues -F sub_issue_id=$id -F replace_parent=true
+# Detach
+ghp api -X DELETE repos/<owner>/<repo>/issues/<parent-number>/sub_issue -F sub_issue_id=$id
+# Check: prints the parent number. Without a parent, 404 "No parent issue found"
+ghp api repos/<owner>/<repo>/issues/<sub-number>/parent --jq .number
+# Parent progress
+ghp api repos/<owner>/<repo>/issues/<parent-number> --jq .sub_issues_summary
 ```
