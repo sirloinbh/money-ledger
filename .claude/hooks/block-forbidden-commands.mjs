@@ -1,5 +1,4 @@
 // Managed file. Edit it in sirloinbh/project-standards templates/common/.claude/hooks/
-// Centrally managed file. Edit it in sirloinbh/project-standards templates/common/.claude/hooks/
 // Claude Code PreToolUse hook (#450, docs/agent-guardrails.md): blocks the prohibitions in AGENTS.md that a
 // tool call can show, so they hold even when a session skips permission prompts (#418).
 // - Bash / PowerShell: force push, push to main, package tag push, `git add` of secret files, `pr merge --delete-branch`,

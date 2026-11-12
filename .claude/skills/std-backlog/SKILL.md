@@ -5,8 +5,6 @@ description: Register requirements as small GitHub issue cards with priority and
 
 <!-- Managed file. Edit it in sirloinbh/project-standards templates/common/skills/std-backlog/ -->
 
-<!-- Centrally managed file. Edit it in sirloinbh/project-standards templates/common/skills/std-backlog/ -->
-
 # Splitting issues, priorities, and choosing the next task
 
 How to register requirements as GitHub issues (issue cards) and choose the next issue to implement. The implementation itself follows each repo's implementation skill and the work procedure in `AGENTS.md`. Do GitHub work through the `ghp` function or the `gh-project.ps1` wrapper, and first check that the account is `sirloinbh`. Issues are written in English ([std-git-writing](../std-git-writing/SKILL.md)).
