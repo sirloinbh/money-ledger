@@ -78,9 +78,11 @@ test('ledger categories against the real database', { skip: !url }, async (t) =>
         body: { kind: 'expense', name: '반려동물' },
       });
       assert.equal(duplicate.status, 409);
-      assert.deepEqual(duplicate.data, { error: '같은 종류에 이미 있는 카테고리 이름입니다' });
+      assert.deepEqual(duplicate.data, {
+        error: 'A category with this name already exists for this kind',
+      });
 
-      // The other kind may use the same name, as the defaults do with 기타.
+      // The other kind may use the same name, as the defaults do with the Other category.
       const otherKind = await call('/api/ledger/categories', {
         method: 'POST',
         body: { kind: 'income', name: '반려동물' },
@@ -99,7 +101,9 @@ test('ledger categories against the real database', { skip: !url }, async (t) =>
         body: { name: food.name },
       });
       assert.equal(clash.status, 409);
-      assert.deepEqual(clash.data, { error: '같은 종류에 이미 있는 카테고리 이름입니다' });
+      assert.deepEqual(clash.data, {
+        error: 'A category with this name already exists for this kind',
+      });
 
       const renamed = await call(`/api/ledger/categories/${transport.id}`, {
         method: 'PATCH',
@@ -158,7 +162,7 @@ test('ledger categories against the real database', { skip: !url }, async (t) =>
         body: { hidden: true },
       });
       assert.equal(missing.status, 404);
-      assert.deepEqual(missing.data, { error: '카테고리를 찾을 수 없습니다' });
+      assert.deepEqual(missing.data, { error: 'Category not found' });
     });
   });
 });

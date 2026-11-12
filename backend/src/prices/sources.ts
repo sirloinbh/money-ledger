@@ -40,7 +40,7 @@ export type FxSource = {
 export type PriceSources = { krx?: KrxSource; tiingo?: TiingoSource; fx?: FxSource };
 
 /**
- * A failed request worth retrying: HTTP error, timeout or unreadable response. The message is Korean and
+ * A failed request worth retrying: HTTP error, timeout or unreadable response. The message is plain text and
  * never contains the request URL or a key, so it can be logged and stored as is.
  */
 export class SourceError extends Error {
@@ -63,17 +63,17 @@ export async function getOrNotFound(
   try {
     response = await fetch(url, { headers, signal: AbortSignal.timeout(20_000) });
   } catch {
-    throw new SourceError(`${label}에 연결하지 못했습니다`);
+    throw new SourceError(`Could not connect to ${label}`);
   }
   if (response.status === 404) return null;
-  if (!response.ok) throw new SourceError(`${label} 응답 오류 (HTTP ${response.status})`);
+  if (!response.ok) throw new SourceError(`${label} response error (HTTP ${response.status})`);
   return response;
 }
 
 /** Like getOrNotFound, but a 404 is an error too. */
 export async function getOk(label: string, url: string, headers: Record<string, string> = {}) {
   const response = await getOrNotFound(label, url, headers);
-  if (!response) throw new SourceError(`${label} 응답 오류 (HTTP 404)`);
+  if (!response) throw new SourceError(`${label} response error (HTTP 404)`);
   return response;
 }
 
@@ -81,7 +81,7 @@ export async function readJson(label: string, response: Response): Promise<unkno
   try {
     return await response.json();
   } catch {
-    throw new SourceError(`${label} 응답을 읽지 못했습니다`);
+    throw new SourceError(`Could not read the ${label} response`);
   }
 }
 

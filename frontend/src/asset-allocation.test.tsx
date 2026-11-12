@@ -24,9 +24,9 @@ vi.mock('./asset-allocation-chart', async (original) => ({
 }));
 
 const labels: Record<string, string> = {
-  cash: '현금(예적금 포함)',
-  stock: '주식',
-  real_estate: '부동산',
+  cash: 'Cash (incl. savings)',
+  stock: 'Stocks',
+  real_estate: 'Real estate',
 };
 const typeLabel = (type: string) => labels[type] ?? type;
 
@@ -37,14 +37,14 @@ const allocation: Allocation = {
     { type: 'cash', amountKrw: 100_000_000, share: '25.0', count: 2 },
   ],
   byAsset: [
-    { id: 3, name: '아파트', type: 'real_estate', amountKrw: 300_000_000, share: '75.0' },
-    { id: 1, name: '통장', type: 'cash', amountKrw: 100_000_000, share: '25.0' },
-    { id: 2, name: '빈 통장', type: 'cash', amountKrw: 0, share: '0.0' },
+    { id: 3, name: 'Apartment', type: 'real_estate', amountKrw: 300_000_000, share: '75.0' },
+    { id: 1, name: 'Savings account', type: 'cash', amountKrw: 100_000_000, share: '25.0' },
+    { id: 2, name: 'Empty account', type: 'cash', amountKrw: 0, share: '0.0' },
   ],
   chart: [
-    { key: '3', name: '아파트', amountKrw: 300_000_000, share: '75.0', count: 1 },
-    { key: '1', name: '통장', amountKrw: 100_000_000, share: '25.0', count: 1 },
-    { key: '2', name: '빈 통장', amountKrw: 0, share: '0.0', count: 1 },
+    { key: '3', name: 'Apartment', amountKrw: 300_000_000, share: '75.0', count: 1 },
+    { key: '1', name: 'Savings account', amountKrw: 100_000_000, share: '25.0', count: 1 },
+    { key: '2', name: 'Empty account', amountKrw: 0, share: '0.0', count: 1 },
   ],
 };
 
@@ -58,59 +58,63 @@ const rowsOf = (table: HTMLElement) =>
 
 test('by type first: the chart and every type in a table, and how many were left out', async () => {
   render(<AssetAllocation allocation={allocation} typeLabel={typeLabel} />);
-  expect(screen.getByRole('heading', { name: '자산 배분' })).toBeInTheDocument();
-  expect(screen.getByText(/2개는 빠졌습니다/)).toBeInTheDocument();
-  expect(screen.getByRole('tab', { name: '종류별' })).toHaveAttribute('aria-selected', 'true');
-  expect(await screen.findByTestId('chart')).toHaveTextContent('종류별:부동산 75.0,현금 25.0');
-  const table = screen.getByRole('table', { name: '종류별 자산 금액과 비중' });
+  expect(screen.getByRole('heading', { name: 'Asset allocation' })).toBeInTheDocument();
+  expect(screen.getByText(/2 without a quote/)).toBeInTheDocument();
+  expect(screen.getByRole('tab', { name: 'By type' })).toHaveAttribute('aria-selected', 'true');
+  expect(await screen.findByTestId('chart')).toHaveTextContent(
+    'By type:Real estate 75.0,Cash 25.0',
+  );
+  const table = screen.getByRole('table', { name: 'Asset amounts and shares by type' });
   expect(rowsOf(table)).toEqual([
-    '부동산 (1개)300,000,000원75.0%',
-    '현금(예적금 포함) (2개)100,000,000원25.0%',
+    'Real estate (1)₩300,000,00075.0%',
+    'Cash (incl. savings) (2)₩100,000,00025.0%',
   ]);
 });
 
 test('by asset: a 0 won asset is in the table at 0.0% but not in the chart', async () => {
   render(<AssetAllocation allocation={allocation} typeLabel={typeLabel} />);
-  fireEvent.click(screen.getByRole('tab', { name: '종목별' }));
-  expect(screen.getByRole('tab', { name: '종목별' })).toHaveAttribute('aria-selected', 'true');
-  expect(await screen.findByTestId('chart')).toHaveTextContent('종목별:아파트 75.0,통장 25.0');
-  const table = screen.getByRole('table', { name: '종목별 자산 금액과 비중' });
+  fireEvent.click(screen.getByRole('tab', { name: 'By asset' }));
+  expect(screen.getByRole('tab', { name: 'By asset' })).toHaveAttribute('aria-selected', 'true');
+  expect(await screen.findByTestId('chart')).toHaveTextContent(
+    'By asset:Apartment 75.0,Savings account 25.0',
+  );
+  const table = screen.getByRole('table', { name: 'Asset amounts and shares by asset' });
   expect(rowsOf(table)).toEqual([
-    '아파트부동산300,000,000원75.0%',
-    '통장현금(예적금 포함)100,000,000원25.0%',
-    '빈 통장현금(예적금 포함)0원0.0%',
+    'ApartmentReal estate₩300,000,00075.0%',
+    'Savings accountCash (incl. savings)₩100,000,00025.0%',
+    'Empty accountCash (incl. savings)₩00.0%',
   ]);
 });
 
-test('the rest of the assets are one chart line, "그 밖의 N개"', async () => {
+test('the rest of the assets are one chart line, "Other N"', async () => {
   render(
     <AssetAllocation
       allocation={{
         ...allocation,
         chart: [
-          { key: '3', name: '아파트', amountKrw: 300_000_000, share: '75.0', count: 1 },
+          { key: '3', name: 'Apartment', amountKrw: 300_000_000, share: '75.0', count: 1 },
           { key: 'rest', name: null, amountKrw: 100_000_000, share: '25.0', count: 4 },
         ],
       }}
       typeLabel={typeLabel}
     />,
   );
-  fireEvent.click(screen.getByRole('tab', { name: '종목별' }));
-  expect(await screen.findByTestId('chart')).toHaveTextContent('아파트 75.0,그 밖의 4개 25.0');
+  fireEvent.click(screen.getByRole('tab', { name: 'By asset' }));
+  expect(await screen.findByTestId('chart')).toHaveTextContent('Apartment 75.0,Other 4 25.0');
 });
 
 test('arrow keys move between the tabs', () => {
   render(<AssetAllocation allocation={allocation} typeLabel={typeLabel} />);
-  const byType = screen.getByRole('tab', { name: '종류별' });
+  const byType = screen.getByRole('tab', { name: 'By type' });
   byType.focus();
   fireEvent.keyDown(byType, { key: 'ArrowRight' });
-  const byAsset = screen.getByRole('tab', { name: '종목별' });
+  const byAsset = screen.getByRole('tab', { name: 'By asset' });
   expect(byAsset).toHaveFocus();
   expect(byAsset).toHaveAttribute('aria-selected', 'true');
   expect(byType).toHaveAttribute('tabindex', '-1');
   fireEvent.keyDown(byAsset, { key: 'Home' });
   expect(byType).toHaveFocus();
-  expect(screen.getByRole('tabpanel')).toHaveAccessibleName('종류별');
+  expect(screen.getByRole('tabpanel')).toHaveAccessibleName('By type');
 });
 
 test('nothing to spread: no tabs, a short note instead', () => {
@@ -120,8 +124,8 @@ test('nothing to spread: no tabs, a short note instead', () => {
       typeLabel={typeLabel}
     />,
   );
-  expect(screen.getByText(/비중을 계산할 자산이 없습니다/)).toBeInTheDocument();
-  expect(screen.getByText(/1개는 빠졌습니다/)).toBeInTheDocument();
+  expect(screen.getByText(/No assets to allocate/)).toBeInTheDocument();
+  expect(screen.getByText(/1 without a quote/)).toBeInTheDocument();
   expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
 });
 
@@ -138,13 +142,13 @@ test('a line too large to show in won is still drawn by its share', async () => 
       typeLabel={typeLabel}
     />,
   );
-  expect(await screen.findByTestId('chart')).toHaveTextContent('종류별:현금 99.9,부동산 0.1');
-  expect(rowsOf(screen.getByRole('table'))[0]).toBe('현금(예적금 포함) (10개)-99.9%');
+  expect(await screen.findByTestId('chart')).toHaveTextContent('By type:Cash 99.9,Real estate 0.1');
+  expect(rowsOf(screen.getByRole('table'))[0]).toBe('Cash (incl. savings) (10)-99.9%');
 });
 
 test('each tab controls its own panel; the other one is hidden', () => {
   render(<AssetAllocation allocation={allocation} typeLabel={typeLabel} />);
-  for (const name of ['종류별', '종목별']) {
+  for (const name of ['By type', 'By asset']) {
     const tab = screen.getByRole('tab', { name });
     const panel = document.getElementById(tab.getAttribute('aria-controls')!)!;
     expect(panel).toHaveAttribute('role', 'tabpanel');
@@ -159,13 +163,13 @@ test('only 0 won assets: the table without a chart', () => {
       allocation={{
         excluded: 0,
         byType: [{ type: 'cash', amountKrw: 0, share: '0.0', count: 1 }],
-        byAsset: [{ id: 1, name: '빈 통장', type: 'cash', amountKrw: 0, share: '0.0' }],
-        chart: [{ key: '1', name: '빈 통장', amountKrw: 0, share: '0.0', count: 1 }],
+        byAsset: [{ id: 1, name: 'Empty account', type: 'cash', amountKrw: 0, share: '0.0' }],
+        chart: [{ key: '1', name: 'Empty account', amountKrw: 0, share: '0.0', count: 1 }],
       }}
       typeLabel={typeLabel}
     />,
   );
-  expect(screen.getByText(/차트에 그릴 비중이 없습니다/)).toBeInTheDocument();
+  expect(screen.getByText(/nothing to draw in the chart/)).toBeInTheDocument();
   expect(screen.queryByTestId('chart')).not.toBeInTheDocument();
   expect(screen.getByRole('table')).toHaveTextContent('0.0%');
 });
@@ -187,14 +191,14 @@ test('the asset screen shows the card right under the totals', async () => {
     ),
   );
   render(<AssetManager />);
-  const card = await screen.findByRole('heading', { name: '자산 배분' });
-  const totals = screen.getByRole('region', { name: '합계' });
+  const card = await screen.findByRole('heading', { name: 'Asset allocation' });
+  const totals = screen.getByRole('region', { name: 'Totals' });
   // The card follows the totals and comes before the form.
   expect(totals.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  const form = screen.getByRole('heading', { name: '새 자산' });
+  const form = screen.getByRole('heading', { name: 'New asset' });
   expect(card.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   // The screen's own type names label the rows.
-  expect(await screen.findByTestId('chart')).toHaveTextContent('부동산 75.0,현금 25.0');
+  expect(await screen.findByTestId('chart')).toHaveTextContent('Real estate 75.0,Cash 25.0');
 });
 
 test('the real chart is one image named by its largest line', async () => {
@@ -204,15 +208,15 @@ test('the real chart is one image named by its largest line', async () => {
   expect(Real).not.toBe(AssetAllocationChart);
   render(
     <Real
-      title="종목별"
+      title="By asset"
       bars={[
-        { key: '3', name: '아파트', amountKrw: 300_000_000, share: '75.0', value: 75 },
-        { key: '1', name: '통장', amountKrw: 100_000_000, share: '25.0', value: 25 },
+        { key: '3', name: 'Apartment', amountKrw: 300_000_000, share: '75.0', value: 75 },
+        { key: '1', name: 'Savings account', amountKrw: 100_000_000, share: '25.0', value: 25 },
       ]}
     />,
   );
   expect(screen.getByRole('img')).toHaveAccessibleName(
-    '종목별 자산 배분 가로 막대 차트. 가장 큰 항목은 아파트 300,000,000원(75.0%)입니다. 모든 값은 아래 표에 있습니다.',
+    'By asset asset allocation horizontal bar chart. The largest item is Apartment ₩300,000,000 (75.0%). All values are in the table below.',
   );
   expect(Number.parseInt(screen.getByRole('img').style.height, 10)).toBe(2 * 36 + 32);
 });

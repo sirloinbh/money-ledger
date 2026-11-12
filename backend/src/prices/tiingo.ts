@@ -15,7 +15,7 @@ import { firstZipEntry } from './zip.js';
 // Tiingo End-of-Day API (docs/price-source.md). The key goes in the Authorization header, never the URL.
 const api = 'https://api.tiingo.com/tiingo/daily';
 const tickersUrl = 'https://apimedia.tiingo.com/docs/tiingo/daily/supported_tickers.zip';
-const label = 'Tiingo 시세';
+const label = 'Tiingo quote';
 
 const exchanges: Record<string, UsMarket> = {
   NYSE: 'NYSE',
@@ -32,7 +32,7 @@ const kinds: Record<string, UsTicker['kind']> = { Stock: 'stock', ETF: 'etf' };
 export function parseSupportedTickers(csv: string): UsTicker[] {
   const lines = csv.split(/\r?\n/);
   if (lines[0]?.trim() !== 'ticker,exchange,assetType,priceCurrency,startDate,endDate') {
-    throw new SourceError('Tiingo 종목 목록 형식이 바뀌었습니다');
+    throw new SourceError('The Tiingo security list format changed');
   }
   const rows = lines.slice(1).map((line) => line.split(','));
   const newest = rows.reduce((max, row) => (row[5] && row[5] > max ? row[5] : max), '');
@@ -51,7 +51,7 @@ export function parseSupportedTickers(csv: string): UsTicker[] {
 }
 
 export function parseTiingoCloses(body: unknown): UsClose[] {
-  if (!Array.isArray(body)) throw new SourceError(`${label} 응답 형식이 올바르지 않습니다`);
+  if (!Array.isArray(body)) throw new SourceError(`${label} response format is not valid`);
   const closes: UsClose[] = [];
   for (const item of body as { date?: unknown; close?: unknown }[]) {
     const date = typeof item.date === 'string' ? item.date.slice(0, 10) : '';
@@ -68,12 +68,12 @@ export function tiingoSource(apiKey: string): TiingoSource {
   return {
     name: 'Tiingo',
     async tickers() {
-      const response = await getOk('Tiingo 종목 목록', tickersUrl);
+      const response = await getOk('Tiingo security list', tickersUrl);
       let csv: string;
       try {
         csv = firstZipEntry(Buffer.from(await response.arrayBuffer())).toString('utf8');
       } catch {
-        throw new SourceError('Tiingo 종목 목록 파일을 읽지 못했습니다');
+        throw new SourceError('Could not read the Tiingo security list file');
       }
       return parseSupportedTickers(csv);
     },
@@ -86,9 +86,9 @@ export function tiingoSource(apiKey: string): TiingoSource {
       return response ? parseTiingoCloses(await readJson(label, response)) : null;
     },
     async companyName(symbol) {
-      const response = await getOrNotFound('Tiingo 종목 정보', path(symbol), headers);
+      const response = await getOrNotFound('Tiingo security info', path(symbol), headers);
       if (!response) return null;
-      const body = (await readJson('Tiingo 종목 정보', response)) as { name?: unknown } | null;
+      const body = (await readJson('Tiingo security info', response)) as { name?: unknown } | null;
       const name = typeof body?.name === 'string' ? body.name.trim().slice(0, 200) : '';
       return name || null;
     },

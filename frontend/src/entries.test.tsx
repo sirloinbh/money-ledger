@@ -22,9 +22,9 @@ type Entry = {
 };
 
 const categories = [
-  { id: 1, kind: 'expense', name: '식비', hidden: false },
-  { id: 2, kind: 'expense', name: '여가', hidden: true },
-  { id: 3, kind: 'income', name: '급여', hidden: false },
+  { id: 1, kind: 'expense', name: 'Food', hidden: false },
+  { id: 2, kind: 'expense', name: 'Leisure', hidden: true },
+  { id: 3, kind: 'income', name: 'Salary', hidden: false },
 ];
 
 let stored: Entry[];
@@ -58,7 +58,7 @@ function fakeApi() {
         stored = stored.filter((entry) => entry.id !== id);
         return json(undefined, 204);
       }
-      // Without a category the entry stays 미분류 here (no rules in this fake).
+      // Without a category the entry stays Uncategorized here (no rules in this fake).
       const name = categories.find((category) => category.id === body!.categoryId)?.name ?? null;
       if (method === 'POST') {
         const entry = { ...body!, id: stored.length + 10, categoryName: name };
@@ -83,9 +83,9 @@ beforeEach(() => {
       kind: 'expense',
       amount: 5000,
       categoryId: 2,
-      categoryName: '여가',
+      categoryName: 'Leisure',
       merchant: '',
-      memo: '영화',
+      memo: 'Movie',
     },
   ];
   requests = [];
@@ -97,36 +97,36 @@ afterEach(() => {
 });
 
 const optionLabels = () =>
-  within(screen.getByLabelText('카테고리', { selector: '#entry-category' }))
+  within(screen.getByLabelText('Category', { selector: '#entry-category' }))
     .getAllByRole('option')
     .map((option) => option.textContent);
 
 const ready = async () => {
   render(<EntryManager />, { wrapper: Router });
-  await screen.findByRole('list', { name: '내역 목록' });
-  await screen.findByRole('option', { name: '식비' });
+  await screen.findByRole('list', { name: 'Entry list' });
+  await screen.findByRole('option', { name: 'Food' });
 };
 
 test('a new entry starts on today in Seoul and offers only visible categories of its kind', async () => {
   await ready();
-  expect(screen.getByLabelText('날짜')).toHaveValue('2026-11-03');
-  expect(screen.getByRole('radio', { name: '지출' })).toBeChecked();
-  expect(optionLabels()).toEqual(['미분류', '식비']);
+  expect(screen.getByLabelText('Date')).toHaveValue('2026-11-03');
+  expect(screen.getByRole('radio', { name: 'Expense' })).toBeChecked();
+  expect(optionLabels()).toEqual(['Uncategorized', 'Food']);
 
-  fireEvent.click(screen.getByRole('radio', { name: '수입' }));
-  expect(optionLabels()).toEqual(['미분류', '급여']);
+  fireEvent.click(screen.getByRole('radio', { name: 'Income' }));
+  expect(optionLabels()).toEqual(['Uncategorized', 'Salary']);
 });
 
 test('recording sends whole won, keeps the date and kind, and lists the entry', async () => {
   await ready();
-  fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '12,500' } });
-  fireEvent.change(screen.getByLabelText('카테고리', { selector: '#entry-category' }), {
+  fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '12,500' } });
+  fireEvent.change(screen.getByLabelText('Category', { selector: '#entry-category' }), {
     target: { value: '1' },
   });
-  fireEvent.change(screen.getByLabelText('메모'), { target: { value: '점심' } });
-  fireEvent.click(screen.getByRole('button', { name: '기록' }));
+  fireEvent.change(screen.getByLabelText('Note'), { target: { value: 'Lunch' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
 
-  expect(await screen.findByRole('status')).toHaveTextContent('지출 12,500원을 기록했습니다');
+  expect(await screen.findByRole('status')).toHaveTextContent('Expense ₩12,500 recorded');
   expect(requests).toContainEqual({
     method: 'POST',
     url: '/api/ledger/entries',
@@ -136,38 +136,39 @@ test('recording sends whole won, keeps the date and kind, and lists the entry', 
       amount: 12500,
       categoryId: 1,
       merchant: '',
-      memo: '점심',
+      memo: 'Lunch',
     },
   });
-  expect(screen.getByLabelText('금액(원)')).toHaveValue('');
-  expect(screen.getByLabelText('메모')).toHaveValue('');
-  expect(screen.getByLabelText('날짜')).toHaveValue('2026-11-03');
-  const first = within(screen.getByRole('list', { name: '내역 목록' })).getAllByRole('listitem')[0];
+  expect(screen.getByLabelText('Amount (KRW)')).toHaveValue('');
+  expect(screen.getByLabelText('Note')).toHaveValue('');
+  expect(screen.getByLabelText('Date')).toHaveValue('2026-11-03');
+  const first = within(screen.getByRole('list', { name: 'Entry list' })).getAllByRole(
+    'listitem',
+  )[0];
   expect(first).toHaveTextContent('2026-11-03');
-  expect(first).toHaveTextContent('-12,500원');
+  expect(first).toHaveTextContent('-₩12,500');
 });
 
-test.each(['-1', '1.5', '만원', ''])(
-  'the amount "%s" is refused before sending',
-  async (amount) => {
-    await ready();
-    fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: amount } });
-    fireEvent.change(screen.getByLabelText('카테고리', { selector: '#entry-category' }), {
-      target: { value: '1' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: '기록' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('금액은 0원 이상의 정수로 입력하세요');
-    expect(requests.some((request) => request.method === 'POST')).toBe(false);
-  },
-);
-
-test('an entry without a category is sent as 미분류 with its merchant', async () => {
+test.each(['-1', '1.5', 'abc', ''])('the amount "%s" is refused before sending', async (amount) => {
   await ready();
-  fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '1000' } });
-  fireEvent.change(screen.getByLabelText('가맹점'), { target: { value: '스타벅스 강남점' } });
-  fireEvent.click(screen.getByRole('button', { name: '기록' }));
+  fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: amount } });
+  fireEvent.change(screen.getByLabelText('Category', { selector: '#entry-category' }), {
+    target: { value: '1' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Enter the amount as a whole number of won, 0 or more',
+  );
+  expect(requests.some((request) => request.method === 'POST')).toBe(false);
+});
 
-  expect(await screen.findByRole('status')).toHaveTextContent('지출 1,000원을 기록했습니다');
+test('an entry without a category is sent as Uncategorized with its merchant', async () => {
+  await ready();
+  fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '1000' } });
+  fireEvent.change(screen.getByLabelText('Merchant'), { target: { value: 'Starbucks Gangnam' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
+
+  expect(await screen.findByRole('status')).toHaveTextContent('Expense ₩1,000 recorded');
   expect(requests).toContainEqual({
     method: 'POST',
     url: '/api/ledger/entries',
@@ -176,40 +177,42 @@ test('an entry without a category is sent as 미분류 with its merchant', async
       kind: 'expense',
       amount: 1000,
       categoryId: null,
-      merchant: '스타벅스 강남점',
+      merchant: 'Starbucks Gangnam',
       memo: '',
     },
   });
-  expect(screen.getByLabelText('가맹점')).toHaveValue('');
-  const first = within(screen.getByRole('list', { name: '내역 목록' })).getAllByRole('listitem')[0];
-  expect(first).toHaveTextContent('미분류');
-  expect(first).toHaveTextContent('스타벅스 강남점');
+  expect(screen.getByLabelText('Merchant')).toHaveValue('');
+  const first = within(screen.getByRole('list', { name: 'Entry list' })).getAllByRole(
+    'listitem',
+  )[0];
+  expect(first).toHaveTextContent('Uncategorized');
+  expect(first).toHaveTextContent('Starbucks Gangnam');
 });
 
-test('a server refusal shows its Korean message and keeps the input', async () => {
+test('a server refusal shows its message and keeps the input', async () => {
   await ready();
-  vi.mocked(fetch).mockImplementationOnce(() => json({ error: '없는 날짜입니다' }, 400));
-  fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '1000' } });
-  fireEvent.change(screen.getByLabelText('카테고리', { selector: '#entry-category' }), {
+  vi.mocked(fetch).mockImplementationOnce(() => json({ error: 'That date does not exist' }, 400));
+  fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '1000' } });
+  fireEvent.change(screen.getByLabelText('Category', { selector: '#entry-category' }), {
     target: { value: '1' },
   });
-  fireEvent.click(screen.getByRole('button', { name: '기록' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('없는 날짜입니다');
-  expect(screen.getByLabelText('금액(원)')).toHaveValue('1000');
+  fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('That date does not exist');
+  expect(screen.getByLabelText('Amount (KRW)')).toHaveValue('1000');
 });
 
 test('editing fills the form, keeps the hidden category it has, and saves with PUT', async () => {
   await ready();
-  fireEvent.click(screen.getByRole('button', { name: '2026-11-01 여가 5,000원 수정' }));
-  expect(screen.getByRole('heading', { name: '내역 수정' })).toBeInTheDocument();
-  expect(screen.getByLabelText('날짜')).toHaveValue('2026-11-01');
-  expect(screen.getByLabelText('금액(원)')).toHaveValue('5000');
-  expect(optionLabels()).toEqual(['미분류', '식비', '여가 (숨김)']);
-  expect(screen.getByLabelText('카테고리', { selector: '#entry-category' })).toHaveValue('2');
+  fireEvent.click(screen.getByRole('button', { name: 'Edit 2026-11-01 Leisure ₩5,000' }));
+  expect(screen.getByRole('heading', { name: 'Edit entry' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Date')).toHaveValue('2026-11-01');
+  expect(screen.getByLabelText('Amount (KRW)')).toHaveValue('5000');
+  expect(optionLabels()).toEqual(['Uncategorized', 'Food', 'Leisure (hidden)']);
+  expect(screen.getByLabelText('Category', { selector: '#entry-category' })).toHaveValue('2');
 
-  fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '7000' } });
-  fireEvent.click(screen.getByRole('button', { name: '수정 저장' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('내역을 수정했습니다');
+  fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '7000' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('Entry updated');
   expect(requests).toContainEqual({
     method: 'PUT',
     url: '/api/ledger/entries/1',
@@ -219,44 +222,44 @@ test('editing fills the form, keeps the hidden category it has, and saves with P
       amount: 7000,
       categoryId: 2,
       merchant: '',
-      memo: '영화',
+      memo: 'Movie',
     },
   });
-  expect(screen.getByRole('heading', { name: '새 내역' })).toBeInTheDocument();
-  expect(screen.getByLabelText('날짜')).toHaveValue('2026-11-03');
+  expect(screen.getByRole('heading', { name: 'New entry' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Date')).toHaveValue('2026-11-03');
 });
 
 test('cancelling an edit goes back to an empty new entry', async () => {
   await ready();
-  fireEvent.click(screen.getByRole('button', { name: '2026-11-01 여가 5,000원 수정' }));
-  fireEvent.click(screen.getByRole('button', { name: '수정 취소' }));
-  expect(screen.getByRole('heading', { name: '새 내역' })).toBeInTheDocument();
-  expect(screen.getByLabelText('금액(원)')).toHaveValue('');
-  expect(optionLabels()).toEqual(['미분류', '식비']);
+  fireEvent.click(screen.getByRole('button', { name: 'Edit 2026-11-01 Leisure ₩5,000' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel edit' }));
+  expect(screen.getByRole('heading', { name: 'New entry' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Amount (KRW)')).toHaveValue('');
+  expect(optionLabels()).toEqual(['Uncategorized', 'Food']);
 });
 
 test('deleting asks first, then removes the entry', async () => {
   await ready();
-  fireEvent.click(screen.getByRole('button', { name: '2026-11-01 여가 5,000원 삭제' }));
-  const dialog = screen.getByRole('dialog', { name: '내역을 삭제할까요?' });
+  fireEvent.click(screen.getByRole('button', { name: 'Delete 2026-11-01 Leisure ₩5,000' }));
+  const dialog = screen.getByRole('dialog', { name: 'Delete this entry?' });
   expect(requests.some((request) => request.method === 'DELETE')).toBe(false);
   fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
-  expect(await screen.findByText('조건에 맞는 내역이 없습니다.')).toBeInTheDocument();
+  expect(await screen.findByText('No entries match the filters.')).toBeInTheDocument();
   expect(requests).toContainEqual({
     method: 'DELETE',
     url: '/api/ledger/entries/1',
     body: undefined,
   });
-  expect(screen.getByRole('status')).toHaveTextContent('내역을 삭제했습니다');
+  expect(screen.getByRole('status')).toHaveTextContent('Entry deleted');
 });
 
 test('a new categories version reloads the category choices', async () => {
   const { rerender } = render(<EntryManager categoriesVersion={0} />, { wrapper: Router });
-  await screen.findByRole('option', { name: '식비' });
+  await screen.findByRole('option', { name: 'Food' });
   categories[0] = { ...categories[0], hidden: true };
   try {
     rerender(<EntryManager categoriesVersion={1} />);
-    await vi.waitFor(() => expect(optionLabels()).toEqual(['미분류']));
+    await vi.waitFor(() => expect(optionLabels()).toEqual(['Uncategorized']));
   } finally {
     categories[0] = { ...categories[0], hidden: false };
   }
@@ -264,17 +267,19 @@ test('a new categories version reloads the category choices', async () => {
 
 test('opening an edit moves focus to the date field of the form', async () => {
   await ready();
-  fireEvent.click(screen.getByRole('button', { name: '2026-11-01 여가 5,000원 수정' }));
-  expect(screen.getByLabelText('날짜')).toHaveFocus();
+  fireEvent.click(screen.getByRole('button', { name: 'Edit 2026-11-01 Leisure ₩5,000' }));
+  expect(screen.getByLabelText('Date')).toHaveFocus();
 });
 
 test('a refused field is marked invalid and points at the message', async () => {
   await ready();
-  fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '-5' } });
-  fireEvent.click(screen.getByRole('button', { name: '기록' }));
-  const amount = screen.getByLabelText('금액(원)');
+  fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '-5' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
+  const amount = screen.getByLabelText('Amount (KRW)');
   expect(amount).toHaveAttribute('aria-invalid', 'true');
-  expect(amount).toHaveAccessibleDescription('금액은 0원 이상의 정수로 입력하세요');
+  expect(amount).toHaveAccessibleDescription(
+    'Enter the amount as a whole number of won, 0 or more',
+  );
   fireEvent.change(amount, { target: { value: '5' } });
   expect(amount).not.toHaveAttribute('aria-invalid');
 });
@@ -290,25 +295,25 @@ test('while a save runs, opening an edit waits and the button says so', async ()
         finish = () => resolve(real(url, init));
       }),
   );
-  fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '1000' } });
-  fireEvent.change(screen.getByLabelText('카테고리', { selector: '#entry-category' }), {
+  fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '1000' } });
+  fireEvent.change(screen.getByLabelText('Category', { selector: '#entry-category' }), {
     target: { value: '1' },
   });
-  fireEvent.click(screen.getByRole('button', { name: '기록' }));
-  expect(await screen.findByRole('button', { name: '저장 중…' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
+  expect(await screen.findByRole('button', { name: 'Saving…' })).toBeEnabled();
 
-  fireEvent.click(screen.getByRole('button', { name: '2026-11-01 여가 5,000원 수정' }));
-  expect(screen.getByRole('heading', { name: '새 내역' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Edit 2026-11-01 Leisure ₩5,000' }));
+  expect(screen.getByRole('heading', { name: 'New entry' })).toBeInTheDocument();
 
   finish();
-  expect(await screen.findByRole('status')).toHaveTextContent('지출 1,000원을 기록했습니다');
-  expect(screen.getByRole('button', { name: '기록' })).toBeInTheDocument();
+  expect(await screen.findByRole('status')).toHaveTextContent('Expense ₩1,000 recorded');
+  expect(screen.getByRole('button', { name: 'Add entry' })).toBeInTheDocument();
 });
 
 test('a category change reloads the list, and a chosen category hidden meanwhile is unchosen', async () => {
   const { rerender } = render(<EntryManager categoriesVersion={0} />, { wrapper: Router });
-  await screen.findByRole('option', { name: '식비' });
-  fireEvent.change(screen.getByLabelText('카테고리', { selector: '#entry-category' }), {
+  await screen.findByRole('option', { name: 'Food' });
+  fireEvent.change(screen.getByLabelText('Category', { selector: '#entry-category' }), {
     target: { value: '1' },
   });
   const listLoads = () =>
@@ -320,27 +325,27 @@ test('a category change reloads the list, and a chosen category hidden meanwhile
   categories[0] = { ...categories[0], hidden: true };
   try {
     rerender(<EntryManager categoriesVersion={1} />);
-    // The lost choice shows as "다시 고르세요" instead of silently turning into 미분류.
-    await vi.waitFor(() => expect(optionLabels()).toEqual(['다시 고르세요', '미분류']));
+    // The lost choice shows as "Choose again" instead of silently turning into Uncategorized.
+    await vi.waitFor(() => expect(optionLabels()).toEqual(['Choose again', 'Uncategorized']));
     expect(listLoads()).toBe(before + 1);
-    expect(screen.getByLabelText('카테고리', { selector: '#entry-category' })).toHaveValue('stale');
+    expect(screen.getByLabelText('Category', { selector: '#entry-category' })).toHaveValue('stale');
 
-    fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '1000' } });
-    fireEvent.click(screen.getByRole('button', { name: '기록' }));
+    fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '1000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
     expect(screen.getByRole('alert')).toHaveTextContent(
-      '고른 카테고리를 쓸 수 없습니다. 카테고리를 다시 고르세요',
+      'The chosen category cannot be used. Choose a category again',
     );
-    expect(screen.getByLabelText('카테고리', { selector: '#entry-category' })).toHaveAttribute(
+    expect(screen.getByLabelText('Category', { selector: '#entry-category' })).toHaveAttribute(
       'aria-invalid',
       'true',
     );
     expect(requests.some((request) => request.method === 'POST')).toBe(false);
 
-    // Choosing 미분류 on purpose is allowed.
-    fireEvent.change(screen.getByLabelText('카테고리', { selector: '#entry-category' }), {
+    // Choosing Uncategorized on purpose is allowed.
+    fireEvent.change(screen.getByLabelText('Category', { selector: '#entry-category' }), {
       target: { value: '' },
     });
-    fireEvent.click(screen.getByRole('button', { name: '기록' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
     await screen.findByRole('status');
     expect(requests.find((request) => request.method === 'POST')?.body).toMatchObject({
       categoryId: null,
@@ -352,16 +357,16 @@ test('a category change reloads the list, and a chosen category hidden meanwhile
 
 test('after a delete focus goes to the section title; after cancelling, back to the delete button', async () => {
   await ready();
-  const remove = screen.getByRole('button', { name: '2026-11-01 여가 5,000원 삭제' });
+  const remove = screen.getByRole('button', { name: 'Delete 2026-11-01 Leisure ₩5,000' });
   fireEvent.click(remove);
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   await vi.waitFor(() => expect(remove).toHaveFocus());
 
   fireEvent.click(remove);
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
-  await screen.findByText('조건에 맞는 내역이 없습니다.');
+  await screen.findByText('No entries match the filters.');
   await vi.waitFor(() =>
-    expect(screen.getByRole('heading', { name: '수입·지출 내역' })).toHaveFocus(),
+    expect(screen.getByRole('heading', { name: 'Income and expense entries' })).toHaveFocus(),
   );
 });
 
@@ -376,19 +381,19 @@ test('what is typed while a save runs is kept', async () => {
         finish = () => resolve(real(url, init));
       }),
   );
-  fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '1000' } });
-  fireEvent.change(screen.getByLabelText('카테고리', { selector: '#entry-category' }), {
+  fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '1000' } });
+  fireEvent.change(screen.getByLabelText('Category', { selector: '#entry-category' }), {
     target: { value: '1' },
   });
-  fireEvent.click(screen.getByRole('button', { name: '기록' }));
-  await screen.findByRole('button', { name: '저장 중…' });
-  fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '2000' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
+  await screen.findByRole('button', { name: 'Saving…' });
+  fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '2000' } });
   finish();
-  expect(await screen.findByRole('status')).toHaveTextContent('지출 1,000원을 기록했습니다');
-  expect(screen.getByLabelText('금액(원)')).toHaveValue('2000');
+  expect(await screen.findByRole('status')).toHaveTextContent('Expense ₩1,000 recorded');
+  expect(screen.getByLabelText('Amount (KRW)')).toHaveValue('2000');
 });
 
-test('editing an uncategorized entry keeps 미분류 and its merchant', async () => {
+test('editing an uncategorized entry keeps Uncategorized and its merchant', async () => {
   stored = [
     {
       id: 5,
@@ -397,22 +402,22 @@ test('editing an uncategorized entry keeps 미분류 and its merchant', async ()
       amount: 3000,
       categoryId: null,
       categoryName: null,
-      merchant: '동네 빵집',
+      merchant: 'Neighborhood bakery',
       memo: '',
     },
   ];
   await ready();
-  fireEvent.click(screen.getByRole('button', { name: '2026-11-02 미분류 3,000원 수정' }));
-  expect(screen.getByLabelText('카테고리', { selector: '#entry-category' })).toHaveValue('');
-  expect(screen.getByLabelText('가맹점')).toHaveValue('동네 빵집');
-  fireEvent.click(screen.getByRole('button', { name: '수정 저장' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('내역을 수정했습니다');
+  fireEvent.click(screen.getByRole('button', { name: 'Edit 2026-11-02 Uncategorized ₩3,000' }));
+  expect(screen.getByLabelText('Category', { selector: '#entry-category' })).toHaveValue('');
+  expect(screen.getByLabelText('Merchant')).toHaveValue('Neighborhood bakery');
+  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('Entry updated');
   expect(requests.find((request) => request.method === 'PUT')?.body).toEqual({
     date: '2026-11-02',
     kind: 'expense',
     amount: 3000,
     categoryId: null,
-    merchant: '동네 빵집',
+    merchant: 'Neighborhood bakery',
     memo: '',
   });
 });
@@ -426,31 +431,33 @@ test('an entry classified elsewhere while being edited keeps that category when 
       amount: 3000,
       categoryId: null,
       categoryName: null,
-      merchant: '동네 빵집',
+      merchant: 'Neighborhood bakery',
       memo: '',
     },
   ];
   const { rerender } = render(<EntryManager entriesVersion={0} />, { wrapper: Router });
-  await screen.findByRole('option', { name: '식비' });
-  fireEvent.click(await screen.findByRole('button', { name: '2026-11-02 미분류 3,000원 수정' }));
-  fireEvent.change(screen.getByLabelText('메모'), { target: { value: '아침' } });
+  await screen.findByRole('option', { name: 'Food' });
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'Edit 2026-11-02 Uncategorized ₩3,000' }),
+  );
+  fireEvent.change(screen.getByLabelText('Note'), { target: { value: 'Breakfast' } });
 
-  // The bulk classification below the form puts it in 식비.
-  stored = [{ ...stored[0], categoryId: 1, categoryName: '식비' }];
+  // The bulk classification below the form puts it in Food.
+  stored = [{ ...stored[0], categoryId: 1, categoryName: 'Food' }];
   rerender(<EntryManager entriesVersion={1} />);
   await vi.waitFor(() =>
-    expect(screen.getByLabelText('카테고리', { selector: '#entry-category' })).toHaveValue('1'),
+    expect(screen.getByLabelText('Category', { selector: '#entry-category' })).toHaveValue('1'),
   );
   expect(screen.getByRole('status')).toHaveTextContent(
-    '수정 중인 내역의 카테고리가 다른 곳에서 바뀌어 반영했습니다',
+    'The category of the entry being edited was changed elsewhere and has been applied',
   );
-  expect(screen.getByLabelText('메모')).toHaveValue('아침');
+  expect(screen.getByLabelText('Note')).toHaveValue('Breakfast');
 
-  fireEvent.click(screen.getByRole('button', { name: '수정 저장' }));
-  expect(await screen.findByText('내역을 수정했습니다')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+  expect(await screen.findByText('Entry updated')).toBeInTheDocument();
   expect(requests.find((request) => request.method === 'PUT')?.body).toMatchObject({
     categoryId: 1,
-    memo: '아침',
+    memo: 'Breakfast',
   });
 });
 
@@ -461,11 +468,11 @@ test('while categories have not loaded, a chosen category is not flagged', async
       : json({ entries: stored, total: stored.length }),
   );
   render(<EntryManager />, { wrapper: Router });
-  fireEvent.click(await screen.findByRole('button', { name: '2026-11-01 여가 5,000원 수정' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit 2026-11-01 Leisure ₩5,000' }));
   expect(
-    within(screen.getByLabelText('카테고리', { selector: '#entry-category' })).queryByRole(
+    within(screen.getByLabelText('Category', { selector: '#entry-category' })).queryByRole(
       'option',
-      { name: '다시 고르세요' },
+      { name: 'Choose again' },
     ),
   ).toBeNull();
 });

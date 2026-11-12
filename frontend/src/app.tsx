@@ -21,14 +21,14 @@ const pages = {
 
 // Main menu (LNB) items, in display order.
 const nav: NavItem[] = [
-  { to: pages.overview, label: '대시보드', icon: LayoutDashboard },
-  { to: pages.ledger, label: '가계부', icon: Wallet },
-  { to: pages.portfolio, label: '자산 포트폴리오', icon: ChartPie },
-  { to: pages.mockTrading, label: '모의투자', icon: TrendingUp },
-  { to: pages.settings, label: '설정', icon: Settings2 },
+  { to: pages.overview, label: 'Dashboard', icon: LayoutDashboard },
+  { to: pages.ledger, label: 'Ledger', icon: Wallet },
+  { to: pages.portfolio, label: 'Asset portfolio', icon: ChartPie },
+  { to: pages.mockTrading, label: 'Mock trading', icon: TrendingUp },
+  { to: pages.settings, label: 'Settings', icon: Settings2 },
 ];
 
-const emptyDescription = '기능은 GitHub 이슈 카드로 등록한 뒤 하나씩 추가합니다.';
+const emptyDescription = 'Features are registered as GitHub issue cards and added one by one.';
 
 function useHealth() {
   const [health, setHealth] = useState<Health>({ state: 'loading' });
@@ -39,10 +39,10 @@ function useHealth() {
         setHealth(
           response.ok && data.today
             ? { state: 'ok', today: data.today }
-            : { state: 'error', message: data.error ?? '서버 상태를 확인할 수 없습니다' },
+            : { state: 'error', message: data.error ?? 'Cannot check the server status' },
         );
       })
-      .catch(() => setHealth({ state: 'error', message: '서버에 연결할 수 없습니다' }));
+      .catch(() => setHealth({ state: 'error', message: 'Cannot connect to the server' }));
   }, []);
   return health;
 }
@@ -51,14 +51,14 @@ export function App() {
   const health = useHealth();
   return (
     <BrowserRouter>
-      <AppShell appName="가계부·자산·모의투자" nav={nav}>
+      <AppShell appName="Ledger, Assets, Mock Trading" nav={nav}>
         <Routes>
           <Route
             path={pages.overview}
             element={
               <Page
-                title="대시보드"
-                description="가계부, 자산 포트폴리오, 모의투자를 기록하고 돈의 흐름을 확인하는 개인 서비스"
+                title="Dashboard"
+                description="A personal service to record your ledger, asset portfolio, and mock trading and see where your money goes"
                 emptyDescription={emptyDescription}
                 health={health}
               />
@@ -71,8 +71,8 @@ export function App() {
             path={pages.settings}
             element={
               <Page
-                title="설정"
-                description="앱 환경과 데이터 관리"
+                title="Settings"
+                description="App preferences and data management"
                 emptyDescription={emptyDescription}
                 health={health}
               />

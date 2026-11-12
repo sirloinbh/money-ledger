@@ -16,7 +16,7 @@ import { monthLabel } from './trend-series';
 
 // #42 Each expense category's budget for the summary's month and how much of it is spent. A month without its
 // own budget carries on from the latest earlier one (decided 2026-11-10); saving here sets this month and the
-// months after it that have none of their own. 0 or an empty field means no budget ("미설정").
+// months after it that have none of their own. 0 or an empty field means no budget ("Not set").
 
 type Budget = {
   categoryId: number;
@@ -87,7 +87,7 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
     now.current = { month, editing };
   }, [load, month, editing]);
 
-  // 수정 opens the form: the amount field takes the focus.
+  // Edit opens the form: the amount field takes the focus.
   useEffect(() => {
     if (editing !== undefined) document.getElementById(`budget-${editing}`)?.focus();
   }, [editing]);
@@ -110,7 +110,7 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
   const stopEdit = (categoryId: number) => {
     setEditing(undefined);
     setInvalid(false);
-    // The form goes away: put focus back on the row's 수정 button, or on the title when the row went away
+    // The form goes away: put focus back on the row's Edit button, or on the title when the row went away
     // (a hidden category whose budget was just unset is no longer listed).
     requestAnimationFrame(() => (editButtons.current.get(categoryId) ?? title.current)?.focus());
   };
@@ -121,7 +121,7 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
     const amount = parseBudget(draft);
     if (amount === undefined) {
       setInvalid(true);
-      showError('예산은 0원 이상의 정수로 입력하세요');
+      showError('Enter the budget as a whole number of won, 0 or more');
       return;
     }
     setSaving(true);
@@ -132,8 +132,8 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
       });
       showStatus(
         amount === 0
-          ? `${budget.name} 예산을 ${monthLabel(month)}부터 미설정으로 바꿨습니다`
-          : `${budget.name} 예산을 ${monthLabel(month)}부터 ${formatWon(amount)}으로 정했습니다`,
+          ? `${budget.name} budget changed to not set from ${monthLabel(month)}`
+          : `${budget.name} budget set to ${formatWon(amount)} from ${monthLabel(month)}`,
       );
       // Reload first, so the focus goes to the row as it is listed after the save. Only this save's own form
       // closes and takes the focus back: if the user meanwhile opened another row or moved to another month,
@@ -143,7 +143,7 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
         stopEdit(budget.categoryId);
       }
     } catch (cause) {
-      showError(cause, '예산을 저장하지 못했습니다');
+      showError(cause, 'Could not save the budget');
     } finally {
       setSaving(false);
     }
@@ -162,37 +162,37 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
     <section aria-labelledby="budget-title" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="budget-title" ref={title} tabIndex={-1} className="outline-none">
-          카테고리별 예산
+          Budget by category
         </h2>
-        <p className="text-body-sm text-muted-foreground">{monthLabel(month)} 기준</p>
+        <p className="text-body-sm text-muted-foreground">As of {monthLabel(month)}</p>
       </div>
       <Notice id="budget-notice" notice={notice.notice} />
       {failed ? (
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-body-sm text-muted-foreground">예산을 불러오지 못했습니다.</p>
+          <p className="text-body-sm text-muted-foreground">Could not load the budgets.</p>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            aria-label="예산 다시 시도"
+            aria-label="Retry loading budgets"
             onClick={retry}
           >
-            다시 시도
+            Try again
           </Button>
         </div>
       ) : null}
       {shown === undefined ? (
         failed ? null : (
-          <p className="text-body-sm text-muted-foreground">예산을 불러오는 중입니다</p>
+          <p className="text-body-sm text-muted-foreground">Loading budgets</p>
         )
       ) : (
         <Card aria-busy={loading || undefined} className={cn(loading && 'opacity-60')}>
           <CardHeader>
-            <CardTitle asHeading="h3">예산 사용률</CardTitle>
+            <CardTitle asHeading="h3">Budget usage</CardTitle>
           </CardHeader>
           <CardContent>
             {shown.budgets.length === 0 ? (
-              <p className="text-body-sm text-muted-foreground">지출 카테고리가 없습니다.</p>
+              <p className="text-body-sm text-muted-foreground">There are no expense categories.</p>
             ) : (
               <ul className="flex flex-col divide-y">
                 {shown.budgets.map((budget) => (
@@ -218,14 +218,14 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
                         onSubmit={(event) => void save(event, budget)}
                       >
                         <Label htmlFor={`budget-${budget.categoryId}`}>
-                          {budget.name} 예산(원)
+                          {budget.name} budget (KRW)
                         </Label>
                         <div className="flex flex-wrap gap-2">
                           <Input
                             id={`budget-${budget.categoryId}`}
                             inputMode="numeric"
                             autoComplete="off"
-                            placeholder="예: 300000"
+                            placeholder="e.g. 300000"
                             className="w-40"
                             value={draft}
                             aria-invalid={invalid || undefined}
@@ -236,7 +236,7 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
                             }}
                           />
                           <Button type="submit" size="sm" disabled={saving}>
-                            저장
+                            Save
                           </Button>
                           <Button
                             type="button"
@@ -244,14 +244,14 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
                             variant="ghost"
                             onClick={() => stopEdit(budget.categoryId)}
                           >
-                            취소
+                            Cancel
                           </Button>
                         </div>
                         <p
                           id={`budget-${budget.categoryId}-hint`}
                           className="text-body-sm text-muted-foreground"
                         >
-                          {monthLabel(month)}부터 적용됩니다. 비우거나 0이면 미설정입니다.
+                          Applies from {monthLabel(month)}. Leave empty or 0 for not set.
                         </p>
                       </form>
                     ) : null}
@@ -279,7 +279,7 @@ function BudgetRow({
   onEdit: () => void;
   editRef: (button: HTMLButtonElement | null) => void;
 }) {
-  const name = budget.hidden ? `${budget.name} (숨김)` : budget.name;
+  const name = budget.hidden ? `${budget.name} (hidden)` : budget.name;
   const over = (budget.over ?? 0) > 0;
   return (
     <>
@@ -288,7 +288,7 @@ function BudgetRow({
         <div className="flex shrink-0 items-center gap-2">
           <p className="text-body-sm tabular-nums">
             {budget.budget === null ? (
-              <span className="text-muted-foreground">미설정</span>
+              <span className="text-muted-foreground">Not set</span>
             ) : (
               <>
                 {formatWon(budget.spent)}
@@ -301,17 +301,17 @@ function BudgetRow({
             type="button"
             size="sm"
             variant="ghost"
-            aria-label={`${budget.name} 예산 수정`}
+            aria-label={`Edit ${budget.name} budget`}
             disabled={disabled}
             onClick={onEdit}
           >
-            수정
+            Edit
           </Button>
         </div>
       </div>
       {budget.budget === null ? (
         <p className="text-body-sm text-muted-foreground">
-          지출 {formatWon(budget.spent)} · 예산을 정하면 진행률이 보입니다
+          Spent {formatWon(budget.spent)} · set a budget to see progress
         </p>
       ) : (
         <>
@@ -329,15 +329,17 @@ function BudgetRow({
             {over ? (
               <p className="flex items-center gap-1 font-medium text-destructive">
                 <CircleAlert aria-hidden className="size-4" />
-                {formatWon(budget.over ?? 0)} 초과 ({budget.percent}%)
+                {formatWon(budget.over ?? 0)} over ({budget.percent}%)
               </p>
             ) : (
               <p className="text-muted-foreground tabular-nums">
-                {formatWon(budget.remaining ?? 0)} 남음 ({budget.percent}%)
+                {formatWon(budget.remaining ?? 0)} left ({budget.percent}%)
               </p>
             )}
             {budget.budgetMonth !== month && budget.budgetMonth !== null ? (
-              <p className="text-muted-foreground">{monthLabel(budget.budgetMonth)}에 정한 예산</p>
+              <p className="text-muted-foreground">
+                Budget set in {monthLabel(budget.budgetMonth)}
+              </p>
             ) : null}
           </div>
         </>

@@ -27,7 +27,7 @@ function fakeApi() {
       if (method === 'POST') {
         const { kind, name } = body as Category;
         if (taken(kind, name))
-          return json({ error: '같은 종류에 이미 있는 카테고리 이름입니다' }, 409);
+          return json({ error: 'A category with this name already exists for this kind' }, 409);
         const category = { id: stored.length + 1, kind, name, hidden: false };
         stored = [...stored, category];
         return json({ category }, 201);
@@ -36,7 +36,7 @@ function fakeApi() {
       const current = stored.find((category) => category.id === id)!;
       const next = { ...current, ...(body as Partial<Category>) };
       if (taken(next.kind, next.name, id))
-        return json({ error: '같은 종류에 이미 있는 카테고리 이름입니다' }, 409);
+        return json({ error: 'A category with this name already exists for this kind' }, 409);
       stored = stored.map((category) => (category.id === id ? next : category));
       return json({ category: next });
     }),
@@ -45,9 +45,9 @@ function fakeApi() {
 
 beforeEach(() => {
   stored = [
-    { id: 1, kind: 'expense', name: '식비', hidden: false },
-    { id: 2, kind: 'expense', name: '교통', hidden: true },
-    { id: 3, kind: 'income', name: '급여', hidden: false },
+    { id: 1, kind: 'expense', name: 'Food', hidden: false },
+    { id: 2, kind: 'expense', name: 'Transport', hidden: true },
+    { id: 3, kind: 'income', name: 'Salary', hidden: false },
   ];
   requests = [];
   fakeApi();
@@ -57,67 +57,67 @@ const list = (name: string) => screen.findByRole('list', { name });
 
 test('expense and income categories are listed separately and hidden ones are marked', async () => {
   render(<CategoryManager />);
-  const expense = await list('지출 카테고리');
-  const income = screen.getByRole('list', { name: '수입 카테고리' });
+  const expense = await list('Expense category');
+  const income = screen.getByRole('list', { name: 'Income category' });
   expect(
     within(expense)
       .getAllByRole('listitem')
       .map((item) => item.textContent),
-  ).toEqual([expect.stringContaining('식비'), expect.stringContaining('교통숨김')]);
-  expect(within(income).getByText('급여')).toBeInTheDocument();
-  expect(within(income).queryByText('식비')).not.toBeInTheDocument();
-  // Hidden categories are not counted: 식비 of the two expenses, and 급여.
-  expect(screen.getAllByText('1개 사용 중')).toHaveLength(2);
+  ).toEqual([expect.stringContaining('Food'), expect.stringContaining('TransportHidden')]);
+  expect(within(income).getByText('Salary')).toBeInTheDocument();
+  expect(within(income).queryByText('Food')).not.toBeInTheDocument();
+  // Hidden categories are not counted: Food of the two expenses, and Salary.
+  expect(screen.getAllByText('1 in use')).toHaveLength(2);
 });
 
 test('adding a category sends the trimmed name and shows it in its list', async () => {
   render(<CategoryManager />);
-  await list('지출 카테고리');
-  fireEvent.change(screen.getByLabelText('새 지출 카테고리'), { target: { value: '  반려동물 ' } });
-  fireEvent.click(screen.getAllByRole('button', { name: '추가' })[0]);
-  expect(await screen.findByRole('status')).toHaveTextContent('반려동물 카테고리를 추가했습니다');
+  await list('Expense category');
+  fireEvent.change(screen.getByLabelText('New expense category'), { target: { value: '  Pets ' } });
+  fireEvent.click(screen.getAllByRole('button', { name: 'Add' })[0]);
+  expect(await screen.findByRole('status')).toHaveTextContent('Pets category added');
   expect(requests).toContainEqual({
     method: 'POST',
     url: '/api/ledger/categories',
-    body: { kind: 'expense', name: '반려동물' },
+    body: { kind: 'expense', name: 'Pets' },
   });
   expect(
-    within(screen.getByRole('list', { name: '지출 카테고리' })).getByText('반려동물'),
+    within(screen.getByRole('list', { name: 'Expense category' })).getByText('Pets'),
   ).toBeInTheDocument();
-  expect(screen.getByLabelText('새 지출 카테고리')).toHaveValue('');
+  expect(screen.getByLabelText('New expense category')).toHaveValue('');
 });
 
 test('a duplicate name shows the server message and keeps the input', async () => {
   render(<CategoryManager />);
-  await list('지출 카테고리');
-  fireEvent.change(screen.getByLabelText('새 지출 카테고리'), { target: { value: '식비' } });
-  fireEvent.click(screen.getAllByRole('button', { name: '추가' })[0]);
+  await list('Expense category');
+  fireEvent.change(screen.getByLabelText('New expense category'), { target: { value: 'Food' } });
+  fireEvent.click(screen.getAllByRole('button', { name: 'Add' })[0]);
   expect(await screen.findByRole('alert')).toHaveTextContent(
-    '같은 종류에 이미 있는 카테고리 이름입니다',
+    'A category with this name already exists for this kind',
   );
-  expect(screen.getByLabelText('새 지출 카테고리')).toHaveValue('식비');
+  expect(screen.getByLabelText('New expense category')).toHaveValue('Food');
 });
 
 test('the add button is disabled until a name is typed', async () => {
   render(<CategoryManager />);
-  await list('지출 카테고리');
-  fireEvent.change(screen.getByLabelText('새 수입 카테고리'), { target: { value: '   ' } });
-  expect(screen.getAllByRole('button', { name: '추가' })[1]).toBeDisabled();
+  await list('Expense category');
+  fireEvent.change(screen.getByLabelText('New income category'), { target: { value: '   ' } });
+  expect(screen.getAllByRole('button', { name: 'Add' })[1]).toBeDisabled();
 });
 
 test('hiding and showing again change the category through the API', async () => {
   render(<CategoryManager />);
-  await list('지출 카테고리');
-  fireEvent.click(screen.getByRole('button', { name: '식비 숨기기' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('식비 카테고리를 숨겼습니다');
+  await list('Expense category');
+  fireEvent.click(screen.getByRole('button', { name: 'Hide Food' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('Food category hidden');
   expect(requests).toContainEqual({
     method: 'PATCH',
     url: '/api/ledger/categories/1',
     body: { hidden: true },
   });
 
-  fireEvent.click(screen.getByRole('button', { name: '교통 다시 보이기' }));
-  expect(await screen.findByText('교통 카테고리를 다시 보이게 했습니다')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Show Transport again' }));
+  expect(await screen.findByText('Transport category is visible again')).toBeInTheDocument();
   expect(requests).toContainEqual({
     method: 'PATCH',
     url: '/api/ledger/categories/2',
@@ -127,19 +127,17 @@ test('hiding and showing again change the category through the API', async () =>
 
 test('renaming saves the new name and cancelling keeps the old one', async () => {
   render(<CategoryManager />);
-  await list('지출 카테고리');
-  fireEvent.click(screen.getByRole('button', { name: '식비 이름 바꾸기' }));
-  fireEvent.change(screen.getByLabelText('식비 새 이름'), { target: { value: '외식' } });
-  fireEvent.click(screen.getByRole('button', { name: '취소' }));
-  expect(screen.getByText('식비')).toBeInTheDocument();
+  await list('Expense category');
+  fireEvent.click(screen.getByRole('button', { name: 'Rename Food' }));
+  fireEvent.change(screen.getByLabelText('Food new name'), { target: { value: 'Dining out' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.getByText('Food')).toBeInTheDocument();
 
-  fireEvent.click(screen.getByRole('button', { name: '식비 이름 바꾸기' }));
-  fireEvent.change(screen.getByLabelText('식비 새 이름'), { target: { value: '외식' } });
-  fireEvent.click(screen.getByRole('button', { name: '저장' }));
-  expect(await screen.findByRole('status')).toHaveTextContent(
-    '카테고리 이름을 외식(으)로 바꿨습니다',
-  );
-  expect(screen.getByRole('button', { name: '외식 숨기기' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Rename Food' }));
+  fireEvent.change(screen.getByLabelText('Food new name'), { target: { value: 'Dining out' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('Category renamed to Dining out');
+  expect(screen.getByRole('button', { name: 'Hide Dining out' })).toBeInTheDocument();
 });
 
 test('a failure to load is reported as an alert', async () => {
@@ -149,29 +147,29 @@ test('a failure to load is reported as an alert', async () => {
   );
   render(<CategoryManager />);
   expect(await screen.findByRole('alert')).toHaveTextContent('Cannot reach the server');
-  expect(screen.queryByText('카테고리를 불러오는 중입니다')).not.toBeInTheDocument();
+  expect(screen.queryByText('Loading categories')).not.toBeInTheDocument();
 });
 
 test('opening rename again starts from the saved name, and focus returns to the button', async () => {
   render(<CategoryManager />);
-  await list('지출 카테고리');
-  fireEvent.click(screen.getByRole('button', { name: '식비 이름 바꾸기' }));
-  expect(screen.getByLabelText('식비 새 이름')).toHaveFocus();
-  fireEvent.change(screen.getByLabelText('식비 새 이름'), { target: { value: '  외식 ' } });
-  fireEvent.click(screen.getByRole('button', { name: '저장' }));
-  const renameButton = await screen.findByRole('button', { name: '외식 이름 바꾸기' });
+  await list('Expense category');
+  fireEvent.click(screen.getByRole('button', { name: 'Rename Food' }));
+  expect(screen.getByLabelText('Food new name')).toHaveFocus();
+  fireEvent.change(screen.getByLabelText('Food new name'), { target: { value: '  Dining out ' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  const renameButton = await screen.findByRole('button', { name: 'Rename Dining out' });
   // Focus moves in an effect after the row re-renders, so wait for it rather than checking once.
   await vi.waitFor(() => expect(renameButton).toHaveFocus());
 
   fireEvent.click(renameButton);
-  expect(screen.getByLabelText('외식 새 이름')).toHaveValue('외식');
-  fireEvent.click(screen.getByRole('button', { name: '취소' }));
-  expect(screen.getByRole('button', { name: '외식 이름 바꾸기' })).toHaveFocus();
+  expect(screen.getByLabelText('Dining out new name')).toHaveValue('Dining out');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.getByRole('button', { name: 'Rename Dining out' })).toHaveFocus();
 });
 
 test('a change that saved but could not reload says both and still clears the input', async () => {
   render(<CategoryManager />);
-  await list('지출 카테고리');
+  await list('Expense category');
   const api = vi.mocked(fetch);
   const saveThenFail = api.getMockImplementation()!;
   api.mockImplementation((url, init) =>
@@ -179,22 +177,22 @@ test('a change that saved but could not reload says both and still clears the in
       ? Promise.reject(new TypeError('offline'))
       : saveThenFail(url, init),
   );
-  fireEvent.change(screen.getByLabelText('새 지출 카테고리'), { target: { value: '반려동물' } });
-  fireEvent.click(screen.getAllByRole('button', { name: '추가' })[0]);
+  fireEvent.change(screen.getByLabelText('New expense category'), { target: { value: 'Pets' } });
+  fireEvent.click(screen.getAllByRole('button', { name: 'Add' })[0]);
   expect(await screen.findByRole('alert')).toHaveTextContent(
-    '반려동물 카테고리를 추가했습니다. 목록을 새로 불러오지 못했습니다',
+    'Pets category added. Could not reload the list',
   );
-  expect(screen.getByLabelText('새 지출 카테고리')).toHaveValue('');
+  expect(screen.getByLabelText('New expense category')).toHaveValue('');
 });
 
 test('a second submit while saving sends nothing', async () => {
   render(<CategoryManager />);
-  await list('지출 카테고리');
-  fireEvent.change(screen.getByLabelText('새 지출 카테고리'), { target: { value: '반려동물' } });
-  const form = screen.getByLabelText('새 지출 카테고리').closest('form')!;
+  await list('Expense category');
+  fireEvent.change(screen.getByLabelText('New expense category'), { target: { value: 'Pets' } });
+  const form = screen.getByLabelText('New expense category').closest('form')!;
   fireEvent.submit(form);
   fireEvent.submit(form);
-  expect(screen.getAllByRole('button', { name: '추가' })[0]).toBeEnabled();
-  expect(await screen.findByRole('status')).toHaveTextContent('반려동물 카테고리를 추가했습니다');
+  expect(screen.getAllByRole('button', { name: 'Add' })[0]).toBeEnabled();
+  expect(await screen.findByRole('status')).toHaveTextContent('Pets category added');
   expect(requests.filter((request) => request.method === 'POST')).toHaveLength(1);
 });

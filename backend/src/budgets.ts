@@ -9,18 +9,18 @@ import { HttpError, parseId } from './standard/http.js';
 // else the latest earlier one (nothing is copied); an amount of 0 means no budget. Sums, the rest, the excess
 // and the percentage are computed in SQL (numeric), never with JavaScript floats.
 
-const monthQuery = z.object({ month: monthField('월') });
+const monthQuery = z.object({ month: monthField('the month') });
 
-const objectBody = { error: '요청 본문은 JSON 객체여야 합니다' };
+const objectBody = { error: 'The request body must be a JSON object' };
 const saveBody = z.object(
   {
-    month: monthField('월'),
+    month: monthField('the month'),
     amount: z
-      .number({ error: '예산을 숫자로 입력하세요' })
+      .number({ error: 'Enter the budget as a number' })
       // First: a number past the safe range is not a safe integer either, and only "too large" is useful.
-      .max(Number.MAX_SAFE_INTEGER, { error: '예산이 너무 큽니다', abort: true })
-      .int('예산은 원 단위 정수로 입력하세요')
-      .min(0, '예산은 0원 이상이어야 합니다'),
+      .max(Number.MAX_SAFE_INTEGER, { error: 'The budget is too large', abort: true })
+      .int('Enter the budget as a whole number of won')
+      .min(0, 'The budget must be ₩0 or more'),
   },
   objectBody,
 );
@@ -84,7 +84,7 @@ export function budgetsRouter(pool: Pool) {
         name: row.name,
         hidden: row.hidden,
         spent: won(row.spent),
-        // null: no budget ("미설정"); remaining, over and percent are then null too.
+        // null: no budget ("Not set"); remaining, over and percent are then null too.
         budget: row.budget === null ? null : won(row.budget),
         // The month the budget was saved for: this month, or an earlier one it carries on from.
         budgetMonth: row.budget_month,
@@ -98,7 +98,7 @@ export function budgetsRouter(pool: Pool) {
 
   // Saves the budget of one category from a month on (0 = no budget from that month on).
   router.put('/:categoryId', async (req, res) => {
-    const categoryId = parseId(req.params.categoryId, '카테고리');
+    const categoryId = parseId(req.params.categoryId, 'category');
     const body = saveBody.parse(req.body);
     try {
       await pool.query(
@@ -109,7 +109,7 @@ export function budgetsRouter(pool: Pool) {
     } catch (error) {
       // The (category, 'expense') key is missing: no such category, or an income one.
       if ((error as { code?: unknown }).code === '23503') {
-        throw new HttpError(404, '지출 카테고리를 찾을 수 없습니다');
+        throw new HttpError(404, 'Expense category not found');
       }
       throw error;
     }

@@ -16,9 +16,9 @@ type Entry = {
 type Rule = { id: number; keyword: string; kind: 'income' | 'expense'; categoryId: number };
 
 const categories = [
-  { id: 1, kind: 'expense', name: '식비', hidden: false },
-  { id: 2, kind: 'expense', name: '생활', hidden: false },
-  { id: 3, kind: 'income', name: '급여', hidden: false },
+  { id: 1, kind: 'expense', name: 'Food', hidden: false },
+  { id: 2, kind: 'expense', name: 'Living', hidden: false },
+  { id: 3, kind: 'income', name: 'Salary', hidden: false },
 ];
 const nameOf = (id: number) => categories.find((category) => category.id === id)!.name;
 
@@ -123,7 +123,12 @@ const entry = (id: number, merchant: string, kind: 'income' | 'expense' = 'expen
 });
 
 beforeEach(() => {
-  entries = [entry(1, '김밥천국'), entry(2, '김밥천국'), entry(3, ''), entry(4, '회사', 'income')];
+  entries = [
+    entry(1, 'Kimbap Place'),
+    entry(2, 'Kimbap Place'),
+    entry(3, ''),
+    entry(4, 'Employer', 'income'),
+  ];
   rules = [];
   requests = [];
   failNext = undefined;
@@ -132,24 +137,26 @@ beforeEach(() => {
 
 const posts = () => requests.filter((request) => request.method === 'POST');
 const row = (text: string) =>
-  within(screen.getByRole('list', { name: '미분류 내역' }))
+  within(screen.getByRole('list', { name: 'Uncategorized entries' }))
     .getAllByRole('listitem')
     .find((item) => item.textContent?.includes(text))!;
 
 test('selected entries are classified at once and their merchant is remembered', async () => {
   const onChange = vi.fn();
   render(<UncategorizedEntries onChange={onChange} />);
-  expect(await screen.findByRole('heading', { name: '미분류 내역 (4건)' })).toBeInTheDocument();
-  await screen.findByRole('option', { name: '식비' });
+  expect(
+    await screen.findByRole('heading', { name: 'Uncategorized entries (4)' }),
+  ).toBeInTheDocument();
+  await screen.findByRole('option', { name: 'Food' });
 
-  fireEvent.click(within(row('1,000원')).getByRole('checkbox'));
-  fireEvent.click(within(row('2,000원')).getByRole('checkbox'));
-  fireEvent.change(screen.getByLabelText('분류할 카테고리'), { target: { value: '1' } });
-  expect(screen.getByRole('checkbox', { name: /규칙으로 저장/ })).toBeChecked();
-  fireEvent.click(screen.getByRole('button', { name: '선택한 2건 분류' }));
+  fireEvent.click(within(row('₩1,000')).getByRole('checkbox'));
+  fireEvent.click(within(row('₩2,000')).getByRole('checkbox'));
+  fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: '1' } });
+  expect(screen.getByRole('checkbox', { name: /save as a rule/ })).toBeChecked();
+  fireEvent.click(screen.getByRole('button', { name: 'Classify 2 selected' }));
 
   expect(await screen.findByRole('status')).toHaveTextContent(
-    '2건을 식비(으)로 분류했습니다. 가맹점 1개를 규칙으로 저장했습니다',
+    '2 entries classified as Food. Saved 1 merchant rule',
   );
   expect(posts()).toEqual([
     {
@@ -159,111 +166,113 @@ test('selected entries are classified at once and their merchant is remembered',
     },
   ]);
   expect(onChange).toHaveBeenCalled();
-  expect(screen.getByRole('heading', { name: '미분류 내역 (2건)' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '선택한 0건 분류' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Uncategorized entries (2)' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Classify 0 selected' })).toBeInTheDocument();
 });
 
 test('without remember no rule is asked for', async () => {
   render(<UncategorizedEntries />);
-  await screen.findByRole('option', { name: '식비' });
-  fireEvent.click(within(row('3,000원')).getByRole('checkbox'));
-  fireEvent.click(screen.getByRole('checkbox', { name: /규칙으로 저장/ }));
-  fireEvent.change(screen.getByLabelText('분류할 카테고리'), { target: { value: '2' } });
-  fireEvent.click(screen.getByRole('button', { name: '선택한 1건 분류' }));
+  await screen.findByRole('option', { name: 'Food' });
+  fireEvent.click(within(row('₩3,000')).getByRole('checkbox'));
+  fireEvent.click(screen.getByRole('checkbox', { name: /save as a rule/ }));
+  fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: '2' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Classify 1 selected' }));
   await screen.findByRole('status');
   expect(posts()[0].body).toEqual({ entryIds: [3], categoryId: 2, remember: false });
 });
 
 test.each([
-  { label: 'no entry', pick: [], category: '1', message: '분류할 내역을 고르세요' },
-  { label: 'no category', pick: ['1,000원'], category: '', message: '카테고리를 고르세요' },
+  { label: 'no entry', pick: [], category: '1', message: 'Select the entries to classify' },
+  { label: 'no category', pick: ['₩1,000'], category: '', message: 'Choose a category' },
   {
     label: 'an income entry with an expense category',
-    pick: ['1,000원', '4,000원'],
+    pick: ['₩1,000', '₩4,000'],
     category: '1',
-    message: '고른 카테고리와 종류가 다른 내역이 있습니다',
+    message: 'Some entries are a different kind from the chosen category',
   },
 ])('classifying with $label is refused before sending', async ({ pick, category, message }) => {
   render(<UncategorizedEntries />);
-  await screen.findByRole('option', { name: '식비' });
+  await screen.findByRole('option', { name: 'Food' });
   for (const text of pick) fireEvent.click(within(row(text)).getByRole('checkbox'));
-  fireEvent.change(screen.getByLabelText('분류할 카테고리'), { target: { value: category } });
-  fireEvent.click(screen.getByRole('button', { name: /건 분류$/ }));
+  fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: category } });
+  fireEvent.click(screen.getByRole('button', { name: /^Classify \d+ selected$/ }));
   expect(await screen.findByRole('alert')).toHaveTextContent(message);
   expect(posts()).toEqual([]);
 });
 
 test('select all picks every uncategorized entry', async () => {
   render(<UncategorizedEntries />);
-  await screen.findByRole('heading', { name: '미분류 내역 (4건)' });
-  fireEvent.click(screen.getByRole('checkbox', { name: '전체 선택' }));
-  expect(screen.getByRole('button', { name: '선택한 4건 분류' })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('checkbox', { name: '전체 선택' }));
-  expect(screen.getByRole('button', { name: '선택한 0건 분류' })).toBeInTheDocument();
+  await screen.findByRole('heading', { name: 'Uncategorized entries (4)' });
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Select all' }));
+  expect(screen.getByRole('button', { name: 'Classify 4 selected' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Select all' }));
+  expect(screen.getByRole('button', { name: 'Classify 0 selected' })).toBeInTheDocument();
 });
 
 test('applying rules reports how many were classified and focus survives an emptied list', async () => {
-  rules = [{ id: 1, keyword: '김밥', kind: 'expense', categoryId: 1 }];
-  entries = [entry(1, '김밥천국')];
+  rules = [{ id: 1, keyword: 'Kimbap', kind: 'expense', categoryId: 1 }];
+  entries = [entry(1, 'Kimbap Place')];
   render(<UncategorizedEntries />);
-  const apply = await screen.findByRole('button', { name: '규칙으로 다시 분류' });
+  const apply = await screen.findByRole('button', { name: 'Reclassify with rules' });
   apply.focus();
   fireEvent.click(apply);
-  expect(await screen.findByRole('status')).toHaveTextContent('1건을 규칙으로 분류했습니다');
-  expect(screen.getByText('미분류 내역이 없습니다.')).toBeInTheDocument();
+  expect(await screen.findByRole('status')).toHaveTextContent('1 entry classified by rules');
+  expect(screen.getByText('There are no uncategorized entries.')).toBeInTheDocument();
   await vi.waitFor(() =>
-    expect(screen.getByRole('heading', { name: '미분류 내역' })).toHaveFocus(),
+    expect(screen.getByRole('heading', { name: 'Uncategorized entries' })).toHaveFocus(),
   );
 });
 
 test('applying rules with nothing to match says so', async () => {
   render(<UncategorizedEntries />);
-  fireEvent.click(await screen.findByRole('button', { name: '규칙으로 다시 분류' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('규칙에 맞는 미분류 내역이 없습니다');
+  fireEvent.click(await screen.findByRole('button', { name: 'Reclassify with rules' }));
+  expect(await screen.findByRole('status')).toHaveTextContent(
+    'No uncategorized entries match the rules',
+  );
 });
 
 test('a server refusal of the classification is shown', async () => {
   render(<UncategorizedEntries />);
-  await screen.findByRole('option', { name: '식비' });
-  fireEvent.click(within(row('1,000원')).getByRole('checkbox'));
-  fireEvent.change(screen.getByLabelText('분류할 카테고리'), { target: { value: '1' } });
-  failNext = { status: 400, error: '숨긴 카테고리로는 분류할 수 없습니다' };
-  fireEvent.click(screen.getByRole('button', { name: '선택한 1건 분류' }));
+  await screen.findByRole('option', { name: 'Food' });
+  fireEvent.click(within(row('₩1,000')).getByRole('checkbox'));
+  fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: '1' } });
+  failNext = { status: 400, error: 'Cannot classify into a hidden category' };
+  fireEvent.click(screen.getByRole('button', { name: 'Classify 1 selected' }));
   expect(await screen.findByRole('alert')).toHaveTextContent(
-    '숨긴 카테고리로는 분류할 수 없습니다',
+    'Cannot classify into a hidden category',
   );
-  expect(screen.getByRole('heading', { name: '미분류 내역 (4건)' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Uncategorized entries (4)' })).toBeInTheDocument();
 });
 
 test('a rule is added with its category and listed', async () => {
   const onChange = vi.fn();
   render(<RuleManager onChange={onChange} />);
-  expect(await screen.findByText('아직 분류 규칙이 없습니다.')).toBeInTheDocument();
-  await screen.findByRole('option', { name: '식비' });
-  fireEvent.change(screen.getByLabelText('키워드'), { target: { value: ' 스타벅스 ' } });
-  fireEvent.change(screen.getByLabelText('카테고리'), { target: { value: '1' } });
-  fireEvent.click(screen.getByRole('button', { name: '규칙 추가' }));
+  expect(await screen.findByText('There are no classification rules yet.')).toBeInTheDocument();
+  await screen.findByRole('option', { name: 'Food' });
+  fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: ' Starbucks ' } });
+  fireEvent.change(screen.getByLabelText('Category'), { target: { value: '1' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add rule' }));
 
-  expect(await screen.findByRole('status')).toHaveTextContent("'스타벅스' 규칙을 추가했습니다");
-  expect(posts()[0].body).toEqual({ keyword: '스타벅스', categoryId: 1 });
+  expect(await screen.findByRole('status')).toHaveTextContent("Rule 'Starbucks' added");
+  expect(posts()[0].body).toEqual({ keyword: 'Starbucks', categoryId: 1 });
   expect(onChange).toHaveBeenCalled();
-  const list = screen.getByRole('list', { name: '분류 규칙 목록' });
-  expect(list).toHaveTextContent('스타벅스');
-  expect(list).toHaveTextContent('식비');
-  expect(screen.getByLabelText('키워드')).toHaveValue('');
+  const list = screen.getByRole('list', { name: 'Classification rules' });
+  expect(list).toHaveTextContent('Starbucks');
+  expect(list).toHaveTextContent('Food');
+  expect(screen.getByLabelText('Keyword')).toHaveValue('');
 });
 
 test.each([
-  { keyword: '  ', category: '1', field: '키워드', message: '키워드를 입력하세요' },
-  { keyword: '스타벅스', category: '', field: '카테고리', message: '카테고리를 고르세요' },
+  { keyword: '  ', category: '1', field: 'Keyword', message: 'Enter a keyword' },
+  { keyword: 'Starbucks', category: '', field: 'Category', message: 'Choose a category' },
 ])(
   'a rule with $field missing is refused before sending',
   async ({ keyword, category, field, message }) => {
     render(<RuleManager />);
-    await screen.findByRole('option', { name: '식비' });
-    fireEvent.change(screen.getByLabelText('키워드'), { target: { value: keyword } });
-    fireEvent.change(screen.getByLabelText('카테고리'), { target: { value: category } });
-    fireEvent.click(screen.getByRole('button', { name: '규칙 추가' }));
+    await screen.findByRole('option', { name: 'Food' });
+    fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: keyword } });
+    fireEvent.change(screen.getByLabelText('Category'), { target: { value: category } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add rule' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(message);
     expect(screen.getByLabelText(field)).toHaveAttribute('aria-invalid', 'true');
     expect(posts()).toEqual([]);
@@ -272,26 +281,30 @@ test.each([
 
 test('a duplicate keyword shows the server message', async () => {
   render(<RuleManager />);
-  await screen.findByRole('option', { name: '식비' });
-  fireEvent.change(screen.getByLabelText('키워드'), { target: { value: '스타벅스' } });
-  fireEvent.change(screen.getByLabelText('카테고리'), { target: { value: '1' } });
-  failNext = { status: 409, error: '같은 종류에 이미 있는 키워드입니다' };
-  fireEvent.click(screen.getByRole('button', { name: '규칙 추가' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('같은 종류에 이미 있는 키워드입니다');
-  expect(screen.getByLabelText('키워드')).toHaveValue('스타벅스');
+  await screen.findByRole('option', { name: 'Food' });
+  fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: 'Starbucks' } });
+  fireEvent.change(screen.getByLabelText('Category'), { target: { value: '1' } });
+  failNext = { status: 409, error: 'A keyword already exists for this kind' };
+  fireEvent.click(screen.getByRole('button', { name: 'Add rule' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'A keyword already exists for this kind',
+  );
+  expect(screen.getByLabelText('Keyword')).toHaveValue('Starbucks');
 });
 
 test('deleting a rule asks first and then moves focus to the rules heading', async () => {
-  rules = [{ id: 1, keyword: '스타벅스', kind: 'expense', categoryId: 1 }];
+  rules = [{ id: 1, keyword: 'Starbucks', kind: 'expense', categoryId: 1 }];
   render(<RuleManager />);
-  fireEvent.click(await screen.findByRole('button', { name: '스타벅스 규칙 삭제' }));
-  const dialog = await screen.findByRole('dialog', { name: '규칙을 삭제할까요?' });
-  expect(dialog).toHaveTextContent('이미 분류한 내역은 그대로 둡니다');
+  fireEvent.click(await screen.findByRole('button', { name: 'Delete rule Starbucks' }));
+  const dialog = await screen.findByRole('dialog', { name: 'Delete this rule?' });
+  expect(dialog).toHaveTextContent('Entries already classified stay as they are');
   fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
   // The confirm button's spinner is a status too: wait for the message itself.
-  expect(await screen.findByText("'스타벅스' 규칙을 삭제했습니다")).toBeInTheDocument();
-  expect(screen.getByText('아직 분류 규칙이 없습니다.')).toBeInTheDocument();
-  await vi.waitFor(() => expect(screen.getByRole('heading', { name: '분류 규칙' })).toHaveFocus());
+  expect(await screen.findByText("Rule 'Starbucks' deleted")).toBeInTheDocument();
+  expect(screen.getByText('There are no classification rules yet.')).toBeInTheDocument();
+  await vi.waitFor(() =>
+    expect(screen.getByRole('heading', { name: 'Classification rules' })).toHaveFocus(),
+  );
 });
 
 // Like LedgerPage: a change reported by the list bumps the version it is given.
@@ -302,14 +315,14 @@ function Harness() {
 
 test('a classification made here loads the list once, not again for the version bump', async () => {
   render(<Harness />);
-  await screen.findByRole('option', { name: '식비' });
+  await screen.findByRole('option', { name: 'Food' });
   const loads = () =>
     requests.filter((request) => request.url === '/api/ledger/entries?uncategorized=true').length;
   expect(loads()).toBe(1);
-  fireEvent.click(within(row('1,000원')).getByRole('checkbox'));
-  fireEvent.change(screen.getByLabelText('분류할 카테고리'), { target: { value: '1' } });
-  fireEvent.click(screen.getByRole('button', { name: '선택한 1건 분류' }));
-  await screen.findByRole('heading', { name: '미분류 내역 (3건)' });
+  fireEvent.click(within(row('₩1,000')).getByRole('checkbox'));
+  fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: '1' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Classify 1 selected' }));
+  await screen.findByRole('heading', { name: 'Uncategorized entries (3)' });
   await new Promise((resolve) => setTimeout(resolve, 50));
   expect(loads()).toBe(2);
 });
@@ -321,34 +334,34 @@ test('updated and skipped counts are reported in words', async () => {
     if (path === '/api/ledger/entries/classify' && init?.method === 'POST') {
       return json({ classified: 1, skipped: 1, rulesAdded: 0, rulesUpdated: 1 });
     }
-    return json({ entries: [entry(1, '김밥천국'), entry(2, '김밥천국')] });
+    return json({ entries: [entry(1, 'Kimbap Place'), entry(2, 'Kimbap Place')] });
   });
   render(<UncategorizedEntries />);
-  await screen.findByRole('option', { name: '식비' });
-  fireEvent.click(screen.getByRole('checkbox', { name: '전체 선택' }));
-  fireEvent.change(screen.getByLabelText('분류할 카테고리'), { target: { value: '1' } });
-  fireEvent.click(screen.getByRole('button', { name: '선택한 2건 분류' }));
+  await screen.findByRole('option', { name: 'Food' });
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Select all' }));
+  fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: '1' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Classify 2 selected' }));
   expect(await screen.findByRole('status')).toHaveTextContent(
-    '1건을 식비(으)로 분류했습니다. 1건은 이미 분류되었거나 바뀌어 건너뛰었습니다. 기존 규칙 1개를 식비(으)로 바꿨습니다',
+    '1 entry classified as Food. 1 skipped (already classified or changed). 1 existing rule changed to Food',
   );
 });
 
 test('a category of the other kind marks the category field', async () => {
   render(<UncategorizedEntries />);
-  await screen.findByRole('option', { name: '급여' });
-  fireEvent.click(within(row('1,000원')).getByRole('checkbox'));
-  fireEvent.change(screen.getByLabelText('분류할 카테고리'), { target: { value: '3' } });
-  fireEvent.click(screen.getByRole('button', { name: '선택한 1건 분류' }));
+  await screen.findByRole('option', { name: 'Salary' });
+  fireEvent.click(within(row('₩1,000')).getByRole('checkbox'));
+  fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: '3' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Classify 1 selected' }));
   expect(await screen.findByRole('alert')).toHaveTextContent(
-    '고른 카테고리와 종류가 다른 내역이 있습니다',
+    'Some entries are a different kind from the chosen category',
   );
-  expect(screen.getByLabelText('분류할 카테고리')).toHaveAttribute('aria-invalid', 'true');
+  expect(screen.getByLabelText('Category to apply')).toHaveAttribute('aria-invalid', 'true');
 });
 
 test('the rules reload when categories change, so names and hidden marks are current', async () => {
-  rules = [{ id: 1, keyword: '스타벅스', kind: 'expense', categoryId: 1 }];
+  rules = [{ id: 1, keyword: 'Starbucks', kind: 'expense', categoryId: 1 }];
   const { rerender } = render(<RuleManager categoriesVersion={0} />);
-  await screen.findByRole('list', { name: '분류 규칙 목록' });
+  await screen.findByRole('list', { name: 'Classification rules' });
   const loads = () => requests.filter((request) => request.url === '/api/ledger/rules').length;
   const before = loads();
   rerender(<RuleManager categoriesVersion={1} />);

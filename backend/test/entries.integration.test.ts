@@ -113,7 +113,9 @@ test('ledger entries against the real database', { skip: !url }, async (t) => {
         body: { date: '2026-11-03', kind: 'income', amount: 1000, categoryId: ids['expense/식비'] },
       });
       assert.equal(response.status, 400);
-      assert.deepEqual(response.data, { error: '카테고리의 종류가 내역의 종류와 다릅니다' });
+      assert.deepEqual(response.data, {
+        error: "The category's kind does not match the entry's kind",
+      });
     });
     await assert.rejects(
       pool.query(
@@ -177,7 +179,7 @@ test('ledger entries against the real database', { skip: !url }, async (t) => {
         },
       });
       assert.equal(otherHidden.status, 400);
-      assert.deepEqual(otherHidden.data, { error: '숨긴 카테고리에는 새 내역을 넣을 수 없습니다' });
+      assert.deepEqual(otherHidden.data, { error: 'Cannot add a new entry to a hidden category' });
 
       const newOnHidden = await call('/api/ledger/entries', {
         method: 'POST',
@@ -205,7 +207,7 @@ test('ledger entries against the real database', { skip: !url }, async (t) => {
       assert.equal(removed.status, 204);
       const again = await call(`/api/ledger/entries/${entry.id}`, { method: 'DELETE' });
       assert.equal(again.status, 404);
-      assert.deepEqual(again.data, { error: '내역을 찾을 수 없습니다' });
+      assert.deepEqual(again.data, { error: 'Entry not found' });
       const missing = await call(`/api/ledger/entries/${entry.id}`, {
         method: 'PUT',
         body: { date: '2026-11-03', kind: 'expense', amount: 1, categoryId: ids['expense/교통'] },

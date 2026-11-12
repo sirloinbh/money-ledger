@@ -17,10 +17,10 @@ const monthCount = (from: string, to: string) =>
   1;
 
 const trendQuery = z
-  .object({ from: monthField('시작 월'), to: monthField('끝 월') })
-  .refine(({ from, to }) => from <= to, { error: '시작 월이 끝 월보다 늦습니다' })
+  .object({ from: monthField('the start month'), to: monthField('the end month') })
+  .refine(({ from, to }) => from <= to, { error: 'The start month is after the end month' })
   .refine(({ from, to }) => monthCount(from, to) <= maxTrendMonths, {
-    error: `기간은 ${maxTrendMonths}개월까지 볼 수 있습니다`,
+    error: `The period can be at most ${maxTrendMonths} months`,
   });
 
 type Row = { month: string; income: string; expense: string; balance: string };

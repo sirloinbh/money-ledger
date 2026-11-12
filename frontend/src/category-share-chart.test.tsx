@@ -4,9 +4,9 @@ import { expect, test } from 'vitest';
 import { CategoryShareChart } from './category-share-chart';
 
 const categories = [
-  { categoryId: 4, name: '교통', hidden: true, amount: 50000, share: '50.0' },
-  { categoryId: 1, name: '식비', hidden: false, amount: 42000, share: '42.0' },
-  { categoryId: null, name: '미분류', hidden: false, amount: 8000, share: '8.0' },
+  { categoryId: 4, name: 'Transport', hidden: true, amount: 50000, share: '50.0' },
+  { categoryId: 1, name: 'Food', hidden: false, amount: 42000, share: '42.0' },
+  { categoryId: null, name: 'Uncategorized', hidden: false, amount: 8000, share: '8.0' },
 ];
 
 // jsdom has no layout, so the bars themselves are checked in a real browser (docs/changes/40-*.md).
@@ -14,7 +14,7 @@ test('the chart is one image named by its largest category, pointing at the tabl
   render(<CategoryShareChart categories={categories} />);
   const chart = screen.getByRole('img');
   expect(chart).toHaveAccessibleName(
-    '카테고리별 지출 가로 막대 차트. 가장 큰 항목은 교통 50,000원(50.0%)입니다. 모든 값은 아래 표에 있습니다.',
+    'Expense by category horizontal bar chart. The largest item is Transport ₩50,000 (50.0%). All values are in the table below.',
   );
 });
 

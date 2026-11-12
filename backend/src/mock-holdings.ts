@@ -138,9 +138,9 @@ export function mockHoldingsRouter(pool: Pool, today: () => string) {
   const router = Router({ mergeParams: true });
 
   router.get('/', async (req, res) => {
-    const accountId = parseId((req.params as { accountId?: string }).accountId, '모의투자 계좌');
+    const accountId = parseId((req.params as { accountId?: string }).accountId, 'mock account');
     const value = await accountValue(pool, accountId, today());
-    if (!value) throw new HttpError(404, '모의투자 계좌를 찾을 수 없습니다');
+    if (!value) throw new HttpError(404, 'Mock trading account not found');
     res.json(value);
   });
 

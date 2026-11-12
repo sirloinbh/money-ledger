@@ -39,13 +39,13 @@ const emptyFilter: Filter = { from: '', to: '', securityId: '' };
 const selectClass =
   'flex h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none pointer-coarse:min-h-11 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-body-sm dark:bg-input/30';
 
-/** The Korean reason a filter cannot be sent, or null. Mirrors the server rules. */
+/** The reason a filter cannot be sent, or null. Mirrors the server rules. */
 function filterProblem(filter: Filter) {
   if ((filter.from && !realDate(filter.from)) || (filter.to && !realDate(filter.to))) {
-    return '날짜를 올바르게 입력하세요';
+    return 'Enter a valid date';
   }
   if (filter.from && filter.to && filter.from > filter.to) {
-    return '시작일은 종료일보다 늦을 수 없습니다';
+    return 'The start date cannot be after the end date';
   }
   return null;
 }
@@ -57,7 +57,7 @@ const securityName = (security: { symbol: string; name: string | null }) =>
 export function MockHistory({ accountId, refreshKey }: { accountId: number; refreshKey: number }) {
   const [draft, setDraft] = useState<Filter>(emptyFilter);
   const [filter, setFilter] = useState<Filter>(emptyFilter);
-  // `request` is the load that gave this page: "더 보기" only continues the list of the latest load.
+  // `request` is the load that gave this page: "Load more" only continues the list of the latest load.
   const [page, setPage] = useState<(Page & { request: number }) | undefined>(undefined);
   const [invalid, setInvalid] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -88,7 +88,7 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
         setPage({ ...loaded, request });
       })
       .catch((cause: unknown) => {
-        if (latest.current === request) showError(cause, '거래 내역을 불러오지 못했습니다');
+        if (latest.current === request) showError(cause, 'Could not load the trades');
       });
   }, [path, filter, refreshKey, showError, clear]);
 
@@ -121,7 +121,7 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
       if (latest.current !== request) return;
       setPage({ ...next, orders: [...page.orders, ...next.orders], request });
     } catch (cause) {
-      if (latest.current === request) showError(cause, '거래 내역을 더 불러오지 못했습니다');
+      if (latest.current === request) showError(cause, 'Could not load more trades');
     } finally {
       setLoadingMore(false);
     }
@@ -137,18 +137,20 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
     <Card>
       <CardHeader>
         <CardTitle asHeading="h2" id="mock-history-title">
-          거래 내역
+          Trade history
         </CardTitle>
-        <CardDescription>최신 주문부터 50건씩 보여 줍니다. 날짜는 주문한 날입니다.</CardDescription>
+        <CardDescription>
+          Shows 50 orders at a time, newest first. The date is the day of the order.
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <form
-          aria-label="거래 내역 필터"
+          aria-label="Trade history filters"
           onSubmit={apply}
           className="grid grid-cols-2 gap-3 rounded-xl border p-4 sm:grid-cols-4 sm:items-end"
         >
           <div className="flex flex-col gap-2">
-            <Label htmlFor="mock-history-from">시작일</Label>
+            <Label htmlFor="mock-history-from">Start date</Label>
             <Input
               id="mock-history-from"
               type="date"
@@ -158,7 +160,7 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="mock-history-to">종료일</Label>
+            <Label htmlFor="mock-history-to">End date</Label>
             <Input
               id="mock-history-to"
               type="date"
@@ -168,14 +170,14 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
             />
           </div>
           <div className="col-span-2 flex flex-col gap-2 sm:col-span-1">
-            <Label htmlFor="mock-history-security">종목</Label>
+            <Label htmlFor="mock-history-security">Security</Label>
             <select
               id="mock-history-security"
               className={selectClass}
               value={draft.securityId}
               onChange={(event) => setDraft({ ...draft, securityId: event.target.value })}
             >
-              <option value="">전체 종목</option>
+              <option value="">All securities</option>
               {(page?.securities ?? []).map((security) => (
                 <option key={security.id} value={String(security.id)}>
                   {securityName(security)} ({security.symbol})
@@ -184,9 +186,9 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
             </select>
           </div>
           <div className="col-span-2 flex gap-2 sm:col-span-1">
-            <Button type="submit">조회</Button>
+            <Button type="submit">Apply</Button>
             <Button type="button" variant="outline" onClick={reset}>
-              필터 지우기
+              Clear filters
             </Button>
           </div>
         </form>
@@ -194,12 +196,12 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
         {!page ? (
           notice.notice?.kind === 'error' ? null : (
             <p role="status" className="text-body-sm text-muted-foreground">
-              거래 내역을 불러오는 중입니다
+              Loading trade history
             </p>
           )
         ) : page.orders.length === 0 ? (
           <p className="text-body-sm text-muted-foreground">
-            {filtered ? '조건에 맞는 거래가 없습니다.' : '아직 거래가 없습니다.'}
+            {filtered ? 'No trades match the filters.' : 'No trades yet.'}
           </p>
         ) : (
           <>
@@ -217,25 +219,25 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
                           : 'font-semibold text-muted-foreground'
                       }
                     >
-                      {order.side === 'buy' ? '매수' : '매도'}
+                      {order.side === 'buy' ? 'Buy' : 'Sell'}
                     </span>
                     <span className="font-medium">
-                      {securityName(order.security)} {formatDecimal(order.quantity)}주
+                      {securityName(order.security)} {formatDecimal(order.quantity)} shares
                     </span>
                     <span className="text-body-sm text-muted-foreground">
                       {formatDateTime(order.createdAt)}
                     </span>
                   </div>
                   <p className="text-body-sm text-muted-foreground tabular-nums">
-                    {formatMonthDay(order.priceDate)} 종가{' '}
+                    {formatMonthDay(order.priceDate)} close{' '}
                     {formatPrice(order.price, order.currency)}
                     {order.fxRate && order.fxDate
-                      ? ` · 환율 ${formatDecimal(order.fxRate)}원(${formatMonthDay(order.fxDate)})`
+                      ? ` · rate ₩${formatDecimal(order.fxRate)} (${formatMonthDay(order.fxDate)})`
                       : ''}
                   </p>
                   <p className="text-body-sm tabular-nums">
-                    체결 금액 {formatWon(order.amountKrw)} · 수수료 {formatWon(order.feeKrw)} · 주문
-                    후 현금 {formatWon(order.cashAfterKrw)}
+                    Fill amount {formatWon(order.amountKrw)} · fee {formatWon(order.feeKrw)} · cash
+                    after order {formatWon(order.cashAfterKrw)}
                   </p>
                 </li>
               ))}
@@ -247,7 +249,7 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
                 aria-busy={loadingMore || undefined}
                 onClick={() => void more()}
               >
-                {loadingMore ? '불러오는 중…' : '더 보기'}
+                {loadingMore ? 'Loading…' : 'Load more'}
               </Button>
             ) : null}
           </>

@@ -68,27 +68,27 @@ const emptyDraft = (): Draft => ({
   memo: '',
 });
 
-const sideLabels: Record<Side, string> = { buy: '매수', sell: '매도' };
+const sideLabels: Record<Side, string> = { buy: 'Buy', sell: 'Sell' };
 
 const signedWon = (amount: number) =>
   amount > 0 ? `+${formatWon(amount)}` : amount < 0 ? `-${formatWon(-amount)}` : formatWon(0);
 const priceText = (price: string, currency: Currency) =>
-  currency === 'USD' ? formatUsd(price) : `${formatDecimal(price)}원`;
+  currency === 'USD' ? formatUsd(price) : `₩${formatDecimal(price)}`;
 
-/** The request body, or the field and Korean message that is wrong (the server checks again). */
+/** The request body, or the field and message that is wrong (the server checks again). */
 function toBody(
   draft: Draft,
   currency: Currency,
 ): { body: object } | { field: Field; message: string } {
   if (!realDate(draft.tradedOn)) {
-    return { field: 'tradedOn', message: '거래일을 1900년부터 2100년 사이로 입력하세요' };
+    return { field: 'tradedOn', message: 'Enter a trade date between 1900 and 2100' };
   }
   if (draft.tradedOn > serviceToday()) {
-    return { field: 'tradedOn', message: '오늘 이후 날짜의 거래는 기록할 수 없습니다' };
+    return { field: 'tradedOn', message: 'Trades dated after today cannot be recorded' };
   }
   const quantity = digits(draft.quantity);
   if (!/^\d{1,12}(\.\d{1,8})?$/.test(quantity) || !/[1-9]/.test(quantity)) {
-    return { field: 'quantity', message: '수량은 0보다 큰 수로, 소수 8자리까지 입력하세요' };
+    return { field: 'quantity', message: 'Enter a quantity above 0 with up to 8 decimal places' };
   }
   const price = digits(draft.price);
   const pricePattern = currency === 'KRW' ? /^\d{1,16}$/ : /^\d{1,16}(\.\d{1,4})?$/;
@@ -97,15 +97,18 @@ function toBody(
       field: 'price',
       message:
         currency === 'KRW'
-          ? '단가는 0보다 큰 원 단위 정수로 입력하세요'
-          : '단가는 0보다 큰 수로, 소수 4자리까지 입력하세요',
+          ? 'Enter a unit price above 0 as a whole number of won'
+          : 'Enter a unit price above 0 with up to 4 decimal places',
     };
   }
   let fxRate: string | null = null;
   if (currency === 'USD') {
     fxRate = digits(draft.fxRate);
     if (!/^\d{1,8}(\.\d{1,4})?$/.test(fxRate) || !/[1-9]/.test(fxRate)) {
-      return { field: 'fxRate', message: '그날 환율(1달러당 원)을 소수 4자리까지 입력하세요' };
+      return {
+        field: 'fxRate',
+        message: "Enter that day's exchange rate (won per dollar) with up to 4 decimal places",
+      };
     }
   }
   const wonOf = (text: string) => {
@@ -114,10 +117,10 @@ function toBody(
   };
   const feeKrw = wonOf(draft.fee);
   if (feeKrw === undefined)
-    return { field: 'fee', message: '수수료는 0 이상의 원 단위 정수로 입력하세요' };
+    return { field: 'fee', message: 'Enter the fee as a whole number of won, 0 or more' };
   const taxKrw = wonOf(draft.tax);
   if (taxKrw === undefined)
-    return { field: 'tax', message: '세금은 0 이상의 원 단위 정수로 입력하세요' };
+    return { field: 'tax', message: 'Enter the tax as a whole number of won, 0 or more' };
   return {
     body: {
       side: draft.side,
@@ -177,7 +180,7 @@ export function AssetTrades({
   }, [path]);
 
   useEffect(() => {
-    load().catch((cause: unknown) => showError(cause, '거래 내역을 불러오지 못했습니다'));
+    load().catch((cause: unknown) => showError(cause, 'Could not load the trades'));
   }, [load, showError]);
 
   const refresh = async (done: string) => {
@@ -185,7 +188,7 @@ export function AssetTrades({
       await Promise.all([load(), onChanged()]);
       showStatus(done);
     } catch {
-      showError(`${done}. 목록을 새로 불러오지 못했습니다`);
+      showError(`${done}. Could not reload the list`);
     }
   };
 
@@ -238,7 +241,7 @@ export function AssetTrades({
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (saving.current) {
-      showError('저장 중입니다. 잠시 후 다시 시도하세요');
+      showError('Saving in progress. Try again in a moment');
       return;
     }
     const result = toBody(draft, currency);
@@ -260,7 +263,7 @@ export function AssetTrades({
         showError(cause);
         return;
       }
-      const done = `${draft.tradedOn} ${sideLabels[draft.side]}를 ${editing ? '수정' : '기록'}했습니다`;
+      const done = `${draft.tradedOn} ${sideLabels[draft.side]} ${editing ? 'updated' : 'recorded'}`;
       if (editing) stopEdit();
       else setDraft((current) => ({ ...blank(), side: current.side }));
       await refresh(done);
@@ -273,7 +276,7 @@ export function AssetTrades({
   // Called by the confirm dialog: rejecting keeps it open with the error shown.
   const remove = async (trade: Trade) => {
     if (saving.current) {
-      showError('저장 중입니다. 잠시 후 다시 시도하세요');
+      showError('Saving in progress. Try again in a moment');
       throw new Error('saving');
     }
     saving.current = true;
@@ -290,10 +293,10 @@ export function AssetTrades({
     }
     afterDelete.current = title.current;
     if (editing?.id === trade.id) stopEdit();
-    await refresh(`${trade.tradedOn} ${sideLabels[trade.side]} 기록을 지웠습니다`);
+    await refresh(`${trade.tradedOn} ${sideLabels[trade.side]} record deleted`);
   };
 
-  const unit = currency === 'USD' ? '달러' : '원';
+  const unit = currency === 'USD' ? 'USD' : 'KRW';
   return (
     <section
       aria-labelledby={`${prefix}-title`}
@@ -305,20 +308,20 @@ export function AssetTrades({
         tabIndex={-1}
         className="text-body-sm font-semibold outline-none"
       >
-        {assetName} 거래 내역
+        {assetName} trades
       </h4>
       {position ? (
         <dl className="grid grid-cols-2 gap-2 text-body-sm sm:grid-cols-4">
           {[
-            ['보유 수량', position.quantity === null ? '0' : formatDecimal(position.quantity)],
+            ['Quantity held', position.quantity === null ? '0' : formatDecimal(position.quantity)],
             [
               // USD: in dollars without the won fees, which have no dollar rate of their own; the won
               // cost below includes them (decision 3).
-              currency === 'USD' ? '평균 단가(수수료 제외)' : '평균 단가',
+              currency === 'USD' ? 'Average unit price (excl. fees)' : 'Average unit price',
               position.averagePrice === null ? '-' : priceText(position.averagePrice, currency),
             ],
-            ['원화 원가', formatWon(position.costKrw)],
-            ['실현 손익', signedWon(position.realizedKrw)],
+            ['Cost in KRW', formatWon(position.costKrw)],
+            ['Realized P/L', signedWon(position.realizedKrw)],
           ].map(([label, value]) => (
             <div key={label} className="flex flex-col">
               <dt className="text-muted-foreground">{label}</dt>
@@ -329,18 +332,19 @@ export function AssetTrades({
       ) : null}
       {handQuantity !== null && trades?.length === 0 ? (
         <p id={`${prefix}-hand`} className="text-body-sm text-muted-foreground">
-          지금 수량 {formatDecimal(handQuantity)}은(는) 직접 넣은 값입니다. 첫 거래를 기록하면
-          수량이 거래 합계로 바뀌므로, 이미 가진 수량은 매수로 먼저 넣으세요.
+          The current quantity {formatDecimal(handQuantity)} was entered by hand. Recording the
+          first trade replaces it with the trade total, so enter any quantity you already hold as a
+          buy first.
         </p>
       ) : null}
       <Notice id={noticeId} notice={notice.notice} />
       <form
-        aria-label={`${assetName} ${editing ? '거래 수정' : '거래 추가'}`}
+        aria-label={`${assetName} ${editing ? 'Edit trade' : 'Add trade'}`}
         onSubmit={(event) => void submit(event)}
         className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
       >
         <fieldset className="flex flex-col gap-1">
-          <legend className="mb-1 text-body-sm font-medium">구분</legend>
+          <legend className="mb-1 text-body-sm font-medium">Side</legend>
           <div className="flex gap-4">
             {(['buy', 'sell'] as const).map((side) => (
               <label key={side} className="flex items-center gap-2 text-body-sm">
@@ -358,7 +362,7 @@ export function AssetTrades({
           </div>
         </fieldset>
         <div className="flex flex-col gap-1">
-          <Label htmlFor={`${prefix}-date`}>거래일</Label>
+          <Label htmlFor={`${prefix}-date`}>Trade date</Label>
           <Input
             id={`${prefix}-date`}
             ref={firstField}
@@ -371,24 +375,24 @@ export function AssetTrades({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <Label htmlFor={`${prefix}-quantity`}>수량</Label>
+          <Label htmlFor={`${prefix}-quantity`}>Quantity</Label>
           <Input
             id={`${prefix}-quantity`}
             inputMode="decimal"
             autoComplete="off"
-            placeholder="예: 10 또는 0.5"
+            placeholder="e.g. 10 or 0.5"
             value={draft.quantity}
             {...fieldProps('quantity')}
             onChange={(event) => change({ quantity: event.target.value })}
           />
         </div>
         <div className="flex flex-col gap-1">
-          <Label htmlFor={`${prefix}-price`}>단가({unit})</Label>
+          <Label htmlFor={`${prefix}-price`}>Unit price ({unit})</Label>
           <Input
             id={`${prefix}-price`}
             inputMode={currency === 'USD' ? 'decimal' : 'numeric'}
             autoComplete="off"
-            placeholder={currency === 'USD' ? '예: 123.45' : '예: 71000'}
+            placeholder={currency === 'USD' ? 'e.g. 123.45' : 'e.g. 71000'}
             value={draft.price}
             {...fieldProps('price')}
             onChange={(event) => change({ price: event.target.value })}
@@ -396,12 +400,12 @@ export function AssetTrades({
         </div>
         {currency === 'USD' ? (
           <div className="flex flex-col gap-1">
-            <Label htmlFor={`${prefix}-fx`}>환율(1달러당 원)</Label>
+            <Label htmlFor={`${prefix}-fx`}>Exchange rate (KRW per USD)</Label>
             <Input
               id={`${prefix}-fx`}
               inputMode="decimal"
               autoComplete="off"
-              placeholder="예: 1385.25"
+              placeholder="e.g. 1385.25"
               value={draft.fxRate}
               {...fieldProps('fxRate')}
               aria-describedby={
@@ -413,14 +417,14 @@ export function AssetTrades({
             />
             {showFxHint && latestFx ? (
               <p id={`${prefix}-fx-hint`} className="text-caption text-muted-foreground">
-                {formatMonthDay(latestFx.rateDate)} 매매기준율을 미리 채웠습니다. 거래한 날 환율로
-                고칠 수 있습니다.
+                {formatMonthDay(latestFx.rateDate)} base rate was prefilled. You can change it to
+                the rate on the trade date.
               </p>
             ) : null}
           </div>
         ) : null}
         <div className="flex flex-col gap-1">
-          <Label htmlFor={`${prefix}-fee`}>수수료(원)</Label>
+          <Label htmlFor={`${prefix}-fee`}>Fee (KRW)</Label>
           <Input
             id={`${prefix}-fee`}
             inputMode="numeric"
@@ -431,7 +435,7 @@ export function AssetTrades({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <Label htmlFor={`${prefix}-tax`}>세금(원)</Label>
+          <Label htmlFor={`${prefix}-tax`}>Tax (KRW)</Label>
           <Input
             id={`${prefix}-tax`}
             inputMode="numeric"
@@ -442,7 +446,7 @@ export function AssetTrades({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <Label htmlFor={`${prefix}-memo`}>메모</Label>
+          <Label htmlFor={`${prefix}-memo`}>Note</Label>
           <Input
             id={`${prefix}-memo`}
             maxLength={100}
@@ -453,7 +457,7 @@ export function AssetTrades({
         <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-4">
           {/* Stays enabled while saving so focus is kept; the ref ignores a second press. */}
           <Button type="submit" size="sm" aria-busy={busy || undefined}>
-            {busy ? '저장 중…' : editing ? '수정 저장' : '거래 추가'}
+            {busy ? 'Saving…' : editing ? 'Save changes' : 'Add trade'}
           </Button>
           {editing ? (
             <Button
@@ -466,15 +470,15 @@ export function AssetTrades({
                 firstField.current?.focus();
               }}
             >
-              수정 취소
+              Cancel edit
             </Button>
           ) : null}
         </div>
       </form>
       {trades === undefined ? null : trades.length === 0 ? (
-        <p className="text-body-sm text-muted-foreground">아직 거래 기록이 없습니다.</p>
+        <p className="text-body-sm text-muted-foreground">No trades recorded yet.</p>
       ) : (
-        <ul aria-label={`${assetName} 거래 목록`} className="flex flex-col divide-y">
+        <ul aria-label={`${assetName} trade list`} className="flex flex-col divide-y">
           {trades.map((trade) => {
             const label = `${trade.tradedOn} ${sideLabels[trade.side]} ${formatDecimal(trade.quantity)} × ${priceText(trade.price, trade.currency)}`;
             const costs = trade.feeKrw + trade.taxKrw;
@@ -484,16 +488,16 @@ export function AssetTrades({
                   <span className="break-words">
                     {trade.tradedOn} · {sideLabels[trade.side]} · {formatDecimal(trade.quantity)} ×{' '}
                     {priceText(trade.price, trade.currency)}
-                    {trade.fxRate === null ? '' : ` · 환율 ${formatDecimal(trade.fxRate)}`}
+                    {trade.fxRate === null ? '' : ` · rate ${formatDecimal(trade.fxRate)}`}
                     {trade.memo ? ` · ${trade.memo}` : ''}
                   </span>
                   <span className="text-muted-foreground">
                     {formatWon(trade.amountKrw)}
-                    {costs > 0 ? ` · 비용 ${formatWon(costs)}` : ''}
-                    {` · 보유 ${formatDecimal(trade.quantityAfter)}`}
+                    {costs > 0 ? ` · costs ${formatWon(costs)}` : ''}
+                    {` · holding ${formatDecimal(trade.quantityAfter)}`}
                     {trade.realizedKrw === null
                       ? ''
-                      : ` · 실현 손익 ${signedWon(trade.realizedKrw)}`}
+                      : ` · realized P/L ${signedWon(trade.realizedKrw)}`}
                   </span>
                 </div>
                 <span className="flex items-center gap-1">
@@ -501,15 +505,15 @@ export function AssetTrades({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    aria-label={`${label} 수정`}
+                    aria-label={`Edit ${label}`}
                     onClick={() => startEdit(trade)}
                   >
-                    수정
+                    Edit
                   </Button>
                   <ConfirmDialog
-                    title="거래 기록을 지울까요?"
-                    description={`${label}. 지우면 보유 수량과 손익을 다시 계산합니다.`}
-                    confirmLabel="지우기"
+                    title="Delete this trade?"
+                    description={`${label}. Deleting it recalculates the quantity held and the P/L.`}
+                    confirmLabel="Delete"
                     onConfirm={() => remove(trade)}
                     returnFocusRef={afterDelete}
                     onOpenChange={(open) => {
@@ -520,9 +524,9 @@ export function AssetTrades({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        aria-label={`${label} 지우기`}
+                        aria-label={`Delete ${label}`}
                       >
-                        지우기
+                        Delete
                       </Button>
                     }
                   />
