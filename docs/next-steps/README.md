@@ -1,30 +1,30 @@
-# 다음 작업
+# Next steps
 
-최종 갱신일: **2026-11-06 (Asia/Seoul)**.
+Last updated: **2026-11-06 (Asia/Seoul)**.
 
-## 우선 처리
+## Priority
 
-| 순서 | 할 일                               | 상태        | 다음 행동                                                                 |
-| ---- | ----------------------------------- | ----------- | ------------------------------------------------------------------------- |
-| 1    | 소비 내역 자동 분류(#60)            | 완료        | 키워드 규칙과 일괄 분류 병합(PR #84)                                      |
-| 2    | 시세 출처(#36) 결정                 | 완료        | [시세·환율 출처](../price-source.md). 현재가 갱신(#47)과 시세(#51)에 적용 |
-| 3    | 시세·환율 API 키 발급(#85)          | 사용자 단계 | KRX·Tiingo·수출입은행 키를 받아 로컬 `.env`에 넣기                        |
-| 4    | 나머지 기능 이슈(#39~#64)           | 등록 완료   | 각 이슈의 선행 조건과 우선순위 순서로 진행                                |
-| 5    | 설치형 앱 이름을 새 이름으로 맞추기 | 중앙 대기   | `project-standards#399` 동기화 PR 병합                                    |
+| Order | Task                                       | Status             | Next action                                                                                                   |
+| ----- | ------------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------- |
+| 1     | Automatic spending classification (#60)    | Done               | Keyword rules and bulk classification merged (PR #84)                                                         |
+| 2     | Decide the price source (#36)              | Done               | [Price and exchange rate sources](../price-source.md). Applies to current price update (#47) and quotes (#51) |
+| 3     | Get price and exchange rate API keys (#85) | User step          | Get the KRX, Tiingo, and Korea Eximbank keys and put them in the local `.env`                                 |
+| 4     | Remaining feature issues (#39 to #64)      | Registered         | Work through them in order of each issue's prerequisites and priority                                         |
+| 5     | Rename the installable app to the new name | Waiting on central | Merge the `project-standards#399` sync PR                                                                     |
 
-## 개발 환경 후속 작업 (미룸)
+## Development environment follow-ups (deferred)
 
-2026-11-02 설정에서 남은 문제다. 원인과 복구 명령은 [#32 변경 기록](../changes/32-dev-env-followups.md)에 있다.
+These are the problems left from the 2026-11-02 setup. The causes and recovery commands are in the [#32 change record](../changes/32-dev-env-followups.md).
 
-| 순서 | 할 일                                  | 상태        | 다음 행동                                                   |
-| ---- | -------------------------------------- | ----------- | ----------------------------------------------------------- |
-| 1    | BIOS 가상화를 켜고 Docker Desktop 시작 | 사용자 단계 | SVM Mode를 켜고 `wsl --install --no-distribution` 후 재부팅 |
-| 2    | `.env` 만들기                          | 사용자 단계 | `.env.example`을 복사하고 비밀번호를 바꿈                   |
-| 3    | 전용 테스트 DB `money_test` 준비       | 1, 2 대기   | DB를 만든 뒤 `TEST_DATABASE_URL`을 터미널에서만 지정해 검증 |
-| 4    | `server.ts`의 포트 오류 처리 수정      | 이슈 미등록 | 새 이슈로 `listen` 콜백 오류 처리와 회귀 테스트 추가        |
-| 5    | 로컬 `main`과 지난 브랜치 정리         | 사용자 승인 | 변경 기록의 명령을 실행하거나 에이전트에 승인               |
-| 6    | TCP 동적 포트 범위 결정                | 사용자 결정 | 앱 포트를 제외하거나 범위를 되돌릴지 결정                   |
+| Order | Task                                                 | Status              | Next action                                                                        |
+| ----- | ---------------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------- |
+| 1     | Turn on BIOS virtualization and start Docker Desktop | User step           | Turn on SVM Mode, run `wsl --install --no-distribution`, then reboot               |
+| 2     | Create `.env`                                        | User step           | Copy `.env.example` and change the password                                        |
+| 3     | Prepare the dedicated test DB `money_test`           | Waiting on 1 and 2  | Create the DB, then set `TEST_DATABASE_URL` only in the terminal and verify        |
+| 4     | Fix the port error handling in `server.ts`           | No issue registered | In a new issue, add error handling for the `listen` callback and a regression test |
+| 5     | Clean up local `main` and past branches              | User approval       | Run the commands in the change record or approve the agent doing it                |
+| 6     | Decide the TCP dynamic port range                    | User decision       | Decide whether to exclude the app ports or restore the range                       |
 
-## 실행 경계
+## Execution boundaries
 
-배포, 하위 저장소 동기화, AWS 리소스 생성은 별도 요청 시에만 한다. 공유 인프라의 ECR 저장소는 첫 배포 때 `shared-aws-infrastructure`의 목록에 추가한다.
+Deployment, sub-repository sync, and AWS resource creation happen only on a separate request. Add the ECR repositories of the shared infrastructure to the list in `shared-aws-infrastructure` at the first deployment.
