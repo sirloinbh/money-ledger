@@ -1,130 +1,130 @@
-# #52 모의투자 시장가 매수·매도
+# #52 Mock investing market buy and sell
 
-- 이슈: https://github.com/sirloinbh/money-ledger/issues/52
-- 브랜치: `feat/52-market-orders`
+- Issue: https://github.com/sirloinbh/money-ledger/issues/52
+- Branch: `feat/52-market-orders`
 
-## 목적
+## Purpose
 
-모의투자 계좌에서 현재 시세로 가상 매수·매도를 체결하고, 현금과 보유 수량이 바뀌게 한다. 보유 종목 화면과 수익률(#53), 거래 내역(#54)은 범위 밖이다.
+In a mock investing account, fill virtual buys and sells at the current price, and change the cash and the quantity held. The holdings screen and returns (#53) and the trade history (#54) are out of scope.
 
-## 결정 (2026-11-08 사용자 확인, 이슈 댓글 기록)
+## Decision (confirmed by the user on 2026-11-08, recorded in an issue comment)
 
-1. 달러 현금은 따로 두지 않고 원화 현금(`cash_krw`) 하나만 쓴다. 미국 주식 체결액은 `amount_krw = round(수량 × 체결가 × fx_rate)`이고, SQL `numeric`으로 계산한다. `fx_rate`는 주문 시점에 저장된 최신 매매기준율이다.
-2. 수수료율은 설정값으로 두고 기본값은 0이다. 세금은 넣지 않는다.
-3. 장 시간과 관계없이 저장된 최신 종가로 바로 체결한다. 확인 화면과 체결 기록에 "M월 D일 종가로 체결"을 표시한다.
-4. 국내·미국 모두 1주 단위 정수만 받는다.
-5. 비활성 종목(#97)은 매수를 거부하고 매도는 허용한다.
+1. We do not keep dollar cash separately and use only one KRW cash balance (`cash_krw`). The fill amount of US stocks is `amount_krw = round(quantity × fill price × fx_rate)`, computed in SQL `numeric`. `fx_rate` is the latest basic rate stored at order time.
+2. The fee rate is a setting and the default is 0. Tax is not included.
+3. Regardless of market hours, fill right away at the latest stored close. The confirmation screen and the fill record show "M월 D일 종가로 체결" ("Filled at the close of M/D").
+4. Both Korean and US accept only whole numbers of shares.
+5. An inactive ticker (#97) rejects buys and allows sells.
 
-## 변경 내용
+## Changes
 
-- `database/migrations/015_mock_orders.sql`: 다시 실행해도 안전하다.
-  - `mock_accounts.fee_rate`: 계좌별 수수료율, 0 이상 1% 미만, 기본 0. 바꾸는 화면은 아직 없고 SQL로 바꾼다.
-  - `mock_holdings`: 계좌·종목별 보유 수량(정수)과 남은 매입원가(수수료 포함, 평균원가법).
-  - `mock_orders`: 주문 한 건이 곧 체결 한 건이다. 시장가 주문은 한 번에 모두 체결되므로 체결 테이블을 따로 두면 같은 값이 두 번 저장된다. 그래서 한 행에 아래 값을 함께 남긴다.
-    - 주문 키, 체결가와 종가 기준일
-    - 미국 주식이면 환율과 환율 기준일
-    - 원화 체결 금액, 수수료, 주문 후 현금
-  - CHECK
-    - 정수 수량
-    - 통화와 환율 짝(`(currency = 'KRW') = (fx_rate IS NULL)`)
-    - 원화 체결가는 정수
-    - 종목 통화와 같은 통화(복합 외래키)
+- `database/migrations/015_mock_orders.sql`: safe to run again.
+  - `mock_accounts.fee_rate`: the fee rate per account, 0 or more and less than 1%, default 0. There is no screen to change it yet, and it is changed with SQL.
+  - `mock_holdings`: the quantity held (integer) and the remaining purchase cost (including fees, average cost method) per account and ticker.
+  - `mock_orders`: one order is one fill. A market order fills all at once, so a separate fill table would store the same values twice. So one row keeps the following values together.
+    - The order key, the fill price, and the close base date
+    - For a US stock, the exchange rate and the exchange rate base date
+    - The KRW fill amount, the fee, and the cash after the order
+  - CHECKs
+    - An integer quantity
+    - The pairing of currency and exchange rate (`(currency = 'KRW') = (fx_rate IS NULL)`)
+    - A KRW fill price is an integer
+    - The same currency as the ticker (composite foreign key)
 - `backend/src/mock-orders.ts`
-  - `GET /api/mock/accounts/:id/orders/preview`: 확인 화면용. 체결가·기준일·지연 여부, 환율, 체결 금액·수수료, 주문 후 현금, 보유 수량, 주문할 수 없는 이유를 돌려준다. 아무것도 저장하지 않는다.
-  - `POST /api/mock/accounts/:id/orders`: 한 트랜잭션에서 아래 순서로 처리한다.
-    1. 계좌 행을 잠근다.
-    2. 같은 주문 키를 확인한다.
-    3. 서버 시세로 금액을 계산한다.
-    4. 잔고·보유 수량을 검사한다.
-    5. 현금·보유를 바꾸고 주문을 기록한다.
-  - 같은 키로 다시 보내면 첫 주문을 200으로 돌려준다. 같은 키에 다른 내용이면 409다.
-  - 체결가는 클라이언트 값을 받지 않는다. 본문에 가격을 넣어도 무시된다.
-  - 거부(409, 한국어)
-    - 현금 부족, 보유 수량 부족, 확인 뒤 시세 변경
-    - 거래 중단 종목 매수
-    - 종가 없음, 미국 주식 환율 없음
-    - 초기화된 계좌
-  - 매도는 남은 매입원가를 판 비율만큼 줄인다: `round(cost × (보유 − 매도) / 보유)`. 전부 팔면 보유 행을 지운다.
-- `backend/src/app.ts`: 주문 라우터를 계좌 라우터보다 먼저 등록했다.
-- `frontend/src/mock-order.tsx`: 종목 상세의 "모의 주문"(매수·매도 선택, 수량, 주문 확인).
-  - 주문 확인을 누르면 계좌와 미리보기를 서버에서 받는다. 주문할 수 없으면 이유를 보여 준다.
-  - 확인 대화상자에는 "M월 D일 종가 …으로 체결합니다", 환율(미국), 체결 금액·수수료, 주문 후 현금이 보인다. 화면은 금액을 직접 계산하지 않는다.
-  - 주문 키는 주문마다 하나다. 연결이 끊겨 다시 보내도 같은 키라서 두 번 체결되지 않는다. 거부되거나 체결되면 새 키를 쓴다.
-  - 체결되면 "…주를 M월 D일 종가로 매수했습니다. 현금 …원"을 보여 주고 계좌 카드의 현금을 다시 불러온다.
-- `frontend/src/mock-account.tsx`, `mock-trading.tsx`, `security-search.tsx`: 주문 뒤 계좌 카드를 다시 불러오는 `refreshKey`를 더했고, 모의투자 화면에서만 상세에 주문 폼을 붙인다.
-- `frontend/src/quote-format.ts`: `formatPrice`(통화별 가격 표시)를 더했다.
-- `docs/price-source.md`: 달러 현금 결정을 기록했다.
+  - `GET /api/mock/accounts/:id/orders/preview`: for the confirmation screen. It returns the fill price, base date, and whether it is delayed, the exchange rate, the fill amount and fee, the cash after the order, the quantity held, and the reason the order cannot be placed. It stores nothing.
+  - `POST /api/mock/accounts/:id/orders`: handles it in one transaction in this order.
+    1. Lock the account row.
+    2. Check the same order key.
+    3. Compute the amount from the server price.
+    4. Check the balance and the quantity held.
+    5. Change the cash and holdings and record the order.
+  - Sending again with the same key returns the first order as 200. The same key with different content is 409.
+  - The fill price does not take the client's value. A price in the body is ignored.
+  - Rejections (409, in Korean)
+    - Not enough cash, not enough quantity held, the price changed after confirmation
+    - Buying a halted ticker
+    - No close, no exchange rate for a US stock
+    - A reset account
+  - A sell reduces the remaining purchase cost by the proportion sold: `round(cost × (held − sold) / held)`. If all is sold, it deletes the holding row.
+- `backend/src/app.ts`: registered the order router before the account router.
+- `frontend/src/mock-order.tsx`: "모의 주문" ("Mock order") in the ticker detail (choose buy or sell, quantity, and order confirmation).
+  - Pressing order confirmation gets the account and the preview from the server. If it cannot be ordered, it shows the reason.
+  - The confirmation dialog shows "M월 D일 종가 …으로 체결합니다" ("Fills at the close of M/D …"), the exchange rate (US), the fill amount and fee, and the cash after the order. The screen does not compute amounts itself.
+  - There is one order key per order. Even if the connection drops and it is sent again, it is the same key, so it is not filled twice. After a rejection or a fill, a new key is used.
+  - When filled, it shows "…주를 M월 D일 종가로 매수했습니다. 현금 …원" ("Bought … shares at the close of M/D. Cash …") and reloads the cash on the account card.
+- `frontend/src/mock-account.tsx`, `mock-trading.tsx`, `security-search.tsx`: we added a `refreshKey` that reloads the account card after an order, and attach the order form to the detail only on the mock investing screen.
+- `frontend/src/quote-format.ts`: added `formatPrice` (price display by currency).
+- `docs/price-source.md`: recorded the dollar cash decision.
 
-## 검증
+## Verification
 
-- 테스트 DB: 전용 컨테이너 `money-ledger-test-agent3`. 015를 두 번 실행해 재실행이 안전한지 확인했다.
-- `backend/test/mock-orders.integration.test.ts`(DB 통합 9개)
-  - 매수 체결
-    - 클라이언트가 보낸 가격은 무시한다.
-    - 현금·보유가 바뀐다.
-    - 나중 종가가 바뀌어도 기록은 그대로다.
-  - 같은 키 두 번 동시 전송 → 한 번만 체결, 같은 키 다른 내용 → 409
-  - 동시에 두 주문이 들어와도 현금을 넘지 않음
-  - 미국 매수
-    - 환율 환산: `round(3 × 231.5 × 1384.5)`
-    - 수수료율: 0.5원은 0에서 먼 쪽으로 반올림
-  - 매도: 평균원가 감소 `round(300,003 × 2/3)`, 전부 팔면 행 삭제, 수량 부족 거부
-  - 거부 사유별 409와 변경 없음, 거래 중단 종목 매도 허용, 초기화된 계좌, 없는 계좌·종목
-  - 미리보기: 금액·이유·지연, 저장 안 함
-  - DB CHECK
-- `backend/test/mock-orders.test.ts`(10개): 수량(소수·0·숫자형·100만 초과), 주문 종류, 종목, 주문 키, 본문, 계좌 ID, 미리보기 쿼리 검증. 모두 DB 전에 한국어 400이다.
-- `frontend/src/mock-order.test.tsx`(4개)
-  - 확인 대화상자 문구, 한 번 체결, 현금 안내
-  - 미국 매도: 환율·지연 표시
-  - 잘못된 수량, 계좌 없음, 미리보기 거부
-  - 연결이 끊긴 뒤 같은 키로 재시도, 거부 뒤 새 키
-- `frontend/src/mock-account.test.tsx`: `refreshKey`가 바뀌면 현금을 다시 불러온다.
-- 구현 중 찾은 결함: 보유 수량을 전부 팔 때 `quantity = 0`으로 바꾸려다 CHECK에 걸려 500이 났다. 전부 팔면 먼저 행을 지우도록 고쳤고, 통합 테스트가 이 경우를 다룬다.
-- 브라우저: API(3193, 테스트 DB, 가짜 출처)와 Vite(5293)를 띄워 headless Chrome으로 390×844와 1440×900에서 확인했다. 크기마다 1,000만 원 새 계좌로 시작했다.
-  - 1,000주 매수: "현금이 부족합니다"
-  - 삼성전자 10주 매수: 대화상자 "11월 6일 종가 70,600원으로 체결합니다 · 체결 금액 706,000원 · 주문 후 현금 9,294,000원". 체결 뒤 안내 문구와 계좌 카드 현금 9,294,000원.
-  - Apple 2주 매수: 환율 1,383원 안내, 640,329원
-  - Apple 1주 매도: 320,164.5 → 320,165원, 현금 8,973,836원
-  - Apple 5주 매도: "보유 수량이 부족합니다"
-  - 가로 넘침 없음. 처음 확인 때 "70,600원로"라는 조사 오류를 찾아 "원으로"로 고쳤다.
-- 다른 통합 테스트도 고쳤다. `mock-accounts`·`prices` 통합 테스트는 초기화 때 `mock_accounts`와 `securities`를 지우는데, 새 `mock_orders`·`mock_holdings`가 외래키로 이 둘을 가리킨다. 그래서 두 테스트가 주문·보유 테이블을 먼저 지우게 했다. 고치기 전에는 `2BP01`(의존 객체 있음)로 26개가 실패했다.
-- `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과(종료 코드 0)
-  - 백엔드 209개 통과, 건너뜀 0 (origin/main(#39) 병합 뒤 다시 실행: 백엔드 220개 통과·건너뜀 0, 프론트엔드 202개 통과·2개 건너뜀)
-  - 프론트엔드 182개 통과, 2개 건너뜀(기존)
-  - 스킬 4개, 빌드 성공
-- `npm run knip` 통과
+- Test DB: the dedicated container `money-ledger-test-agent3`. We ran 015 twice to confirm it is safe to run again.
+- `backend/test/mock-orders.integration.test.ts` (9 DB integration tests)
+  - Buy fill
+    - A price sent by the client is ignored.
+    - The cash and holding change.
+    - Even if the close changes later, the record stays the same.
+  - Sending the same key twice at once → filled only once, the same key with different content → 409
+  - Even if two orders come in at once, the cash is not exceeded
+  - US buy
+    - Exchange rate conversion: `round(3 × 231.5 × 1384.5)`
+    - Fee rate: 0.5 won rounds away from zero
+  - Sell: the average cost decreases `round(300,003 × 2/3)`, selling all deletes the row, and not enough quantity is rejected
+  - 409 for each rejection reason with no change, selling a halted ticker is allowed, a reset account, and a nonexistent account and ticker
+  - Preview: amount, reason, and delay, with nothing stored
+  - DB CHECKs
+- `backend/test/mock-orders.test.ts` (10): validation of the quantity (decimal, 0, number type, over 1 million), the order kind, the ticker, the order key, the body, the account ID, and the preview query. All are Korean 400 before the DB.
+- `frontend/src/mock-order.test.tsx` (4)
+  - The confirmation dialog text, a single fill, and the cash notice
+  - US sell: exchange rate and delay display
+  - A bad quantity, no account, and a rejected preview
+  - Retrying with the same key after the connection drops, and a new key after a rejection
+- `frontend/src/mock-account.test.tsx`: when `refreshKey` changes, the cash is reloaded.
+- A defect found during implementation: when selling the whole quantity held, we tried to change it to `quantity = 0`, hit the CHECK, and got a 500. We fixed it to delete the row first when all is sold, and the integration test covers this case.
+- Browser: we started the API (3193, test DB, fake source) and Vite (5293) and checked with headless Chrome at 390×844 and 1440×900. At each size we started with a new 10 million won account.
+  - Buying 1,000 shares: "현금이 부족합니다" ("Not enough cash")
+  - Buying 10 shares of Samsung Electronics: the dialog "11월 6일 종가 70,600원으로 체결합니다 · 체결 금액 706,000원 · 주문 후 현금 9,294,000원". After the fill, the notice text and the cash on the account card 9,294,000 won.
+  - Buying 2 shares of Apple: the exchange rate 1,383 won note, 640,329 won
+  - Selling 1 share of Apple: 320,164.5 → 320,165 won, cash 8,973,836 won
+  - Selling 5 shares of Apple: "보유 수량이 부족합니다" ("Not enough quantity held")
+  - No horizontal overflow. In the first check we found a particle error "70,600원로" and fixed it to "원으로".
+- We also fixed other integration tests. The `mock-accounts` and `prices` integration tests delete `mock_accounts` and `securities` on reset, and the new `mock_orders` and `mock_holdings` point at both with foreign keys. So we made the two tests delete the order and holding tables first. Before the fix, 26 failed with `2BP01` (dependent objects exist).
+- `TEST_DATABASE_URL=<test DB> npm run check` passed (exit code 0)
+  - Backend 209 passed, 0 skipped (rerun after merging origin/main (#39): backend 220 passed and 0 skipped, frontend 202 passed and 2 skipped)
+  - Frontend 182 passed, 2 skipped (existing)
+  - 4 skill tests, build succeeded
+- `npm run knip` passed
 
-## 제한·후속
+## Limits and follow-up
 
-- 수수료율은 바꾸는 화면이 없다. SQL로 `mock_accounts.fee_rate`를 바꾼다.
-- 보유 종목 화면·수익률은 #53, 거래 내역·수익률 추이는 #54에서 `mock_holdings`·`mock_orders`를 읽어 만든다.
-- 모의투자 보유 미국 종목을 매일 받기 대상(`trackedUsSecurities`)에 더하는 일은 #53에서 한다.
-- 실제 시세 키로는 확인하지 않았다(#85). 체결가와 환율은 가짜 출처 값으로만 확인했다.
+- There is no screen to change the fee rate. Change `mock_accounts.fee_rate` with SQL.
+- The holdings screen and returns are #53, and the trade history and return trend are made in #54 by reading `mock_holdings` and `mock_orders`.
+- Adding the mock investing holdings of US tickers to the daily fetch targets (`trackedUsSecurities`) is done in #53.
+- We did not verify with real price keys (#85). The fill price and exchange rate were checked only with fake source values.
 
-## 리뷰 기록
+## Review record
 
-### 1차 — 병합을 막는 결함 없음, 5건 반영, 1건 #53으로
+### Round 1: no defect blocking the merge, 5 addressed, 1 handed to #53
 
-- **확인한 시세와 체결 시세가 다르면 거부한다.** 대화상자를 연 뒤 하루치 받기가 같은 날 종가를 덮어쓰거나 새 환율이 들어오면, 이전에는 바뀐 값으로 그대로 체결됐다.
-  - 화면이 확인 때 받은 종가·기준일·환율(`expectedPrice`, `expectedPriceDate`, `expectedFxRate`)을 함께 보낸다.
-  - 서버는 이 값을 체결가로 쓰지 않고 저장된 최신 값과 비교만 한다. 다르면 409 "시세가 바뀌었습니다. 주문을 다시 확인하세요"를 돌려준다.
-  - 체결가는 여전히 서버 시세다.
-- 같은 종목의 매입원가가 1,000조 상한을 넘는 매수는 500 대신 "주문 금액이 너무 큽니다"(409)로 거부한다.
-- 같은 주문 키를 두 계좌에 동시에 보내면, 고유 키 위반(`23505`)을 "같은 주문 키로 다른 주문을 보냈습니다"(409)로 돌려준다.
-- 매도로 현금 상한을 넘을 때의 문구를 "계좌 현금 한도를 넘습니다"로 바꿨다.
-- 연결이 끊겨 결과를 모를 때는 "주문이 체결됐을 수 있으니 계좌 현금을 확인하세요"를 보여 주고 계좌 카드를 다시 불러온다. 같은 키 재시도는 그대로다.
-- 테스트 추가
-  - DB 통합(11개): 같은 날 종가가 바뀐 뒤 거부, 새 환율 뒤 거부, 다시 확인하면 체결, 두 계좌 같은 키 동시 전송
-  - 검증: 확인한 시세 없음
-  - 화면: 보내는 본문에 확인 시세 포함, 연결이 끊긴 뒤 계좌 다시 불러오기
-- #53으로 넘김: 매도 확인에 보유 수량을 보여 주는 일. 보유 화면과 함께 다룬다.
-- 1차 반영 뒤 검증: `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과(백엔드 223개 통과·건너뜀 0, 프론트엔드 202개 통과·2개 건너뜀(기존)), `npm run knip` 통과.
+- **We reject it if the price we confirmed and the fill price differ.** If, after the dialog was opened, the day's fetch overwrote the same day's close or a new exchange rate came in, it used to fill at the changed value as it was.
+  - The screen also sends the close, base date, and exchange rate it received at confirmation (`expectedPrice`, `expectedPriceDate`, `expectedFxRate`).
+  - The server does not use these values as the fill price and only compares them with the latest stored values. If they differ, it returns 409 "시세가 바뀌었습니다. 주문을 다시 확인하세요" ("The price changed. Check the order again").
+  - The fill price is still the server price.
+- A buy whose purchase cost for the same ticker would exceed the 1,000 trillion ceiling is rejected with "주문 금액이 너무 큽니다" ("The order amount is too large") (409) instead of a 500.
+- If the same order key is sent to two accounts at once, the unique key violation (`23505`) is returned as "같은 주문 키로 다른 주문을 보냈습니다" ("A different order was sent with the same order key") (409).
+- We changed the text for when a sell would exceed the cash ceiling to "계좌 현금 한도를 넘습니다" ("Exceeds the account cash limit").
+- When the connection drops and the result is unknown, it shows "주문이 체결됐을 수 있으니 계좌 현금을 확인하세요" ("The order may have been filled, so check the account cash") and reloads the account card. Retrying with the same key is unchanged.
+- Tests added
+  - DB integration (11): rejection after the same day's close changed, rejection after a new exchange rate, filling after confirming again, and the same key sent to two accounts at once
+  - Validation: no confirmed price
+  - Screen: the confirmed price is included in the body sent, and reloading the account after the connection drops
+- Handed to #53: showing the quantity held in the sell confirmation. We deal with it together with the holdings screen.
+- Verification after the first-round fixes: `TEST_DATABASE_URL=<test DB> npm run check` passed (backend 223 passed and 0 skipped, frontend 202 passed and 2 skipped (existing)), `npm run knip` passed.
 
-### 2차 — 1차 반영 5건 확인, 보완점 없음, 선택 사항 5건 반영
+### Round 2: 5 first-round fixes confirmed, nothing to fix, 5 optional points addressed
 
-- 두 계좌 같은 키 테스트를 결정적으로 바꿨다. 다른 연결에서 같은 키의 주문을 커밋하지 않은 채 넣어 두고 API를 부른 뒤 커밋한다. 그러면 반드시 고유 키 위반(23505) 경로를 탄다. 계좌 인덱스를 지우던 방식도 없앴다.
-- 23505 처리를 주문 키 제약(`mock_orders_request_key_key`)일 때로 좁혔다.
-- 매입원가 상한 거부 테스트를 더했다(DB 통합 12개).
-- 화면은 5xx(프록시 시간 초과 등)도 연결 끊김처럼 다룬다. 주문 키를 유지하고, 체결됐을 수 있다고 안내하고, 계좌를 다시 불러온다. 화면 테스트를 더했다(5개).
-- 표준에 따라 3차 리뷰는 하지 않는다.
-- 2차 반영 뒤 검증: `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과(백엔드 224개 통과·건너뜀 0, 프론트엔드 203개 통과·2개 건너뜀(기존)), `npm run knip` 통과.
+- We made the test of the same key on two accounts deterministic. On another connection we put in an order with the same key without committing, call the API, and then commit. Then it always takes the unique key violation (23505) path. We also got rid of the approach of dropping the account index.
+- We narrowed the 23505 handling to the case of the order key constraint (`mock_orders_request_key_key`).
+- We added a test for rejecting the purchase cost ceiling (12 DB integration tests).
+- The screen treats a 5xx (a proxy timeout and so on) like a dropped connection too. It keeps the order key, says it may have been filled, and reloads the account. We added screen tests (5).
+- By the standard, we do not run a third review.
+- Verification after the second-round fixes: `TEST_DATABASE_URL=<test DB> npm run check` passed (backend 224 passed and 0 skipped, frontend 203 passed and 2 skipped (existing)), `npm run knip` passed.

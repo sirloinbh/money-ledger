@@ -1,89 +1,89 @@
-# #54 모의투자 거래 내역과 수익률 추이 차트
+# #54 Mock investing trade history and return trend chart
 
-- 이슈: https://github.com/sirloinbh/money-ledger/issues/54
-- 브랜치: `feat/54-mock-history`
+- Issue: https://github.com/sirloinbh/money-ledger/issues/54
+- Branch: `feat/54-mock-history`
 
-## 목적
+## Purpose
 
-모의투자 계좌의 지난 거래를 기간·종목으로 찾고, 계좌 수익률이 날짜별로 어떻게 변했는지 차트로 본다.
+Find a mock investing account's past trades by date range and ticker, and see in a chart how the account return changed by date.
 
-## 결정 (2026-11-10 사용자 확인, 이슈 댓글 기록)
+## Decision (confirmed by the user on 2026-11-10, recorded in an issue comment)
 
-1. 스냅샷은 매일 시세 받기가 끝날 때와 주문이 체결될 때 (계좌, KST 날짜) 한 건으로 저장한다. 같은 날짜는 덮어쓴다.
-2. 값은 #53과 같은 계산(현금 + 저장된 최신 종가·환율 평가금액)이다. 시세가 나중에 바뀌어도 저장된 값은 고치지 않는다.
-3. 과거는 다시 계산하지 않는다. 차트는 계좌 시작일 0%에서 출발해 저장된 스냅샷만 잇는다.
-4. 열린 계좌만 보여 준다. 닫힌 계좌의 기록은 지우지 않는다.
-5. 거래 내역은 기간(KST 주문일)·종목으로 거르고 최신순 50건씩 "더 보기"로 보여 준다. 차트는 수익률 꺾은선 하나이고 기간은 1개월·3개월·전체다.
+1. A snapshot is stored as one record per (account, KST date) when the daily price fetch finishes and when an order fills. The same date is overwritten.
+2. The values are the same calculation as #53 (cash + the valuation at the latest stored close and exchange rate). Even if prices change later, the stored values are not fixed.
+3. The past is not recomputed. The chart starts at 0% on the account start date and connects only the stored snapshots.
+4. Only the open account is shown. The records of a closed account are not deleted.
+5. The trade history is filtered by date range (KST order date) and ticker and shown 50 at a time, newest first, with "더 보기" ("Show more"). The chart is one return line, and the periods are 1 month, 3 months, and all.
 
-## 변경 내용
+## Changes
 
-- `database/migrations/018_mock_snapshots.sql`: `mock_snapshots`(계좌, 날짜) 기본키, 현금·평가금액·총자산·손익·수익률. `total_krw = cash_krw + value_krw` CHECK. 다시 실행해도 안전하다.
+- `database/migrations/018_mock_snapshots.sql`: `mock_snapshots` with the primary key (account, date), and cash, valuation, total assets, profit and loss, and return. A `total_krw = cash_krw + value_krw` CHECK. It is safe to run again.
 - `backend/src/mock-orders.ts`: `GET /api/mock/accounts/:id/orders?from&to&securityId&before`
-  - 날짜는 주문 시각을 서울 시간으로 바꾼 날이다.
-  - 최신순 50건, `before`는 이미 본 마지막 주문 ID다. `hasMore`로 다음 쪽이 있는지 알린다.
-  - 필터용으로 이 계좌가 거래한 종목 목록(`securities`)을 함께 돌려준다.
-  - 잘못된 날짜, 시작일 > 종료일, 잘못된 종목·위치는 한국어 400이다.
-  - 주문이 체결되면 같은 트랜잭션에서 그날 스냅샷을 저장한다.
-- `backend/src/mock-holdings.ts`: 평가 계산을 `accountValue()`로 꺼내 보유 화면과 스냅샷이 같은 식을 쓴다.
+  - The date is the day the order time becomes in Seoul time.
+  - Newest first, 50 entries, and `before` is the last order ID already seen. `hasMore` tells whether there is a next page.
+  - It also returns the list of tickers this account traded (`securities`) for the filter.
+  - A bad date, start date > end date, and a bad ticker or position are Korean 400s.
+  - When an order fills, it stores that day's snapshot in the same transaction.
+- `backend/src/mock-holdings.ts`: pulled the valuation calculation out into `accountValue()` so that the holdings screen and the snapshot use the same formula.
 - `backend/src/mock-snapshots.ts`
-  - `saveSnapshot()`: 시세나 환율이 없는 보유 종목이 있으면 틀린 값을 남기지 않고 건너뛴다.
-  - `snapshotOpenAccount()`: 하루치 시세 받기 뒤 열린 계좌의 그날 값을 저장한다.
-  - `GET /api/mock/accounts/:id/snapshots`: 계좌 시작일(KST), 시작 금액, 날짜순 스냅샷.
-- `backend/src/prices/scheduler.ts`, `server.ts`: 하루치 시세 받기가 한 번 돌 때마다 `afterFetch`를 부른다. 여기서 난 오류는 `price_after_fetch_error`로 따로 남기고, 시세 받기 실패로 치지 않는다.
-- `frontend/src/mock-returns.tsx`, `mock-return-chart.tsx`: "수익률 추이" 카드
-  - 기간 1개월(기본)·3개월·전체
-  - 시작일 0%를 첫 점으로 넣는다. 시작일에 저장된 값이 있으면 그 값을 쓴다.
-  - #40 패턴: 차트 파일은 lazy로 따로 불러오고, 실패하면 "다시 시도"와 표가 남는다. 색은 `--chart-series-1`, 차트는 화면 낭독기에 이미지 하나이고 값은 "표로 보기"에 모두 있다.
-- `frontend/src/mock-history.tsx`: "거래 내역" 카드(시작일·종료일·종목 필터, 필터 지우기, 더 보기)
-- `frontend/src/mock-account.tsx`: 열린 계좌가 있을 때 두 카드를 계좌 카드 아래에 보여 준다. 계좌 ID로 다시 그려 초기화 뒤 이전 계좌 값이 남지 않는다.
-- `frontend/src/format.ts`: 부호 있는 퍼센트 `signedPercent()`를 보유 화면과 함께 쓴다.
+  - `saveSnapshot()`: if there is a held ticker with no price or exchange rate, it skips without leaving a wrong value.
+  - `snapshotOpenAccount()`: after the daily price fetch, stores that day's values of the open account.
+  - `GET /api/mock/accounts/:id/snapshots`: the account start date (KST), the starting amount, and the snapshots in date order.
+- `backend/src/prices/scheduler.ts`, `server.ts`: every time a daily price fetch runs, it calls `afterFetch`. An error there is recorded separately as `price_after_fetch_error` and is not counted as a price fetch failure.
+- `frontend/src/mock-returns.tsx`, `mock-return-chart.tsx`: the "수익률 추이" ("Return trend") card
+  - Periods 1 month (default), 3 months, and all
+  - It puts 0% on the start date as the first point. If there is a stored value on the start date, it uses that value.
+  - The #40 pattern: the chart file is loaded separately with lazy, and on failure "다시 시도" ("Retry") and the table remain. The color is `--chart-series-1`, the chart is one image for screen readers, and all values are in "표로 보기" ("View as table").
+- `frontend/src/mock-history.tsx`: the "거래 내역" ("Trade history") card (start date, end date, and ticker filters, clearing filters, and show more)
+- `frontend/src/mock-account.tsx`: when there is an open account, it shows the two cards under the account card. It is redrawn by account ID so the previous account's values do not remain after a reset.
+- `frontend/src/format.ts`: the signed percent `signedPercent()` is shared with the holdings screen.
 
-## 검증
+## Verification
 
-- 테스트 DB: 전용 컨테이너 `money-ledger-test-agent3`(15493)
+- Test DB: the dedicated container `money-ledger-test-agent3` (15493)
 - `backend/test/mock-orders.integration.test.ts`
-  - 거래 내역: 서울 날짜 경계(00:30, 23:59)의 기간 필터, 종목 필터, 51건 추가 뒤 50건과 다음 쪽, 잘못된 값 400, 없는 계좌 404
-  - 스냅샷: 같은 날 주문 두 번 → 한 건(마지막 값), 다음 날 하루치 받기 → 새 날짜(+0.94%), 닫힌 계좌는 저장 안 함, 나중 시세 변경에도 저장 값 그대로, 같은 날 다시 저장하면 덮어씀(+1.94%, 행 2개), 환율 없으면 저장 안 함, 계좌 시작일은 서울 날짜, 없는 계좌 404
-- `backend/test/prices.integration.test.ts`: 하루치 받기가 돈 뒤 `afterFetch`를 부르고, 그 실패는 따로 기록되며 그날 받기는 끝난 것으로 남는다.
-- 화면 테스트
-  - `mock-returns.test.tsx`: 기간별 점, 시작일 0%, 표, 점이 하나뿐일 때와 기간 안에 값이 없을 때 안내, 불러오기 실패
-  - `mock-returns-chart-error.test.tsx`: 차트 파일 실패 → 표 유지 → 다시 시도
-  - `mock-return-chart.test.tsx`: 차트 이미지 이름
-  - `mock-history.test.tsx`: 표시, 기간·종목 필터 주소, 필터 지우기, 시작일 > 종료일 거부, 더 보기, 거래 없음, 다시 불러오기
+  - Trade history: the date range filter at Seoul date boundaries (00:30, 23:59), the ticker filter, 50 and the next page after adding up to 51, bad values 400, and a nonexistent account 404
+  - Snapshots: two orders on the same day → one record (the last value), the daily fetch the next day → a new date (+0.94%), a closed account does not store, stored values stay the same even if prices change later, storing again on the same day overwrites (+1.94%, 2 rows), no exchange rate means no store, the account start date is a Seoul date, and a nonexistent account 404
+- `backend/test/prices.integration.test.ts`: after the daily fetch runs it calls `afterFetch`, its failure is recorded separately, and that day's fetch stays finished.
+- Screen tests
+  - `mock-returns.test.tsx`: points by period, 0% on the start date, the table, the notice when there is only one point and when there are no values in the period, and load failure
+  - `mock-returns-chart-error.test.tsx`: chart file failure → keep the table → retry
+  - `mock-return-chart.test.tsx`: the chart image name
+  - `mock-history.test.tsx`: display, the date range and ticker filter addresses, clearing filters, rejecting start date > end date, show more, no trades, and reloading
   - `format.test.ts`: `signedPercent`
-- 브라우저: API(3193, 테스트 DB, 가짜 출처)와 Vite(5293)를 띄워 headless Chrome으로 390×844와 1440×900에서 확인했다. 크기마다 1,000만 원 새 계좌로 시작했고, 계좌 시작일을 10월 20일로 바꾸고 10월 25일(−0.5%)·11월 1일(+1.2%) 스냅샷을 테스트 데이터로 넣었다.
-  - 주문 전 거래 내역: "아직 거래가 없습니다."
-  - 삼성전자 10주 매수, Apple 2주 매수, Apple 1주 매도 뒤 거래 내역 3건(최신순), 종목 목록 "Apple Inc (AAPL)", "삼성전자 (005930)"
-  - 종목을 Apple로 거르면 Apple 2건만 남는다.
-  - 수익률 추이(전체): 10월 20일 0%, 10월 25일 −0.5%, 11월 1일 +1.2%, 11월 10일(주문 때 저장) 0%(−1원) 네 점이 한 선으로 이어지고, 표도 같은 값이다.
-  - 가로 넘침 없음. 390 폭에서 표의 날짜가 두 줄로 꺾여 한 줄로 고쳤다.
-- `TEST_DATABASE_URL=<전용 테스트 DB> npm run check` 통과(origin/main 병합 뒤): 백엔드 300개 통과·건너뜀 0, 프론트엔드 264개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공. `npm run knip` 통과.
+- Browser: we started the API (3193, test DB, fake source) and Vite (5293) and checked with headless Chrome at 390×844 and 1440×900. At each size we started with a new 10 million won account, changed the account start date to October 20, and put in snapshots of October 25 (−0.5%) and November 1 (+1.2%) as test data.
+  - Trade history before orders: "아직 거래가 없습니다." ("There are no trades yet.")
+  - After buying 10 shares of Samsung Electronics, buying 2 shares of Apple, and selling 1 share of Apple, 3 trade entries (newest first), and the ticker list "Apple Inc (AAPL)", "삼성전자 (005930)"
+  - Filtering the ticker by Apple leaves only the 2 Apple entries.
+  - Return trend (all): the four points October 20 0%, October 25 −0.5%, November 1 +1.2%, and November 10 (stored at the order) 0% (−1 won) connect in one line, and the table has the same values.
+  - No horizontal overflow. At 390 width the date in the table wrapped to two lines, and we fixed it to one line.
+- `TEST_DATABASE_URL=<dedicated test DB> npm run check` passed (after merging origin/main): backend 300 passed and 0 skipped, frontend 264 passed and 2 skipped (existing), 4 skill tests, build succeeded. `npm run knip` passed.
 
-## 제한·후속
+## Limits and follow-up
 
-- 닫힌 계좌의 거래 내역과 수익률 추이를 보는 화면은 없다(결정 4). 기록은 남아 있다.
-- 서버가 하루 종일 꺼져 있으면 그날 스냅샷이 없고, 차트는 앞뒤 저장된 날을 바로 잇는다. 가로축은 저장된 날을 같은 간격으로 놓으므로 빠진 날이 있으면 시간 간격이 실제와 다르게 보인다(날짜는 축 이름과 표로 확인한다).
-- 실제 시세 키로는 확인하지 않았다(#85).
-- 다른 보유 종목의 종가나 환율이 없어 평가금액을 계산할 수 없는 때는 스냅샷을 저장하지 않는다. 그날은 마지막으로 계산할 수 있었던 값이 남는다.
+- There is no screen to see the trade history and return trend of a closed account (decision 4). The records remain.
+- If the server is off for a whole day, there is no snapshot for that day, and the chart connects the saved days before and after directly. The horizontal axis places the saved days at equal spacing, so if there are missing days the time spacing looks different from the real one (check the dates by the axis labels and the table).
+- We did not verify with real price keys (#85).
+- When the valuation cannot be computed because another held ticker has no close or exchange rate, no snapshot is stored. For that day, the last value that could be computed remains.
 
-## 자동 리뷰
+## Automatic review
 
-### 1차 (PR #114, be6da0e 기준)
+### Round 1 (PR #114, as of be6da0e)
 
-막을 문제 없음, 고칠 것 1개, 사소한 것 5개.
+Nothing blocking, 1 to fix, and 5 minor.
 
-- 고침: 필터를 바꾼 직후 새 목록이 오기 전에 "더 보기"를 누르면 이전 목록 뒤에 새 필터 결과가 붙을 수 있었다. 목록에 그 목록을 만든 요청 번호를 함께 두고, 최신 요청이 만든 목록일 때만 이어 받는다. 화면 테스트를 더했다.
-- 고침: 시세 받기 뒤 스냅샷 저장이 같은 때 들어온 주문보다 오래된 값을 덮어쓸 수 있었다. 주문처럼 계좌 행을 `FOR UPDATE`로 잠근 짧은 트랜잭션에서 저장한다.
-- 고침: `initialCashKrw`를 `Number()` 대신 `won()`으로 바꿨다.
-- 고침: 두 카드의 불러오는 중 문구에 `role="status"`를 붙였다.
-- 문서로 남김: 차트 가로축이 날짜 간격을 반영하지 않는 점(제한·후속), 주문 ID 커서가 계좌 행 잠금 덕에 동시 주문에서도 빠지지 않는 이유(코드 주석).
-- 1차 수정 뒤 `TEST_DATABASE_URL=<전용 테스트 DB> npm run check` 통과: 백엔드 300개 통과·건너뜀 0, 프론트엔드 265개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공. `npm run knip` 통과.
+- Fixed: if you pressed "더 보기" right after changing the filter and before the new list arrived, the new filter's result could be appended after the old list. We keep the request number that made the list together with the list, and continue only when it is the list made by the latest request. We added a screen test.
+- Fixed: storing the snapshot after a price fetch could overwrite a value older than an order that came in at the same time. Like orders, it is stored in a short transaction that locks the account row with `FOR UPDATE`.
+- Fixed: we changed `initialCashKrw` from `Number()` to `won()`.
+- Fixed: we added `role="status"` to the loading text of the two cards.
+- Left in docs: that the chart's horizontal axis does not reflect date spacing (Limits and follow-up), and why the order ID cursor does not miss entries even with concurrent orders thanks to the account row lock (a code comment).
+- After the first-round fixes `TEST_DATABASE_URL=<dedicated test DB> npm run check` passed: backend 300 passed and 0 skipped, frontend 265 passed and 2 skipped (existing), 4 skill tests, build succeeded. `npm run knip` passed.
 
-### 2차 (e294933 기준)
+### Round 2 (as of e294933)
 
-막을 문제·고칠 것 없음, 사소한 것 2개. 1차 수정이 맞는지 확인했다(주문과 스냅샷 저장이 모두 계좌 행을 먼저 잠그므로 교착이 없다).
+Nothing blocking and nothing to fix, 2 minor. We confirmed that the first-round fixes are right (orders and snapshot storing both lock the account row first, so there is no deadlock).
 
-- 고침: 계좌 잠금을 확인하는 테스트가 없었다. 주문처럼 계좌 행을 잡은 사이 스냅샷 저장이 기다렸다가 커밋 뒤 값을 저장하는지 통합 테스트를 더했다.
-- 문서로 남김: 평가금액을 계산할 수 없을 때 그날 스냅샷이 마지막으로 계산된 값으로 남는 점(제한·후속).
-- 2차 수정 뒤 `npm run check` 통과(백엔드 300, 프론트엔드 265 통과·2 건너뜀, 스킬 4, 빌드), `npm run knip` 통과.
-- origin/main(#48 자산 배분) 병합 뒤 새 `allocation.integration.test.ts`의 테이블 초기화에 `mock_snapshots`를 더했다(계좌 테이블을 지울 때 함께 지워야 한다). `npm run check` 통과(백엔드 311, 프론트엔드 275 통과·2 건너뜀, 스킬 4, 빌드), `npm run knip` 통과.
+- Fixed: there was no test that checks the account lock. We added an integration test that, while the account row is held like an order, the snapshot storing waits and stores the value after the commit.
+- Left in docs: that when the valuation cannot be computed, that day's snapshot stays as the last computed value (Limits and follow-up).
+- After the second-round fixes `npm run check` passed (backend 300, frontend 265 passed and 2 skipped, 4 skill tests, build), `npm run knip` passed.
+- After merging origin/main (#48 asset allocation), we added `mock_snapshots` to the table reset of the new `allocation.integration.test.ts` (it has to be deleted together when the account table is deleted). `npm run check` passed (backend 311, frontend 275 passed and 2 skipped, 4 skill tests, build), `npm run knip` passed.

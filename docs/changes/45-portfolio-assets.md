@@ -1,52 +1,52 @@
-# #45 보유 자산 등록·수정·삭제
+# #45 Register, edit, and delete held assets
 
-- 이슈: https://github.com/sirloinbh/money-ledger/issues/45
-- 브랜치: `feat/45-portfolio-assets`
+- Issue: https://github.com/sirloinbh/money-ledger/issues/45
+- Branch: `feat/45-portfolio-assets`
 
-## 목적
+## Purpose
 
-주식·부동산·현금·부채·감가상각 대상·기타 자산을 직접 등록하고, 자산 합계·부채 합계·순자산을 확인한다. 시세(#47)와 거래·평균 단가(#46)는 범위 밖이다.
+Register stocks, real estate, cash, debt, depreciable assets, and other assets directly, and check the asset total, the debt total, and the net worth. Prices (#47) and trades and average unit price (#46) are out of scope.
 
-## 결정 (2026-11-03 사용자 확인, 이슈 댓글 기록)
+## Decision (confirmed by the user on 2026-11-03, recorded in an issue comment)
 
-- 종류 6개: 주식(ETF·펀드 포함), 부동산, 현금(예적금 포함), 부채, 감가상각 대상, 기타(코인·선입금 등). (2026-11-08 #64에서 선입금을 별도 종류 "선입금"으로 나누고 기타를 "기타(코인 등)"으로 바꿨다. 이유는 [64-prepaid-assets.md](64-prepaid-assets.md).)
-- 부채는 자산 합계에 더하지 않고 따로 합산해 순자산에서만 뺀다.
-- 형식은 AGENTS.project.md "수량·외화·환율"(#35)을 따른다. 원화 금액 bigint, 달러 금액 numeric(20,4), 수량 numeric(20,8). API에서 수량·달러 금액은 소수 문자열이다.
+- 6 kinds: stocks (including ETFs and funds), real estate, cash (including savings), debt, depreciable assets, and other (crypto, prepayments, and so on). (On 2026-11-08 in #64 we split prepayment into its own kind "선입금" ("Prepaid") and renamed other to "기타(코인 등)" ("Other (crypto and so on)"). The reason is in [64-prepaid-assets.md](64-prepaid-assets.md).)
+- Debt is not added to the asset total. It is summed separately and subtracted only in the net worth.
+- The format follows "Quantity, foreign currency, and exchange rate" (#35) in AGENTS.project.md. KRW amount bigint, dollar amount numeric(20,4), quantity numeric(20,8). In the API, quantities and dollar amounts are decimal strings.
 
-## 변경 내용
+## Changes
 
-- `database/migrations/004_portfolio_assets.sql`: `portfolio_assets` 테이블. 다시 실행해도 안전하다. DB CHECK로 통화와 금액 열의 짝(원화 자산에 달러 금액 금지 등), 수량·평가금액 중 하나 이상을 강제한다.
-- `backend/src/assets.ts`: `GET/POST /api/portfolio/assets`, `PUT/DELETE /api/portfolio/assets/:id`. 검증 실패는 한국어 400, 없는 자산은 404. GET은 목록과 합계를 함께 준다. 합계는 원화 평가금액만 더하고, 원화 평가금액이 없는 자산(수량만 넣은 자산, 달러 자산) 수를 `uncounted`로 알려 준다. 환산은 #47에서 한다.
-- `frontend/src/assets.tsx`: 자산 포트폴리오 화면. 합계 3개, 등록·수정 폼(부채는 수량 칸 없이 "남은 금액"), 종류별 목록, 삭제 확인 대화상자. 삭제가 끝나면 목록 제목으로, 취소하면 삭제 버튼으로 포커스가 돌아간다.
-- `frontend/src/format.ts`: 소수 문자열 표시용 `formatDecimal`, `formatUsd`.
-- `frontend/src/categories.test.tsx`: 이름 바꾸기 저장 후 포커스 확인을 `vi.waitFor`로 바꿨다. 포커스는 다시 그린 뒤 effect에서 옮겨지므로, 전체 실행 부하에서 버튼이 먼저 찾아지면 한 번만 확인하는 단언이 실패했다. #38 리뷰에서 보고된 원인 불명의 간헐 실패도 이것으로 보인다(이번 작업 중 전체 실행에서 1회 재현).
+- `database/migrations/004_portfolio_assets.sql`: the `portfolio_assets` table. It is safe to run again. DB CHECKs enforce the pairing of currency and amount columns (no dollar amount on a KRW asset, and so on) and that at least one of quantity and valuation is present.
+- `backend/src/assets.ts`: `GET/POST /api/portfolio/assets` and `PUT/DELETE /api/portfolio/assets/:id`. A validation failure is a Korean 400 and a nonexistent asset is 404. GET gives the list and the totals together. The totals add only KRW valuations, and report the number of assets with no KRW valuation (assets with only a quantity, and dollar assets) as `uncounted`. Conversion is done in #47.
+- `frontend/src/assets.tsx`: the asset portfolio screen. Three totals, the register and edit form (debt has no quantity field and uses "남은 금액" ("Remaining amount")), a list by kind, and a delete confirmation dialog. When a delete finishes, focus goes to the list heading, and when canceled, to the delete button.
+- `frontend/src/format.ts`: `formatDecimal` and `formatUsd` for displaying decimal strings.
+- `frontend/src/categories.test.tsx`: changed the focus check after saving a rename to `vi.waitFor`. Focus is moved in an effect after re-rendering, so under the load of a full run, when the button was found first, a single-check assertion failed. The unexplained intermittent failure reported in the #38 review also looks like this (reproduced once in a full run during this work).
 
-## 검증
+## Verification
 
-- 처음 커밋 기준 `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과: 백엔드 67개 통과(건너뜀 0, 자산 DB 통합 테스트 포함), 프론트엔드 109개 중 107개 통과·2개 건너뜀(기존), 스킬 4개. 프론트엔드 전체를 추가로 2번 더 돌려 모두 통과.
-- 마이그레이션 `004`를 테스트 DB에 두 번 적용해 재실행 안전을 확인했고, CHECK 제약 위반이 거부되는 것을 확인했다.
-- 실제 Chrome(CDP)으로 `/portfolio`를 390×844와 1440×900에서 확인: 가로 넘침 없음(scrollWidth = clientWidth), 긴 자산 이름·소수 8자리 수량·달러 금액이 줄바꿈되어 표시됨. 합계·안내 문구가 정상 표시됨.
-- 로컬 `npm run knip`은 oxc-resolver 네이티브 바인딩이 없어 실행되지 않는다(main에서도 같음). CI에서 확인한다.
+- At the first commit, `TEST_DATABASE_URL=<test DB> npm run check` passed: backend 67 passed (0 skipped, including the asset DB integration tests), frontend 107 of 109 passed and 2 skipped (existing), 4 skill tests. We ran the whole frontend 2 more times and all passed.
+- We applied migration `004` twice to the test DB to confirm it is safe to run again, and confirmed that CHECK constraint violations are rejected.
+- With a real Chrome (CDP) we checked `/portfolio` at 390×844 and 1440×900: no horizontal overflow (scrollWidth = clientWidth), and long asset names, 8-decimal quantities, and dollar amounts wrap and display. The totals and the guidance text show normally.
+- The local `npm run knip` does not run because the oxc-resolver native binding is missing (the same on main). We check it in CI.
 
-## 제한·후속
+## Limits and follow-up
 
-- 달러 자산과 수량만 넣은 자산은 합계에서 빠진다. 시세·환율 환산은 #47(시세 출처는 #36).
-- 매수·매도 거래와 평균 단가는 #46.
+- Dollar assets and assets with only a quantity are left out of the total. Conversion with prices and exchange rates is #47 (the price source is #36).
+- Buy and sell trades and the average unit price are #46.
 
-## 리뷰 기록
+## Review record
 
-### 1차 — 병합을 막는 결함 없음, 3건 반영
+### Round 1: no defect blocking the merge, 3 addressed
 
-- 원화 평가금액 상한이 `Number.MAX_SAFE_INTEGER`라서 큰 자산 두 개의 합이 안전 정수를 넘으면 `GET`이 500을 내고 화면에서 목록을 불러올 수도, 지울 수도 없었다. 한 건 상한을 1,000조 원으로 낮췄다(클라이언트·zod·DB CHECK). 그래도 넘치는 합계는 500 대신 `null`로 주고 화면은 "너무 커서 표시할 수 없음"으로 보여 준다.
-- 쉼표를 위치와 관계없이 지워서 "1,2,3"이 123으로 저장됐다. 세 자리 구분 쉼표일 때만 지운다.
-- 수정 취소 버튼이 사라지면서 포커스가 페이지로 빠졌다. 이름 칸으로 옮긴다.
-- 테스트 추가: 1,000조 초과(백엔드 단위·DB·클라이언트), 합계 넘침에도 목록이 200으로 오는 DB 통합 테스트(1만 행), 잘못된 쉼표, 취소 후 포커스와 달러 금액 왕복, 표시할 수 없는 합계.
-- 반영하지 않음: 서버 400일 때 필드 `aria-invalid` 표시(클라이언트가 같은 규칙을 먼저 검사함), 부채로 바꿀 때 수량이 조용히 빠지는 동작(부채에는 수량 칸이 없음).
-- 검증: `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과(백엔드 69개 통과·건너뜀 0, 프론트엔드 113개 중 111개 통과·2개 건너뜀(기존), 스킬 4개).
+- The KRW valuation ceiling was `Number.MAX_SAFE_INTEGER`, so when the sum of two large assets exceeded the safe integer, `GET` gave a 500, and the screen could neither load nor delete the list. We lowered the ceiling per entry to 1,000 trillion won (client, zod, and DB CHECK). A total that still overflows is given as `null` instead of a 500, and the screen shows it as "너무 커서 표시할 수 없음" ("Too large to display").
+- Commas were removed regardless of position, so "1,2,3" was saved as 123. Now commas are removed only when they are thousands separators.
+- When the cancel button of the edit disappeared, focus fell to the page. We move it to the name field.
+- Tests added: over 1,000 trillion (backend unit, DB, and client), a DB integration test (10,000 rows) that the list still comes back as 200 when the total overflows, a bad comma, focus after cancel and a dollar amount round trip, and a total that cannot be displayed.
+- Not addressed: marking the field `aria-invalid` on a server 400 (the client checks the same rule first), and the behavior where the quantity silently drops when you switch to debt (debt has no quantity field).
+- Verification: `TEST_DATABASE_URL=<test DB> npm run check` passed (backend 69 passed and 0 skipped, frontend 111 of 113 passed and 2 skipped (existing), 4 skill tests).
 
-### 2차 — 1차 반영 3건 확인, 막는 결함 없음, 추가 수정 없음
+### Round 2: 3 first-round fixes confirmed, no blocking defect, no further fixes
 
-- 상한(클라이언트·zod·DB 모두 1,000조 원 포함), 쉼표 검사, 취소 후 포커스가 모두 맞게 고쳐졌다. 리뷰어가 다시 돌린 결과도 백엔드 69/69, 프론트엔드 111 통과·2 건너뜀이었다.
-- 참고(반영 안 함): `004`는 `CREATE TABLE IF NOT EXISTS`라서 1차 이전 버전으로 이미 테이블을 만든 로컬 DB에는 새 상한 CHECK가 들어가지 않는다. 아직 배포 전이고 API(zod)가 같은 상한을 막으므로 로컬 DB를 새로 만들면 된다.
-- 참고(반영 안 함): 합계가 "너무 커서 표시할 수 없음"일 때 안내 문구에 따로 설명이 없다. 표시 문구만으로 충분하다고 보았다.
-- 표준에 따라 3차 리뷰는 하지 않는다.
+- The ceiling (1,000 trillion won inclusive in the client, zod, and DB), the comma check, and the focus after cancel were all fixed correctly. The result the reviewer reran was also backend 69/69 and frontend 111 passed and 2 skipped.
+- Note (not addressed): `004` is `CREATE TABLE IF NOT EXISTS`, so a local DB whose table was already created with a version before round 1 does not get the new ceiling CHECK. It is not deployed yet and the API (zod) blocks the same ceiling, so you can recreate the local DB.
+- Note (not addressed): when the total is "too large to display", the guidance text has no separate explanation. We judged the display text to be enough.
+- By the standard, we do not run a third review.

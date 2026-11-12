@@ -1,96 +1,96 @@
-# #37 수입·지출 카테고리 관리
+# #37 Manage income and expense categories
 
-- 이슈: [#37](https://github.com/sirloinbh/money-ledger/issues/37)
-- 브랜치: `feat/37-ledger-categories`
+- Issue: [#37](https://github.com/sirloinbh/money-ledger/issues/37)
+- Branch: `feat/37-ledger-categories`
 
-## 목적
+## Purpose
 
-수입·지출 내역(#38)을 분류할 카테고리를 추가, 이름 변경, 숨김 처리할 수 있게 한다.
+Let the user add, rename, and hide the categories used to classify income and expense entries (#38).
 
-## 결정
+## Decision
 
-이슈 댓글(2026-11-02)대로 추천안을 따른다.
+Follow the recommendation as in the issue comment (2026-11-02).
 
-- 기본 카테고리: 지출(식비, 교통, 주거, 통신, 생활, 의료, 여가, 기타), 수입(급여, 부수입, 기타)
-- 사용 중인 카테고리는 지우지 않고 숨긴다. 그래서 삭제 API는 만들지 않았다.
+- Default categories: expense (food, transport, housing, telecom, living, medical, leisure, other) and income (salary, side income, other)
+- A category in use is hidden, not deleted. So we did not create a delete API.
 
-## 변경 — 2026-11-03
+## Changes: 2026-11-03
 
-- `database/migrations/002_ledger_categories.sql`: `ledger_categories` 테이블을 추가했다.
-  - 종류(`income`·`expense`), 이름(앞뒤 공백 없이 1~30자), 숨김 여부를 저장한다.
-  - `(kind, name)` 유일 제약이 있다. 숨긴 카테고리도 이름을 차지하므로, 다시 보이게 할 때 충돌하지 않는다.
-  - 기본 카테고리는 테이블이 비어 있을 때만 넣는다. 재실행해도 이름을 바꾼 기본 카테고리가 되살아나지 않는다. 한글은 `U&` 이스케이프로 썼다.
-- `backend/src/categories.ts`: `/api/ledger/categories` API를 추가했다.
-  - `GET`: 목록. `?kind=`로 종류를, `?visible=true`로 숨기지 않은 것만 거른다. 지출이 먼저, 같은 종류는 등록 순서다. #38의 입력 목록은 `visible=true`를 쓴다.
-  - `POST`: 추가(201). 이름의 앞뒤 공백을 지운다.
-  - `PATCH /:id`: 이름 또는 숨김 여부를 바꾼다. 종류는 바꿀 수 없다.
-  - 같은 종류에 같은 이름이 있으면 409 `같은 종류에 이미 있는 카테고리 이름입니다`를 보낸다. 다른 검증 오류도 한국어 400이다.
-- `backend/src/app.ts`: 직접 쓰던 404·오류 처리를 중앙 `standard/http.ts`의 `notFound`·`errorHandler`로 바꿨다. `HttpError`(404·409)를 응답하기 위해서다. 응답 형식(`{ error }`)은 같고, 깨진 JSON 본문은 500 대신 400으로 답한다.
-- `frontend/src/categories.tsx`: 가계부 화면에 카테고리 관리를 추가했다.
-  - 지출과 수입 카드에 각각 추가 입력, 목록, 이름 바꾸기, 숨기기·다시 보이기가 있다.
-  - 숨긴 카테고리에는 `숨김` 배지를 붙이고, 사용 중인 개수에서 뺀다.
-  - 결과와 서버 오류는 화면 위 `Notice`로 알린다.
-- `frontend/src/ledger.tsx`, `page.tsx`: 가계부 화면이 빈 상태 대신 카테고리 관리를 보여 준다. `Page`의 `emptyDescription`을 선택값으로 바꿨다.
+- `database/migrations/002_ledger_categories.sql`: added the `ledger_categories` table.
+  - It stores the kind (`income` or `expense`), the name (1 to 30 characters with no leading or trailing spaces), and whether it is hidden.
+  - It has a unique constraint on `(kind, name)`. A hidden category still holds its name, so there is no conflict when it is shown again.
+  - The default categories are inserted only when the table is empty. Re-running does not bring back a default category that was renamed. The Korean text is written with `U&` escapes.
+- `backend/src/categories.ts`: added the `/api/ledger/categories` API.
+  - `GET`: the list. `?kind=` filters by kind and `?visible=true` keeps only the ones not hidden. Expenses come first, and within a kind the order is registration order. The input list of #38 uses `visible=true`.
+  - `POST`: add (201). Trims leading and trailing spaces from the name.
+  - `PATCH /:id`: change the name or the hidden flag. The kind cannot be changed.
+  - If the same kind already has the same name, it sends 409 `같은 종류에 이미 있는 카테고리 이름입니다` (Korean for "A category with this name already exists in the same kind"). Other validation errors are Korean 400s too.
+- `backend/src/app.ts`: replaced the hand-written 404 and error handling with `notFound` and `errorHandler` from the central `standard/http.ts`, so that `HttpError` (404 and 409) can be answered. The response format (`{ error }`) is the same, and a broken JSON body now gets a 400 instead of a 500.
+- `frontend/src/categories.tsx`: added category management to the ledger screen.
+  - The expense and income cards each have an add input, a list, renaming, and hide and show again.
+  - A hidden category gets a `숨김` ("Hidden") badge and is left out of the in-use count.
+  - Results and server errors are shown in a `Notice` at the top of the screen.
+- `frontend/src/ledger.tsx`, `page.tsx`: the ledger screen shows category management instead of the empty state. `Page`'s `emptyDescription` became optional.
 
-## 검증
+## Verification
 
-- 추가한 테스트
-  - `backend/test/categories.test.ts`(DB 없이 9개): 빈 이름, 31자 이름, 모르는 종류, 본문 없음, 바꿀 내용 없음, 잘못된 ID, 모르는 목록 필터가 DB에 닿기 전에 한국어 400으로 거부된다. DB의 중복 오류는 409, 없는 카테고리 변경은 404다.
-  - `backend/test/categories.integration.test.ts`(실제 DB 5개): 기본 카테고리 목록과 순서, 이름 바꾼 뒤 마이그레이션 재실행, 공백 제거와 같은 종류 중복 거부(다른 종류는 허용), 이름 변경 중복 거부, 숨긴 카테고리가 `visible=true` 목록에서 빠졌다가 돌아오는 것.
-  - `frontend/src/categories.test.tsx`(7개): 종류별 목록과 숨김 배지·개수, 추가 시 공백 제거와 목록 갱신, 중복 오류 표시와 입력 유지, 빈 이름일 때 추가 버튼 비활성, 숨기기·다시 보이기 요청, 이름 바꾸기 취소와 저장, 불러오기 실패 경고.
-  - `frontend/src/app.test.tsx`: 가계부 메뉴가 빈 상태 대신 `카테고리` 제목을 보이는지 확인하도록 바꿨다. 카테고리 API에는 빈 목록을 돌려주게 했다.
-- 테스트 DB: 이 PC의 Docker로 `postgres:17-alpine` 일회용 컨테이너(`127.0.0.1:15499`, DB `money_test`)를 띄우고 `001`, `002`를 적용했다. `002`를 두 번 적용해도 오류 없이 기본 카테고리 11개만 남았다.
-- `TEST_DATABASE_URL=<위 테스트 DB> npm run check`: 통과.
-  - 백엔드 21개 통과, 건너뜀 0(DB 통합 테스트 포함).
-  - 프론트엔드 74개 중 72개 통과, 2개 건너뜀(기존 테스트).
-  - 스킬 테스트 4개 통과.
-- `npm run standards:check`: 통과.
-- `npm run knip`: 이 PC에서 실행 불가. `oxc-resolver` 네이티브 바인딩이 없어 시작하지 못한다. `main`에서도 같은 오류가 나므로 이 변경과 관계없다. PR CI의 knip(strict)로 확인한다.
-- 브라우저: API를 위 테스트 DB에 연결하고 Vite 개발 서버를 headless Chrome(CDP로 뷰포트 지정)으로 열었다.
-  - 모바일 390×844: 지출 카드가 한 열로 보이고 `scrollWidth` 390으로 가로 넘침이 없다. `이름 바꾸기`를 누르면 이름 칸에 포커스가 가고 저장·취소 버튼이 한 줄에 들어간다. 숨긴 `여가`에 `숨김` 배지와 `다시 보이기`가 보인다.
-  - PC 1440×900: 지출·수입 카드가 두 열로 보이고 `scrollWidth` 1425(세로 스크롤 막대 15)로 넘침이 없다.
-  - Vite 프록시를 거쳐 이미 있는 `식비`를 추가하면 409와 한국어 오류가 온다.
+- Tests added
+  - `backend/test/categories.test.ts` (9 without a DB): an empty name, a 31-character name, an unknown kind, no body, nothing to change, a bad ID, and an unknown list filter are rejected with a Korean 400 before reaching the DB. A duplicate error from the DB is 409, and changing a missing category is 404.
+  - `backend/test/categories.integration.test.ts` (5 on a real DB): the default category list and order, re-running the migration after a rename, trimming and rejecting a same-kind duplicate (a different kind is allowed), rejecting a duplicate on rename, and a hidden category dropping out of and coming back to the `visible=true` list.
+  - `frontend/src/categories.test.tsx` (7): the list by kind with the hidden badge and count, trimming on add and refreshing the list, showing a duplicate error and keeping the input, the add button disabled for an empty name, the hide and show again requests, canceling and saving a rename, and a warning when loading fails.
+  - `frontend/src/app.test.tsx`: changed it to check that the ledger menu shows the `카테고리` ("Categories") heading instead of the empty state. The category API now returns an empty list.
+- Test DB: we started a disposable `postgres:17-alpine` container (`127.0.0.1:15499`, DB `money_test`) with this PC's Docker and applied `001` and `002`. Applying `002` twice gave no error and left only the 11 default categories.
+- `TEST_DATABASE_URL=<the test DB above> npm run check`: passed.
+  - Backend 21 passed, 0 skipped (including the DB integration tests).
+  - Frontend 72 of 74 passed, 2 skipped (existing tests).
+  - 4 skill tests passed.
+- `npm run standards:check`: passed.
+- `npm run knip`: cannot run on this PC. It does not start because the `oxc-resolver` native binding is missing. The same error happens on `main`, so it is unrelated to this change. We check it with the PR CI's knip (strict).
+- Browser: we connected the API to the test DB above and opened the Vite dev server with headless Chrome (viewport set through CDP).
+  - Mobile 390×844: the expense card shows in one column and `scrollWidth` is 390, so there is no horizontal overflow. Pressing `이름 바꾸기` ("Rename") moves focus to the name field and the save and cancel buttons fit on one line. The hidden `여가` ("Leisure") shows the `숨김` badge and `다시 보이기` ("Show again").
+  - PC 1440×900: the expense and income cards show in two columns, and `scrollWidth` is 1425 (a 15 vertical scrollbar), so there is no overflow.
+  - Adding the existing `식비` ("Food") through the Vite proxy returns 409 and a Korean error.
 
-## 한계
+## Limits
 
-- "숨긴 카테고리는 새 내역 입력 목록에 나오지 않습니다"는 API(`visible=true`)까지 확인했다. 입력 폼은 #38에서 만들고 그 필터를 쓴다.
-- 카테고리 순서 바꾸기는 범위 밖이라 넣지 않았다.
+- "A hidden category does not appear in the new entry input list" was confirmed up to the API (`visible=true`). The input form is built in #38 and uses that filter.
+- Reordering categories is out of scope, so we did not add it.
 
-## 리뷰 기록
+## Review record
 
-### 1차 — 보완점 5건 반영, 2건 분리, CodeQL 경고 1건
+### Round 1: 5 points addressed, 2 split off, 1 CodeQL warning
 
-반영(2026-11-03, 추가 커밋):
+Addressed (2026-11-03, follow-up commit):
 
-- 이름 바꾸기 칸이 처음 렌더링 때의 이름이나 앞뒤 공백이 남은 값으로 열렸다. 열 때마다 저장된 이름에서 시작한다.
-- 저장은 됐는데 목록 새로고침이 실패하면 저장 실패로 보였고, 다시 누르면 409가 났다. 저장 성공과 새로고침 실패를 함께 알리고 입력은 비운다.
-- 저장 중에 다시 누르거나 Enter를 두 번 치면 두 번째 요청의 409가 성공 메시지를 덮었다. 저장 중에는 버튼을 끄고 요청도 한 번만 보낸다.
-- 이름 바꾸기를 저장·취소하면 포커스가 사라졌다. `이름 바꾸기` 버튼으로 돌려준다.
-- macOS에서 붙여 넣은 분해형(NFD) 한글 이름은 같은 이름의 중복 검사를 피했다. 서버가 이름을 NFC로 바꿔 저장한다.
+- The rename field opened with the name from the first render or with a value that still had leading or trailing spaces. It now starts from the stored name each time it opens.
+- If the save succeeded but refreshing the list failed, it looked like the save failed, and pressing again gave a 409. We now report the save success and the refresh failure together and clear the input.
+- If you pressed again while saving or hit Enter twice, the 409 of the second request covered the success message. While saving we turn the button off and send only one request.
+- Saving or canceling a rename lost focus. We return it to the `이름 바꾸기` button.
+- A decomposed (NFD) Korean name pasted on macOS avoided the duplicate check for the same name. The server now converts names to NFC before storing.
 
-추가한 테스트:
+Tests added:
 
-- `backend/test/categories.test.ts`: NFD 이름이 NFC로 저장된다(1개).
-- `backend/test/categories.integration.test.ts`: 숨긴 카테고리 이름으로 바꾸면 409, 없는 카테고리 변경은 404(1개).
-- `frontend/src/categories.test.tsx`: 이름 바꾸기를 다시 열 때 저장된 이름, 포커스 복귀, 새로고침 실패 안내, 중복 제출 차단(3개).
+- `backend/test/categories.test.ts`: an NFD name is stored as NFC (1).
+- `backend/test/categories.integration.test.ts`: renaming to a hidden category's name gives 409, and changing a missing category is 404 (1).
+- `frontend/src/categories.test.tsx`: the stored name when reopening a rename, focus return, the refresh failure notice, and blocking duplicate submits (3).
 
-보완 후 검증:
+Verification after the fixes:
 
-- `TEST_DATABASE_URL=<테스트 DB> npm run check`: 통과. 백엔드 23개 통과·건너뜀 0, 프론트엔드 77개 중 75개 통과·2개 건너뜀(기존), 스킬 4개 통과.
-- 브라우저(CDP): 모바일 390×844에서 이름 바꾸기 → 취소 후 포커스가 `식비 이름 바꾸기` 버튼에 있다. 모바일 `scrollWidth` 390, PC 1425로 넘침이 없다.
+- `TEST_DATABASE_URL=<test DB> npm run check`: passed. Backend 23 passed and 0 skipped, frontend 75 of 77 passed and 2 skipped (existing), 4 skill tests passed.
+- Browser (CDP): at mobile 390×844, after rename then cancel, focus is on the `식비 이름 바꾸기` button. Mobile `scrollWidth` is 390 and PC is 1425, so there is no overflow.
 
-분리:
+Split off:
 
-- 배포 스크립트가 부르는 `dist/migrate.js`가 없어 기존 운영 DB에 `002`를 자동 적용할 수 없다. 이 PR 전부터 있던 문제이고 배포 구조에 걸쳐 있어 [#71](https://github.com/sirloinbh/money-ledger/issues/71)로 분리했다.
-- CodeQL이 `js/missing-rate-limiting`(high)으로 실패했다. 다른 앱처럼 `express-rate-limit`이 필요한데 패키지 설치는 사용자 단계라 [#70](https://github.com/sirloinbh/money-ledger/issues/70)으로 분리했다. #70을 먼저 병합한 뒤 이 PR에 `main`을 병합해 경고가 사라지는지 확인한다.
+- The `dist/migrate.js` that the deploy script calls does not exist, so `002` cannot be applied automatically to an existing production DB. This problem existed before this PR and touches the deploy structure, so we split it off as [#71](https://github.com/sirloinbh/money-ledger/issues/71).
+- CodeQL failed with `js/missing-rate-limiting` (high). Like the other apps it needs `express-rate-limit`, but installing a package is a user step, so we split it off as [#70](https://github.com/sirloinbh/money-ledger/issues/70). After merging #70 first, we merge `main` into this PR and check that the warning goes away.
 
-### 2차 — 1차 지적 5건 반영 확인, 보완점 1건
+### Round 2: 5 first-round points confirmed, 1 point
 
-- 저장 중 버튼을 끄면 방금 누른 버튼에서 키보드 포커스가 페이지로 빠졌다. 중복 요청은 `ref`가 이미 막으므로 버튼을 끄지 않는다. 중복 제출 테스트는 버튼이 켜진 채로 POST가 한 번만 가는지 확인하도록 바꿨다.
-- 검증: `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과(백엔드 23개 통과·건너뜀 0, 프론트엔드 75개 통과·2개 건너뜀(기존), 스킬 4개). 실제 Chrome(CDP)에서 `교통 숨기기`에 포커스를 두고 누르면 포커스가 같은 버튼(`교통 다시 보이기`)에 남는다.
-- 표준에 따라 3차 리뷰는 하지 않는다.
+- Turning the button off while saving dropped keyboard focus from the button just pressed to the page. A duplicate request is already blocked by the `ref`, so we do not turn the button off. The duplicate submit test now checks that only one POST goes out while the button stays on.
+- Verification: `TEST_DATABASE_URL=<test DB> npm run check` passed (backend 23 passed and 0 skipped, frontend 75 passed and 2 skipped (existing), 4 skill tests). In a real Chrome (CDP), pressing `교통 숨기기` ("Hide Transport") with focus on it leaves focus on the same button (`교통 다시 보이기`, "Show Transport again").
+- By the standard, we do not run a third review.
 
-### `main` 병합 — 2026-11-03
+### Merge of `main`: 2026-11-03
 
-- [#70](https://github.com/sirloinbh/money-ledger/issues/70)(요청 횟수 제한)이 병합되어 `origin/main`을 이 브랜치에 병합했다. `backend/test/helpers.ts`의 `withApi` 옵션 타입이 충돌해, 이 브랜치의 `call(path, init)`과 `main`의 `Parameters<typeof createApp>[1]`을 합쳤다. `app.ts`는 자동 병합되어 요청 제한이 카테고리 라우트 앞에 붙는다.
-- `TEST_DATABASE_URL=<테스트 DB> npm run check`: 통과. 백엔드 25개 통과·건너뜀 0, 프론트엔드 75개 통과·2개 건너뜀(기존), 스킬 4개.
+- [#70](https://github.com/sirloinbh/money-ledger/issues/70) (request rate limit) was merged, so we merged `origin/main` into this branch. The `withApi` option type in `backend/test/helpers.ts` conflicted, so we combined this branch's `call(path, init)` with `main`'s `Parameters<typeof createApp>[1]`. `app.ts` merged automatically, so the rate limit sits in front of the category routes.
+- `TEST_DATABASE_URL=<test DB> npm run check`: passed. Backend 25 passed and 0 skipped, frontend 75 passed and 2 skipped (existing), 4 skill tests.

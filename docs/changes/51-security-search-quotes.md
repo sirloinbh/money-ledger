@@ -1,145 +1,145 @@
-# #51 모의투자 종목 검색과 시세 화면
+# #51 Mock investing ticker search and quote screen
 
-- 이슈: https://github.com/sirloinbh/money-ledger/issues/51
-- 브랜치: `feat/51-symbol-search-quotes`
+- Issue: https://github.com/sirloinbh/money-ledger/issues/51
+- Branch: `feat/51-symbol-search-quotes`
 
-## 목적
+## Purpose
 
-주문하기 전에 종목을 이름·코드·티커로 찾고 현재가와 기준 시점을 확인한다. [docs/price-source.md](../price-source.md)(#36)의 결정대로 시세·환율을 받아 저장하는 **공용 시세 모듈**을 이 이슈에서 만든다. 자산 현재가(#47)와 모의투자 주문·보유(#52~#54)가 같은 모듈을 쓴다.
+Before ordering, find a ticker by name, code, or ticker symbol and check the current price and its base time. In this issue we build the **shared price module** that fetches and stores prices and exchange rates as decided in [docs/price-source.md](../price-source.md) (#36). The asset current price (#47) and the mock investing orders and holdings (#52 to #54) use the same module.
 
-## 결정 (2026-11-08 사용자 확인, 이슈 댓글 기록)
+## Decision (confirmed by the user on 2026-11-08, recorded in an issue comment)
 
-- 미국 종목 검색: 국내·미국 종목을 같은 테이블에 두고, 검색은 DB에서만 한다.
-  - 미국 목록은 Tiingo `supported_tickers.zip`을 매주 받아 채운다.
-  - 이 파일에는 회사 이름이 없어서 미국 종목은 티커로만 검색된다(A안).
-  - 이름은 상세를 처음 열 때 메타 API로 받아 저장한다. 그 뒤부터는 이름으로도 검색된다.
-- 이름이 있는 목록(Nasdaq Trader, SEC)은 조사해 `docs/price-source.md`에 후보로만 적었다.
+- US ticker search: Korean and US tickers go in the same table, and search is done only in the DB.
+  - The US list is filled by downloading Tiingo `supported_tickers.zip` every week.
+  - This file has no company names, so US tickers are found only by ticker symbol (option A).
+  - The name is fetched with the meta API and stored the first time the detail is opened. From then on it can also be found by name.
+- We researched lists that have names (Nasdaq Trader, SEC) and wrote them only as candidates in `docs/price-source.md`.
 
-## 변경 내용
+## Changes
 
-- `database/migrations/009_prices.sql`: 테이블 다섯 개를 만든다. 다시 실행해도 안전하다.
-  - `securities`: 국내·미국 종목. `(currency, symbol)` 고유. 미국 종목은 이름이 비어 있을 수 있고, 목록에서 빠지면 지우지 않고 `active = false`로 둔다.
-  - `security_prices`: 종목·거래일별 종가, `numeric(20,4)` + `currency`.
-    - 원화 종가는 정수여야 한다.
-    - 종목 통화와 같은지는 `(security_id, currency)` 복합 외래키로 막는다.
-  - `fx_rates`: USD 매매기준율, `numeric(12,4)`.
-  - `price_fetch_state`: 출처·범위별 마지막 확인 날짜, 마지막 시도·성공 시각, 마지막 오류(한국어, 키·URL 없음).
-  - `price_api_calls`: Tiingo 호출 기록. 시간당 한도를 서버 재시작 뒤에도 지킨다.
-- `backend/src/prices/`: 공용 시세 모듈. 파일 목록은 [docs/price-source.md "구현 (#51)"](../price-source.md#구현-51)에 있다.
-  - 출처: KRX(키는 헤더), Tiingo(키는 헤더, 종목 목록 ZIP은 내장 `zlib`로 푼다), 수출입은행(키는 URL). 가짜 출처는 `fake.ts`.
-  - 매일 받기는 12:00(Asia/Seoul)에 돈다.
-    - 받는 날짜: 출처마다 마지막 확인 날짜의 다음 날부터, 최근 10일 안에서. 빈 응답은 "새 값 없음"으로 확인 처리한다.
-    - 실패하면 18:00까지 한 시간마다 다시 시도한다. 서버가 12:00 뒤에 켜지면 한 번 받는다.
-    - 키가 없는 출처는 건너뛰고 "시세 출처가 설정되지 않았습니다"를 기록한다.
-  - 미국 종가의 최근 날짜는 뉴욕 시각 18:00 뒤면 그날, 아니면 전날이다. 문서는 "한국 12:00 기준 뉴욕 날짜"라고만 정했다. 서버가 저녁 늦게 켜졌을 때 미국 장중 날짜를 요청하지 않도록 이 기준을 더했다.
-  - Tiingo는 최근 1시간 호출 수로 제한한다. 매일 받기는 40회, 화면의 즉시 받기는 50회까지 쓴다.
-  - `GET /api/prices/securities?q=`: 검색어는 1~40자, 최대 20개, 최신 종가 포함.
-    - 국내는 이름·코드로, 미국은 티커로 찾는다. 이름을 저장한 미국 종목은 이름으로도 찾는다.
-    - 사용자가 입력한 `%`·`_`는 글자 그대로 찾는다.
-  - `GET /api/prices/securities/:id`: 종목, 최신 종가, 지연 여부(5일 넘음), 미국 종목은 최신 환율을 돌려준다.
-    - 추적 종목이 아니거나 종가가 아직 없는 미국 종목은 그 자리에서 받는다.
-    - 종가가 없으면 이유(`quoteIssue`)를 알려 준다: 출처 미설정, 한도 초과, 받기 실패, 출처에 없는 종목.
-    - 상세를 열면 그 미국 종목은 30일 동안 매일 받기 대상이 된다.
-- `backend/src/app.ts`, `server.ts`: `/api/prices` 등록. 서버는 환경 변수로 출처를 정하고 매일 받기를 시작한다.
-  - `PRICE_SOURCE=fake`: 가짜 출처를 쓴다.
-  - `PRICE_JOBS=off`: 매일 받기를 돌리지 않는다.
-- `compose.yaml`, `.env.example`: API 컨테이너에 시세 키 세 개를 넘긴다. `PRICE_SOURCE`, `PRICE_JOBS` 설명을 더했다.
-- `frontend/src/security-search.tsx`, `quote-format.ts`, `mock-trading.tsx`: 모의투자 화면에 "종목 찾기"를 더했다.
-  - 검색 중, 결과 없음, 검색어 없음, API 오류를 서로 다른 문구로 보여 준다.
-  - 결과에는 종가와 "M월 D일 종가 기준"이 보인다. 아직 종가가 없는 미국 종목은 "열면 시세를 받습니다"라고 보인다.
-  - 상세를 열면 포커스가 상세 제목으로 간다.
-  - 상세에는 종가, 기준일(지연이면 "시세 지연 · …"), 미국 종목의 환율(지연이면 "환율 지연 · …")이 보인다. 값이 없으면 "시세 없음"·"환율 없음"과 이유를 보여 준다.
-- `backend/test/helpers.ts`: 테스트 서버가 fetch가 막는 포트(5060, 6000 등)를 받으면 다른 포트를 다시 받는다.
-  - 이 PC는 Windows 동적 포트가 1024부터라서, 기존 테스트도 5번 중 3번꼴로 `fetch failed: bad port`로 실패했다.
-- `docs/price-source.md`: 미국 종목 목록 비교표(Tiingo 채택, Nasdaq Trader·SEC 후보), 미국 종목 검색 결정, 구현 절을 더했다.
+- `database/migrations/009_prices.sql`: creates five tables. It is safe to run again.
+  - `securities`: Korean and US tickers. `(currency, symbol)` is unique. A US ticker may have an empty name, and when it drops out of the list it is not deleted but set to `active = false`.
+  - `security_prices`: the close per ticker and trading day, `numeric(20,4)` + `currency`.
+    - A KRW close must be an integer.
+    - That it matches the ticker currency is enforced by the composite foreign key `(security_id, currency)`.
+  - `fx_rates`: the USD basic rate, `numeric(12,4)`.
+  - `price_fetch_state`: per source and scope, the last confirmed date, the last attempt and success times, and the last error (in Korean, with no key or URL).
+  - `price_api_calls`: the record of Tiingo calls. It keeps the hourly limit even after a server restart.
+- `backend/src/prices/`: the shared price module. The file list is in ["Implementation (#51)" of docs/price-source.md](../price-source.md#implementation-51).
+  - Sources: KRX (key in a header), Tiingo (key in a header, and the ticker list ZIP is unpacked with the built-in `zlib`), Eximbank (key in the URL). The fake source is `fake.ts`.
+  - The daily fetch runs at 12:00 (Asia/Seoul).
+    - Dates to fetch: for each source, from the day after the last confirmed date, within the last 10 days. An empty response is confirmed as "no new value".
+    - If it fails, it retries every hour until 18:00. If the server starts after 12:00, it fetches once.
+    - A source with no key is skipped and "Price source is not configured" is recorded.
+  - The most recent date of the US close is that day if it is after 18:00 New York time, otherwise the day before. The doc only decided "the New York date at 12:00 Korean time". We added this standard so that, if the server starts late in the evening, it does not request the date of the US market while it is still open.
+  - Tiingo is limited by the number of calls in the last hour. The daily fetch uses up to 40, and the on-the-spot fetch from the screen up to 50.
+  - `GET /api/prices/securities?q=`: the search term is 1 to 40 characters, at most 20 results, with the latest close.
+    - Korean tickers are found by name and code, and US tickers by ticker symbol. A US ticker whose name is stored can be found by name too.
+    - `%` and `_` typed by the user are searched as the characters themselves.
+  - `GET /api/prices/securities/:id`: returns the ticker, the latest close, whether it is delayed (over 5 days), and for a US ticker the latest exchange rate.
+    - A US ticker that is not tracked or has no close yet is fetched on the spot.
+    - If there is no close, it tells the reason (`quoteIssue`): source not configured, limit exceeded, fetch failed, or a ticker not in the source.
+    - Opening the detail makes that US ticker a target of the daily fetch for 30 days.
+- `backend/src/app.ts`, `server.ts`: registered `/api/prices`. The server decides the sources by environment variables and starts the daily fetch.
+  - `PRICE_SOURCE=fake`: use the fake source.
+  - `PRICE_JOBS=off`: do not run the daily fetch.
+- `compose.yaml`, `.env.example`: pass the three price keys to the API container. We added descriptions of `PRICE_SOURCE` and `PRICE_JOBS`.
+- `frontend/src/security-search.tsx`, `quote-format.ts`, `mock-trading.tsx`: added "종목 찾기" ("Find a ticker") to the mock investing screen.
+  - It shows searching, no results, no search term, and API error with different texts.
+  - A result shows the close and "M월 D일 종가 기준" ("close as of M/D"). A US ticker with no close yet shows "열면 시세를 받습니다" ("Open it to get the price").
+  - Opening the detail moves focus to the detail heading.
+  - The detail shows the close, the base date ("시세 지연 · …" if delayed), and the exchange rate of a US ticker ("환율 지연 · …" if delayed). If a value is missing, it shows "시세 없음" ("No price") or "환율 없음" ("No exchange rate") and the reason.
+- `backend/test/helpers.ts`: if the test server gets a port that fetch blocks (5060, 6000, and so on), it gets another port.
+  - On this PC the Windows dynamic ports start at 1024, so even the existing tests failed with `fetch failed: bad port` about 3 times out of 5.
+- `docs/price-source.md`: added the US ticker list comparison table (Tiingo adopted, Nasdaq Trader and SEC as candidates), the US ticker search decision, and the implementation section.
 
-## 검증
+## Verification
 
-- 테스트 DB: 전용 컨테이너 `money-ledger-test-agent3`(`postgres:17-alpine`, `127.0.0.1:15493`). 마이그레이션 001~009를 적용했고 009는 두 번 실행해 재실행이 안전한지 확인했다.
-- `backend/test/prices.test.ts`(단위 14개):
-  - 받을 날짜 계산, 미국 최근 날짜(서머타임 앞뒤, 뉴욕 장중)
-  - KRX·Tiingo·수출입은행 응답 해석, 종목 목록 CSV 거르기, ZIP 읽기
-  - 키 없는 출처 빼기, 오류 메시지에 키·URL이 없는지
-  - 검색어·ID 검증(DB 전에 한국어 400)
-- `backend/test/prices.integration.test.ts`(DB 통합 15개, 1차 리뷰 반영 후):
-  - 첫 실행은 10일을 받고 다음 실행은 새 날만 받는다. 주말 빈 응답도 확인한 날짜로 친다.
-  - 실패한 날은 다음 시도에서 이어 받고 오류를 기록한다. 키 없는 출처는 건너뛴다.
-  - 12:00 시작, 같은 시간 중복 없음, 18:00까지 재시도, 늦게 켜지면 한 번 받기
-  - 검색(이름·코드·티커, 와일드카드 문자, 정확한 티커 먼저)
-  - 미국 상세 즉시 받기와 이름 저장, 30일 추적
-  - 국내 지연 표시(5일/6일), 시세 없음 이유, Tiingo 시간당 한도(화면 50, 매일 받기 40)
-  - 목록에서 빠진 종목 비활성, DB CHECK·외래키
-- `frontend/src/security-search.test.tsx`(10개, 1차 리뷰 뒤 결과 행 갱신 확인 추가): 검색 결과·결과 없음·검색어 없음·API 오류, 국내 상세 지연·포커스, 미국 상세 달러·환율 지연, 시세 없음 이유 4가지, 상세 불러오기 실패, 날짜 표시
-- `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과(종료 코드 0)
-  - 백엔드 135개 통과, 건너뜀 0
-  - 프론트엔드 159개 중 157개 통과, 2개 건너뜀(기존)
-  - 스킬 4개, 빌드 성공
-- `npm run knip` 통과(이번에는 로컬에서 실행됐다).
-- 백엔드 테스트를 DB와 함께 세 번 더 돌려 모두 135개 통과를 확인했다(포트 수정 뒤).
-- 브라우저: API(3193, 테스트 DB, `PRICE_SOURCE=fake`)와 Vite(5293)를 띄웠다. headless Chrome(CDP로 뷰포트 지정)으로 `/mock-trading`을 390×844와 1440×900에서 확인했다.
-  - 서버를 켜자 매일 받기가 한 번 돌았다(20:42, `complete: true`).
-  - 두 크기 모두 가로 넘침이 없다(scrollWidth = clientWidth).
-  - 빈 검색어는 "검색어를 입력하세요", `zzz`는 "검색 결과가 없습니다"를 보여 준다.
-  - `삼성`: 삼성전자 70,600원 "11월 6일 종가 기준". 상세를 열면 포커스가 제목으로 간다.
-  - `aapl`: 처음에는 "열면 시세를 받습니다"가 보인다. 상세를 열면 그 자리에서 받아 Apple Inc 231.5달러, 환율 1,383원 "11월 6일 기준"이 보인다. 그 뒤 `apple`로도 검색된다.
-  - API 오류 표시는 화면 테스트로만 확인했다.
-- **실제 API 키로는 확인하지 않았다.** 키(#85)가 아직 없어 자동 테스트와 브라우저 확인은 모두 가짜 출처로 했다.
-  - KRX·수출입은행의 주소와 응답 필드는 2차 자료대로 썼다.
-  - Tiingo 가격·메타 API는 공식 문서와 맞췄다. 종목 목록 파일은 직접 받아 형식을 확인했다.
+- Test DB: the dedicated container `money-ledger-test-agent3` (`postgres:17-alpine`, `127.0.0.1:15493`). We applied migrations 001 to 009 and ran 009 twice to confirm it is safe to run again.
+- `backend/test/prices.test.ts` (14 unit tests):
+  - Computing the dates to fetch, the most recent US date (before and after daylight saving, and while the New York market is open)
+  - Parsing the KRX, Tiingo, and Eximbank responses, filtering the ticker list CSV, and reading the ZIP
+  - Leaving out sources with no key, and that the error message has no key or URL
+  - Validating the search term and ID (Korean 400 before the DB)
+- `backend/test/prices.integration.test.ts` (15 DB integration tests, after the first-round fixes):
+  - The first run fetches 10 days and the next run fetches only the new days. An empty weekend response also counts as a confirmed date.
+  - A failed day is continued at the next attempt and the error is recorded. A source with no key is skipped.
+  - Starting at 12:00, no duplicates in the same hour, retrying until 18:00, and fetching once when started late
+  - Search (by name, code, and ticker, wildcard characters, and the exact ticker first)
+  - The US detail on-the-spot fetch and name storage, and 30-day tracking
+  - Korean delayed display (5 days and 6 days), reasons for no price, and the Tiingo hourly limit (50 for the screen and 40 for the daily fetch)
+  - Deactivating a ticker that dropped out of the list, and the DB CHECKs and foreign keys
+- `frontend/src/security-search.test.tsx` (10, a check that the result row updates added after the first review): search results, no results, no search term, and API error, the Korean detail's delay and focus, the US detail's dollars and exchange rate delay, 4 reasons for no price, a detail load failure, and date display
+- `TEST_DATABASE_URL=<test DB> npm run check` passed (exit code 0)
+  - Backend 135 passed, 0 skipped
+  - Frontend 157 of 159 passed, 2 skipped (existing)
+  - 4 skill tests, build succeeded
+- `npm run knip` passed (this time it ran locally).
+- We ran the backend tests with the DB three more times and confirmed all 135 passed (after the port fix).
+- Browser: we started the API (3193, test DB, `PRICE_SOURCE=fake`) and Vite (5293). We checked `/mock-trading` at 390×844 and 1440×900 with headless Chrome (viewport set through CDP).
+  - When the server started, the daily fetch ran once (20:42, `complete: true`).
+  - There is no horizontal overflow at either size (scrollWidth = clientWidth).
+  - An empty search term shows "검색어를 입력하세요" ("Enter a search term"), and `zzz` shows "검색 결과가 없습니다" ("No search results").
+  - `삼성` ("Samsung"): Samsung Electronics 70,600 won "11월 6일 종가 기준". When the detail is opened, focus goes to the heading.
+  - `aapl`: at first "열면 시세를 받습니다" shows. When the detail is opened, it is fetched on the spot, and Apple Inc 231.5 dollars and the exchange rate 1,383 won "11월 6일 기준" show. After that it can also be found with `apple`.
+  - The API error display was checked only by screen tests.
+- **We did not verify with real API keys.** The keys (#85) do not exist yet, so the automated tests and the browser check all used the fake source.
+  - The KRX and Eximbank addresses and response fields were used as the secondary sources describe them.
+  - The Tiingo price and meta APIs match the official docs. We downloaded the ticker list file and checked its format directly.
 
-## 제한·후속
+## Limits and follow-up
 
-- 키를 받으면(#85) 세 출처를 실제 응답으로 확인하고, 다른 곳이 있으면 고친다.
-- 자산(#47)과 모의투자 보유(#53)의 미국 종목은 `trackedUsSecurities`에 더해야 매일 받는다.
-- 원화 환산 평가액과 주문은 #52·#53에서 한다. 이 화면은 종가와 환율만 보여 준다.
-- 미국 종목을 이름으로 찾으려면 이름이 있는 목록(Nasdaq Trader 후보)을 더해야 한다. 사용자 결정이 필요하다.
+- When we get the keys (#85), we check the three sources with real responses and fix anything that differs.
+- US tickers of assets (#47) and mock investing holdings (#53) must be added to `trackedUsSecurities` to be fetched daily.
+- The KRW-converted valuation and orders are done in #52 and #53. This screen shows only the close and the exchange rate.
+- To find US tickers by name, a list with names (the Nasdaq Trader candidate) must be added. It needs the user's decision.
 
-## 리뷰 기록
+## Review record
 
-### 1차 — 병합을 막는 결함 없음, 7건 반영, 3건 분리
+### Round 1: no defect blocking the merge, 7 addressed, 3 split off
 
-반영:
+Addressed:
 
-- 가장 최근 날짜는 값을 받았을 때만 확인한 날짜로 친다. 이전에는 미국 종가나 그날 환율이 아직 안 나온 채 받기가 돌면, 그 날짜가 "확인함"으로 기록돼 다시 받지 않았다.
-  - KRX·환율·미국 종가 모두 같다. 최근 날짜가 비어 있으면 다음 받기에서 다시 요청한다.
-  - `docs/price-source.md`의 "확인한 날짜" 정의도 고쳤다.
-- Tiingo 호출 기록 시각을 실행 시작 시각이 아니라 실제 호출 시각(시작 시각 + 경과 시간)으로 바꿨다. 오래 걸린 실행의 호출이 1시간 창에서 일찍 빠지지 않는다.
-- 이름 받기 정리
-  - 종가 받기가 `not_found`면 이름을 받지 않는다(확실한 404에 호출을 쓰지 않음).
-  - 종가가 있는 미국 종목은 이름이 비어 있는 동안 상세를 열 때마다 이름 받기를 시도한다.
-- 매일 받기에 DB advisory lock을 걸어 서버가 여러 개여도 한 번만 돈다.
-- 새 미국 목록이 지금 활성 종목 수의 절반보다 적으면 깨진 파일로 보고 저장하지 않는다(실패로 기록, 다음 시간에 다시 시도).
-- 상세를 연 뒤 검색 결과 행에도 받은 이름과 종가가 바로 보인다.
-- 문서: Nasdaq Trader 행의 `|` 때문에 표가 깨지던 것, 구현 표에 빠진 KRX 키 위치(`AUTH_KEY` 헤더)를 고쳤다.
+- The most recent date counts as a confirmed date only when a value was received. Before, if the fetch ran while the US close or that day's exchange rate had not come out yet, that date was recorded as "confirmed" and was not fetched again.
+  - It is the same for KRX, the exchange rate, and the US close. If the most recent date is empty, it is requested again at the next fetch.
+  - We also fixed the definition of "confirmed date" in `docs/price-source.md`.
+- We changed the Tiingo call record time from the run start time to the actual call time (start time + elapsed time). The calls of a long run do not drop out of the 1-hour window early.
+- Name fetching cleanup
+  - If the close fetch is `not_found`, we do not fetch the name (we do not spend a call on a sure 404).
+  - A US ticker that has a close but an empty name tries to fetch the name every time the detail is opened.
+- We put a DB advisory lock on the daily fetch so that it runs only once even with several servers.
+- If the new US list is smaller than half the current number of active tickers, we treat it as a broken file and do not store it (recorded as a failure and retried the next hour).
+- After the detail is opened, the fetched name and close show immediately in the search result row too.
+- Docs: we fixed the table breaking because of the `|` in the Nasdaq Trader row and the missing KRX key location (the `AUTH_KEY` header) in the implementation table.
 
-테스트 추가·수정:
+Tests added and changed:
 
-- DB 통합: 최근 날짜 미발표 뒤 다시 받기(미국 종가·환율), 짧은 목록 거부, advisory lock, 없는 티커에 이름 호출 안 함. 기존 기대값은 "최근 빈 날짜는 다시 요청"에 맞췄다.
-- 화면: 상세를 연 뒤 결과 행이 이름과 종가로 바뀜.
+- DB integration: fetching again after the most recent date was not yet published (US close and exchange rate), rejecting a short list, the advisory lock, and no name call for a nonexistent ticker. The existing expectations were matched to "an empty most recent date is requested again".
+- Screen: after the detail is opened, the result row changes to the name and close.
 
-분리한 이슈:
+Issues split off:
 
-- [#96](https://github.com/sirloinbh/money-ledger/issues/96): Tiingo에 없는 추적 종목의 매일 404 호출 줄이기
-- [#97](https://github.com/sirloinbh/money-ledger/issues/97): 상장폐지·거래정지 국내 종목 검색·주문 처리(#52 전에 정하면 좋음)
-- [#98](https://github.com/sirloinbh/money-ledger/issues/98): 상세 조회와 즉시 받기·추적 등록 분리(인증 설계와 함께)
+- [#96](https://github.com/sirloinbh/money-ledger/issues/96): reduce the daily 404 calls for tracked tickers that are not in Tiingo
+- [#97](https://github.com/sirloinbh/money-ledger/issues/97): handling search and orders for delisted and halted Korean tickers (good to decide before #52)
+- [#98](https://github.com/sirloinbh/money-ledger/issues/98): separate detail lookup from on-the-spot fetching and tracking registration (together with the authentication design)
 
-반영하지 않음:
+Not addressed:
 
-- 출처 미설정일 때 결과 목록의 "열면 시세를 받습니다" 문구. 상세를 열면 "시세 출처가 설정되지 않았습니다"가 보인다.
-- 검색 응답 순서 뒤바뀜 테스트. 코드(`latest` ref)는 있다.
-- 1차 반영 뒤 검증
-  - `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과: 백엔드 138개 통과(건너뜀 0), 프론트엔드 157개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공
-  - `npm run knip` 통과
+- The text "열면 시세를 받습니다" in the result list when the source is not configured. When the detail is opened, "Price source is not configured" shows.
+- A test for the search response order being swapped. The code (the `latest` ref) exists.
+- Verification after the first-round fixes
+  - `TEST_DATABASE_URL=<test DB> npm run check` passed: backend 138 passed (0 skipped), frontend 157 passed and 2 skipped (existing), 4 skill tests, build succeeded
+  - `npm run knip` passed
 
-### 2차 — 1차 반영 7건 확인, 막는 결함 없음, 2건 반영, 1건 분리 이슈에 추가
+### Round 2: 7 first-round fixes confirmed, no blocking defect, 2 addressed, 1 added to a split-off issue
 
-- 1차 수정의 회귀를 고쳤다. 미국 종가의 최근 날짜(뉴욕 기준)가 토·일이면 값이 없어도 확인한 것으로 친다.
-  - 고치기 전에는 한국 일·월요일에 다른 출처가 실패해 매시간 재시도하면, 추적 종목 전부를 매번 다시 불렀다.
-  - 추적 종목이 40개를 넘으면 symbol 순서상 앞쪽만 계속 다시 부르고 뒤쪽은 그날 받지 못할 수 있었다.
-  - 테스트: 같은 날 재시도에서 Tiingo를 다시 부르지 않는지 확인한다.
-- 매일 받기 잠금을 풀지 못한 연결은 풀에 돌려보내지 않고 버린다. 세션이 끝나면서 잠금도 풀린다.
-- 분리 이슈에 추가: 종가가 하나도 없는 추적 미국 종목(평일 빈 응답)은 상세를 열 때마다 즉시 받기를 한다. 같은 성격이라 [#96](https://github.com/sirloinbh/money-ledger/issues/96)에 댓글로 묶었다.
-- 표준에 따라 3차 리뷰는 하지 않는다.
-- 2차 반영 뒤 검증
-  - `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과: 백엔드 138개 통과(건너뜀 0), 프론트엔드 157개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공
-  - `npm run knip` 통과
+- We fixed a regression of the first-round fix. If the most recent date of the US close (New York) is Saturday or Sunday, it counts as confirmed even without a value.
+  - Before the fix, on Korean Sunday and Monday, when another source failed and retried every hour, it called all the tracked tickers again each time.
+  - If there were more than 40 tracked tickers, only the front ones in symbol order were called again and again, and the back ones might not be fetched that day.
+  - Test: check that Tiingo is not called again on a retry the same day.
+- A connection that could not release the daily fetch lock is discarded without returning it to the pool. The lock is released when the session ends.
+- Added to a split-off issue: a tracked US ticker that has no close at all (an empty weekday response) does an on-the-spot fetch every time the detail is opened. It is the same kind, so we tied it to [#96](https://github.com/sirloinbh/money-ledger/issues/96) with a comment.
+- By the standard, we do not run a third review.
+- Verification after the second-round fixes
+  - `TEST_DATABASE_URL=<test DB> npm run check` passed: backend 138 passed (0 skipped), frontend 157 passed and 2 skipped (existing), 4 skill tests, build succeeded
+  - `npm run knip` passed

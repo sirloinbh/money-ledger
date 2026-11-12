@@ -1,8 +1,8 @@
-# 일일 작업 기록
+# Daily work records
 
-Asia/Seoul 기준 작업일마다 `YYYY-MM-DD.md`를 새로 만들고 같은 날 추가 작업은 그 파일에 반영한다. 과거 상태를 오늘 상태로 덮어쓰지 않는다.
+For each working day in Asia/Seoul, create a new `YYYY-MM-DD.md`, and reflect additional work on the same day in that file. Do not overwrite a past state with today's state.
 
-## 날짜별 총정리
+## Summary by date
 
 - [2026-11-02](2026-11-02.md)
 - [2026-10-19](2026-10-19.md)

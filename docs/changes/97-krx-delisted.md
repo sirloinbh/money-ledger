@@ -1,73 +1,73 @@
-# #97 상장폐지·거래정지 국내 종목 비활성 처리
+# #97 Deactivate delisted and halted Korean tickers
 
-- 이슈: https://github.com/sirloinbh/money-ledger/issues/97
-- 브랜치: `feat/97-krx-delisted`
+- Issue: https://github.com/sirloinbh/money-ledger/issues/97
+- Branch: `feat/97-krx-delisted`
 
-## 목적
+## Purpose
 
-KRX 응답에서 사라진 국내 종목이 마지막 종가와 함께 계속 검색되고, 모의 주문(#52)에서 살 수 있는 문제를 막는다. #51 1차 리뷰에서 분리한 이슈다.
+Prevent the problem that a Korean ticker that disappeared from the KRX response keeps being searched with its last close and can be bought in a mock order (#52). This is an issue split off in the #51 first review.
 
-## 결정 (2026-11-08 사용자 확인, 이슈 댓글 기록)
+## Decision (confirmed by the user on 2026-11-08, recorded in an issue comment)
 
-- 비어 있지 않은 KRX 응답에서 그 시장 종목이 10영업일 연속 빠지면 비활성으로 바꾼다.
-- 비활성 종목은 검색에서 빼고 매수를 거부한다. 매도는 허용한다.
-- 보유 화면에는 "거래 중단"과 마지막 종가를 보여 준다.
-- 응답에 다시 나타나면 활성으로 되돌린다.
+- If a ticker of that market is missing from a non-empty KRX response for 10 business days in a row, it becomes inactive.
+- An inactive ticker is removed from search and buying is rejected. Selling is allowed.
+- The holdings screen shows "거래 중단" ("Trading halted") and the last close.
+- If it appears in a response again, it becomes active again.
 
-이 PR은 시세 모듈 부분만 맡는다. 매수 거부는 #52, 보유 화면의 표시는 #53에서 `active`를 읽어 처리한다.
+This PR covers only the price module part. Rejecting buys is handled in #52, and the display on the holdings screen in #53, by reading `active`.
 
-## 변경 내용
+## Changes
 
-- `database/migrations/012_krx_listing.sql`: 다시 실행해도 안전하다.
-  - `securities.krx_last_seen`(국내 종목이 마지막으로 나온 영업일)과 `krx_market_days`(시장별 KRX 영업일)를 더했다.
-  - 012 이전에 저장한 종가로 두 값을 채운다.
-- `backend/src/prices/store.ts`: `saveKrxDay`가 비어 있지 않은 날을 저장할 때 세 가지를 한다.
-  - 영업일을 기록한다.
-  - 나온 종목의 `krx_last_seen`을 갱신하고 활성으로 되돌린다.
-  - 그 시장의 최근 10영업일 중 가장 이른 날보다 `krx_last_seen`이 앞선 종목을 비활성으로 바꾼다.
-  - 영업일 수를 실행 횟수가 아니라 저장된 날짜로 세므로, 같은 날을 다시 받아도 두 번 세지 않는다.
-- `backend/src/prices/router.ts`: 종목 응답에 `active`를 더했다. 검색은 원래 비활성 종목을 뺀다. 상세는 비활성이어도 열리고 마지막 종가를 보여 준다.
-- `frontend/src/security-search.tsx`: 비활성 종목 상세에 "거래 중단" 표시를 붙였다.
-- `docs/price-source.md`: "상장폐지·거래정지 국내 종목 (#97)" 절을 더했다.
+- `database/migrations/012_krx_listing.sql`: safe to run again.
+  - Added `securities.krx_last_seen` (the last business day a Korean ticker appeared) and `krx_market_days` (the KRX business days per market).
+  - It fills both values from the closes stored before 012.
+- `backend/src/prices/store.ts`: when `saveKrxDay` stores a non-empty day, it does three things.
+  - It records the business day.
+  - It updates `krx_last_seen` of the tickers that appeared and turns them active again.
+  - It turns inactive the tickers whose `krx_last_seen` is earlier than the earliest of that market's most recent 10 business days.
+  - The number of business days is counted by stored dates, not by the number of runs, so fetching the same day again does not count it twice.
+- `backend/src/prices/router.ts`: added `active` to the ticker response. Search already leaves out inactive tickers. The detail opens even if inactive and shows the last close.
+- `frontend/src/security-search.tsx`: added a "거래 중단" marker to the detail of an inactive ticker.
+- `docs/price-source.md`: added the section "Delisted and halted Korean tickers (#97)".
 
-## 검증
+## Verification
 
-- 테스트 DB: 전용 컨테이너 `money-ledger-test-agent3`. 009와 012를 적용했고, 012를 두 번 실행해 재실행이 안전한지 확인했다.
-- `backend/test/prices.integration.test.ts`에 DB 통합 테스트 2개를 더했다(모두 17개 통과).
-  - 첫 번째: 빠진 날에 따른 상태 변화
-    - 9영업일 빠짐은 활성으로 남는다. 휴장일(빈 응답), 같은 날 다시 저장, 다른 시장의 영업일은 세지 않는다.
-    - 10영업일째에 비활성이 되고 검색에서 빠진다. 상세는 `active: false`와 마지막 종가로 열린다.
-    - 다시 나타나면 활성이 된다.
-  - 두 번째: 012가 기존 종가로 영업일과 마지막 영업일을 채우고, 미국 종목은 비워 두는지 확인한다.
-- `frontend/src/security-search.test.tsx`에 화면 테스트 2개를 더했다(모두 12개 통과): 비활성 종목 상세의 "거래 중단"과 마지막 종가, 활성 종목에는 표시 없음.
-- `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과(종료 코드 0): 백엔드 160개 통과(건너뜀 0), 프론트엔드 168개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공. 이 수는 main에 그사이 병합된 다른 작업의 테스트를 포함한다.
-- `npm run knip` 통과
-- 브라우저: API(3193, 테스트 DB, 가짜 출처)와 Vite(5293)를 띄워 headless Chrome으로 390×844와 1440×900에서 확인했다. SK하이닉스를 검색한 뒤 DB에서 비활성으로 바꾸고 상세를 열었다.
-  - 두 크기 모두 "거래 중단"과 마지막 종가("180,600원 · 11월 6일 종가 기준")가 보였다.
-  - 가로 넘침은 없었다.
+- Test DB: the dedicated container `money-ledger-test-agent3`. We applied 009 and 012, and ran 012 twice to confirm it is safe to run again.
+- We added 2 DB integration tests to `backend/test/prices.integration.test.ts` (all 17 passed).
+  - First: the state changes by missing days
+    - Missing for 9 business days stays active. Holidays (empty responses), storing the same day again, and business days of another market are not counted.
+    - It becomes inactive on the 10th business day and drops out of search. The detail opens with `active: false` and the last close.
+    - When it appears again it becomes active.
+  - Second: it checks that 012 fills the business days and the last business day from the existing closes and leaves US tickers empty.
+- We added 2 screen tests to `frontend/src/security-search.test.tsx` (all 12 passed): "거래 중단" and the last close in the detail of an inactive ticker, and no marker on an active ticker.
+- `TEST_DATABASE_URL=<test DB> npm run check` passed (exit code 0): backend 160 passed (0 skipped), frontend 168 passed and 2 skipped (existing), 4 skill tests, build succeeded. These counts include tests of other work merged into main in the meantime.
+- `npm run knip` passed
+- Browser: we started the API (3193, test DB, fake source) and Vite (5293) and checked with headless Chrome at 390×844 and 1440×900. After searching SK hynix, we changed it to inactive in the DB and opened the detail.
+  - At both sizes, "거래 중단" and the last close ("180,600원 · 11월 6일 종가 기준") showed.
+  - There was no horizontal overflow.
 
-## 제한·후속
+## Limits and follow-up
 
-- 매수 거부는 #52, 보유 화면의 "거래 중단" 표시는 #53에서 `active`를 읽어 처리한다.
-- 비활성 종목은 검색에서 빠지므로, 지금 화면에서는 보유 목록(#53)이 생기기 전까지 상세로 들어갈 길이 없다.
+- Rejecting buys is handled in #52, and the "거래 중단" display on the holdings screen in #53, by reading `active`.
+- An inactive ticker drops out of search, so on the current screen there is no way into the detail until the holdings list (#53) exists.
 
-## 리뷰 기록
+## Review record
 
-### 1차 — 병합을 막는 결함 없음, 5건 반영, 1건 분리
+### Round 1: no defect blocking the merge, 5 addressed, 1 split off
 
-- 지난 날짜를 나중에 저장하면 비활성 종목이 되살아나던 문제를 고쳤다. 비활성 판정을 "방금 저장한 날까지의 10일"이 아니라 "저장된 최근 10영업일"로 한다.
-  - 정상 흐름에서는 결과가 같다. 손으로 다시 받기 같은 늦은 저장에서도 같은 트랜잭션 안에서 다시 비활성으로 돌아간다.
-  - 테스트를 더했다.
-- 시장을 옮긴 종목(KOSDAQ→KOSPI)이 옛 시장 영업일 때문에 비활성이 되지 않는지 확인하는 테스트를 더했다(DB 통합 18개 통과).
-- 문서 정정
-  - 거래정지 종목은 응답에서 빠지거나 종가가 `-`·0일 때만 규칙에 걸린다고 고쳤다. 직전 종가와 거래량 0으로 실리는 경우는 [#102](https://github.com/sirloinbh/money-ledger/issues/102)로 분리했다(실제 응답 확인과 사용자 결정 필요).
-  - 미국 종목도 목록에서 빠지면 `active = false`라서 "거래 중단"이 붙는다고 적었다.
-  - 012를 적용한 직후에는 다음 KRX 저장 때 정리된다고 적었다.
-- 주석: `active`의 뜻(국내 10영업일, 미국 목록 제외)과 `krx_last_seen`이 없는 국내 종목은 비활성이 되지 않는다는 점을 적었다.
-- 1차 반영 뒤 검증: `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과(백엔드 161개 통과·건너뜀 0, 프론트엔드 168개 통과·2개 건너뜀(기존)), `npm run knip` 통과.
+- We fixed the problem that storing a past date later brought an inactive ticker back to life. The inactive decision is made on "the most recent 10 stored business days", not "the 10 days up to the day just stored".
+  - In the normal flow the result is the same. Even with a late store such as a manual refetch, it goes back to inactive again in the same transaction.
+  - We added a test.
+- We added a test that checks that a ticker that moved markets (KOSDAQ→KOSPI) does not become inactive because of the old market's business days (18 DB integration tests passed).
+- Doc corrections
+  - We corrected that a halted ticker is caught by the rule only when it is missing from the response or its close is `-` or 0. The case where it is listed with the previous close and a volume of 0 was split off as [#102](https://github.com/sirloinbh/money-ledger/issues/102) (it needs a check of real responses and a user decision).
+  - We wrote that a US ticker also gets `active = false` when it drops out of the list, so "거래 중단" is attached.
+  - We wrote that right after 012 is applied, it is cleaned up at the next KRX store.
+- Comment: we wrote the meaning of `active` (Korean 10 business days, exclusion from the US list) and that a Korean ticker without `krx_last_seen` does not become inactive.
+- Verification after the first-round fixes: `TEST_DATABASE_URL=<test DB> npm run check` passed (backend 161 passed and 0 skipped, frontend 168 passed and 2 skipped (existing)), `npm run knip` passed.
 
-### 2차 — 1차 반영 확인, 보완점 없음
+### Round 2: first-round fixes confirmed, nothing to fix
 
-- 최근 10영업일 기준 판정, 늦은 저장과 시장 이동 테스트, 문서 정정이 모두 맞게 반영됐다.
-- 참고(반영 안 함): 옛 시장 날짜를 손으로 늦게 다시 받으면 종목의 시장·이름이 옛 값으로 돌아간다. #51부터 있던 동작이고, 정상 수집 흐름에서는 생기지 않는다.
-- 표준에 따라 3차 리뷰는 하지 않는다.
+- The decision based on the most recent 10 business days, the late store and market move tests, and the doc corrections were all reflected correctly.
+- Note (not addressed): if you manually refetch an old market date late, the ticker's market and name go back to the old values. This behavior has existed since #51 and does not happen in the normal collection flow.
+- By the standard, we do not run a third review.
