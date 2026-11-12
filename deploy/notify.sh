@@ -1,5 +1,5 @@
 #!/bin/bash
-# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
+# Managed file. Edit it in sirloinbh/project-standards templates/app/deploy/
 # Signals for healthchecks.io (#284). The firewall only lets allowed IPs in, so nothing outside
 # can probe the server; the server sends signals out instead, and a missing signal raises the
 # alert, also when the whole server is down.

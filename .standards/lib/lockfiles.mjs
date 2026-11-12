@@ -1,4 +1,4 @@
-// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 scripts/lib/에서
+// Managed file. Edit it in sirloinbh/project-standards scripts/lib/
 // Compares and rebuilds the workspace lockfiles (frontend/, backend/) of an app from its root lockfile.
 // CI installs from the root lockfile; the production Docker builds install from the workspace lockfiles,
 // so the two must resolve every package to the same version (#303).
@@ -48,7 +48,7 @@ function edges(entry, isProject, optionalPeers) {
 /** Every package reachable from `start` (a lockfile key) as { key: [{ name, type, to }] }. */
 export function graph(lock, start, { optionalPeers = false } = {}) {
   const packages = lock.packages ?? {};
-  if (!packages[start]) throw new Error(`lockfile에 "${start || '(루트)'}" 항목이 없습니다`);
+  if (!packages[start]) throw new Error(`lockfile has no "${start || '(root)'}" entry`);
   const out = new Map();
   const queue = [start];
   while (queue.length) {
@@ -61,7 +61,7 @@ export function graph(lock, start, { optionalPeers = false } = {}) {
       if (to && packages[to].link) to = packages[to].resolved ?? to;
       if (!to || !packages[to]) {
         if (type === 'optional') continue;
-        throw new Error(`${key || '(루트)'}의 의존성 ${name}을(를) lockfile에서 찾을 수 없습니다`);
+        throw new Error(`Dependency ${name} of ${key || '(root)'} was not found in the lockfile`);
       }
       list.push({ name, type, to });
       queue.push(to);
@@ -160,7 +160,7 @@ export function buildWorkspaceLockfile(rootLock, workspace, previous = null) {
   const nodes = graph(rootLock, workspace);
   for (const [key, list] of nodes) {
     for (const e of list) {
-      if (!e.to.includes(NM)) throw new Error(`${key || '(루트)'}가 다른 workspace(${e.to})를 씁니다. 하위 lockfile로 만들 수 없습니다`);
+      if (!e.to.includes(NM)) throw new Error(`${key || '(root)'} uses another workspace (${e.to}). It cannot be made into a sub lockfile`);
     }
   }
   // Place each package as high as possible without shadowing a different version on the way up.

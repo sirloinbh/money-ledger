@@ -1,4 +1,4 @@
-// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 scripts/에서
+// Managed file. Edit it in sirloinbh/project-standards scripts/
 // Scans a repository for npm supply-chain attack indicators (Shai-Hulud family):
 // blocked packages in lockfiles, install scripts that call exfiltration hosts or run
 // dropped files, and suspicious GitHub workflows. Read-only; it never runs package code.
@@ -15,7 +15,7 @@ export function loadRules(here = path.dirname(fileURLToPath(import.meta.url))) {
   for (const candidate of [path.join(here, 'blocked-packages.json'), path.join(here, '../security/blocked-packages.json')]) {
     if (fs.existsSync(candidate)) return JSON.parse(fs.readFileSync(candidate, 'utf8'));
   }
-  throw new Error('blocked-packages.json을 찾지 못했습니다');
+  throw new Error('Could not find blocked-packages.json');
 }
 
 // Repository files named `name`, skipping installed dependencies and build output.
@@ -36,9 +36,9 @@ function scriptFindings(where, scripts, rules) {
     const command = scripts?.[name];
     if (!command) continue;
     const host = rules.exfiltrationHosts.find((h) => command.includes(h));
-    if (host) findings.push(`${where}: ${name} 스크립트가 외부 유출 의심 주소(${host})를 호출합니다: ${command}`);
+    if (host) findings.push(`${where}: ${name} script calls a suspected exfiltration address (${host}): ${command}`);
     const dropped = rules.suspiciousInstallFiles.find((f) => new RegExp(`\\b${f.replace('.', '\\.')}\\b`).test(command));
-    if (dropped) findings.push(`${where}: ${name} 스크립트가 의심 파일(${dropped})을 실행합니다: ${command}`);
+    if (dropped) findings.push(`${where}: ${name} script runs a suspicious file (${dropped}): ${command}`);
   }
   return findings;
 }
@@ -56,11 +56,11 @@ export function scan(root, rules = loadRules()) {
       if (!key.includes('node_modules/')) continue;
       const name = packageNameOf(key);
       const scope = rules.scopes.find((s) => name.startsWith(`${s.scope}/`));
-      if (blocked.has(name)) errors.push(`${lockfile}: 침해 보고된 패키지 ${name}@${entry.version} — ${blocked.get(name)}`);
-      else if (scope) errors.push(`${lockfile}: 침해 보고된 스코프의 패키지 ${name}@${entry.version} — ${scope.reason}`);
+      if (blocked.has(name)) errors.push(`${lockfile}: package reported as compromised ${name}@${entry.version} — ${blocked.get(name)}`);
+      else if (scope) errors.push(`${lockfile}: package in a scope reported as compromised ${name}@${entry.version} — ${scope.reason}`);
       if (entry.hasInstallScript) withScripts.push(`${name}@${entry.version}`);
     }
-    if (withScripts.length) warnings.push(`${lockfile}: 설치 스크립트가 있는 의존성 ${withScripts.length}개(--ignore-scripts로 설치하면 실행되지 않음): ${[...new Set(withScripts)].join(', ')}`);
+    if (withScripts.length) warnings.push(`${lockfile}: ${withScripts.length} dependencies have install scripts (they do not run with --ignore-scripts): ${[...new Set(withScripts)].join(', ')}`);
   }
 
   for (const file of findFiles(root, 'package.json')) {
@@ -80,7 +80,7 @@ export function scan(root, rules = loadRules()) {
         try {
           errors.push(...scriptFindings(`node_modules/${dir}`, JSON.parse(fs.readFileSync(manifest, 'utf8')).scripts, rules));
         } catch {
-          warnings.push(`node_modules/${dir}/package.json을 읽지 못했습니다`);
+          warnings.push(`node_modules/${dir}/package.json could not be read`);
         }
       }
     }
@@ -90,10 +90,10 @@ export function scan(root, rules = loadRules()) {
   if (fs.existsSync(workflows)) {
     for (const name of fs.readdirSync(workflows)) {
       const file = `.github/workflows/${name}`;
-      if (rules.suspiciousWorkflowNames.some((s) => name.toLowerCase().includes(s))) errors.push(`${file}: 침해 사례와 같은 이름의 워크플로입니다`);
+      if (rules.suspiciousWorkflowNames.some((s) => name.toLowerCase().includes(s))) errors.push(`${file}: workflow has the same name as a known compromise`);
       const text = fs.readFileSync(path.join(workflows, name), 'utf8');
       const host = rules.exfiltrationHosts.find((h) => text.includes(h));
-      if (host) errors.push(`${file}: 외부 유출 의심 주소(${host})가 들어 있습니다`);
+      if (host) errors.push(`${file}: contains a suspected exfiltration address (${host})`);
     }
   }
   return { errors, warnings };
@@ -106,13 +106,13 @@ if (isMain) {
   const root = flag > 0 ? path.resolve(process.argv[flag + 1]) : path.basename(here) === '.standards' ? path.dirname(here) : process.cwd();
   try {
     const { errors, warnings } = scan(root);
-    for (const w of warnings) console.log(`경고: ${w}`);
+    for (const w of warnings) console.log(`warning: ${w}`);
     for (const e of errors) console.error(`✗ ${e}`);
     if (errors.length) {
-      console.error(`\nioc-scan: 의심 항목 ${errors.length}개. 설치·실행을 멈추고 사용자에게 알린 뒤 확인하세요.`);
+      console.error(`\nioc-scan: ${errors.length} suspicious item(s). Stop installing and running, tell the user, and check.`);
       process.exit(1);
     }
-    console.log('ioc-scan: 의심 항목 없음');
+    console.log('ioc-scan: no suspicious items');
   } catch (error) {
     console.error(`ioc-scan: ${error.message}`);
     process.exit(2);

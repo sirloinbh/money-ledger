@@ -1,4 +1,4 @@
-// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 scripts/lib/에서
+// Managed file. Edit it in sirloinbh/project-standards scripts/lib/
 // Builds and checks .standards/manifest.json: the record of which files the central
 // repository manages in a target repository and what their content must be.
 import { canonical, centralSection, pickFields, sha256 } from './hash.mjs';

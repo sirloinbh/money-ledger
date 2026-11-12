@@ -1,4 +1,4 @@
-// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/ui/frontend/src/lib/에서
+// Managed file. Edit it in sirloinbh/project-standards templates/ui/frontend/src/lib/
 import { useCallback, useMemo, useState } from 'react';
 
 // One message on the screen at a time: progress or success ("status") or a failure ("error") (#311).

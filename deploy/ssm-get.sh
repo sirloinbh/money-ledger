@@ -1,5 +1,5 @@
 #!/bin/bash
-# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
+# Managed file. Edit it in sirloinbh/project-standards templates/app/deploy/
 # Prints the value of one SecureString parameter from AWS SSM Parameter Store (ADR-0010).
 #   ssm-get.sh <parameter name>     e.g. ssm-get.sh /sirloinbh/anthropic-api-key
 # Signs the request with curl's built-in SigV4, so the server needs no AWS CLI. The key pair

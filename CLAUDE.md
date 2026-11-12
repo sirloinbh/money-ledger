@@ -1,4 +1,4 @@
-<!-- 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/에서 -->
+<!-- Managed file. Edit it in sirloinbh/project-standards templates/app/ -->
 # Claude Code instructions
 
 This project follows the AGENTS.md and AGENTS.project.md imported below. They are the source of the work procedure, prohibited actions, and verification commands. When they differ, AGENTS.project.md wins.

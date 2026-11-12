@@ -3,7 +3,7 @@ name: std-backlog
 description: Register requirements as small GitHub issue cards with priority and characteristic labels, link each one as a sub-issue under a per-area parent (epic) issue, and choose the next issue to implement after the previous PR is merged. Use when the user gives one or more requirements to register or plan, when a requirement is added mid-work, and when deciding what to start next. Applies to every sirloinbh project repository. Leave all PR merging to the user.
 ---
 
-<!-- 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/common/skills/std-backlog/에서 -->
+<!-- Managed file. Edit it in sirloinbh/project-standards templates/common/skills/std-backlog/ -->
 
 <!-- Centrally managed file. Edit it in sirloinbh/project-standards templates/common/skills/std-backlog/ -->
 

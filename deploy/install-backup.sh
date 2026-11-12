@@ -1,5 +1,5 @@
 #!/bin/bash
-# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
+# Managed file. Edit it in sirloinbh/project-standards templates/app/deploy/
 # Installs and starts the nightly dump, weekly restore check, 5-minute health and daily report timers
 # (#262, #284, #285). Run once as root on the server; adding HEALTHCHECK_URL_* to .env later needs no rerun:
 #   sudo bash /opt/money-ledger/deploy/install-backup.sh
