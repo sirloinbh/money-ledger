@@ -1,5 +1,4 @@
 <!-- Managed file. Edit it in sirloinbh/project-standards templates/common/.github/ -->
-<!-- Centrally managed file. Edit it in sirloinbh/project-standards templates/common/.github/ -->
 <!-- How to write: std-git-writing skill. The title uses the commit title format. e.g. feat: add registry source files and conflict check (#44) -->
 
 ## What changed
