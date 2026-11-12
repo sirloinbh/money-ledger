@@ -19,23 +19,23 @@ export const ruleCategorySql = (kind: string, merchant: string) => `(
   LIMIT 1
 )`;
 
-/** Merchant names and keywords (`subject` with its particle, e.g. "가맹점은"): trimmed, NFC (so Hangul pasted from macOS matches), at most 50 characters. */
+/** Merchant names and keywords (`subject`, e.g. "The merchant"): trimmed, NFC (so Hangul pasted from macOS matches), at most 50 characters. */
 export const merchantText = (subject: string) =>
   z
-    .string({ error: `${subject} 글자로 입력하세요` })
+    .string({ error: `${subject} must be text` })
     .trim()
     .normalize('NFC')
-    .max(50, `${subject} 50자 이하로 입력하세요`);
+    .max(50, `${subject} must be 50 characters or fewer`);
 
 const ruleBody = z.object(
   {
-    keyword: merchantText('키워드는').min(1, '키워드를 입력하세요'),
+    keyword: merchantText('The keyword').min(1, 'Enter a keyword'),
     categoryId: z
-      .number({ error: '카테고리를 고르세요' })
-      .int('카테고리를 고르세요')
-      .positive('카테고리를 고르세요'),
+      .number({ error: 'Choose a category' })
+      .int('Choose a category')
+      .positive('Choose a category'),
   },
-  { error: '요청 본문은 JSON 객체여야 합니다' },
+  { error: 'The request body must be a JSON object' },
 );
 
 type Row = {
@@ -61,7 +61,7 @@ const toRule = (row: Row) => ({
   categoryHidden: row.category_hidden,
 });
 
-const duplicateKeyword = '같은 종류에 이미 있는 키워드입니다';
+const duplicateKeyword = 'A keyword already exists for this kind';
 
 export function rulesRouter(pool: Pool) {
   const router = Router();
@@ -95,7 +95,7 @@ export function rulesRouter(pool: Pool) {
       ]);
       throw new HttpError(
         400,
-        rowCount ? '숨긴 카테고리에는 규칙을 만들 수 없습니다' : '카테고리를 찾을 수 없습니다',
+        rowCount ? 'Cannot create a rule for a hidden category' : 'Category not found',
       );
     }
     const { rows } = await pool.query<Row>(`${select} WHERE r.id = $1`, [inserted.rows[0].id]);
@@ -103,9 +103,9 @@ export function rulesRouter(pool: Pool) {
   });
 
   router.delete('/:id', async (req, res) => {
-    const id = parseId(req.params.id, '규칙');
+    const id = parseId(req.params.id, 'rule');
     const { rowCount } = await pool.query('DELETE FROM ledger_category_rules WHERE id = $1', [id]);
-    if (!rowCount) throw new HttpError(404, '규칙을 찾을 수 없습니다');
+    if (!rowCount) throw new HttpError(404, 'Rule not found');
     res.status(204).end();
   });
 

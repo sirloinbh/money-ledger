@@ -91,7 +91,7 @@ beforeEach(() => {
   stored = [
     {
       id: 1,
-      name: '비상금 통장',
+      name: 'Emergency fund account',
       type: 'cash',
       currency: 'KRW',
       quantity: null,
@@ -101,7 +101,7 @@ beforeEach(() => {
     },
     {
       id: 2,
-      name: '전세 대출',
+      name: 'Lease deposit loan',
       type: 'debt',
       currency: 'KRW',
       quantity: null,
@@ -111,13 +111,13 @@ beforeEach(() => {
     },
     {
       id: 3,
-      name: '애플',
+      name: 'Apple',
       type: 'stock',
       currency: 'USD',
       quantity: '1.50000000',
       valueKrw: null,
       valueForeign: null,
-      memo: '해외',
+      memo: 'Overseas',
     },
   ];
   requests = [];
@@ -126,38 +126,40 @@ beforeEach(() => {
 
 const ready = async () => {
   render(<AssetManager />);
-  await screen.findByRole('heading', { name: '현금(예적금 포함)' });
+  await screen.findByRole('heading', { name: 'Cash (incl. savings)' });
 };
 
 const summary = (label: string) =>
-  within(screen.getByRole('region', { name: '합계' })).getByText(label).nextElementSibling;
+  within(screen.getByRole('region', { name: 'Totals' })).getByText(label).nextElementSibling;
 
 test('assets are grouped by type and debts are totalled apart from assets', async () => {
   await ready();
-  expect(summary('자산 합계')).toHaveTextContent('5,000,000원');
-  expect(summary('부채 합계')).toHaveTextContent('7,000,000원');
-  expect(summary('순자산')).toHaveTextContent('-2,000,000원');
-  expect(screen.getByText(/평가금액이 없는 1개는 합계에서 빠졌습니다/)).toBeInTheDocument();
-  const stocks = screen.getByRole('list', { name: '주식(ETF·펀드 포함)' });
-  expect(within(stocks).getByText('USD · 수량 1.5 · 해외')).toBeInTheDocument();
-  expect(within(stocks).getByText('평가금액 없음')).toBeInTheDocument();
+  expect(summary('Total assets')).toHaveTextContent('₩5,000,000');
+  expect(summary('Total liabilities')).toHaveTextContent('₩7,000,000');
+  expect(summary('Net worth')).toHaveTextContent('-₩2,000,000');
   expect(
-    within(screen.getByRole('list', { name: '부채' })).getByText('7,000,000원'),
+    screen.getByText(/1 without a quote, exchange rate, or valuation left out of the totals/),
+  ).toBeInTheDocument();
+  const stocks = screen.getByRole('list', { name: 'Stocks (incl. ETFs and funds)' });
+  expect(within(stocks).getByText('USD · quantity 1.5 · Overseas')).toBeInTheDocument();
+  expect(within(stocks).getByText('No valuation')).toBeInTheDocument();
+  expect(
+    within(screen.getByRole('list', { name: 'Liability' })).getByText('₩7,000,000'),
   ).toBeInTheDocument();
 });
 
 test('a won asset is added with its value as a whole number', async () => {
   await ready();
-  fireEvent.change(screen.getByLabelText('이름'), { target: { value: ' 아파트 ' } });
-  fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'real_estate' } });
-  fireEvent.change(screen.getByLabelText('평가금액(원)'), { target: { value: '300,000,000' } });
-  fireEvent.click(screen.getByRole('button', { name: '추가' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('아파트을(를) 추가했습니다');
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: ' Apartment ' } });
+  fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'real_estate' } });
+  fireEvent.change(screen.getByLabelText('Valuation (KRW)'), { target: { value: '300,000,000' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('Apartment added');
   expect(requests).toContainEqual({
     method: 'POST',
     url: '/api/portfolio/assets',
     body: {
-      name: '아파트',
+      name: 'Apartment',
       type: 'real_estate',
       currency: 'KRW',
       quantity: null,
@@ -168,18 +170,18 @@ test('a won asset is added with its value as a whole number', async () => {
       manualPrice: null,
     },
   });
-  expect(summary('자산 합계')).toHaveTextContent('305,000,000원');
-  expect(screen.getByLabelText('이름')).toHaveValue('');
+  expect(summary('Total assets')).toHaveTextContent('₩305,000,000');
+  expect(screen.getByLabelText('Name')).toHaveValue('');
 });
 
 test('a USD asset with a quantity sends decimal strings', async () => {
   await ready();
-  fireEvent.change(screen.getByLabelText('이름'), { target: { value: '테슬라' } });
-  fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'stock' } });
-  fireEvent.click(screen.getByRole('radio', { name: '달러(USD)' }));
-  fireEvent.change(screen.getByLabelText('수량(선택)'), { target: { value: '0.25' } });
-  fireEvent.change(screen.getByLabelText('평가금액(달러)'), { target: { value: '1,234.56' } });
-  fireEvent.click(screen.getByRole('button', { name: '추가' }));
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Tesla' } });
+  fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'stock' } });
+  fireEvent.click(screen.getByRole('radio', { name: 'Dollar (USD)' }));
+  fireEvent.change(screen.getByLabelText('Quantity (optional)'), { target: { value: '0.25' } });
+  fireEvent.change(screen.getByLabelText('Valuation (USD)'), { target: { value: '1,234.56' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }));
   await screen.findByRole('status');
   expect(requests.find((request) => request.method === 'POST')?.body).toMatchObject({
     currency: 'USD',
@@ -187,52 +189,52 @@ test('a USD asset with a quantity sends decimal strings', async () => {
     valueKrw: null,
     valueForeign: '1234.56',
   });
-  expect(screen.getByText('1,234.56달러')).toBeInTheDocument();
+  expect(screen.getByText('$1,234.56')).toBeInTheDocument();
 });
 
 test.each([
-  { label: 'no name', fill: { 평가금액: '1' }, field: '이름', message: '자산 이름을 입력하세요' },
+  { label: 'no name', fill: { value: '1' }, field: 'Name', message: 'Enter an asset name' },
   {
     label: 'neither quantity nor value',
-    fill: { 이름: '현금' },
-    field: '평가금액(원)',
-    message: '수량이 없는 자산은 평가금액을 입력하세요',
+    fill: { name: 'Cash' },
+    field: 'Valuation (KRW)',
+    message: 'Enter a valuation for an asset without a quantity',
   },
   {
     label: 'a fractional won value',
-    fill: { 이름: '현금', 평가금액: '10.5' },
-    field: '평가금액(원)',
-    message: '원화 평가금액은 0 이상의 원 단위 정수로 입력하세요',
+    fill: { name: 'Cash', value: '10.5' },
+    field: 'Valuation (KRW)',
+    message: 'Enter the valuation in won as a whole number, 0 or more',
   },
   {
     label: 'a comma that is not a thousands separator',
-    fill: { 이름: '현금', 평가금액: '1,2,3' },
-    field: '평가금액(원)',
-    message: '원화 평가금액은 0 이상의 원 단위 정수로 입력하세요',
+    fill: { name: 'Cash', value: '1,2,3' },
+    field: 'Valuation (KRW)',
+    message: 'Enter the valuation in won as a whole number, 0 or more',
   },
   {
-    label: 'a value over 1,000조 won',
-    fill: { 이름: '현금', 평가금액: '1000000000000001' },
-    field: '평가금액(원)',
-    message: '평가금액은 1,000조 원 이하로 입력하세요',
+    label: 'a value over ₩1 quadrillion',
+    fill: { name: 'Cash', value: '1000000000000001' },
+    field: 'Valuation (KRW)',
+    message: 'Enter a valuation of ₩1 quadrillion or less',
   },
   {
     label: 'a zero quantity',
-    fill: { 이름: '현금', 수량: '0' },
-    field: '수량(선택)',
-    message: '수량은 0보다 큰 수로, 소수 8자리까지 입력하세요',
+    fill: { name: 'Cash', quantity: '0' },
+    field: 'Quantity (optional)',
+    message: 'Enter a quantity above 0 with up to 8 decimal places',
   },
 ])('$label is refused before sending and marks the field', async ({ fill, field, message }) => {
   await ready();
   const labels: Record<string, string> = {
-    이름: '이름',
-    평가금액: '평가금액(원)',
-    수량: '수량(선택)',
+    name: 'Name',
+    value: 'Valuation (KRW)',
+    quantity: 'Quantity (optional)',
   };
   for (const [key, value] of Object.entries(fill)) {
     fireEvent.change(screen.getByLabelText(labels[key]), { target: { value } });
   }
-  fireEvent.click(screen.getByRole('button', { name: '추가' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }));
   expect(screen.getByRole('alert')).toHaveTextContent(message);
   expect(screen.getByLabelText(field)).toHaveAttribute('aria-invalid', 'true');
   expect(requests.some((request) => request.method === 'POST')).toBe(false);
@@ -240,93 +242,95 @@ test.each([
 
 test('a debt has no quantity field and asks for the amount still owed', async () => {
   await ready();
-  fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'debt' } });
-  expect(screen.queryByLabelText('수량(선택)')).not.toBeInTheDocument();
-  expect(screen.getByLabelText('남은 금액(원)')).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'debt' } });
+  expect(screen.queryByLabelText('Quantity (optional)')).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Remaining amount (KRW)')).toBeInTheDocument();
 });
 
 test('editing fills the form, moves focus to it, and saves with PUT', async () => {
   await ready();
-  fireEvent.click(screen.getByRole('button', { name: '애플 수정' }));
-  expect(screen.getByLabelText('이름')).toHaveFocus();
-  expect(screen.getByLabelText('수량(선택)')).toHaveValue('1.5');
-  expect(screen.getByRole('radio', { name: '달러(USD)' })).toBeChecked();
-  fireEvent.change(screen.getByLabelText('평가금액(달러)'), { target: { value: '300' } });
-  fireEvent.click(screen.getByRole('button', { name: '수정 저장' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('애플을(를) 수정했습니다');
+  fireEvent.click(screen.getByRole('button', { name: 'Edit Apple' }));
+  expect(screen.getByLabelText('Name')).toHaveFocus();
+  expect(screen.getByLabelText('Quantity (optional)')).toHaveValue('1.5');
+  expect(screen.getByRole('radio', { name: 'Dollar (USD)' })).toBeChecked();
+  fireEvent.change(screen.getByLabelText('Valuation (USD)'), { target: { value: '300' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('Apple updated');
   expect(requests).toContainEqual({
     method: 'PUT',
     url: '/api/portfolio/assets/3',
     body: {
-      name: '애플',
+      name: 'Apple',
       type: 'stock',
       currency: 'USD',
       quantity: '1.5',
       valueKrw: null,
       valueForeign: '300',
-      memo: '해외',
+      memo: 'Overseas',
       securityId: null,
       manualPrice: null,
     },
   });
-  expect(screen.getByRole('heading', { name: '새 자산' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'New asset' })).toBeInTheDocument();
 });
 
 test('deleting asks first, then removes the asset and moves focus to the list title', async () => {
   await ready();
-  fireEvent.click(screen.getByRole('button', { name: '전세 대출 삭제' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Delete Lease deposit loan' }));
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
-  expect(await screen.findByText('전세 대출을(를) 삭제했습니다')).toBeInTheDocument();
-  expect(screen.queryByRole('list', { name: '부채' })).not.toBeInTheDocument();
-  expect(summary('순자산')).toHaveTextContent('5,000,000원');
+  expect(await screen.findByText('Lease deposit loan deleted')).toBeInTheDocument();
+  expect(screen.queryByRole('list', { name: 'Liability' })).not.toBeInTheDocument();
+  expect(summary('Net worth')).toHaveTextContent('₩5,000,000');
   await vi.waitFor(() =>
-    expect(screen.getByRole('heading', { name: '보유 자산과 부채' })).toHaveFocus(),
+    expect(screen.getByRole('heading', { name: 'Assets and liabilities' })).toHaveFocus(),
   );
 });
 
-test('a server refusal shows its Korean message', async () => {
+test('a server refusal shows its message', async () => {
   await ready();
   vi.mocked(fetch).mockImplementationOnce(() =>
-    json({ error: '달러 자산의 평가금액은 달러로 입력하세요' }, 400),
+    json({ error: 'Enter the valuation of a dollar asset in dollars' }, 400),
   );
-  fireEvent.change(screen.getByLabelText('이름'), { target: { value: '현금' } });
-  fireEvent.change(screen.getByLabelText('평가금액(원)'), { target: { value: '1' } });
-  fireEvent.click(screen.getByRole('button', { name: '추가' }));
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Cash' } });
+  fireEvent.change(screen.getByLabelText('Valuation (KRW)'), { target: { value: '1' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }));
   expect(await screen.findByRole('alert')).toHaveTextContent(
-    '달러 자산의 평가금액은 달러로 입력하세요',
+    'Enter the valuation of a dollar asset in dollars',
   );
-  expect(screen.getByLabelText('이름')).toHaveValue('현금');
+  expect(screen.getByLabelText('Name')).toHaveValue('Cash');
 });
 
 test('cancelling an edit keeps focus in the form and a USD value round-trips', async () => {
   stored[2] = { ...stored[2], valueForeign: '1234.5000' };
   await ready();
-  fireEvent.click(screen.getByRole('button', { name: '애플 수정' }));
-  expect(screen.getByLabelText('평가금액(달러)')).toHaveValue('1234.5');
-  fireEvent.click(screen.getByRole('button', { name: '수정 취소' }));
-  expect(screen.getByLabelText('이름')).toHaveFocus();
-  expect(screen.getByLabelText('이름')).toHaveValue('');
+  fireEvent.click(screen.getByRole('button', { name: 'Edit Apple' }));
+  expect(screen.getByLabelText('Valuation (USD)')).toHaveValue('1234.5');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel edit' }));
+  expect(screen.getByLabelText('Name')).toHaveFocus();
+  expect(screen.getByLabelText('Name')).toHaveValue('');
 });
 
 // #63
 test('a depreciating asset is entered as a purchase price, date and useful life', async () => {
   await ready();
-  fireEvent.change(screen.getByLabelText('이름'), { target: { value: '노트북' } });
-  fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'depreciable' } });
-  expect(screen.queryByLabelText('평가금액(원)')).not.toBeInTheDocument();
-  expect(screen.queryByRole('radio', { name: '달러(USD)' })).not.toBeInTheDocument();
-  expect(screen.getByLabelText('잔존 가치(원)')).toHaveValue('0'); // decision: 0 won by default
-  fireEvent.change(screen.getByLabelText('구입가(원)'), { target: { value: '1,200,000' } });
-  fireEvent.change(screen.getByLabelText('구입일'), { target: { value: '2026-01-15' } });
-  fireEvent.change(screen.getByLabelText('기본 사용 기간'), { target: { value: '60' } });
-  expect(screen.getByLabelText('사용 기간(개월)')).toHaveValue('60');
-  fireEvent.click(screen.getByRole('button', { name: '추가' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('노트북을(를) 추가했습니다');
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Laptop' } });
+  fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'depreciable' } });
+  expect(screen.queryByLabelText('Valuation (KRW)')).not.toBeInTheDocument();
+  expect(screen.queryByRole('radio', { name: 'Dollar (USD)' })).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Salvage value (KRW)')).toHaveValue('0'); // decision: 0 won by default
+  fireEvent.change(screen.getByLabelText('Purchase price (KRW)'), {
+    target: { value: '1,200,000' },
+  });
+  fireEvent.change(screen.getByLabelText('Purchase date'), { target: { value: '2026-01-15' } });
+  fireEvent.change(screen.getByLabelText('Default useful life'), { target: { value: '60' } });
+  expect(screen.getByLabelText('Useful life (months)')).toHaveValue('60');
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('Laptop added');
   expect(requests).toContainEqual({
     method: 'POST',
     url: '/api/portfolio/assets',
     body: {
-      name: '노트북',
+      name: 'Laptop',
       type: 'depreciable',
       currency: 'KRW',
       quantity: null,
@@ -341,70 +345,72 @@ test('a depreciating asset is entered as a purchase price, date and useful life'
       },
     },
   });
-  const list = screen.getByRole('list', { name: '감가상각 대상' });
+  const list = screen.getByRole('list', { name: 'Depreciable' });
   expect(
-    within(list).getByText('구입가 1,200,000원 · 2026-01-15 구입 · 사용 기간 60개월'),
+    within(list).getByText(
+      'Purchase price ₩1,200,000 · purchased 2026-01-15 · useful life 60 months',
+    ),
   ).toBeInTheDocument();
-  expect(within(list).getByText('600,000원')).toBeInTheDocument(); // the current value from the server
-  expect(summary('자산 합계')).toHaveTextContent('5,600,000원');
+  expect(within(list).getByText('₩600,000')).toBeInTheDocument(); // the current value from the server
+  expect(summary('Total assets')).toHaveTextContent('₩5,600,000');
 });
 
 test('the useful life presets are 10, 5 and 7 years and the months can be changed', async () => {
   await ready();
-  fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'depreciable' } });
-  const preset = screen.getByLabelText('기본 사용 기간');
+  fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'depreciable' } });
+  const preset = screen.getByLabelText('Default useful life');
   expect(
     within(preset)
       .getAllByRole('option')
       .map((option) => option.textContent),
-  ).toEqual(['직접 입력', '침대(10년)', '컴퓨터(5년)', '가전제품(7년)']);
+  ).toEqual(['Enter manually', 'Bed (10 years)', 'Computer (5 years)', 'Appliance (7 years)']);
   fireEvent.change(preset, { target: { value: '84' } });
-  expect(screen.getByLabelText('사용 기간(개월)')).toHaveValue('84');
-  fireEvent.change(screen.getByLabelText('사용 기간(개월)'), { target: { value: '90' } });
+  expect(screen.getByLabelText('Useful life (months)')).toHaveValue('84');
+  fireEvent.change(screen.getByLabelText('Useful life (months)'), { target: { value: '90' } });
   expect(preset).toHaveValue('');
 });
 
 test.each([
   {
     label: 'no purchase price',
-    fill: { 구입일: '2026-01-01', 기간: '60' },
-    field: '구입가(원)',
-    message: '구입가는 1,000조 원 이하의 원 단위 정수로 입력하세요',
+    fill: { date: '2026-01-01', months: '60' },
+    field: 'Purchase price (KRW)',
+    message: 'Enter the purchase price as a whole number of won, up to ₩1 quadrillion',
   },
   {
     label: 'no purchase date',
-    fill: { 구입가: '1000', 기간: '60' },
-    field: '구입일',
-    message: '구입일을 입력하세요',
+    fill: { price: '1000', months: '60' },
+    field: 'Purchase date',
+    message: 'Enter the purchase date',
   },
   {
     label: 'a useful life of 0 months',
-    fill: { 구입가: '1000', 구입일: '2026-01-01', 기간: '0' },
-    field: '사용 기간(개월)',
-    message: '사용 기간은 1~1200개월 사이의 정수로 입력하세요',
+    fill: { price: '1000', date: '2026-01-01', months: '0' },
+    field: 'Useful life (months)',
+    message: 'Enter a useful life as a whole number from 1 to 1200 months',
   },
   {
     label: 'a salvage value above the price',
-    fill: { 구입가: '1000', 구입일: '2026-01-01', 기간: '60', 잔존: '1001' },
-    field: '잔존 가치(원)',
-    message: '잔존 가치는 구입가보다 클 수 없습니다',
+    fill: { price: '1000', date: '2026-01-01', months: '60', salvage: '1001' },
+    field: 'Salvage value (KRW)',
+    message: 'The salvage value cannot be more than the purchase price',
   },
 ])(
   'a depreciating asset with $label is refused before sending',
   async ({ fill, field, message }) => {
     await ready();
     const labels: Record<string, string> = {
-      구입가: '구입가(원)',
-      구입일: '구입일',
-      기간: '사용 기간(개월)',
-      잔존: '잔존 가치(원)',
+      price: 'Purchase price (KRW)',
+      date: 'Purchase date',
+      months: 'Useful life (months)',
+      salvage: 'Salvage value (KRW)',
     };
-    fireEvent.change(screen.getByLabelText('이름'), { target: { value: '침대' } });
-    fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'depreciable' } });
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Bed' } });
+    fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'depreciable' } });
     for (const [key, value] of Object.entries(fill)) {
       fireEvent.change(screen.getByLabelText(labels[key]), { target: { value } });
     }
-    fireEvent.click(screen.getByRole('button', { name: '추가' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
     expect(screen.getByRole('alert')).toHaveTextContent(message);
     expect(screen.getByLabelText(field)).toHaveAttribute('aria-invalid', 'true');
     expect(requests.some((request) => request.method === 'POST')).toBe(false);
@@ -413,21 +419,21 @@ test.each([
 
 test('a purchase date outside 1900–2100 is not sent', async () => {
   await ready();
-  fireEvent.change(screen.getByLabelText('이름'), { target: { value: '침대' } });
-  fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'depreciable' } });
-  fireEvent.change(screen.getByLabelText('구입가(원)'), { target: { value: '1000' } });
-  fireEvent.change(screen.getByLabelText('사용 기간(개월)'), { target: { value: '60' } });
-  const date = screen.getByLabelText<HTMLInputElement>('구입일');
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Bed' } });
+  fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'depreciable' } });
+  fireEvent.change(screen.getByLabelText('Purchase price (KRW)'), { target: { value: '1000' } });
+  fireEvent.change(screen.getByLabelText('Useful life (months)'), { target: { value: '60' } });
+  const date = screen.getByLabelText<HTMLInputElement>('Purchase date');
   expect(date).toHaveAttribute('min', '1900-01-01');
   expect(date).toHaveAttribute('max', '2100-12-31');
   fireEvent.change(date, { target: { value: '0201-01-01' } });
   // The browser's range check stops the submit first.
   expect(date.validity.rangeUnderflow).toBe(true);
-  fireEvent.click(screen.getByRole('button', { name: '추가' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }));
   // Our own check covers a submit that skips the browser's (the same range as the server).
-  fireEvent.submit(screen.getByRole('form', { name: '새 자산' }));
+  fireEvent.submit(screen.getByRole('form', { name: 'New asset' }));
   expect(screen.getByRole('alert')).toHaveTextContent(
-    '구입일은 1900년부터 2100년 사이로 입력하세요',
+    'Enter a purchase date between 1900 and 2100',
   );
   expect(date).toHaveAttribute('aria-invalid', 'true');
   expect(requests.some((request) => request.method === 'POST')).toBe(false);
@@ -436,7 +442,7 @@ test('a purchase date outside 1900–2100 is not sent', async () => {
 test('editing a #45 depreciable row offers its value as the purchase price', async () => {
   stored.push({
     id: 5,
-    name: '옛 TV',
+    name: 'Old TV',
     type: 'depreciable',
     currency: 'KRW',
     quantity: null,
@@ -445,15 +451,15 @@ test('editing a #45 depreciable row offers its value as the purchase price', asy
     memo: '',
   });
   await ready();
-  fireEvent.click(screen.getByRole('button', { name: '옛 TV 수정' }));
-  expect(screen.getByLabelText('구입가(원)')).toHaveValue('700000');
-  expect(screen.getByLabelText('구입일')).toHaveValue('');
+  fireEvent.click(screen.getByRole('button', { name: 'Edit Old TV' }));
+  expect(screen.getByLabelText('Purchase price (KRW)')).toHaveValue('700000');
+  expect(screen.getByLabelText('Purchase date')).toHaveValue('');
 });
 
 test('editing a depreciating asset fills its schedule', async () => {
   stored.push({
     id: 4,
-    name: '침대',
+    name: 'Bed',
     type: 'depreciable',
     currency: 'KRW',
     quantity: null,
@@ -468,12 +474,12 @@ test('editing a depreciating asset fills its schedule', async () => {
     },
   });
   await ready();
-  expect(screen.getByText(/· 잔존 가치 100,000원$/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: '침대 수정' }));
-  expect(screen.getByLabelText('구입가(원)')).toHaveValue('2000000');
-  expect(screen.getByLabelText('구입일')).toHaveValue('2025-03-01');
-  expect(screen.getByLabelText('기본 사용 기간')).toHaveValue('120');
-  expect(screen.getByLabelText('잔존 가치(원)')).toHaveValue('100000');
+  expect(screen.getByText(/· salvage value ₩100,000$/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Edit Bed' }));
+  expect(screen.getByLabelText('Purchase price (KRW)')).toHaveValue('2000000');
+  expect(screen.getByLabelText('Purchase date')).toHaveValue('2025-03-01');
+  expect(screen.getByLabelText('Default useful life')).toHaveValue('120');
+  expect(screen.getByLabelText('Salvage value (KRW)')).toHaveValue('100000');
 });
 
 test('a total too large to show says so instead of a wrong number', async () => {
@@ -485,7 +491,7 @@ test('a total too large to show says so instead of a wrong number', async () => 
     }),
   );
   await ready();
-  expect(summary('자산 합계')).toHaveTextContent('너무 커서 표시할 수 없음');
-  expect(summary('부채 합계')).toHaveTextContent('7,000,000원');
-  expect(summary('순자산')).toHaveTextContent('너무 커서 표시할 수 없음');
+  expect(summary('Total assets')).toHaveTextContent('Too large to show');
+  expect(summary('Total liabilities')).toHaveTextContent('₩7,000,000');
+  expect(summary('Net worth')).toHaveTextContent('Too large to show');
 });

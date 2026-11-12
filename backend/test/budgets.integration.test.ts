@@ -106,7 +106,7 @@ test('monthly budgets against the real database', { skip: !url }, async (t) => {
       [budgets['주거'].remaining, budgets['주거'].over, budgets['주거'].percent],
       [79000, 0, '1.3'],
     );
-    // No budget: 미설정, with the spending still shown.
+    // No budget: Not set, with the spending still shown.
     assert.deepEqual(budgets['통신'], {
       categoryId: ids['expense/통신'],
       name: '통신',
@@ -211,7 +211,7 @@ test('monthly budgets against the real database', { skip: !url }, async (t) => {
         body: { month: '2026-11', amount: 1000 },
       });
       assert.equal(response.status, 404);
-      assert.deepEqual(response.data, { error: '지출 카테고리를 찾을 수 없습니다' });
+      assert.deepEqual(response.data, { error: 'Expense category not found' });
     }
     const { rows } = await pool.query('SELECT 1 FROM ledger_budgets');
     assert.equal(rows.length, 0);

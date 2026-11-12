@@ -225,7 +225,7 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
         });
         assert.equal(over.status, 400);
         assert.deepEqual(over.data, {
-          error: '2026-03-06 매도 수량이 그때 보유 수량(4)보다 많습니다',
+          error: '2026-03-06 sell quantity is more than the quantity held then (4)',
         });
         // A sell dated before the buy.
         const early = await trade(call, id, {
@@ -235,7 +235,7 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
           price: '1000',
         });
         assert.deepEqual(early.data, {
-          error: '2026-03-01 매도 수량이 그때 보유 수량(0)보다 많습니다',
+          error: '2026-03-01 sell quantity is more than the quantity held then (0)',
         });
         // Deleting or shrinking the buy a later sell relies on.
         const del = await call(`${assets}/${id}/trades/${buyId}`, { method: 'DELETE' });
@@ -245,7 +245,7 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
           body: { side: 'buy', tradedOn: '2026-03-02', quantity: '5', price: '1000' },
         });
         assert.deepEqual(shrink.data, {
-          error: '2026-03-05 매도 수량이 그때 보유 수량(5)보다 많습니다',
+          error: '2026-03-05 sell quantity is more than the quantity held then (5)',
         });
         // Moving the sell before the buy.
         const moved = await call(`${assets}/${id}/trades/${sellId}`, {
@@ -356,16 +356,17 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
         const put = (body: object) => call(`${assets}/${id}`, { method: 'PUT', body });
         const quantity = await put({ ...samsung, quantity: '5' });
         assert.deepEqual(quantity.data, {
-          error: '거래 기록이 있는 자산의 수량은 거래로만 바뀝니다',
+          error: 'The quantity of an asset with trades changes only through trades',
         });
         const cash = await put({ ...samsung, type: 'cash', quantity: '4' });
         assert.equal(cash.status, 400);
         assert.deepEqual(cash.data, {
-          error: '거래 기록이 있는 자산은 주식이나 기타(코인 등)로, 같은 통화로만 바꿀 수 있습니다',
+          error:
+            'An asset with trades can only be changed to stock or other (crypto, etc.), in the same currency',
         });
         const usd = await put({ ...samsung, currency: 'USD', quantity: '4' });
         assert.equal(usd.status, 400);
-        // Same quantity written differently, and a move to 기타 are fine.
+        // Same quantity written differently, and a move to other are fine.
         const fine = await put({ ...samsung, type: 'other', quantity: '4.0' });
         assert.equal(fine.status, 200);
       });
@@ -387,15 +388,15 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
         });
         const base = { side: 'buy', tradedOn: '2026-07-01', quantity: '1', price: '1000' };
         const cases: [number, object, string][] = [
-          [won, { ...base, fxRate: '1300' }, '원화 자산의 거래에는 환율을 넣지 않습니다'],
-          [won, { ...base, price: '1000.5' }, '원화 단가는 원 단위 정수로 입력하세요'],
-          [dollar, base, '달러 거래는 그날 환율을 입력하세요'],
-          [savings, base, '거래는 주식과 기타(코인 등) 자산에만 기록할 수 있습니다'],
-          [won, { ...base, tradedOn: '2026-07-16' }, '오늘 이후 날짜의 거래는 기록할 수 없습니다'],
+          [won, { ...base, fxRate: '1300' }, 'Trades of won assets take no exchange rate'],
+          [won, { ...base, price: '1000.5' }, 'Enter a won unit price as a whole number of won'],
+          [dollar, base, 'Enter the exchange rate of that day for a dollar trade'],
+          [savings, base, 'Trades can only be recorded for stock and other (crypto, etc.) assets'],
+          [won, { ...base, tradedOn: '2026-07-16' }, 'Trades dated after today cannot be recorded'],
           [
             won,
             { ...base, quantity: '999999999999', price: '9999999999' },
-            '거래 금액이 1,000조 원을 넘습니다',
+            'The trade amount exceeds ₩1 quadrillion',
           ],
         ];
         for (const [id, body, error] of cases) {
@@ -410,7 +411,7 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
           method: 'DELETE',
         });
         assert.equal(other.status, 404);
-        assert.deepEqual(other.data, { error: '거래를 찾을 수 없습니다' });
+        assert.deepEqual(other.data, { error: 'Trade not found' });
       },
       { today: () => '2026-07-15' },
     );
@@ -466,7 +467,7 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
         price: '1000',
       });
       assert.deepEqual(sell.data, {
-        error: '2026-09-01 매도 수량이 그때 보유 수량(0)보다 많습니다',
+        error: '2026-09-01 sell quantity is more than the quantity held then (0)',
       });
       assert.equal((await assetOf(call, id)).quantity, '10.00000000');
       await trade(call, id, { side: 'buy', tradedOn: '2026-09-01', quantity: '5', price: '1000' });
@@ -474,17 +475,17 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
     });
   });
 
-  await t.test('a quantity too large anywhere in the history is a Korean 400', async () => {
+  await t.test('a quantity too large anywhere in the history is a 400', async () => {
     await reset();
     await withApi(pool, async (call) => {
       const id = await create(call, samsung);
       const big = { quantity: '600000000000', price: '1' };
       await trade(call, id, { ...big, side: 'buy', tradedOn: '2026-09-01' });
       await trade(call, id, { ...big, side: 'sell', tradedOn: '2026-09-10' });
-      // In between, the holding would reach 1.2조 shares although it ends at 0.6조.
+      // In between, the holding would reach 1.2 trillion shares although it ends at 0.6 trillion.
       const between = await trade(call, id, { ...big, side: 'buy', tradedOn: '2026-09-05' });
       assert.equal(between.status, 400);
-      assert.deepEqual(between.data, { error: '보유 수량이나 금액이 너무 큽니다' });
+      assert.deepEqual(between.data, { error: 'The quantity held or the amount is too large' });
     });
   });
 
@@ -552,12 +553,12 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
     await withApi(pool, async (call) => {
       const id = await create(call, samsung);
       const max = 1_000_000_000_000_000;
-      // Two sells of about +1,000조 each keep the total of realized profit in range later on.
+      // Two sells of about +₩1 quadrillion each keep the total of realized profit in range later on.
       await trade(call, id, { side: 'buy', tradedOn: '2026-10-01', quantity: '2', price: '1' });
       for (const day of ['2026-10-02', '2026-10-03']) {
         await trade(call, id, { side: 'sell', tradedOn: day, quantity: '1', price: String(max) });
       }
-      // A won cost of 9,000조 (three buys of 1,000조 each with as much in fees and taxes).
+      // A won cost of ₩9 quadrillion (three buys of ₩1 quadrillion each with as much in fees and taxes).
       for (let n = 0; n < 3; n += 1) {
         await trade(call, id, {
           side: 'buy',
@@ -568,8 +569,8 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
           taxKrw: max,
         });
       }
-      // Selling them for 1 won with a 1,000조 fee: about −1경 on this one sell, while the total stays
-      // about −8,000조.
+      // Selling them for 1 won with a ₩1 quadrillion fee: about −₩10 quadrillion on this one sell, while the total stays
+      // about −₩8 quadrillion.
       const sell = await trade(call, id, {
         side: 'sell',
         tradedOn: '2026-10-05',
@@ -578,7 +579,7 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
         feeKrw: max,
       });
       assert.equal(sell.status, 400);
-      assert.deepEqual(sell.data, { error: '보유 수량이나 금액이 너무 큽니다' });
+      assert.deepEqual(sell.data, { error: 'The quantity held or the amount is too large' });
       assert.equal((await call(`${assets}/${id}/trades`)).status, 200);
     });
   });

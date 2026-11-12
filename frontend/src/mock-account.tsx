@@ -29,17 +29,18 @@ type State = { account: Account | null; closedAccounts: Account[] };
 const accountsPath = '/api/mock/accounts';
 const defaultAmount = '10,000,000';
 
-/** The starting amount in won, or the Korean message for what is wrong. Mirrors the server rules. */
+/** The starting amount in won, or the message for what is wrong. Mirrors the server rules. */
 function parseAmount(text: string): { amount: number } | { message: string } {
   const digits = withoutThousands(text);
-  if (!/^\d{1,12}$/.test(digits)) return { message: '시작 금액은 원 단위 정수로 입력하세요' };
+  if (!/^\d{1,12}$/.test(digits))
+    return { message: 'Enter the starting amount as a whole number of won' };
   const amount = Number(digits);
-  if (amount < 10_000) return { message: '시작 금액은 1만 원 이상이어야 합니다' };
-  if (amount > 10_000_000_000) return { message: '시작 금액은 100억 원 이하로 입력하세요' };
+  if (amount < 10_000) return { message: 'The starting amount must be at least ₩10,000' };
+  if (amount > 10_000_000_000) return { message: 'Enter a starting amount of ₩10 billion or less' };
   return { amount };
 }
 
-const grouped = (amount: number) => new Intl.NumberFormat('ko-KR').format(amount);
+const grouped = (amount: number) => new Intl.NumberFormat('en-US').format(amount);
 
 /**
  * `refreshKey` changes after an order elsewhere on the page, so the cash shown is reloaded (#52). `onOrdered`
@@ -70,7 +71,7 @@ export function MockAccount({
   }, []);
 
   useEffect(() => {
-    load().catch((cause: unknown) => showError(cause, '모의투자 계좌를 불러오지 못했습니다'));
+    load().catch((cause: unknown) => showError(cause, 'Could not load the mock trading account'));
   }, [load, showError, refreshKey]);
 
   // When a reload removes the focused control (the create button, the reset button), focus goes to what
@@ -87,7 +88,7 @@ export function MockAccount({
       await load();
       showStatus(done);
     } catch {
-      showError(`${done}. 계좌를 새로 불러오지 못했습니다`);
+      showError(`${done}. Could not reload the account`);
     }
   };
 
@@ -117,7 +118,7 @@ export function MockAccount({
         return;
       }
       refocus.current = true;
-      await reload(`${formatWon(result.amount)}으로 모의투자 계좌를 만들었습니다`);
+      await reload(`Mock trading account created with ${formatWon(result.amount)}`);
     } finally {
       saving.current = false;
       setBusy(false);
@@ -162,7 +163,7 @@ export function MockAccount({
         }
         throw cause;
       }
-      await reload(`계좌를 초기화했습니다. ${formatWon(result.amount)}으로 다시 시작합니다`);
+      await reload(`Account reset. Starting over with ${formatWon(result.amount)}`);
     } finally {
       saving.current = false;
     }
@@ -180,29 +181,29 @@ export function MockAccount({
     <div className="flex flex-col gap-6">
       <Notice id="mock-account-notice" notice={notice.notice} />
       <p id="mock-account-amount-hint" className="text-caption text-muted-foreground">
-        모의투자 금액은 가상 금액이라 가계부와 자산 포트폴리오 합계에 들어가지 않습니다. 시작 금액은
-        1만 원부터 100억 원까지 정할 수 있습니다.
+        Mock trading money is virtual, so it is not part of the ledger or asset portfolio totals.
+        The starting amount can be set from ₩10,000 to ₩10 billion.
       </p>
       {state === undefined ? (
         notice.notice?.kind === 'error' ? null : (
-          <p className="text-body-sm text-muted-foreground">모의투자 계좌를 불러오는 중입니다</p>
+          <p className="text-body-sm text-muted-foreground">Loading the mock trading account</p>
         )
       ) : account ? (
         <Card>
           <CardHeader>
             <CardTitle asHeading="h2" ref={accountTitle} tabIndex={-1} className="outline-none">
-              모의투자 계좌
+              Mock trading account
             </CardTitle>
-            <CardDescription>{formatDateTime(account.createdAt)}에 시작했습니다.</CardDescription>
+            <CardDescription>Started on {formatDateTime(account.createdAt)}.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
             <dl className="grid gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1 rounded-xl border px-4 py-3">
-                <dt className="text-body-sm text-muted-foreground">현금 잔고</dt>
+                <dt className="text-body-sm text-muted-foreground">Cash balance</dt>
                 <dd className="text-lg font-semibold tabular-nums">{formatWon(account.cashKrw)}</dd>
               </div>
               <div className="flex flex-col gap-1 rounded-xl border px-4 py-3">
-                <dt className="text-body-sm text-muted-foreground">시작 금액</dt>
+                <dt className="text-body-sm text-muted-foreground">Starting amount</dt>
                 <dd className="text-lg font-semibold tabular-nums">
                   {formatWon(account.initialCashKrw)}
                 </dd>
@@ -217,14 +218,15 @@ export function MockAccount({
             />
             <section aria-labelledby="mock-reset-title" className="flex flex-col gap-3">
               <h3 id="mock-reset-title" className="text-body font-semibold">
-                처음부터 다시 시작
+                Start over
               </h3>
               <p className="text-body-sm text-muted-foreground">
-                초기화하면 지금 계좌는 이전 계좌로 보관되고, 입력한 금액으로 새 계좌를 시작합니다.
+                Resetting keeps the current account as a previous account and starts a new one with
+                the amount you enter.
               </p>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                 <div className="flex flex-col gap-2 sm:w-64">
-                  <Label htmlFor="mock-reset-amount">새 시작 금액(원)</Label>
+                  <Label htmlFor="mock-reset-amount">New starting amount (KRW)</Label>
                   <Input
                     id="mock-reset-amount"
                     inputMode="numeric"
@@ -238,9 +240,9 @@ export function MockAccount({
                   />
                 </div>
                 <ConfirmDialog
-                  title="모의투자 계좌를 초기화할까요?"
-                  description={`지금 계좌(현금 ${formatWon(account.cashKrw)})는 이전 계좌로 보관되고 다시 쓸 수 없습니다.${'amount' in resetParsed ? ` 새 계좌는 ${formatWon(resetParsed.amount)}으로 시작합니다.` : ''}`}
-                  confirmLabel="초기화"
+                  title="Reset the mock trading account?"
+                  description={`The current account (cash ${formatWon(account.cashKrw)}) is kept as a previous account and can no longer be used.${'amount' in resetParsed ? ` The new account starts with ${formatWon(resetParsed.amount)}.` : ''}`}
+                  confirmLabel="Reset"
                   open={confirming}
                   onOpenChange={openConfirm}
                   onConfirm={() => reset(account)}
@@ -249,7 +251,7 @@ export function MockAccount({
                   returnFocusRef={createInput}
                   trigger={
                     <Button type="button" variant="outline">
-                      초기화
+                      Reset
                     </Button>
                   }
                 />
@@ -260,19 +262,19 @@ export function MockAccount({
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle asHeading="h2">모의투자 계좌 만들기</CardTitle>
+            <CardTitle asHeading="h2">Create a mock trading account</CardTitle>
             <CardDescription>
-              가상 투자금으로 계좌를 만듭니다. 계좌는 하나만 둘 수 있습니다.
+              Create an account with virtual money. You can have only one account.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form
-              aria-label="모의투자 계좌 만들기"
+              aria-label="Create a mock trading account"
               onSubmit={(event) => void create(event)}
               className="flex flex-col gap-2 sm:flex-row sm:items-end"
             >
               <div className="flex flex-col gap-2 sm:w-64">
-                <Label htmlFor="mock-create-amount">시작 금액(원)</Label>
+                <Label htmlFor="mock-create-amount">Starting amount (KRW)</Label>
                 <Input
                   id="mock-create-amount"
                   ref={createInput}
@@ -288,7 +290,7 @@ export function MockAccount({
               </div>
               {/* Stays enabled while saving so focus is kept; the ref ignores a second press. */}
               <Button type="submit" aria-busy={busy || undefined}>
-                {busy ? '만드는 중…' : '계좌 만들기'}
+                {busy ? 'Creating…' : 'Create account'}
               </Button>
             </form>
           </CardContent>
@@ -311,7 +313,7 @@ export function MockAccount({
       ) : null}
       {state && state.closedAccounts.length > 0 ? (
         <section aria-labelledby="mock-closed-title" className="flex flex-col gap-3">
-          <h2 id="mock-closed-title">이전 계좌</h2>
+          <h2 id="mock-closed-title">Previous accounts</h2>
           <ul
             aria-labelledby="mock-closed-title"
             className="flex flex-col divide-y rounded-xl border"
@@ -323,7 +325,8 @@ export function MockAccount({
                   {closed.closedAt ? formatDateTime(closed.closedAt) : ''}
                 </span>
                 <span className="text-body-sm tabular-nums">
-                  시작 {formatWon(closed.initialCashKrw)} · 마지막 현금 {formatWon(closed.cashKrw)}
+                  Started with {formatWon(closed.initialCashKrw)} · last cash{' '}
+                  {formatWon(closed.cashKrw)}
                 </span>
               </li>
             ))}

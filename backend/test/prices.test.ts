@@ -99,7 +99,7 @@ test('the Eximbank USD rate drops thousands commas; an empty day is null; error 
     '1385.25',
   );
   assert.equal(parseEximUsd([]), null);
-  assert.throws(() => parseEximUsd([{ result: 3 }]), /결과 코드 3/);
+  assert.throws(() => parseEximUsd([{ result: 3 }]), /result code 3/);
 });
 
 test('the first file of a ZIP archive is read, deflated or stored', () => {
@@ -168,12 +168,12 @@ const reached = async () => {
 const noDb = { query: reached, connect: reached } as unknown as Pool;
 
 for (const [query, error] of [
-  ['', '검색어를 입력하세요'],
-  ['?q=%20%20', '검색어를 입력하세요'],
-  [`?q=${'가'.repeat(41)}`, '검색어는 40자 이하로 입력하세요'],
-  ['?q=a&q=b', '검색어를 입력하세요'],
+  ['', 'Enter a search term'],
+  ['?q=%20%20', 'Enter a search term'],
+  [`?q=${'가'.repeat(41)}`, 'The search term must be 40 characters or fewer'],
+  ['?q=a&q=b', 'Enter a search term'],
 ] as const) {
-  test(`search "${query.slice(0, 12)}" is a Korean 400 before the DB`, async () => {
+  test(`search "${query.slice(0, 12)}" is a 400 before the DB`, async () => {
     await withApi(noDb, async (call) => {
       const response = await call(`/api/prices/securities${query}`);
       assert.equal(response.status, 400);
@@ -182,10 +182,10 @@ for (const [query, error] of [
   });
 }
 
-test('a malformed security id is a Korean 400', async () => {
+test('a malformed security id is a 400', async () => {
   await withApi(noDb, async (call) => {
     const response = await call('/api/prices/securities/abc');
     assert.equal(response.status, 400);
-    assert.deepEqual(response.data, { error: 'Invalid 종목 ID' });
+    assert.deepEqual(response.data, { error: 'Invalid security ID' });
   });
 });

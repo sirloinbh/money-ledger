@@ -18,49 +18,61 @@ const noDb = {
 const buy = { side: 'buy', tradedOn: '2026-01-02', quantity: '10', price: '1000' };
 
 const invalid = [
-  { label: 'no side', body: { ...buy, side: 'hold' }, error: '매수 또는 매도를 고르세요' },
+  { label: 'no side', body: { ...buy, side: 'hold' }, error: 'Choose buy or sell' },
   {
     label: 'no date',
     body: { ...buy, tradedOn: undefined },
-    error: '날짜를 YYYY-MM-DD 형식으로 입력하세요',
+    error: 'Enter the date as YYYY-MM-DD',
   },
-  { label: 'a zero quantity', body: { ...buy, quantity: '0' }, error: '수량은 0보다 커야 합니다' },
+  {
+    label: 'a zero quantity',
+    body: { ...buy, quantity: '0' },
+    error: 'The quantity must be above 0',
+  },
   {
     label: 'a quantity with 9 decimals',
     body: { ...buy, quantity: '0.123456789' },
-    error: '수량은 정수 12자리, 소수 8자리까지 입력하세요',
+    error: 'Enter the quantity with up to 12 integer and 8 decimal digits',
   },
   {
     label: 'a number quantity',
     body: { ...buy, quantity: 10 },
-    error: '수량은 소수 문자열로 보내세요',
+    error: 'Send the quantity as a decimal string',
   },
-  { label: 'a zero price', body: { ...buy, price: '0.0' }, error: '단가는 0보다 커야 합니다' },
+  {
+    label: 'a zero price',
+    body: { ...buy, price: '0.0' },
+    error: 'The unit price must be above 0',
+  },
   {
     label: 'a price with 5 decimals',
     body: { ...buy, price: '1.12345' },
-    error: '단가는 정수 16자리, 소수 4자리까지 입력하세요',
+    error: 'Enter the unit price with up to 16 integer and 4 decimal digits',
   },
-  { label: 'a zero rate', body: { ...buy, fxRate: '0' }, error: '환율은 0보다 커야 합니다' },
+  {
+    label: 'a zero rate',
+    body: { ...buy, fxRate: '0' },
+    error: 'The exchange rate must be above 0',
+  },
   {
     label: 'a negative fee',
     body: { ...buy, feeKrw: -1 },
-    error: '수수료는 0원 이상이어야 합니다',
+    error: 'The fee must be ₩0 or more',
   },
   {
     label: 'a fractional tax',
     body: { ...buy, taxKrw: 1.5 },
-    error: '세금은 원 단위 정수로 입력하세요',
+    error: 'Enter the tax as a whole number of won',
   },
   {
     label: 'a memo over 100 characters',
     body: { ...buy, memo: 'a'.repeat(101) },
-    error: '메모는 100자 이하로 입력하세요',
+    error: 'The note must be 100 characters or fewer',
   },
 ];
 
 for (const { label, body, error } of invalid) {
-  test(`a trade with ${label} is a Korean 400 before the DB`, async () => {
+  test(`a trade with ${label} is a 400 before the DB`, async () => {
     await withApi(noDb, async (call) => {
       const response = await call('/api/portfolio/assets/1/trades', { method: 'POST', body });
       assert.equal(response.status, 400);
@@ -69,7 +81,7 @@ for (const { label, body, error } of invalid) {
   });
 }
 
-test('a trade dated after today is a Korean 400 before the DB', async () => {
+test('a trade dated after today is a 400 before the DB', async () => {
   await withApi(
     noDb,
     async (call) => {
@@ -77,17 +89,17 @@ test('a trade dated after today is a Korean 400 before the DB', async () => {
         method: 'POST',
         body: { ...buy, tradedOn: '2026-01-03' },
       });
-      assert.deepEqual(response.data, { error: '오늘 이후 날짜의 거래는 기록할 수 없습니다' });
+      assert.deepEqual(response.data, { error: 'Trades dated after today cannot be recorded' });
     },
     { today: () => '2026-01-02' },
   );
 });
 
-test('malformed asset and trade ids are Korean 400s', async () => {
+test('malformed asset and trade ids are 400s', async () => {
   await withApi(noDb, async (call) => {
     const asset = await call('/api/portfolio/assets/x/trades');
-    assert.deepEqual(asset.data, { error: 'Invalid 자산 ID' });
+    assert.deepEqual(asset.data, { error: 'Invalid asset ID' });
     const trade = await call('/api/portfolio/assets/1/trades/x', { method: 'DELETE' });
-    assert.deepEqual(trade.data, { error: 'Invalid 거래 ID' });
+    assert.deepEqual(trade.data, { error: 'Invalid trade ID' });
   });
 });

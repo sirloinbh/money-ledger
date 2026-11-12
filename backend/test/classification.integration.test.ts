@@ -62,7 +62,7 @@ test('keyword rules and classification against the real database', { skip: !url 
   };
 
   await t.test(
-    'an entry saved without a category gets the matching rule or stays 미분류',
+    'an entry saved without a category gets the matching rule or stays Uncategorized',
     async () => {
       await reset();
       const ids = await categoryIds();
@@ -168,7 +168,9 @@ test('keyword rules and classification against the real database', { skip: !url 
           body: { entryIds: [a.id, income.id], categoryId: ids['expense/식비'] },
         });
         assert.equal(mixed.status, 400);
-        assert.deepEqual(mixed.data, { error: '고른 카테고리와 종류가 다른 내역이 있습니다' });
+        assert.deepEqual(mixed.data, {
+          error: 'Some entries are a different kind from the chosen category',
+        });
 
         const done = await call('/api/ledger/entries/classify', {
           method: 'POST',
@@ -204,7 +206,7 @@ test('keyword rules and classification against the real database', { skip: !url 
       ];
       assert.equal(entries[0].categoryId, ids['expense/생활']);
       const gs = await addEntry(call, { merchant: 'GS25', categoryId: ids['expense/식비'] });
-      // Reclassify by hand: move GS25 to 식비 via a fresh uncategorized entry.
+      // Reclassify by hand: move GS25 to Food via a fresh uncategorized entry.
       await pool.query('UPDATE ledger_entries SET category_id = NULL WHERE id = $1', [gs.id]);
 
       const done = await call('/api/ledger/entries/classify', {
@@ -291,16 +293,13 @@ test('keyword rules and classification against the real database', { skip: !url 
       });
       assert.deepEqual(
         [hidden.status, hidden.data],
-        [400, { error: '숨긴 카테고리로는 분류할 수 없습니다' }],
+        [400, { error: 'Cannot classify into a hidden category' }],
       );
       const unknown = await call('/api/ledger/entries/classify', {
         method: 'POST',
         body: { entryIds: [entry.id], categoryId: 999999 },
       });
-      assert.deepEqual(
-        [unknown.status, unknown.data],
-        [400, { error: '카테고리를 찾을 수 없습니다' }],
-      );
+      assert.deepEqual([unknown.status, unknown.data], [400, { error: 'Category not found' }]);
     });
   });
 
@@ -351,7 +350,7 @@ test('keyword rules and classification against the real database', { skip: !url 
         const again = await addRule(call, 'starbucks', ids['expense/여가']);
         assert.deepEqual(
           [again.status, again.data],
-          [409, { error: '같은 종류에 이미 있는 키워드입니다' }],
+          [409, { error: 'A keyword already exists for this kind' }],
         );
         // The same keyword may exist once per kind.
         assert.equal((await addRule(call, 'starbucks', ids['income/급여'])).status, 201);
@@ -363,20 +362,17 @@ test('keyword rules and classification against the real database', { skip: !url 
         const hidden = await addRule(call, '영화', ids['expense/여가']);
         assert.deepEqual(
           [hidden.status, hidden.data],
-          [400, { error: '숨긴 카테고리에는 규칙을 만들 수 없습니다' }],
+          [400, { error: 'Cannot create a rule for a hidden category' }],
         );
         const unknown = await addRule(call, '영화', 999999);
-        assert.deepEqual(
-          [unknown.status, unknown.data],
-          [400, { error: '카테고리를 찾을 수 없습니다' }],
-        );
+        assert.deepEqual([unknown.status, unknown.data], [400, { error: 'Category not found' }]);
 
         assert.equal(
           (await call(`/api/ledger/rules/${rule.id}`, { method: 'DELETE' })).status,
           204,
         );
         const gone = await call(`/api/ledger/rules/${rule.id}`, { method: 'DELETE' });
-        assert.deepEqual([gone.status, gone.data], [404, { error: '규칙을 찾을 수 없습니다' }]);
+        assert.deepEqual([gone.status, gone.data], [404, { error: 'Rule not found' }]);
       });
     },
   );

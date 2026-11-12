@@ -21,7 +21,7 @@ test('health reports the service and the injected service date when the DB answe
   );
 });
 
-test('a DB failure becomes a Korean 500 without leaking the error', async () => {
+test('a DB failure becomes a 500 without leaking the error', async () => {
   const original = console.error;
   console.error = () => {};
   try {
@@ -42,11 +42,11 @@ test('a DB failure becomes a Korean 500 without leaking the error', async () => 
 
 test('a zod 4 validation error becomes a 400 with its own message', async () => {
   await withApi(
-    pool(async () => z.string({ error: '문자로 입력해 주세요' }).parse(1)),
+    pool(async () => z.string({ error: 'Enter text' }).parse(1)),
     async (call) => {
       const { status, data } = await call('/api/health');
       assert.equal(status, 400);
-      assert.deepEqual(data, { error: '문자로 입력해 주세요' });
+      assert.deepEqual(data, { error: 'Enter text' });
     },
   );
 });

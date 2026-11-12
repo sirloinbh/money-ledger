@@ -83,12 +83,12 @@ export function MockHoldings({
           // Its order form goes away with the row, so the result is said here.
           open.current = undefined;
           setOrdering(undefined);
-          showStatus(`${sold.title} 보유분을 모두 팔았습니다`);
+          showStatus(`Sold all your ${sold.title}`);
         } else clear();
         setData({ accountId, data: loaded });
       })
       .catch((cause: unknown) => {
-        if (current) showError(cause, '보유 종목을 불러오지 못했습니다');
+        if (current) showError(cause, 'Could not load the holdings');
       });
     return () => {
       current = false;
@@ -101,28 +101,28 @@ export function MockHoldings({
   return (
     <section aria-labelledby="mock-holdings-title" className="flex flex-col gap-3">
       <h3 id="mock-holdings-title" className="text-body font-semibold">
-        보유 종목과 수익률
+        Holdings and returns
       </h3>
       <Notice id="mock-holdings-notice" notice={notice.notice} />
       {!loaded ? (
         notice.notice?.kind === 'error' ? null : (
-          <p className="text-body-sm text-muted-foreground">보유 종목을 불러오는 중입니다</p>
+          <p className="text-body-sm text-muted-foreground">Loading holdings</p>
         )
       ) : (
         <>
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               [
-                '총자산',
+                'Total assets',
                 loaded.summary.totalKrw === null ? '-' : formatWon(loaded.summary.totalKrw),
               ],
               [
-                '평가금액',
+                'Valuation',
                 loaded.summary.valueKrw === null ? '-' : formatWon(loaded.summary.valueKrw),
               ],
-              ['계좌 손익', profitText(loaded.summary.profitKrw, null)],
+              ['Account gain/loss', profitText(loaded.summary.profitKrw, null)],
               [
-                '수익률',
+                'Return',
                 loaded.summary.returnPct === null ? '-' : signedPercent(loaded.summary.returnPct),
               ],
             ].map(([label, value]) => (
@@ -133,15 +133,15 @@ export function MockHoldings({
             ))}
           </dl>
           <p className="text-caption text-muted-foreground">
-            총자산은 현금 잔고와 평가금액의 합이고, 수익률은 시작 금액 대비입니다. 평가금액은 저장된
-            최신 종가와 환율로 계산합니다.
+            Total assets are the cash balance plus the valuation, and the return is measured against
+            the starting amount. The valuation uses the latest saved close and exchange rate.
             {loaded.summary.totalKrw === null
-              ? ' 시세나 환율이 없는 종목이 있어 총자산을 계산하지 못했습니다.'
+              ? ' Some holdings have no quote or exchange rate, so total assets could not be calculated.'
               : ''}
           </p>
           {loaded.holdings.length === 0 ? (
             <p className="text-body-sm text-muted-foreground">
-              보유 종목이 없습니다. 아래에서 종목을 찾아 모의 주문을 해 보세요.
+              No holdings. Find a security below and place a mock order.
             </p>
           ) : (
             <ul
@@ -155,22 +155,22 @@ export function MockHoldings({
                     <span className="text-body-sm text-muted-foreground">
                       {held.security.symbol}
                     </span>
-                    {held.security.active ? null : <Badge variant="warning">거래 중단</Badge>}
+                    {held.security.active ? null : <Badge variant="warning">Trading halted</Badge>}
                   </div>
                   <p className="text-body-sm text-muted-foreground tabular-nums">
-                    {formatDecimal(held.quantity)}주
+                    {formatDecimal(held.quantity)} shares
                     {held.price !== null && held.priceDate !== null
-                      ? ` · ${held.priceStale ? '시세 지연 · ' : ''}${formatMonthDay(held.priceDate)} 종가 ${formatPrice(held.price, held.security.currency)}`
-                      : ' · 종가 없음'}
+                      ? ` · ${held.priceStale ? 'Delayed · ' : ''}${formatMonthDay(held.priceDate)} close ${formatPrice(held.price, held.security.currency)}`
+                      : ' · No close'}
                     {held.fxRate !== null && held.fxDate !== null
-                      ? ` · 환율 ${formatDecimal(held.fxRate)}원(${formatMonthDay(held.fxDate)})`
+                      ? ` · rate ₩${formatDecimal(held.fxRate)} (${formatMonthDay(held.fxDate)})`
                       : ''}
                   </p>
                   <dl className="grid grid-cols-3 gap-2 text-body-sm">
                     {[
-                      ['평가금액', held.valueKrw === null ? '-' : formatWon(held.valueKrw)],
-                      ['매입원가', formatWon(held.costKrw)],
-                      ['손익', profitText(held.profitKrw, held.returnPct)],
+                      ['Valuation', held.valueKrw === null ? '-' : formatWon(held.valueKrw)],
+                      ['Cost basis', formatWon(held.costKrw)],
+                      ['Gain/loss', profitText(held.profitKrw, held.returnPct)],
                     ].map(([label, value]) => (
                       <div key={label} className="flex flex-col">
                         <dt className="text-muted-foreground">{label}</dt>
@@ -184,7 +184,7 @@ export function MockHoldings({
                       variant="outline"
                       size="sm"
                       aria-expanded={ordering === held.security.id}
-                      aria-label={`${heldTitle(held)} 주문`}
+                      aria-label={`${heldTitle(held)} order`}
                       onClick={() => {
                         const closing = ordering === held.security.id;
                         open.current = closing
@@ -193,7 +193,7 @@ export function MockHoldings({
                         setOrdering(closing ? undefined : held.security.id);
                       }}
                     >
-                      {ordering === held.security.id ? '주문 닫기' : '주문'}
+                      {ordering === held.security.id ? 'Close order' : 'Order'}
                     </Button>
                   </div>
                   {ordering === held.security.id ? (

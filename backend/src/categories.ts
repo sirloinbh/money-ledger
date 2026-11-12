@@ -6,32 +6,32 @@ import { HttpError, parseId } from './standard/http.js';
 
 // #37 Income and expense categories. Categories are hidden instead of deleted, so entries keep them.
 
-const kind = z.enum(['income', 'expense'], { error: '종류는 수입 또는 지출 중에서 고르세요' });
+const kind = z.enum(['income', 'expense'], { error: 'Choose income or expense as the kind' });
 const name = z
-  .string({ error: '카테고리 이름을 입력하세요' })
+  .string({ error: 'Enter a category name' })
   .trim()
   // NFC: Hangul pasted in decomposed form (macOS) must match the composed name for the duplicate check.
   .normalize('NFC')
-  .min(1, '카테고리 이름을 입력하세요')
-  .max(30, '카테고리 이름은 30자 이하로 입력하세요');
+  .min(1, 'Enter a category name')
+  .max(30, 'Enter a category name of 30 characters or fewer');
 
-const objectBody = { error: '요청 본문은 JSON 객체여야 합니다' };
+const objectBody = { error: 'The request body must be a JSON object' };
 const createBody = z.object({ kind, name }, objectBody);
 const updateBody = z
   .object(
     {
       name: name.optional(),
-      hidden: z.boolean({ error: '숨김 여부가 올바르지 않습니다' }).optional(),
+      hidden: z.boolean({ error: 'The hidden flag is not valid' }).optional(),
     },
     objectBody,
   )
   .refine((body) => body.name !== undefined || body.hidden !== undefined, {
-    error: '바꿀 이름이나 숨김 여부를 보내세요',
+    error: 'Send a new name or a hidden flag',
   });
 const listQuery = z.object({
   kind: kind.optional(),
   // `visible=true` leaves out hidden categories: the list for a new entry.
-  visible: z.enum(['true'], { error: 'visible은 true만 쓸 수 있습니다' }).optional(),
+  visible: z.enum(['true'], { error: 'visible can only be true' }).optional(),
 });
 
 type Row = { id: string; kind: 'income' | 'expense'; name: string; hidden: boolean };
@@ -44,7 +44,7 @@ const toCategory = (row: Row) => ({
   hidden: row.hidden,
 });
 
-const duplicateName = '같은 종류에 이미 있는 카테고리 이름입니다';
+const duplicateName = 'A category with this name already exists for this kind';
 
 async function saving<T>(run: () => Promise<T>) {
   try {
@@ -81,7 +81,7 @@ export function categoriesRouter(pool: Pool) {
   });
 
   router.patch('/:id', async (req, res) => {
-    const id = parseId(req.params.id, '카테고리');
+    const id = parseId(req.params.id, 'category');
     const body = updateBody.parse(req.body);
     const { rows } = await saving(() =>
       pool.query<Row>(
@@ -91,7 +91,7 @@ export function categoriesRouter(pool: Pool) {
         [id, body.name ?? null, body.hidden ?? null],
       ),
     );
-    if (!rows[0]) throw new HttpError(404, '카테고리를 찾을 수 없습니다');
+    if (!rows[0]) throw new HttpError(404, 'Category not found');
     res.json({ category: toCategory(rows[0]) });
   });
 
