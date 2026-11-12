@@ -3,7 +3,7 @@ name: std-communication
 description: Write every explanation addressed to the user of a sirloinbh project repository in English, even when the user writes in Korean or the source material (code comments, docs, logs, earlier issues) is in Korean. Use for all final reports, progress updates, questions, choices, and error explanations; keep commands, paths, code identifiers, and original error text unchanged.
 ---
 
-<!-- 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/common/skills/std-communication/에서 -->
+<!-- Managed file. Edit it in sirloinbh/project-standards templates/common/skills/std-communication/ -->
 
 # Talk to the user in English
 

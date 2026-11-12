@@ -1,4 +1,4 @@
-<!-- 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/common/.github/에서 -->
+<!-- Managed file. Edit it in sirloinbh/project-standards templates/common/.github/ -->
 <!-- Centrally managed file. Edit it in sirloinbh/project-standards templates/common/.github/ -->
 <!-- How to write: std-git-writing skill. The title uses the commit title format. e.g. feat: add registry source files and conflict check (#44) -->
 
@@ -18,7 +18,7 @@
 - 
 
 ## Check before merging
-<!-- Things the user must decide or run. "None" if nothing -->
+<!-- Things the user must decide or run, plus choices you made without asking (default chosen, why, how to reverse). "None" if nothing -->
 - [ ] 
 
 ## Impact

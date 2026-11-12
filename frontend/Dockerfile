@@ -1,5 +1,5 @@
-# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/frontend/에서
-# 패키지 인증 토큰은 BuildKit secret(npm_token)으로만 받는다. ARG·ENV로 넘기지 않으므로 이미지 레이어에 남지 않는다.
+# Managed file. Edit it in sirloinbh/project-standards templates/app/frontend/
+# The package auth token is received only as a BuildKit secret (npm_token). It is not passed through ARG or ENV, so it does not stay in an image layer.
 FROM node:24.21.0-alpine AS build
 WORKDIR /app
 COPY package*.json .npmrc ./

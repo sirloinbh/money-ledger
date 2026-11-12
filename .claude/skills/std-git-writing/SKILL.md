@@ -3,7 +3,7 @@ name: std-git-writing
 description: Write GitHub issues, branch names, commit messages, and pull requests in plain English so a person can understand them at a glance, using the shared issue and PR templates. Use whenever creating or editing an issue, branch, commit, or PR in any sirloinbh project repository, together with std-backlog for labels and priorities.
 ---
 
-<!-- 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/common/skills/std-git-writing/에서 -->
+<!-- Managed file. Edit it in sirloinbh/project-standards templates/common/skills/std-git-writing/ -->
 
 <!-- Centrally managed file. Edit it in sirloinbh/project-standards templates/common/skills/std-git-writing/ -->
 
@@ -95,7 +95,7 @@ Local branches are managed with the git CLI. The agent runs these commands itsel
 - The title is about 50 characters. `type` uses the same list as branches. Use the imperative in lower case: `feat: add registry conflict check (#44)`
 - One commit holds one logical change. Commit the implementation, its tests, and its change record (`docs/changes/`) together.
 - The body explains what the diff cannot show. Do not list files.
-- Automated commits whose prefix tools rely on (the sync bot's `chore: 중앙 표준 동기화 (project-standards@` and the compliance report commit) keep their existing format until the tools are migrated.
+- Automated commits whose prefix tools rely on (the sync bot's `chore: sync central standards (project-standards@` and the compliance report commit) keep their format. Sync commits made before #455 used `chore: 중앙 표준 동기화 (project-standards@`, and the bot still treats them as its own.
 
 | Bad | Good |
 |---|---|

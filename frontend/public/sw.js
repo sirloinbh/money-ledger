@@ -1,4 +1,4 @@
-// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/frontend/public/에서
+// Managed file. Edit it in sirloinbh/project-standards templates/app/frontend/public/
 // Service worker: makes the app installable, shows an offline notice, and caches built files. Rules in docs/pwa.md (central repository).
 // - Pages: always from the network; when offline, offline.html. Pages are not cached, so data is never stale.
 // - /assets/ (file names carry a content hash): cache first.

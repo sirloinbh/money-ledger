@@ -5,7 +5,7 @@ title: ''
 labels: ''
 ---
 
-<!-- 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/common/.github/ISSUE_TEMPLATE/에서 -->
+<!-- Managed file. Edit it in sirloinbh/project-standards templates/common/.github/ISSUE_TEMPLATE/ -->
 
 <!-- Centrally managed file. Edit it in sirloinbh/project-standards templates/common/.github/ISSUE_TEMPLATE/ -->
 <!-- How to write: std-git-writing skill. The title has no prefix and says what the issue does in one sentence. e.g. Add registry source files and conflict check -->

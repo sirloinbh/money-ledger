@@ -1,4 +1,4 @@
-// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/ui/frontend/src/components/layout/에서
+// Managed file. Edit it in sirloinbh/project-standards templates/ui/frontend/src/components/layout/
 import { MonitorIcon, MoonIcon, SunIcon } from 'lucide-react';
 import { useState } from 'react';
 

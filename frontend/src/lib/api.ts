@@ -1,4 +1,4 @@
-// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/ui/frontend/src/lib/에서
+// Managed file. Edit it in sirloinbh/project-standards templates/ui/frontend/src/lib/
 // JSON requests to the app's own API (#310). The server answers errors as `{ error: '<message>' }`
 // (backend/src/standard/http.ts), so a failed request rejects with that message.
 

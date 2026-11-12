@@ -1,4 +1,4 @@
-// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/backend/src/standard/에서
+// Managed file. Edit it in sirloinbh/project-standards templates/app/backend/src/standard/
 // Shared HTTP helpers for the API (#309): one error shape, JSON 404 for unknown /api paths, id parsing and the
 // service date. It imports only types, so it runs in every app whatever zod or Express version it uses.
 //

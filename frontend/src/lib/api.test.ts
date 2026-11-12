@@ -1,4 +1,4 @@
-// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/ui/frontend/src/lib/에서
+// Managed file. Edit it in sirloinbh/project-standards templates/ui/frontend/src/lib/
 import { afterEach, expect, test, vi } from 'vitest';
 
 import { RequestError, requestJson } from './api';

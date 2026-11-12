@@ -1,4 +1,4 @@
-// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/ui/frontend/public/에서
+// Managed file. Edit it in sirloinbh/project-standards templates/ui/frontend/public/
 // Applies the saved light/dark choice before the first paint, so the page never flashes the other colours.
 // Load it as a plain blocking script at the top of <head>: <script src="/theme-init.js"></script>
 // The key and values match src/lib/theme.ts.

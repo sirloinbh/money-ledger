@@ -1,4 +1,4 @@
-// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/common/.claude/hooks/에서
+// Managed file. Edit it in sirloinbh/project-standards templates/common/.claude/hooks/
 // Centrally managed file. Edit it in sirloinbh/project-standards templates/common/.claude/hooks/
 // Claude Code PreToolUse hook (#450, docs/agent-guardrails.md): blocks the prohibitions in AGENTS.md that a
 // tool call can show, so they hold even when a session skips permission prompts (#418).

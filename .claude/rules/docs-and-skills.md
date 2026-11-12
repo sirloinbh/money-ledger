@@ -5,7 +5,7 @@ paths:
   - ".claude/skills/**"
 ---
 
-<!-- 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/.claude/rules/에서 -->
+<!-- Managed file. Edit it in sirloinbh/project-standards templates/app/.claude/rules/ -->
 
 # Docs and skills
 

@@ -1,47 +1,47 @@
-<!-- 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/에서 -->
-# 가계부·자산·모의투자 프로젝트 지침
+<!-- Managed file. Edit it in sirloinbh/project-standards templates/app/ -->
+# Money Ledger Project Instructions
 
-수입과 지출, 자산 포트폴리오를 기록해 흐름을 확인하고, 모의투자로 투자 판단을 연습하는 개인 서비스. 사용자는 본인 한 명이며 로그인은 없다. 외부 공개 전에는 사설 접속 또는 인증을 먼저 설계한다.
+A personal service for recording income, spending, and an asset portfolio to see the flow of money, and for practicing investment decisions with mock trading. There is one user (me) and no login. Before any public exposure, design private access or authentication first.
 
-이 파일은 모든 앱이 함께 쓰는 공통 지침이다. 이 프로젝트에만 해당하는 규칙(도메인 규칙, 추가 검증 명령, 고유 스킬)은 **[AGENTS.project.md](AGENTS.project.md)를 반드시 함께 읽고 따른다.** 두 파일이 다르면 AGENTS.project.md가 우선한다.
+This file holds the instructions shared by all apps. **Always read and follow [AGENTS.project.md](AGENTS.project.md) as well**; it has the rules that apply only to this project (domain rules, extra verification commands, project-specific skills). If the two files differ, AGENTS.project.md wins.
 
-## 구현 작업 절차
+## Implementation procedure
 
-기능 추가·수정·리팩터링·설정·문서·스킬 변경 요청에는 [std-implementation](skills/std-implementation/SKILL.md)을 읽고 적용한다. 요구사항을 이슈로 나누고 다음 작업을 고를 때는 [std-backlog](skills/std-backlog/SKILL.md), 이슈·브랜치·커밋·PR을 쓸 때는 [std-git-writing](skills/std-git-writing/SKILL.md)을 따른다. 사용자에게 하는 설명은 [std-communication](skills/std-communication/SKILL.md)대로 영어로 쓴다.
+For requests to add, change, or refactor features, or to change settings, docs, or skills, read and apply [std-implementation](skills/std-implementation/SKILL.md). To split requirements into issues and choose the next task, follow [std-backlog](skills/std-backlog/SKILL.md). To write issues, branches, commits, and PRs, follow [std-git-writing](skills/std-git-writing/SKILL.md). Write explanations to the user in English, as [std-communication](skills/std-communication/SKILL.md) says. Keep progress, decisions, and next steps in md files (`docs/daily/`, `docs/changes/`), not in the chat or memory, as [std-session-notes](skills/std-session-notes/SKILL.md) says; at the start of a session, read the latest `docs/daily/` file first.
 
-1. `sirloinbh/money-ledger`에 이슈를 등록한다. 사용자가 지정한 기존 이슈가 있으면 재사용한다.
-2. 이슈 번호를 포함한 작업 브랜치를 만든다: `<type>/<issue-number>-<slug>`.
-3. 구현·수정과 관련 테스트를 함께 작성하고, 각 커밋에 `docs/changes/<issue-number>-<slug>.md` 변경 기록을 포함한다.
-4. 커밋 전과 PR 생성·갱신 전에 `npm run check`를 실행하고 결과를 docs와 PR에 기록한다.
-5. PR 리뷰와 병합 규칙은 [AGENTS.project.md](AGENTS.project.md)를 따른다. 거기에 정해져 있지 않으면 **PR 병합은 사용자만 수행한다.** main 병합은 곧 운영 배포다. 정해진 규칙 밖에서 에이전트가 병합·자동 병합·승인으로 병합을 대신하지 않는다. 에이전트 워커(project-standards `tools/agents`)가 여는 PR은 이 리포 `.agents.json`의 `autoMerge`를 따른다(파일이 없으면 자동 병합, 리포별 값은 project-standards `docs/tools.md`).
+1. Register an issue in `sirloinbh/money-ledger`. If the user named an existing issue, reuse it.
+2. Create a work branch that contains the issue number: `<type>/<issue-number>-<slug>`.
+3. Write the implementation or fix together with the relevant tests, and include a `docs/changes/<issue-number>-<slug>.md` change record in each commit.
+4. Run `npm run check` before committing and before creating or updating a PR. Record the results in the docs and the PR.
+5. Follow [AGENTS.project.md](AGENTS.project.md) for PR review and merge rules. If it does not set them, **only the user merges PRs.** Merging to main is a production deploy. Outside the rules set there, the agent must not merge, enable auto-merge, or approve in place of a merge. PRs opened by an agent worker (project-standards `tools/agents`) follow `autoMerge` in this repo's `.agents.json` (auto-merge if the file is missing; per-repo values are in project-standards `docs/tools.md`).
 
-질문 답변·추천·읽기 전용 조사는 이슈나 브랜치를 만들지 않는다. 요구사항에 정해지지 않은 규칙(집계 방식, 정책, 범위)은 추천안과 함께 사용자에게 확인하고 이슈 코멘트로 기록한다.
+Answering questions, giving recommendations, and read-only investigation do not create an issue or a branch. For rules the requirements do not set (aggregation method, policy, scope), confirm with the user along with a recommendation, and record the answer in an issue comment.
 
-## 프로젝트 기준
+## Project baseline
 
-- 기술: React + Vite + TypeScript, Express + pg + Zod, PostgreSQL 17, npm workspaces, Docker Compose, GitHub Actions. Node 24.21.0 / npm 11.19.0.
-- 포트(127.0.0.1 바인딩): 웹 8105, API 3105, Vite 5205, 호스트 DB 15405, e2e API 3205, e2e 웹 5305. 포트는 중앙 레지스트리(`sirloinbh/project-standards`의 `registry/projects.json`) 값이며, 바꾸려면 중앙 리포에 이슈를 연다.
-- DB 이름: `money`, 테스트 DB: `money_test`.
-- 날짜는 `YYYY-MM-DD`, 서비스 시간대는 `Asia/Seoul`이다.
-- `.env`, 인증 토큰, 실제 백업, Terraform state는 커밋하거나 docs·PR·로그에 기록하지 않는다.
-- 사용자 변경을 덮어쓰지 않는다. 필요한 파일만 명시해서 stage한다.
-- **npm 패키지 설치·삭제는 사용자 재확인 후에만 하고 `--ignore-scripts`를 우선한다.** 잠금 파일대로 설치하는 `npm ci`와 `npm run <script>`, `npm ls`, `npm view`는 허용된다.
-- GitHub 원격 작업은 개인 계정 `sirloinbh`의 `scripts/gh-project.ps1` 래퍼로 한다. 기본 회사 계정 `gh`로 원격 변경을 하지 않는다.
-- `frontend`, `backend`, `database`의 하위 저장소는 배포용 subtree 대상이다. 일상 PR 작업 중 하위 저장소나 `main`에 직접 푸시하지 않는다. `scripts/push-repositories.ps1`은 별도 동기화 요청 시에만 쓴다. AWS 인프라는 공유 저장소 `sirloinbh/shared-aws-infrastructure`에서 관리한다.
+- Tech: React + Vite + TypeScript, Express + pg + Zod, PostgreSQL 17, npm workspaces, Docker Compose, GitHub Actions. Node 24.21.0 / npm 11.19.0.
+- Ports (bound to 127.0.0.1): web 8105, API 3105, Vite 5205, host DB 15405, e2e API 3205, e2e web 5305. The ports come from the central registry (`registry/projects.json` in `sirloinbh/project-standards`). To change them, open an issue in the central repo.
+- DB name: `money`, test DB: `money_test`.
+- Dates use `YYYY-MM-DD`, and the service time zone is `Asia/Seoul`.
+- Do not commit `.env`, auth tokens, real backups, or Terraform state, and do not record them in docs, PRs, or logs.
+- Do not overwrite user changes. Stage only the files you need, by name.
+- **Install or remove npm packages only after the user reconfirms, and prefer `--ignore-scripts`.** `npm ci` (installs from the lockfile), `npm run <script>`, `npm ls`, and `npm view` are allowed.
+- Do GitHub remote work with the `scripts/gh-project.ps1` wrapper for the personal account `sirloinbh`. Do not make remote changes with the default work account `gh`.
+- The `frontend`, `backend`, and `database` sub-repositories are subtree targets for deployment. During everyday PR work, do not push directly to a sub-repository or to `main`. Use `scripts/push-repositories.ps1` only for a separate sync request. AWS infrastructure is managed in the shared repo `sirloinbh/shared-aws-infrastructure`.
 
-## 중앙 관리 파일
+## Centrally managed files
 
-- 파일 첫 줄에 "중앙 관리 파일"이라고 적힌 파일과 `.standards/manifest.json`에 있는 파일은 `sirloinbh/project-standards`가 관리한다. 이 리포에서 직접 고치면 CI의 `standards-check`가 실패한다. 고칠 내용은 중앙 리포에 이슈와 PR로 올린다.
-- `.gitignore`, `.prettierignore`처럼 `# --- project ---` 줄이 있는 파일은 그 줄 아래만 이 프로젝트가 고칠 수 있다.
+- Files whose first line says "Managed file" (older files: "중앙 관리 파일") and files listed in `.standards/manifest.json` are managed by `sirloinbh/project-standards`. If you edit them directly in this repo, the CI `standards-check` fails. Raise the change in the central repo with an issue and a PR.
+- In files that have a `# --- project ---` line, such as `.gitignore` and `.prettierignore`, this project may edit only below that line.
 
-## 스킬과 문서
+## Skills and docs
 
-- 공통 스킬(중앙 관리): [std-implementation](skills/std-implementation/SKILL.md), [std-testing](skills/std-testing/SKILL.md), [std-foundation](skills/std-foundation/SKILL.md), [std-backlog](skills/std-backlog/SKILL.md), [std-git-writing](skills/std-git-writing/SKILL.md), [std-communication](skills/std-communication/SKILL.md).
-- 고유 스킬은 `skills/` 아래 `std-`로 시작하지 않는 폴더이며 [AGENTS.project.md](AGENTS.project.md)에 목록이 있다.
+- Shared skills (centrally managed): [std-implementation](skills/std-implementation/SKILL.md), [std-testing](skills/std-testing/SKILL.md), [std-foundation](skills/std-foundation/SKILL.md), [std-backlog](skills/std-backlog/SKILL.md), [std-git-writing](skills/std-git-writing/SKILL.md), [std-communication](skills/std-communication/SKILL.md), [std-session-notes](skills/std-session-notes/SKILL.md), [std-ux-audit](skills/std-ux-audit/SKILL.md) (UX and accessibility audits).
+- Project-specific skills are the folders under `skills/` whose names do not start with `std-`; they are listed in [AGENTS.project.md](AGENTS.project.md).
 - Path-specific rules are in `.claude/rules/`: `database.md` (migrations, DB tests), `backend.md` (server validation, transactions), `frontend.md` (browser check sizes), `docs-and-skills.md` (skill copies, docs checks). Claude Code loads each one when it works on matching files; other agents read the matching file before changing those paths.
-- 작업 기록: `docs/changes/`. 일일 총정리: `docs/daily/YYYY-MM-DD.md`(목록은 `docs/daily/README.md`). 최신 다음 작업: `docs/next-steps/README.md`.
+- Work records: `docs/changes/`. Daily summaries: `docs/daily/YYYY-MM-DD.md` (the list is in `docs/daily/README.md`). Latest next steps: `docs/next-steps/README.md`.
 
-## 검증 명령
+## Verification commands
 
-- 전체: `npm run check`.
-- 아직 설치하지 않은 도구의 명령을 실행 가능한 것으로 표시하지 않는다.
+- Everything: `npm run check`.
+- Do not mark the command of a tool that is not installed yet as runnable.

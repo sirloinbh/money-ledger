@@ -1,4 +1,4 @@
-// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 scripts/에서
+// Managed file. Edit it in sirloinbh/project-standards scripts/
 // Checks that frontend/ and backend/ lockfiles pin the same versions as the root lockfile, and rewrites
 // the ones that differ from the root lockfile without installing anything (#303).
 // Copied into each app repository as .standards/lockfiles.mjs (with .standards/lib/lockfiles.mjs).
@@ -8,12 +8,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildWorkspaceLockfile, compareWorkspaceLockfile, workspaceLockfiles } from './lib/lockfiles.mjs';
 
-export const formatDifference = (d) => `${d.name} ${d.workspace.join('·') || '없음'} (루트 ${d.root.join('·') || '없음'})`;
+export const formatDifference = (d) => `${d.name} ${d.workspace.join('·') || 'none'} (root ${d.root.join('·') || 'none'})`;
 
 /** Returns [{ workspace, file, differences, written }] for every workspace that has its own lockfile. */
 export function runLockfiles(root, { write = false } = {}) {
   const read = (rel) => JSON.parse(fs.readFileSync(path.join(root, rel), 'utf8'));
-  if (!fs.existsSync(path.join(root, 'package-lock.json'))) throw new Error('루트 package-lock.json이 없습니다');
+  if (!fs.existsSync(path.join(root, 'package-lock.json'))) throw new Error('Root package-lock.json is missing');
   const rootLock = read('package-lock.json');
   const workspaces = workspaceLockfiles(read('package.json'), (rel) => fs.existsSync(path.join(root, rel)));
   return workspaces.map((workspace) => {
@@ -24,7 +24,7 @@ export function runLockfiles(root, { write = false } = {}) {
     if (write && differences.length) {
       const next = buildWorkspaceLockfile(rootLock, workspace, current);
       const left = compareWorkspaceLockfile(rootLock, workspace, next);
-      if (left.length) throw new Error(`${file}를 다시 만들었지만 ${left.length}개가 여전히 다릅니다: ${left.map(formatDifference).join(', ')}`);
+      if (left.length) throw new Error(`Rebuilt ${file}, but ${left.length} still differ: ${left.map(formatDifference).join(', ')}`);
       fs.writeFileSync(path.join(root, file), `${JSON.stringify(next, null, 2)}\n`);
       written = true;
     }
@@ -42,17 +42,17 @@ if (isMain) {
     const results = runLockfiles(root, { write });
     let stale = 0;
     for (const r of results) {
-      if (!r.differences.length) console.log(`${r.file}: 루트 lockfile과 같습니다`);
-      else if (r.written) console.log(`${r.file}: 다시 썼습니다 (${r.differences.length}개 맞춤: ${r.differences.map(formatDifference).join(', ')})`);
+      if (!r.differences.length) console.log(`${r.file}: matches the root lockfile`);
+      else if (r.written) console.log(`${r.file}: rewritten (${r.differences.length} aligned: ${r.differences.map(formatDifference).join(', ')})`);
       else {
         stale += 1;
-        console.error(`${r.file}: 루트 lockfile과 다른 패키지 ${r.differences.length}개`);
+        console.error(`${r.file}: ${r.differences.length} package(s) differ from the root lockfile`);
         for (const d of r.differences) console.error(`  ${formatDifference(d)}`);
       }
     }
-    if (!results.length) console.log('하위 lockfile이 없습니다');
+    if (!results.length) console.log('No sub lockfiles');
     if (stale) {
-      console.error('맞추려면: node .standards/lockfiles.mjs --write (설치하지 않고 루트 lockfile의 버전으로 파일만 다시 씁니다)');
+      console.error('To align: node .standards/lockfiles.mjs --write (rewrites the files from the root lockfile versions without installing)');
       process.exit(1);
     }
   } catch (error) {

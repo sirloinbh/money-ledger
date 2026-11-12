@@ -1,5 +1,5 @@
 #!/bin/bash
-# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
+# Managed file. Edit it in sirloinbh/project-standards templates/app/deploy/
 # Runs on the Lightsail server from /opt/money-ledger, started by scripts/deploy.ps1 or
 # by autodeploy.sh.
 #   deploy <ref>  build the commit, back up, migrate, start, health check; on failure
