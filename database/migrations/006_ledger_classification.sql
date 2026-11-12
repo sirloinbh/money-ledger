@@ -6,7 +6,7 @@
 ALTER TABLE ledger_entries ADD COLUMN IF NOT EXISTS merchant text NOT NULL DEFAULT ''
   CHECK (merchant = btrim(merchant) AND char_length(merchant) <= 50);
 
--- NULL is "미분류". The (category_id, kind) foreign key is not checked while category_id is NULL.
+-- NULL means uncategorized (the screen label is "미분류"). The (category_id, kind) foreign key is not checked while category_id is NULL.
 ALTER TABLE ledger_entries ALTER COLUMN category_id DROP NOT NULL;
 
 CREATE INDEX IF NOT EXISTS ledger_entries_uncategorized_idx ON ledger_entries (entry_date DESC, id DESC)
