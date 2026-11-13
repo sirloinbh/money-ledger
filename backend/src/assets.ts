@@ -10,7 +10,7 @@ import type { PriceSources } from './prices/sources.js';
 import { HttpError, parseId } from './standard/http.js';
 import { tradesRouter } from './trades.js';
 
-// #45 Held assets and debts. Formats follow AGENTS.project.md "수량·외화·환율" (#35):
+// #45 Held assets and debts. Formats follow AGENTS.project.md "Quantity, foreign currency, and exchange rate" (#35):
 // won amounts are JSON numbers (bigint in the DB), quantities and USD amounts are decimal strings.
 // Trades and average prices come with #46, prices and FX conversion with #47.
 // #63 A depreciating asset stores its purchase price, date, useful life and salvage value instead of a value;

@@ -22,7 +22,7 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-money}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-money}
       PORT: 3105
       TZ: Asia/Seoul
-      # 시세·환율 API 키(docs/price-source.md). 비어 있으면 그 출처는 건너뛴다.
+      # Price and exchange rate API keys (docs/price-source.md). If empty, that source is skipped.
       KRX_API_KEY: ${KRX_API_KEY:-}
       TIINGO_API_KEY: ${TIINGO_API_KEY:-}
       KOREAEXIM_API_KEY: ${KOREAEXIM_API_KEY:-}
