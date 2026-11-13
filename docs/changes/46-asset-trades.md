@@ -1,93 +1,93 @@
-# #46 자산 매수·매도 기록과 평균 단가
+# #46 Asset buy and sell records and average unit price
 
-- 이슈: https://github.com/sirloinbh/money-ledger/issues/46 (상위 #91)
-- 브랜치: `feat/46-asset-trades`
+- Issue: https://github.com/sirloinbh/money-ledger/issues/46 (parent #91)
+- Branch: `feat/46-asset-trades`
 
-## 목적
+## Purpose
 
-투자 자산의 매수·매도를 기록하면 보유 수량, 평균 단가, 실현 손익을 계산한다. 시세와 평가 손익은 #47에서 한다.
+When buys and sells of investment assets are recorded, compute the quantity held, the average unit price, and the realized profit and loss. Prices and unrealized profit and loss are done in #47.
 
-## 결정 (2026-11-08 사용자 확인, 이슈 댓글 기록)
+## Decision (confirmed by the user on 2026-11-08, recorded in an issue comment)
 
-1. 평균 단가는 이동평균법으로 계산한다.
-2. 수수료·세금은 거래마다 원 단위로 입력한다. 매수 수수료는 취득 원가에 넣고, 매도 수수료·세금은 실현 손익에서 뺀다.
-3. 달러 종목은 평균 단가를 달러로 보여 주고, 실현 손익은 원화로 계산한다(매도 원화 금액 − 원화 평균 원가 × 판 수량 − 매도 비용). 환율 변동도 손익에 들어간다. 거래 환율은 직접 입력하고 AGENTS.project.md의 `fx_rate`·`amount_krw` 규칙을 따른다.
-4. 거래는 주식과 기타(코인 등) 자산에만 기록한다. 거래가 있는 자산은 수량을 거래 합계로 정하고 직접 고칠 수 없다. 거래가 없는 자산은 지금처럼 수량을 직접 넣는다.
-5. 거래는 언제든 수정·삭제할 수 있다. 저장할 때 날짜순으로 다시 계산해 어느 시점이라도 보유 수량이 음수가 되면 거부한다.
-6. 같은 날짜의 거래는 입력한 순서대로 계산한다.
+1. The average unit price is computed with the moving average method.
+2. Fees and taxes are entered in won for each trade. A buy fee goes into the acquisition cost, and a sell fee and tax are subtracted from the realized profit and loss.
+3. For dollar tickers, the average unit price is shown in dollars, and the realized profit and loss is computed in won (sell KRW amount − KRW average cost × quantity sold − sell costs). Exchange rate changes are part of the profit and loss. The trade exchange rate is entered directly and follows the `fx_rate` and `amount_krw` rules of AGENTS.project.md.
+4. Trades are recorded only for stock and other (crypto and so on) assets. For an asset with trades, the quantity is set by the sum of trades and cannot be edited directly. For an asset with no trades, you enter the quantity directly as now.
+5. A trade can be edited or deleted at any time. When saving, we recompute in date order and reject it if the quantity held becomes negative at any point.
+6. Trades on the same date are computed in the order they were entered.
 
-## 변경 내용
+## Changes
 
-- `database/migrations/013_asset_trades.sql` (다시 실행해도 안전)
-  - `portfolio_trades`: 자산(삭제 시 함께 삭제), 매수/매도, 거래일, 수량 `numeric(20,8)`, 통화, 단가 `numeric(20,4)`(원화는 정수), 환율 `numeric(12,4)`(원화는 NULL, 달러는 필수), 원화 거래액 `amount_krw bigint`, 수수료·세금 `bigint`, 메모.
-  - `portfolio_assets.quantity_from_trades`: 거래가 생기면 켜진다. 다 팔아 수량이 NULL이어도 자산이 유효하도록 `portfolio_assets_quantity_or_value_check`에 더했다(#64처럼 이미 넓혀져 있으면 다시 만들지 않는다). 거래를 모두 지운 뒤 자산을 수정하면 꺼지고 수량을 다시 직접 넣는다.
-  - `portfolio_trade_positions(asset_id)`: 보유 수량·원가·실현 손익을 계산하는 유일한 곳. 거래일, 그다음 입력 순서(id)로 돌며 모두 `numeric`으로 계산한다.
-    - 매수: 수량 += q, 원화 원가 += 거래액 + 수수료 + 세금, 달러 원가 += q × 단가(달러 자산만).
-    - 매도: 빼는 원가 = round(원화 원가 × q ÷ 보유 수량), 실현 손익 = 거래액 − 빼는 원가 − 수수료 − 세금, 달러 원가는 같은 비율로 줄인다.
-    - 원화 원가는 언제나 원 단위 정수로 남아 다 팔면 정확히 0이 된다. 보유보다 많이 파는 첫 거래에서 `oversold`로 멈춘다.
-- `backend/src/trades.ts`: `GET/POST /api/portfolio/assets/:id/trades`, `PUT/DELETE /api/portfolio/assets/:id/trades/:tradeId`.
-  - 쓰기는 한 트랜잭션에서 자산 행을 잠그고, 거래를 저장한 뒤 날짜순으로 다시 계산해 넘치는 매도가 있으면 `YYYY-MM-DD 매도 수량이 그때 보유 수량(N)보다 많습니다`로 거부(되돌림)하고, 아니면 자산 수량을 거래 합계로 바꾼다.
-  - 원화 거래액은 SQL에서 `round(수량 × 단가 × coalesce(환율, 1))`로 저장할 때 한 번 계산한다.
-  - 주식·기타가 아닌 자산, 원화 자산에 환율, 원화 단가의 소수, 달러 거래의 환율 누락, 오늘 이후 날짜, 1,000조 원을 넘는 거래액은 한국어 400.
-  - `GET`은 거래(최신순, 각 거래 뒤 보유 수량과 매도의 실현 손익)와 현재 위치(보유 수량, 평균 단가, 원화 원가, 실현 손익 합계)를 준다. 평균 단가는 원화 자산이면 원화 원가 ÷ 수량(매수 수수료 포함), 달러 자산이면 달러 원가 ÷ 수량(원화 수수료 제외)이며 소수 4자리로 반올림한다.
+- `database/migrations/013_asset_trades.sql` (safe to run again)
+  - `portfolio_trades`: the asset (deleted together with it), buy or sell, trade date, quantity `numeric(20,8)`, currency, unit price `numeric(20,4)` (an integer for KRW), exchange rate `numeric(12,4)` (NULL for KRW, required for dollars), KRW trade amount `amount_krw bigint`, fee and tax `bigint`, and a memo.
+  - `portfolio_assets.quantity_from_trades`: turned on once a trade exists. We added it to `portfolio_assets_quantity_or_value_check` so that the asset stays valid even when everything is sold and the quantity is NULL (if it was already widened as in #64, we do not recreate it). If you edit the asset after deleting all trades, it turns off and you enter the quantity directly again.
+  - `portfolio_trade_positions(asset_id)`: the only place that computes the quantity held, the cost, and the realized profit and loss. It goes through trades by trade date, then by input order (id), computing everything in `numeric`.
+    - Buy: quantity += q, KRW cost += amount + fee + tax, dollar cost += q × unit price (dollar assets only).
+    - Sell: cost removed = round(KRW cost × q ÷ quantity held), realized profit and loss = amount − cost removed − fee − tax, and the dollar cost is reduced by the same ratio.
+    - The KRW cost always stays a whole-won integer, so it becomes exactly 0 when everything is sold. It stops with `oversold` at the first trade that sells more than is held.
+- `backend/src/trades.ts`: `GET/POST /api/portfolio/assets/:id/trades` and `PUT/DELETE /api/portfolio/assets/:id/trades/:tradeId`.
+  - A write locks the asset row in one transaction, saves the trade, recomputes in date order, and if there is a sell that overflows, rejects it (rolls back) with `YYYY-MM-DD 매도 수량이 그때 보유 수량(N)보다 많습니다` ("On YYYY-MM-DD the sell quantity is more than the quantity held then (N)"). Otherwise it changes the asset quantity to the sum of trades.
+  - The KRW trade amount is computed once when saving, in SQL, as `round(quantity × unit price × coalesce(exchange rate, 1))`.
+  - An asset that is not stock or other, an exchange rate on a KRW asset, decimals in a KRW unit price, a missing exchange rate on a dollar trade, a date after today, and a trade amount over 1,000 trillion won are Korean 400s.
+  - `GET` gives the trades (newest first, with the quantity held after each trade and the realized profit and loss of sells) and the current position (quantity held, average unit price, KRW cost, and total realized profit and loss). The average unit price is KRW cost ÷ quantity for a KRW asset (including buy fees) and dollar cost ÷ quantity for a dollar asset (excluding KRW fees), rounded to 4 decimal places.
 - `backend/src/assets.ts`
-  - 자산마다 `hasTrades`를 준다.
-  - 거래가 있는 자산의 수정은 주식·기타 종류와 같은 통화만 허용하고, 수량이 거래 합계와 다르면 `거래 기록이 있는 자산의 수량은 거래로만 바뀝니다`로 거부한다. 다 팔아 수량이 없어도 이름 등은 고칠 수 있도록 "수량이 없으면 평가금액 필요" 규칙을 거래가 없는 자산에만 적용한다.
-  - `/:id/trades` 라우터를 붙인다.
-- `backend/src/korean.ts`: 조사(은/는, 을/를) 선택을 자산·거래 검증에서 같이 쓴다.
-- `frontend/src/asset-trades.tsx`: 주식·기타 자산 행의 "거래 내역" 버튼(`aria-expanded`)으로 여는 패널. 보유 수량·평균 단가·원화 원가·실현 손익 요약, 매수/매도·거래일(오늘까지)·수량·단가·환율(달러만)·수수료·세금·메모 입력, 거래 목록과 수정·지우기(확인 대화상자). 바꾸면 자산 목록도 다시 불러온다.
-- `frontend/src/assets.tsx`: 거래가 있는 자산을 수정하면 수량 칸이 "수량(거래 합계)" 읽기 전용이 되고 안내 문구가 붙는다.
+  - Gives `hasTrades` for each asset.
+  - Editing an asset with trades allows only the stock and other kinds and the same currency, and rejects a quantity that differs from the sum of trades with `거래 기록이 있는 자산의 수량은 거래로만 바뀝니다` ("The quantity of an asset with trade records changes only through trades"). The rule "a valuation is needed when there is no quantity" is applied only to assets without trades, so that the name and so on can still be edited even when all is sold and there is no quantity.
+  - Attaches the `/:id/trades` router.
+- `backend/src/korean.ts`: the choice of Korean particles (은/는, 을/를) is shared by asset and trade validation.
+- `frontend/src/asset-trades.tsx`: a panel opened with the "거래 내역" ("Trade history") button (`aria-expanded`) on the row of a stock or other asset. A summary of the quantity held, average unit price, KRW cost, and realized profit and loss, inputs for buy or sell, trade date (up to today), quantity, unit price, exchange rate (dollars only), fee, tax, and memo, and the trade list with edit and delete (a confirmation dialog). Changing it also reloads the asset list.
+- `frontend/src/assets.tsx`: when you edit an asset with trades, the quantity field becomes a read-only "수량(거래 합계)" ("Quantity (sum of trades)") with a guidance text.
 
-## 검증
+## Verification
 
-- 백엔드 단위 테스트(`backend/test/trades.test.ts`): 매수/매도 누락, 날짜 누락, 수량 0·소수 9자리·숫자형, 단가 0·소수 5자리, 환율 0, 음수 수수료, 소수 세금, 메모 100자 초과, 오늘 이후 날짜, 잘못된 자산·거래 ID가 DB 전에 한국어 400.
-- DB 통합 테스트(`backend/test/trades.integration.test.ts`)
-  - 분할 매수와 일부 매도(원화): 10주 × 1,000원 + 수수료 100원, 10주 × 1,300원 + 수수료 130원 → 평균 단가 1,161.5원. 5주 × 1,500원 매도(수수료 75원, 세금 15원) → 빼는 원가 round(5,807.5) = 5,808원, 실현 손익 1,602원. 남은 15주의 원가 17,422원, 평균 단가 1,161.4667원. 자산 수량도 15주로 바뀐다.
-  - 달러: 2주 × 100.5달러(환율 1,300원, 수수료 1,000원) + 1주 × 110달러(1,400원) → 평균 단가 103.6667달러, 원화 원가 416,300원. 1.5주 × 120달러(1,350원) 매도 → 실현 손익 34,850원.
-  - 그때 보유보다 많은 매도, 매수보다 이른 날짜의 매도, 나중 매도가 기대는 매수를 지우거나 줄이기, 매도를 매수 앞으로 옮기기가 모두 400이고 저장되지 않는다.
-  - 같은 날짜는 입력 순서: 매수보다 먼저 넣은 같은 날 매도는 거부.
-  - 다 팔면 수량 없음·원가 0, 그 상태에서 이름 수정 가능, 거래 수정 시 금액·수량 반영, 거래를 모두 지운 뒤 자산 수정으로 수량 직접 입력.
-  - 거래가 있는 자산의 수량·종류·통화 변경 거부, 같은 수량을 다르게 쓴 값(`4.0`)과 기타로 변경은 허용.
-  - 원화 자산의 환율, 원화 단가 소수, 달러 거래 환율 누락, 현금 자산, 오늘 이후 날짜, 1,000조 원 초과 거래액이 400. 없는 자산 404, 다른 자산의 거래 ID 404.
-  - 보유 전부를 파는 매도 4건을 동시에 보내면 1건만 성공한다.
-  - DB CHECK가 원화 단가 소수, 원화 거래의 환율, 달러 거래의 환율 누락을 거부하고, 자산을 지우면 거래도 지워진다. `013`을 두 번 적용해도 오류가 없다.
-- 기존 자산·선입금·모의투자 통합 테스트는 테이블을 다시 만들 때 `013`도 적용한다. 응답에 `hasTrades`가 더해졌다.
-- 프론트엔드 테스트(`frontend/src/asset-trades.test.tsx`): 거래 내역은 주식·기타에만, 위치 요약과 거래 줄 표시, 매수 요청 본문, 달러 거래의 환율 필수, 서버의 넘치는 매도 메시지, 원화 단가 소수와 미래 날짜 거부, 수정과 확인 후 지우기·포커스, 거래가 있는 자산의 읽기 전용 수량.
-- `TEST_DATABASE_URL=<전용 테스트 DB money-ledger-test-agent1> npm run check` 통과: 백엔드 210개 통과·건너뜀 0, 프론트엔드 184개 중 182개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공.
-- 브라우저: API(3191)를 같은 컨테이너의 별도 DB `money_browser`(마이그레이션 `001`~`013`)에 연결하고 Vite(5291)를 headless Chrome(CDP로 뷰포트 지정)으로 열었다. 화면 폼으로 달러 주식(수량 1)을 만들고 거래 내역 패널에서 매수 2건(2주 × 100.5달러·1,300원·수수료 1,000원, 1주 × 110달러·1,400원)과 매도 1건(1.5주 × 120달러·1,350원)을 기록했다.
-  - 요약: 보유 1.5, 평균 단가 103.6667달러, 원화 원가 208,150원, 실현 손익 +34,850원. 자산 행의 수량도 1에서 1.5로 바뀌었다.
-  - 5주 매도는 `2026-02-11 매도 수량이 그때 보유 수량(1.5)보다 많습니다`로 거부되었다.
-  - 모바일 390×844: `scrollWidth` 390 = `clientWidth`. 긴 이름과 거래 줄, 입력 칸이 한 열로 줄바꿈된다.
-  - PC 1440×900: `scrollWidth` 1425 = `clientWidth`(세로 스크롤바 제외). 요약 4칸과 입력 칸이 네 열로 놓인다.
+- Backend unit tests (`backend/test/trades.test.ts`): a missing buy or sell, a missing date, quantity 0, 9 decimal places, or a number type, unit price 0 or 5 decimal places, exchange rate 0, a negative fee, a decimal tax, a memo over 100 characters, a date after today, and a bad asset or trade ID are Korean 400 before the DB.
+- DB integration tests (`backend/test/trades.integration.test.ts`)
+  - Split buys and a partial sell (KRW): 10 shares × 1,000 won + fee 100 won, and 10 shares × 1,300 won + fee 130 won → average unit price 1,161.5 won. Selling 5 shares × 1,500 won (fee 75 won, tax 15 won) → cost removed round(5,807.5) = 5,808 won, realized profit and loss 1,602 won. The remaining 15 shares have a cost of 17,422 won and an average unit price of 1,161.4667 won. The asset quantity also changes to 15 shares.
+  - Dollars: 2 shares × 100.5 dollars (rate 1,300 won, fee 1,000 won) + 1 share × 110 dollars (1,400 won) → average unit price 103.6667 dollars and a KRW cost of 416,300 won. Selling 1.5 shares × 120 dollars (1,350 won) → realized profit and loss 34,850 won.
+  - A sell larger than the holding at that time, a sell dated before the buy, deleting or reducing a buy that a later sell depends on, and moving a sell before a buy are all 400 and not saved.
+  - Trades on the same date go in input order: a sell on the same day entered before the buy is rejected.
+  - When everything is sold, there is no quantity and the cost is 0, the name can be edited in that state, editing a trade reflects the amount and quantity, and after deleting all trades you can enter the quantity directly by editing the asset.
+  - Changing the quantity, kind, or currency of an asset with trades is rejected, while writing the same quantity differently (`4.0`) and changing to other are allowed.
+  - An exchange rate on a KRW asset, decimals in a KRW unit price, a missing exchange rate on a dollar trade, a cash asset, a date after today, and a trade amount over 1,000 trillion won are 400. A nonexistent asset is 404, and another asset's trade ID is 404.
+  - If 4 sells of the whole holding are sent at the same time, only 1 succeeds.
+  - DB CHECKs reject decimals in a KRW unit price, an exchange rate on a KRW trade, and a missing exchange rate on a dollar trade, and deleting the asset deletes its trades. Applying `013` twice gives no error.
+- The existing asset, prepayment, and mock investing integration tests also apply `013` when they recreate tables. `hasTrades` was added to the response.
+- Frontend tests (`frontend/src/asset-trades.test.tsx`): trade history only for stock and other, the position summary and trade lines, the buy request body, the exchange rate being required for dollar trades, the server's overflowing sell message, rejecting decimals in a KRW unit price and a future date, editing and deleting after confirmation and focus, and the read-only quantity of an asset with trades.
+- `TEST_DATABASE_URL=<dedicated test DB money-ledger-test-agent1> npm run check` passed: backend 210 passed and 0 skipped, frontend 182 of 184 passed and 2 skipped (existing), 4 skill tests, build succeeded.
+- Browser: we connected the API (3191) to a separate DB `money_browser` in the same container (migrations `001` to `013`) and opened Vite (5291) with headless Chrome (viewport set through CDP). With the screen form we made a dollar stock (quantity 1) and, in the trade history panel, recorded 2 buys (2 shares × 100.5 dollars, 1,300 won, fee 1,000 won, and 1 share × 110 dollars, 1,400 won) and 1 sell (1.5 shares × 120 dollars, 1,350 won).
+  - Summary: holding 1.5, average unit price 103.6667 dollars, KRW cost 208,150 won, realized profit and loss +34,850 won. The quantity on the asset row also changed from 1 to 1.5.
+  - Selling 5 shares was rejected with `2026-02-11 매도 수량이 그때 보유 수량(1.5)보다 많습니다`.
+  - Mobile 390×844: `scrollWidth` 390 = `clientWidth`. Long names, trade lines, and input fields wrap in one column.
+  - PC 1440×900: `scrollWidth` 1425 = `clientWidth` (excluding the vertical scrollbar). The 4 summary cells and the input fields lay out in four columns.
 
-- `origin/main`(#39 내역 필터, #97, 마이그레이션 `012`)을 병합한 뒤 다시 `npm run check` 통과: 백엔드 224개 통과·건너뜀 0, 프론트엔드 206개 중 204개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공.
+- After merging `origin/main` (#39 entry filters, #97, migration `012`), `npm run check` passed again: backend 224 passed and 0 skipped, frontend 204 of 206 passed and 2 skipped (existing), 4 skill tests, build succeeded.
 
-## 제한·후속
+## Limits and follow-up
 
-- 평가 손익(현재가)은 #47. 시세 모듈의 환율로 거래 환율을 미리 채우는 것도 #47 범위다.
-- 거래가 있는 자산의 수동 평가금액은 그대로 둔다(#47에서 시세로 대체).
-- 자산의 "수량 또는 평가금액 필요" 검사를 스키마 밖으로 옮겨, 다른 입력 오류와 함께 있으면 앞의 오류를 먼저 보여 주고, 없는 자산을 수정하면 이 검사보다 404가 먼저 나온다.
+- Unrealized profit and loss (current price) is #47. Prefilling the trade exchange rate from the price module's exchange rate is also in the scope of #47.
+- The manual valuation of an asset with trades stays as it is (replaced with prices in #47).
+- We moved the asset's "quantity or valuation required" check out of the schema, so when it is together with other input errors the earlier error is shown first, and editing a nonexistent asset gives 404 before this check.
 
-## 리뷰 기록
+## Review record
 
-### 1차 — 병합을 막는 결함 없음, 고칠 점 3건과 사소한 지적 반영
+### Round 1: no defect blocking the merge, 3 points to fix and minor comments addressed
 
-- (고칠 점) 자산을 수정 폼에 연 채 거래를 기록하거나 모두 지우면, 폼이 예전 `hasTrades`와 수량을 들고 있어 저장이 400으로 막혔다. 목록을 다시 불러오면 열린 자산을 새 값으로 바꾸고 수량 칸도 맞춘다. 이때 포커스는 거래 패널에 그대로 둔다(자산 id가 바뀔 때만 이름 칸으로 옮김).
-- (고칠 점) 직접 넣은 수량이 있는 자산은 첫 거래로 수량이 거래 합계로 바뀐다(결정 4). 거래가 아직 없을 때 패널에 "이미 가진 수량은 매수로 먼저 넣으세요" 안내를 보여 준다. 서버에서 이 동작(첫 매도 거부, 첫 매수로 덮어쓰기)을 테스트로 고정했다.
-- (고칠 점) 평균 단가는 원화 자산이면 매수 수수료 포함, 달러 자산이면 원화 수수료 제외라 뜻이 다르다. 달러 수수료는 달러 기준이 없어 결정 3대로 두고, 달러 자산의 칸 이름을 "평균 단가(수수료 제외)"로 바꿨다. 원화 원가와 실현 손익에는 수수료가 들어간다.
-- 거래액 1,000조 원 초과 검사를 JS 숫자 대신 SQL `numeric` 비교로 한다.
-- 다시 계산을 한 번만 하고, 이력 중간의 보유 수량(1조 이상)이나 원화 원가·실현 손익이 안전 정수를 넘으면 500 대신 `보유 수량이나 금액이 너무 큽니다` 400.
-- 거래 목록과 요약을 한 스냅샷(REPEATABLE READ, 읽기 전용)에서 읽는다.
-- 거래 줄의 수정·지우기 버튼 이름에 단가를 넣어 같은 날 같은 수량의 거래를 구분한다.
-- 테스트 추가: 첫 거래의 수량 덮어쓰기, 이력 중간의 큰 수량, 자산 수정과 거래 기록 동시 실행, 데이터가 있는 상태에서 `013` 뒤 `007`·`010` 재실행, 수정 폼 동기화와 포커스, 직접 입력 수량 안내, 달러 평균 단가 이름.
-- 반영하지 않음: 클라이언트 검증 오류 때 해당 칸으로 포커스 이동(기존 자산 폼과 같은 방식, 알림으로 읽힘).
-- 검증: `TEST_DATABASE_URL=<전용 테스트 DB> npm run check` 통과(백엔드 228개 통과·건너뜀 0, 프론트엔드 208개 중 206개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공).
+- (To fix) If you recorded or deleted all trades while an asset was open in the edit form, the form held the old `hasTrades` and quantity, so saving was blocked with a 400. When the list is reloaded, it replaces the open asset with the new values and syncs the quantity field too. Focus stays on the trade panel then (it moves to the name field only when the asset id changes).
+- (To fix) For an asset with a manually entered quantity, the first trade changes the quantity to the sum of trades (decision 4). While there are no trades yet, the panel shows the guidance "이미 가진 수량은 매수로 먼저 넣으세요" ("Enter the quantity you already hold first as a buy"). On the server we fixed this behavior (the first sell rejected, the first buy overwriting) with tests.
+- (To fix) The average unit price means different things: it includes buy fees for a KRW asset and excludes KRW fees for a dollar asset. A dollar fee has no dollar basis, so we kept decision 3, and changed the field name for dollar assets to "평균 단가(수수료 제외)" ("Average unit price (excluding fees)"). The KRW cost and the realized profit and loss include fees.
+- The check for a trade amount over 1,000 trillion won now uses a SQL `numeric` comparison instead of a JS number.
+- Recomputation is done only once, and if the quantity held in the middle of the history (1 trillion or more) or the KRW cost or realized profit and loss exceeds a safe integer, it gives a 400 `보유 수량이나 금액이 너무 큽니다` ("The quantity held or the amount is too large") instead of a 500.
+- The trade list and the summary are read from one snapshot (REPEATABLE READ, read only).
+- We put the unit price in the names of the edit and delete buttons of a trade line to tell apart trades with the same date and quantity.
+- Tests added: overwriting the quantity on the first trade, a large quantity in the middle of the history, an asset edit and a trade record running at the same time, rerunning `007` and `010` after `013` with data present, edit form sync and focus, the guidance for a manually entered quantity, and the dollar average unit price name.
+- Not addressed: moving focus to the field on a client validation error (the same way as the existing asset form, and it is read through the notice).
+- Verification: `TEST_DATABASE_URL=<dedicated test DB> npm run check` passed (backend 228 passed and 0 skipped, frontend 206 of 208 passed and 2 skipped (existing), 4 skill tests, build succeeded).
 
-### 2차 — 1차 반영 7건 확인, 막는 결함 없음, 고칠 점 1건과 사소한 지적 1건 반영
+### Round 2: 7 first-round fixes confirmed, no blocking defect, 1 point to fix and 1 minor comment addressed
 
-- 리뷰어가 수정 폼 동기화(반복 렌더 없음, 포커스 유지), `REPEATABLE READ, READ ONLY`가 트랜잭션 첫 문장으로 동작함, `settle`의 넘침 메시지와 큰 값 조건을 확인했다.
-- (고칠 점) 실현 손익 합계만 검사해서, 거래 하나의 실현 손익이 안전 정수를 넘어도 합계가 범위 안이면 저장되고 그 뒤 목록이 500을 냈다. 거래별 `max(abs(realized_krw))`도 검사한다. 9,000조 원 단위의 극단 입력 테스트를 더했다.
-- 다른 탭에서 지운 자산을 이 탭의 수정 폼에 열어 두었다면, 목록을 다시 불러올 때 폼을 닫고 "이미 삭제되어 수정을 닫았습니다"를 알린다.
-- 반영하지 않음: 폼 동기화를 effect 대신 목록에서 바로 구하는 방식(리뷰어도 지금 방식이 타당하다고 봄).
-- 표준에 따라 3차 리뷰는 하지 않는다.
-- 검증: `TEST_DATABASE_URL=<전용 테스트 DB> npm run check` 통과(백엔드 229개 통과·건너뜀 0, 프론트엔드 209개 중 207개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공).
+- The reviewer confirmed the edit form sync (no repeated renders, focus kept), that `REPEATABLE READ, READ ONLY` works as the first statement of the transaction, and the overflow message and large value conditions of `settle`.
+- (To fix) We checked only the total realized profit and loss, so even if the realized profit and loss of a single trade exceeded the safe integer, it was saved when the total was within range, and then the list gave a 500. We now also check each trade's `max(abs(realized_krw))`. We added an extreme input test in the 9,000 trillion won range.
+- If an asset deleted in another tab was left open in this tab's edit form, when the list is reloaded we close the form and announce "이미 삭제되어 수정을 닫았습니다" ("Already deleted, so the edit was closed").
+- Not addressed: deriving the form sync directly from the list instead of an effect (the reviewer also thought the current approach is reasonable).
+- By the standard, we do not run a third review.
+- Verification: `TEST_DATABASE_URL=<dedicated test DB> npm run check` passed (backend 229 passed and 0 skipped, frontend 207 of 209 passed and 2 skipped (existing), 4 skill tests, build succeeded).

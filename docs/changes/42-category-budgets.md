@@ -1,125 +1,125 @@
-# #42 카테고리별 월 예산과 진행률
+# #42 Monthly budget per category and progress
 
-- 이슈: https://github.com/sirloinbh/money-ledger/issues/42
-- 브랜치: `feat/42-category-budgets`
+- Issue: https://github.com/sirloinbh/money-ledger/issues/42
+- Branch: `feat/42-category-budgets`
 
-## 목적
+## Purpose
 
-지출을 기록하는 데서 나아가, 카테고리별로 정한 한 달 예산과 실제 지출을 비교한다.
+Going beyond recording spending, compare the monthly budget set for each category with the actual spending.
 
-## 결정 (2026-11-10 사용자 확인, 이슈 댓글 기록)
+## Decision (confirmed by the user on 2026-11-10, recorded in an issue comment)
 
-- 예산을 정하지 않은 달은 가장 최근에 정한 달의 값을 조회할 때 이어받는다. 복사 행은 만들지 않는다.
-- 특정 달만 다르게 하려면 그 달에 저장한다. 저장한 값은 그 달과, 따로 정하지 않은 이후 달의 기본이 된다.
-- 지출 카테고리만 대상이다. 금액은 1원 이상 정수이고, 0원으로 저장하거나 비우면 그 달부터 "미설정"이다.
-- 진행률은 #40 월별 요약의 달(`?month=`)을 따라간다.
-- 예산을 넘으면 빨간 막대와 "N원 초과" 글자를 함께 보인다.
-- 마이그레이션 번호는 017이다.
+- For a month in which no budget was set, the value of the most recently set month is carried over when the data is read. We do not create copy rows.
+- To make only a specific month different, save it for that month. The saved value becomes the default for that month and for later months that were not set separately.
+- Only expense categories are covered. The amount is an integer of 1 won or more, and saving 0 won or clearing it makes it "미설정" ("Not set") from that month.
+- The progress follows the month of the #40 monthly summary (`?month=`).
+- When the budget is exceeded, we show a red bar and the text "N원 초과" ("N won over") together.
+- The migration number is 017.
 
-## 구현에서 정한 것
+## Decided during implementation
 
-- `ledger_budgets(category_id, kind='expense', month, amount)`의 기본 키는 `(category_id, month)`다.
-  - `(category_id, kind)`가 `ledger_categories(id, kind)`를 가리켜서, 지출 카테고리에만 예산이 붙는다.
-  - 카테고리가 지워지면 예산도 지워진다(`ON DELETE CASCADE`).
-  - `month`는 그 달 1일만 들어가고(CHECK), 금액은 0 이상이다.
-- 한 달의 예산은 그 카테고리의 `month <= 그 달`인 행 중 가장 최근 것이다(`DISTINCT ON`). 그 값이 0이면 미설정이다.
-- 사용액, 남은 금액, 초과 금액, 사용률(소수 첫째 자리, 0.5는 0에서 먼 쪽)은 SQL `numeric`으로 계산한다. 미설정이면 셋 다 `null`이다.
-- 숨긴 카테고리는 그 달 지출이나 예산이 있을 때만 보인다("(숨김)" 표시). 미분류 지출은 예산을 붙일 카테고리가 없어 목록에 없다(월별 요약에는 나온다).
-- 화면은 월별 요약 아래 "카테고리별 예산" 카드다.
-  - 각 줄에 "사용액 / 예산"과 막대를 보인다.
-  - 예산 이내면 막대는 차트 1번 색(`--chart-series-1`)이고 "N원 남음 (xx.x%)"를 보인다.
-  - 넘으면 막대가 `destructive` 색으로 가득 차고, 경고 아이콘과 "N원 초과 (xxx.x%)"를 같은 색으로 보인다. 색과 글자, 아이콘이 함께 알린다.
-  - 막대는 글자를 반복하므로 화면 낭독기에서 숨긴다.
-  - 미설정이면 막대 대신 "미설정"과 그 달 지출을 보인다.
-  - 이전 달에서 이어받은 예산이면 "2026년 8월에 정한 예산"을 보인다.
-- "수정"을 누르면 그 줄에 금액 입력이 열리고 초점이 입력으로 간다.
-  - 쉼표는 천 단위 자리에만 허용한다("1,00"은 거절).
-  - 저장하면 "○○ 예산을 2026년 11월부터 N원으로 정했습니다"를 알리고 다시 불러온다. 초점은 그 줄의 "수정" 버튼으로 돌아간다.
-  - 다른 달로 옮기면 열린 입력을 닫는다. 그대로 두면 보이지 않는 달에 저장될 수 있기 때문이다.
-- 요약의 달을 읽는 함수를 `frontend/src/summary-month.ts`로 옮겨 월별 요약과 예산이 함께 쓴다.
+- The primary key of `ledger_budgets(category_id, kind='expense', month, amount)` is `(category_id, month)`.
+  - `(category_id, kind)` points at `ledger_categories(id, kind)`, so a budget attaches only to expense categories.
+  - When a category is deleted, its budgets are deleted too (`ON DELETE CASCADE`).
+  - `month` holds only day 1 of the month (CHECK), and the amount is 0 or more.
+- A month's budget is the most recent row of that category with `month <= that month` (`DISTINCT ON`). If that value is 0, it is not set.
+- The amount used, the remaining amount, the excess amount, and the usage rate (one decimal place, 0.5 away from zero) are computed with SQL `numeric`. If not set, all three are `null`.
+- A hidden category shows only when it has spending or a budget that month (marked "(숨김)", "hidden"). Uncategorized spending has no category to attach a budget to, so it is not in the list (it appears in the monthly summary).
+- The screen is a "카테고리별 예산" ("Budget by category") card under the monthly summary.
+  - Each line shows "amount used / budget" and a bar.
+  - Within budget, the bar is chart color 1 (`--chart-series-1`) and it shows "N원 남음 (xx.x%)" ("N won left").
+  - Over budget, the bar is full in the `destructive` color, and a warning icon and "N원 초과 (xxx.x%)" appear in the same color. Color, text, and icon tell it together.
+  - The bar repeats the text, so it is hidden from screen readers.
+  - If not set, it shows "미설정" and that month's spending instead of a bar.
+  - If the budget was carried over from an earlier month, it shows "2026년 8월에 정한 예산" ("Budget set in August 2026").
+- Pressing "수정" ("Edit") opens an amount input on that line and moves focus to the input.
+  - Commas are allowed only at thousands positions ("1,00" is rejected).
+  - On save it announces "○○ 예산을 2026년 11월부터 N원으로 정했습니다" ("The ○○ budget was set to N won from November 2026") and reloads. Focus goes back to the "수정" button of that line.
+  - Moving to another month closes an open input, because otherwise it could be saved to a month you cannot see.
+- The function that reads the summary's month moved to `frontend/src/summary-month.ts`, shared by the monthly summary and the budget.
 
-## 변경 내용
+## Changes
 
-- `database/migrations/017_ledger_budgets.sql`: 예산 테이블.
+- `database/migrations/017_ledger_budgets.sql`: the budget table.
 - `backend/src/budgets.ts`, `backend/src/app.ts`:
   - `GET /api/ledger/budgets?month=YYYY-MM` → `{ month, budgets: [{ categoryId, name, hidden, spent, budget, budgetMonth, remaining, over, percent }] }`
-  - `PUT /api/ledger/budgets/:categoryId`(`{ month, amount }`): 그 달 값을 저장하거나 바꾼다. 지출 카테고리가 아니거나 없으면 404이다.
-- `frontend/src/budget-progress.tsx`: 예산 카드(불러오는 중·실패와 다시 시도·수정 폼·알림).
-- `frontend/src/summary-month.ts`, `frontend/src/monthly-summary.tsx`: 요약의 달 읽기를 공용으로 옮겼다.
-- `frontend/src/ledger.tsx`: 월별 요약 아래에 두고, 내역·카테고리가 바뀌면 다시 불러온다.
+  - `PUT /api/ledger/budgets/:categoryId` (`{ month, amount }`): saves or changes that month's value. If it is not an expense category or does not exist, it is 404.
+- `frontend/src/budget-progress.tsx`: the budget card (loading, failure and retry, the edit form, and the notice).
+- `frontend/src/summary-month.ts`, `frontend/src/monthly-summary.tsx`: moved reading the summary's month to be shared.
+- `frontend/src/ledger.tsx`: placed under the monthly summary, and reloads when entries or categories change.
 
-## 테스트
+## Tests
 
-- `backend/test/budgets.test.ts`: 잘못된 조회 3건과 저장 8건이 DB 전에 한국어 400이다(월 형식·범위, 본문 형식, 금액 문자열·소수·음수·안전 정수 초과, 카테고리 ID).
-- `backend/test/budgets.integration.test.ts`: 실제 DB에서 확인한다.
-  - 초과, 딱 맞음, 이내(반올림 1.25 → 1.3), 미설정을 확인한다. 그 달 내역만 세고 미분류·수입은 빠진다.
-  - 이어받기: 첫 예산 전 달은 미설정이고, 이후 달은 가장 최근 값을 쓰며, 복사 행이 없다. 앞 달을 바꾸면 이어받는 달만 바뀌고, 같은 달에 다시 저장하면 바뀐다.
-  - 0원은 그 달부터 미설정이고, 다음에 다시 정하면 그 값을 쓴다.
-  - 숨긴 카테고리는 지출이나 예산이 있을 때만 나온다. 수입·없는 카테고리는 404이고 행이 생기지 않는다.
-  - 테이블 CHECK(1일이 아닌 달, 음수)와 1900·2100년 끝을 확인한다.
-- `frontend/src/budget-progress.test.tsx`: 화면을 확인한다.
-  - 초과(빨간 막대 100%, 아이콘과 글자), 이내(남은 금액, 이어받은 달), 미설정(막대 없음), 숨김.
-  - 주소의 달을 따라가고, 달을 바꾸면 열린 폼이 닫힌다.
-  - 쉼표 입력 저장과 요청 본문, 알림, 초점 복귀. 빈칸은 0으로 저장한다.
-  - 잘못된 금액 4가지는 요청 전에 거절한다. 저장 실패 시 입력을 유지하고, 취소하면 초점이 돌아간다.
-  - 불러오기 실패와 다시 시도, 버전 변경 시 다시 불러오기.
-- `frontend/src/app.test.tsx`: 빈 응답 목에 `budgets: []`를 더했다.
+- `backend/test/budgets.test.ts`: 3 bad reads and 8 saves are Korean 400 before the DB (month format and range, body format, amount string, decimal, negative, and over the safe integer, and category ID).
+- `backend/test/budgets.integration.test.ts`: checks on a real DB.
+  - Over, exactly equal, within (rounding 1.25 → 1.3), and not set. Only that month's entries are counted, and uncategorized and income are left out.
+  - Carry over: a month before the first budget is not set, later months use the most recent value, and there are no copy rows. Changing an earlier month changes only the months that carry over, and saving again in the same month changes it.
+  - 0 won is not set from that month, and when set again later it uses that value.
+  - A hidden category appears only when it has spending or a budget. Income and nonexistent categories are 404 and no row is created.
+  - The table CHECKs (a month that is not day 1, a negative) and the ends at years 1900 and 2100.
+- `frontend/src/budget-progress.test.tsx`: checks the screen.
+  - Over (a red bar at 100%, icon and text), within (remaining amount, carried-over month), not set (no bar), and hidden.
+  - It follows the address's month, and changing the month closes an open form.
+  - Saving comma input and the request body, the notice, and focus return. A blank is saved as 0.
+  - 4 kinds of bad amount are rejected before the request. On a save failure the input is kept, and canceling returns focus.
+  - Load failure and retry, and reloading on a version change.
+- `frontend/src/app.test.tsx`: added `budgets: []` to the empty response mock.
 
-## 검증
+## Verification
 
-- 테스트 DB에 017 마이그레이션을 적용했다.
-- `TEST_DATABASE_URL=<테스트 DB> npm run check`: 통과. 백엔드 316개 통과(건너뜀 0), 프론트엔드 264개 중 262개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공. `npm run knip`도 통과했다.
-  - origin/main(#48 자산 배분)을 충돌 없이 병합한 뒤 다시 통과했다: 백엔드 327개(건너뜀 0), 프론트엔드 274개 중 272개 통과·2개 건너뜀(기존), knip 통과.
-- 브라우저: API(3192)를 테스트 DB에 연결하고 Vite(5292)로 `/ledger`를 headless Chrome(CDP)에서 확인했다.
-  - 넣은 데이터: 11월 지출 8건과 미분류 1건, 10월 식비 400,000원. 긴 이름 "반려동물 용품과 병원비"를 넣었고 여가는 숨겼다.
-  - 예산: 식비 8월 350,000원·11월 300,000원, 교통 8월 50,000원, 주거 11월 800,000원, 반려동물 11월 90,000원.
+- We applied migration 017 to the test DB.
+- `TEST_DATABASE_URL=<test DB> npm run check`: passed. Backend 316 passed (0 skipped), frontend 262 of 264 passed and 2 skipped (existing), 4 skill tests, build succeeded. `npm run knip` passed too.
+  - After merging origin/main (#48 asset allocation) with no conflicts, it passed again: backend 327 (0 skipped), frontend 272 of 274 passed and 2 skipped (existing), knip passed.
+- Browser: we connected the API (3192) to the test DB and checked `/ledger` with Vite (5292) in headless Chrome (CDP).
+  - Data we put in: 8 expenses and 1 uncategorized in November, and food 400,000 won in October. We added the long name "반려동물 용품과 병원비" ("Pet supplies and vet bills") and hid leisure.
+  - Budgets: food 350,000 won in August and 300,000 won in November, transport 50,000 won in August, housing 800,000 won in November, and pets 90,000 won in November.
   - 390×844:
-    - 식비는 "337,500원 / 300,000원", 빨간 막대 100%, 아이콘과 "37,500원 초과 (112.5%)"로 보인다.
-    - 교통은 "18,000원 남음 (64.0%) · 2026년 8월에 정한 예산", 파란 막대 64%다. 주거는 81.3%다.
-    - 통신·생활 등은 "미설정"이고 막대가 없다. 여가는 "(숨김)"으로 보인다. 긴 이름도 카드 안에 들어간다.
-    - 교통 "수정"을 누르면 초점이 입력으로 간다. "30,000" 저장 후 "교통 예산을 2026년 11월부터 30,000원으로 정했습니다"가 보이고, 초점이 "교통 예산 수정"으로 돌아온다. 그 줄은 "2,000원 초과 (106.7%)"로 바뀐다.
-    - 요약의 "이전 달"을 누르면 예산도 "2026년 10월 기준"으로 바뀐다. 식비는 8월 예산 350,000원을 이어받아 "50,000원 초과 (114.3%)", 주거는 미설정이다.
-    - 다크 모드에서는 초과 색이 밝은 빨강(`oklch(0.704 0.191 22.216)`)으로 바뀐다.
-    - 가로 넘침 없음(scrollWidth 390).
-  - 1440×900: 같은 결과이고, 라이트·다크 모두 가로 넘침이 없다.
-  - 확인 중 고친 것: 다른 달을 볼 때도 "이번 달 사용률"·"이번 달 지출"로 나와서 "예산 사용률"·"지출"로 바꿨다.
+    - Food shows "337,500원 / 300,000원", a red bar at 100%, an icon and "37,500원 초과 (112.5%)".
+    - Transport shows "18,000원 남음 (64.0%) · 2026년 8월에 정한 예산" and a blue bar at 64%. Housing is 81.3%.
+    - Telecom, living, and others are "미설정" with no bar. Leisure shows "(숨김)". The long name fits in the card.
+    - Pressing transport "수정" moves focus to the input. After saving "30,000", "교통 예산을 2026년 11월부터 30,000원으로 정했습니다" shows, and focus returns to "교통 예산 수정" ("Edit transport budget"). That line changes to "2,000원 초과 (106.7%)".
+    - Pressing "이전 달" ("Previous month") in the summary changes the budget to "2026년 10월 기준" ("as of October 2026"). Food carries over the August budget of 350,000 won and shows "50,000원 초과 (114.3%)", and housing is not set.
+    - In dark mode the over color changes to a light red (`oklch(0.704 0.191 22.216)`).
+    - No horizontal overflow (scrollWidth 390).
+  - 1440×900: the same results, with no horizontal overflow in light or dark.
+  - What we fixed during the check: when viewing another month it still said "이번 달 사용률" ("This month's usage rate") and "이번 달 지출" ("This month's spending"), so we changed them to "예산 사용률" ("Budget usage rate") and "지출" ("Spending").
 
-## 1차 자동 리뷰 (PR #115)
+## Round 1 automatic review (PR #115)
 
-막는 문제는 없었다. 리뷰가 확인한 것:
+There was no blocking problem. What the review confirmed:
 
-- SQL: 달 범위, 이어받기, 0 = 미설정, null 처리가 맞다.
-- 지출 카테고리 제한이 키로 강제된다.
-- 동시 저장은 한 문장의 upsert라 안전하다.
-- 다른 테스트의 TRUNCATE와 #40 요약의 달 처리가 그대로다.
-- 접근성: 색·아이콘·글자를 함께 쓰고, 막대는 화면 낭독기에서 숨기며, 초점 이동이 맞다.
+- SQL: the month range, carry over, 0 = not set, and null handling are right.
+- The expense-category restriction is enforced by the key.
+- Concurrent saves are safe because they are a one-statement upsert.
+- The TRUNCATE of other tests and the #40 summary's month handling are unchanged.
+- Accessibility: color, icon, and text are used together, the bar is hidden from screen readers, and the focus moves are right.
 
-이 PR에서 고친 것:
+What we fixed in this PR:
 
-1. 저장 응답이 오기 전에 요약의 달을 바꾸면, 저장 후 예전 달을 다시 불러와 "2026년 10월 기준" 아래에 11월 값이 흐리게 남았다. → 저장 후에는 그때 보이는 달을 불러온다(최신 `load`를 ref로 둔다).
-2. 지출 없이 예산만으로 보이던 숨긴 카테고리를 미설정으로 저장하면 그 줄이 사라져 초점을 잃었다. → 다시 불러온 뒤 초점을 옮기고, 줄이 없으면 "카테고리별 예산" 제목으로 보낸다.
-3. 두 경우의 회귀 테스트를 더했다. 고치기 전 코드에서는 둘 다 실패했다.
+1. If you changed the summary's month before the save response arrived, the earlier month was reloaded after the save, and November values stayed dimmed under "2026년 10월 기준". → After a save we load the month that is visible then (keep the latest `load` in a ref).
+2. If you saved a hidden category that showed only because of its budget (without spending) as not set, its line disappeared and focus was lost. → After reloading we move focus, and if the line is gone, send it to the "카테고리별 예산" heading.
+3. We added regression tests for both cases. Both failed with the code before the fix.
 
-그대로 둔 것:
+What we left as it is:
 
-- 앞 달에 예산을 정한 숨긴 카테고리는 이후 달에도 예산 줄로 보인다. 결정한 규칙("예산이 있으면 보임")을 따른 결과라 바꾸지 않았다. 안 보이게 하려면 그 카테고리 예산을 미설정으로 저장한다.
+- A hidden category that had a budget set in an earlier month still shows as a budget line in later months. It follows the decided rule ("shown if it has a budget"), so we did not change it. To hide it, save that category's budget as not set.
 
-검증: `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과(백엔드 327개, 프론트엔드 276개 중 274개 통과·2개 건너뜀(기존)), `npm run knip` 통과.
+Verification: `TEST_DATABASE_URL=<test DB> npm run check` passed (backend 327, frontend 274 of 276 passed and 2 skipped (existing)), `npm run knip` passed.
 
-## 2차 자동 리뷰 (PR #115)
+## Round 2 automatic review (PR #115)
 
-막는 문제는 없었다. 백엔드·마이그레이션·월별 요약은 맞다는 확인을 받았고, 화면에서 작은 문제 셋을 고쳤다.
+There was no blocking problem. We were told the backend, migration, and monthly summary are right, and we fixed three small problems on the screen.
 
-1. 저장 응답이 늦게 오면, 그 사이 사용자가 연 다른 줄의 입력 폼을 닫고(입력값 사라짐) 초점을 처음 줄로 옮겼다. 달을 바꾼 경우에도 방금 누른 버튼에서 초점을 빼앗았다. → 저장이 끝났을 때 같은 달에 같은 줄이 아직 열려 있을 때만 폼을 닫고 초점을 옮긴다.
-2. 다른 달을 불러오는 동안 흐리게 남은 이전 달 줄이 새 달 이름으로 표시되고 "수정"도 눌렸다. 그대로 저장하면 이전 달 금액이 새 달에 들어갈 수 있었다. → 줄은 자기 달(`shown.month`)로 표시하고, 불러오는 동안 "수정"을 막는다.
-3. 달을 바꾸면 폼은 닫히는데 그 폼의 오류 알림은 남았다. → 달이 바뀌면 알림도 지운다.
-4. 위 경우의 회귀 테스트 4개를 더했다. 고치기 전 코드에서는 넷 다 실패했다.
+1. If the save response came late, it closed the input form of another line the user had opened in the meantime (losing the input) and moved focus to the first line. Even when the month was changed, it took focus from the button just pressed. → When the save finishes, we close the form and move focus only when the same line is still open in the same month.
+2. While another month was loading, the previous month's lines left dimmed were shown under the new month's name and "수정" could be pressed. Saving as it was could put the previous month's amount into the new month. → A line is shown with its own month (`shown.month`), and "수정" is blocked while loading.
+3. Changing the month closed the form, but the form's error notice stayed. → When the month changes, we clear the notice too.
+4. We added 4 regression tests for the cases above. All four failed with the code before the fix.
 
-리뷰 횟수 한도(2회)에 도달했다.
+We reached the review limit (2 rounds).
 
-검증: `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과(백엔드 327개, 프론트엔드 280개 중 278개 통과·2개 건너뜀(기존)), `npm run knip` 통과.
+Verification: `TEST_DATABASE_URL=<test DB> npm run check` passed (backend 327, frontend 278 of 280 passed and 2 skipped (existing)), `npm run knip` passed.
 
-## main 다시 병합 (병합 전)
+## Merged main again (before merging)
 
-- #54(018 `mock_snapshots`)가 main에 들어와 origin/main을 다시 병합했다. 충돌은 없었다. 이 PR의 테스트는 `mock_accounts`를 지우지 않아 고칠 것이 없다.
-- 테스트 DB에 018을 적용했다. `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과(백엔드 330개(건너뜀 0), 프론트엔드 292개 중 290개 통과·2개 건너뜀(기존)), `npm run knip` 통과.
+- #54 (018 `mock_snapshots`) got into main, so we merged origin/main again. There were no conflicts. The tests of this PR do not delete `mock_accounts`, so there is nothing to fix.
+- We applied 018 to the test DB. `TEST_DATABASE_URL=<test DB> npm run check` passed (backend 330 (0 skipped), frontend 290 of 292 passed and 2 skipped (existing)), `npm run knip` passed.

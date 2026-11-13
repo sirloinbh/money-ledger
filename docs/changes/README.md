@@ -1,3 +1,3 @@
-# 변경 기록
+# Change records
 
-이슈마다 `<이슈번호>-<slug>.md`를 만들어 목적, 변경, 실제 검증 명령과 pass/fail/skip, 한계를 기록한다. 이슈 이전의 초기 세팅은 [bootstrap.md](bootstrap.md)에 있다.
+For each issue, create `<issue-number>-<slug>.md` and record the purpose, the changes, the real verification commands with pass/fail/skip, and the limits. The initial setup before issues is in [bootstrap.md](bootstrap.md).

@@ -1,72 +1,72 @@
-# #39 가계부 내역 목록과 기간·카테고리 필터
+# #39 Ledger entry list with date range and category filters
 
-- 이슈: https://github.com/sirloinbh/money-ledger/issues/39
-- 브랜치: `feat/39-entry-list-filter`
+- Issue: https://github.com/sirloinbh/money-ledger/issues/39
+- Branch: `feat/39-entry-list-filter`
 
-## 목적
+## Purpose
 
-기록이 쌓여도 원하는 내역을 찾아 고칠 수 있도록, 내역 목록을 기간·종류·카테고리·검색어로 거르고 쪽으로 나눈다.
+So that the user can still find and fix the entries they want as records pile up, filter the entry list by date range, kind, category, and search term, and split it into pages.
 
-## 구현에서 정한 것
+## Decided during implementation
 
-이슈에 "구현 전 결정 사항"이 없어 아래는 구현하면서 정했다.
+The issue had no "Decisions before implementation", so the following were decided while implementing.
 
-- 기본 목록은 서울 기준 이번 달(1일~말일)이다. 시작일·종료일을 모두 비우고 조회하면 전체 기간이다.
-- `from`과 `to`는 양 끝 날짜를 포함한다. 시작일이 종료일보다 늦으면 화면과 서버 모두 "시작일이 종료일보다 늦습니다"로 거절한다.
-- 검색어는 가맹점과 메모에서 대소문자를 무시하고 찾는다(최대 50자). `%`, `_`, `\`는 입력한 글자 그대로 찾는다.
-- 카테고리 필터는 "전체", "미분류", 모든 카테고리(숨긴 카테고리 포함, "(숨김)" 표시)를 고른다. 종류를 고르면 그 종류의 카테고리만 보이고, 다른 종류의 카테고리는 선택이 풀린다.
-- 한 쪽은 50건이다. 필터를 바꾸면 첫 쪽으로 돌아간다.
-- 필터는 주소(`?from=…&to=…&kind=…&category=…&q=…&page=…`)에 남아 새로고침과 링크 공유에도 유지된다. 입력한 필터는 "조회"를 눌러야 적용되고, "이전 달·이번 달·다음 달"과 "초기화"는 바로 적용된다.
+- The default list is this month in Seoul time (day 1 to the last day). If you clear both the start and end dates and search, it is the whole period.
+- `from` and `to` include both end dates. If the start date is later than the end date, both the screen and the server reject it with `시작일이 종료일보다 늦습니다` ("The start date is later than the end date").
+- The search term is looked up in the merchant and memo, ignoring case (at most 50 characters). `%`, `_`, and `\` are searched as the characters typed.
+- The category filter chooses "All", "Uncategorized", or any category (including hidden categories, marked "(숨김)", "hidden"). When you choose a kind, only categories of that kind show, and the selection of a category of another kind is cleared.
+- One page is 50 entries. Changing the filter goes back to the first page.
+- The filter stays in the address (`?from=…&to=…&kind=…&category=…&q=…&page=…`), so it is kept across reloads and link sharing. A typed filter is applied only when you press "조회" ("Search"), while "이전 달·이번 달·다음 달" ("Previous month, This month, Next month") and "초기화" ("Reset") apply immediately.
 
-## 변경 내용
+## Changes
 
-- `backend/src/entries.ts`: `GET /api/ledger/entries`에 `from`, `to`, `kind`, `category`(숫자 또는 `none`), `q`, `page`, `size`(최대 100, 기본 50)를 받는다. 응답은 `{ entries, total, page, pageSize }`이다. 잘못된 값은 한국어 400이다. 미분류 일괄 분류용 `uncategorized=true`는 지금과 같다(최근 200건, `entries`만).
-- `frontend/src/entry-filters-state.ts`: 주소 ↔ 필터 변환, 월 범위·월 이동, 기간 이름("2026년 11월", "2026-10-01 ~ 2026-11-30", "전체 기간").
-- `frontend/src/entry-filters.tsx`: 기간 이름, 이전 달·이번 달·다음 달 버튼, 필터 폼(시작일·종료일·종류·카테고리·검색어, 조회·초기화).
-- `frontend/src/entries.tsx`: 목록이 주소의 필터로 불러온다. 건수, "이전 쪽·다음 쪽"과 "n / m쪽", 빈 결과("조건에 맞는 내역이 없습니다."), 불러오기 실패("내역을 불러오지 못했습니다." + "다시 시도")를 보여 준다. 목록 이름은 "최근 내역"에서 "내역 목록"으로 바꿨다. 필터를 빠르게 바꿔도 마지막 요청의 결과만 보인다.
-- 마이그레이션은 없다. 기간 조건은 기존 `ledger_entries_entry_date_idx`를 쓴다.
+- `backend/src/entries.ts`: `GET /api/ledger/entries` accepts `from`, `to`, `kind`, `category` (a number or `none`), `q`, `page`, and `size` (at most 100, default 50). The response is `{ entries, total, page, pageSize }`. A bad value is a Korean 400. `uncategorized=true` for the bulk classification of uncategorized entries stays as it is (latest 200, `entries` only).
+- `frontend/src/entry-filters-state.ts`: address ↔ filter conversion, month range and month move, and the period name ("2026년 11월" (November 2026), "2026-10-01 ~ 2026-11-30", "전체 기간" ("All periods")).
+- `frontend/src/entry-filters.tsx`: the period name, the previous, this, and next month buttons, and the filter form (start date, end date, kind, category, search term, search and reset).
+- `frontend/src/entries.tsx`: the list loads with the address's filter. It shows the count, "이전 쪽·다음 쪽" ("Previous page, Next page") and "n / m쪽" ("page n of m"), an empty result ("조건에 맞는 내역이 없습니다.", "No entries match."), and a load failure ("내역을 불러오지 못했습니다." + "다시 시도", "Could not load entries." + "Try again"). The list name changed from "최근 내역" ("Recent entries") to "내역 목록" ("Entry list"). Even if you change filters quickly, only the result of the last request shows.
+- There is no migration. The date range condition uses the existing `ledger_entries_entry_date_idx`.
 
-## 테스트
+## Tests
 
-- `backend/test/entries.test.ts`: 필터 값 검증 10건(없는 날짜, 형식, 시작일 > 종료일, 종류, 카테고리 0·문자, 검색어 51자, 쪽 0, 쪽 두 번, 크기 101)이 DB 전에 한국어 400이다.
-- `backend/test/entries.integration.test.ts`: 실제 DB에서 기간 양 끝 포함(10-31·11-01·11-30 경계), 종류·카테고리·미분류, 가맹점·메모 검색(대소문자 무시, `%`·`_` 그대로), 쪽 나눔과 `total`, 범위를 넘은 쪽(빈 목록, total 유지), `uncategorized=true` 유지.
-- `frontend/src/entry-filters.test.tsx`: 도우미(월 범위·윤년, 연도 넘는 월 이동, 주소 읽기·쓰기, 기간 이름)와 화면(이번 달 기본 요청, 조회 → 주소·요청, 같은 주소로 다시 열면 필터 복원, 종류에 맞춘 카테고리, 시작일 > 종료일 거절, 월 버튼과 초기화, 쪽 이동과 필터 변경 시 첫 쪽, 빈 결과, 실패와 다시 시도).
-- `frontend/src/entries.test.tsx`: 라우터 안에서 렌더링하고, 목록 이름과 빈 목록 문구를 새 화면에 맞췄다.
+- `backend/test/entries.test.ts`: 10 filter value validations (a nonexistent date, format, start > end, kind, category 0 and letters, a 51-character search term, page 0, page given twice, size 101) are Korean 400 before the DB.
+- `backend/test/entries.integration.test.ts`: on a real DB, both ends of the range included (10-31, 11-01, and 11-30 boundaries), kind, category, and uncategorized, merchant and memo search (ignoring case, `%` and `_` as typed), paging and `total`, a page beyond the range (an empty list, total kept), and `uncategorized=true` kept.
+- `frontend/src/entry-filters.test.tsx`: helpers (month range and leap years, month moves across years, reading and writing the address, period names) and the screen (the default this-month request, search → address and request, reopening with the same address restores the filter, categories matching the kind, rejecting start > end, the month buttons and reset, page moves and returning to the first page on filter change, an empty result, and failure and retry).
+- `frontend/src/entries.test.tsx`: renders inside a router, and the list name and the empty list text were matched to the new screen.
 
-## 검증
+## Verification
 
-- 테스트 DB: 전용 컨테이너 `money-ledger-test-agent2`(`postgres:17-alpine`, 127.0.0.1:15492, 마이그레이션 001~006 자동 적용).
-- `TEST_DATABASE_URL=<테스트 DB> npm run check`: 통과. 백엔드 120개 통과(건너뜀 0), 프론트엔드 161개 중 159개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공.
-- 브라우저: API(3192)를 테스트 DB에 연결하고 Vite(5292)를 띄워 headless Chrome(CDP로 뷰포트 지정)으로 `/ledger`를 확인했다. 테스트 DB에 10~11월 내역 96건을 넣었다.
-  - 390×844: 처음에 "2026년 11월" 16건. "이전 달" → 주소 `?from=2026-10-01&to=2026-10-31`, 80건 중 50행, "1 / 2쪽". "다음 쪽" → `page=2`, 30행, "2 / 2쪽". 2026-10-01~2026-11-30·지출·"스타벅스"로 조회하면 42건이고, 새로고침해도 주소·검색어·결과가 그대로다. 미분류 + 없는 검색어는 "조건에 맞는 내역이 없습니다.", 시작일 > 종료일은 "시작일이 종료일보다 늦습니다"가 보이고 요청하지 않는다. 가로 넘침 없음(scrollWidth 390).
-  - 1440×900: 같은 시나리오가 같은 결과다. 필터가 한 줄(6칸)로 놓이고 긴 메모 행이 깨지지 않는다. 가로 넘침 없음(scrollWidth = clientWidth).
-- PR 전 `origin/main`(f5437dd, #51·#63 포함)을 병합했다. 충돌은 없었다. 테스트 DB에 007·009를 적용하고 다시 `TEST_DATABASE_URL=<테스트 DB> npm run check`: 통과. 백엔드 169개 통과(건너뜀 0), 프론트엔드 180개 중 178개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공.
+- Test DB: a dedicated container `money-ledger-test-agent2` (`postgres:17-alpine`, 127.0.0.1:15492, migrations 001 to 006 applied automatically).
+- `TEST_DATABASE_URL=<test DB> npm run check`: passed. Backend 120 passed (0 skipped), frontend 159 of 161 passed and 2 skipped (existing), 4 skill tests, build succeeded.
+- Browser: we connected the API (3192) to the test DB, started Vite (5292), and checked `/ledger` with headless Chrome (viewport set through CDP). We put 96 entries for October and November in the test DB.
+  - 390×844: at first "2026년 11월" has 16 entries. "이전 달" ("Previous month") → address `?from=2026-10-01&to=2026-10-31`, 50 rows of 80, "1 / 2쪽". "다음 쪽" ("Next page") → `page=2`, 30 rows, "2 / 2쪽". Searching 2026-10-01 to 2026-11-30, expenses, and "스타벅스" ("Starbucks") gives 42 entries, and after a reload the address, search term, and result are the same. Uncategorized plus a nonexistent search term shows "조건에 맞는 내역이 없습니다.", and start > end shows "시작일이 종료일보다 늦습니다" without sending a request. No horizontal overflow (scrollWidth 390).
+  - 1440×900: the same scenario gives the same results. The filter lays out in one row (6 fields) and a row with a long memo does not break. No horizontal overflow (scrollWidth = clientWidth).
+- Before the PR we merged `origin/main` (f5437dd, including #51 and #63). There were no conflicts. We applied 007 and 009 to the test DB and ran `TEST_DATABASE_URL=<test DB> npm run check` again: passed. Backend 169 passed (0 skipped), frontend 178 of 180 passed and 2 skipped (existing), 4 skill tests, build succeeded.
 
-## 1차 자동 리뷰 (PR #103)
+## Round 1 automatic review (PR #103)
 
-백엔드는 보완점이 없었다. 화면에서 나온 보완점을 이 PR에서 고쳤다.
+There were no points on the backend. We fixed the points from the screen in this PR.
 
-1. 저장·삭제가 끝나기 전에 필터를 바꾸면, 끝난 뒤의 다시 불러오기가 옛 조건으로 요청되고 버려져 새 목록에 저장 결과가 빠졌다. → 목록 로더가 항상 호출 시점의 현재 조건으로 요청한다.
-2. 쪽·필터를 바꾸면 목록과 쪽 버튼이 사라져 키보드 초점이 `body`로 떨어졌다. → 새 목록을 불러오는 동안 직전 목록을 흐리게 남기고 `aria-busy`, "불러오는 중…"을 보인다. 쪽 버튼은 `disabled` 대신 `aria-disabled`를 써서 마지막 쪽에서도 초점이 남는다.
-3. 마지막 쪽의 마지막 내역을 지우거나 범위를 넘은 쪽 주소면 "2 / 1쪽"이 보였다. → 마지막 쪽으로 주소를 바꾼다(`replace`).
-4. 주소의 잘못된 날짜·카테고리 값이 요청마다 400을 일으켜 "다시 시도"로도 벗어날 수 없었다. 종류와 맞지 않는 카테고리는 화면과 조건이 어긋났다. → 주소를 읽을 때 서버가 거절할 값을 버린다. 시작일 > 종료일이면 이번 달로 돌아간다. 카테고리를 불러온 뒤 종류와 맞지 않거나 없는 카테고리는 주소에서 뺀다.
-5. 테스트 보강: 늦게 도착한 옛 응답, 저장 중 필터 변경, 불러오는 동안 쪽 버튼·초점 유지, 범위 밖 쪽, 맞지 않는 카테고리, 잘못된 주소 값. 고치기 전 코드에서는 새 테스트 5개가 실패했다. 늦게 도착한 옛 응답 테스트는 고치기 전에도 통과했다. 이미 처리하던 동작이라 문서에 적은 내용을 확인하는 테스트로 둔다.
-6. 참고 지적(입력 폼과 필터 폼에 같은 이름 "종류"·"카테고리")은 두 폼에 각각 이름("새 내역", "내역 필터")이 있어 그대로 둔다.
+1. If you changed the filter before a save or delete finished, the reload after it finished was requested with the old condition and discarded, so the save result was missing from the new list. → The list loader always requests with the current condition at the time of the call.
+2. Changing the page or filter made the list and page buttons disappear, and keyboard focus fell to `body`. → While the new list loads, we keep the previous list dimmed and show `aria-busy` and "불러오는 중…" ("Loading…"). The page buttons use `aria-disabled` instead of `disabled`, so focus stays even on the last page.
+3. Deleting the last entry on the last page, or an address with a page beyond the range, showed "2 / 1쪽". → We change the address to the last page (`replace`).
+4. A bad date or category value in the address caused a 400 on every request and could not be escaped even with "다시 시도". A category that did not match the kind made the screen and the condition disagree. → When reading the address, we drop values the server would reject. If start > end, it goes back to this month. After the categories load, a category that does not match the kind or does not exist is removed from the address.
+5. Test additions: an old response that arrives late, a filter change while saving, keeping the page buttons and focus while loading, a page out of range, a category that does not match, and bad address values. With the code before the fix, 5 new tests failed. The test of an old response that arrives late passed even before the fix. It was already handled behavior, so we keep it as a test that confirms what the doc says.
+6. A reference comment (the entry form and the filter form have the same names "종류" (Kind) and "카테고리" (Category)) is left as it is, because each of the two forms has its own name ("새 내역", "New entry", and "내역 필터", "Entry filter").
 
-검증: `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과. 백엔드 169개 통과(건너뜀 0), 프론트엔드 186개 중 184개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공. headless Chrome으로 390×844·1440×900을 다시 확인했다.
+Verification: `TEST_DATABASE_URL=<test DB> npm run check` passed. Backend 169 passed (0 skipped), frontend 184 of 186 passed and 2 skipped (existing), 4 skill tests, build succeeded. We checked 390×844 and 1440×900 again with headless Chrome.
 
-- 처음 시나리오가 같은 결과다.
-- "다음 쪽"으로 마지막 쪽에 가면 초점이 그 버튼에 남는다(`aria-disabled=true`).
-- `?…&page=9`는 `page=2`로 바뀐다.
-- `?from=2026-13-01&to=2026-10-31&kind=income&category=1`은 `?from=&to=2026-10-31&kind=income`이 되어 400 없이 빈 결과를 보인다.
-- 두 크기 모두 가로 넘침이 없다.
+- The first scenario gives the same results.
+- Going to the last page with "다음 쪽" leaves focus on that button (`aria-disabled=true`).
+- `?…&page=9` changes to `page=2`.
+- `?from=2026-13-01&to=2026-10-31&kind=income&category=1` becomes `?from=&to=2026-10-31&kind=income` and shows an empty result without a 400.
+- There is no horizontal overflow at either size.
 
-## 2차 자동 리뷰 (PR #103)
+## Round 2 automatic review (PR #103)
 
-1차 지적 1~5의 수정과 주소 검사·서버 규칙 일치, 효과 반복 없음은 확인됐다. 두 가지를 더 고쳤다. 리뷰는 두 번까지라 이 보완 뒤에는 더 리뷰하지 않는다.
+The fixes for first-round points 1 to 5, the match between the address check and the server rules, and no repeated effects were confirmed. We fixed two more things. The review is at most two rounds, so we do not review again after this fix.
 
-1. 같은 조건의 목록 요청이 두 번 나가면(필터 변경 직후 저장, 또는 다른 곳의 일괄 분류) 늦게 도착한 옛 응답이 저장 결과를 덮을 수 있었다. → 응답을 조건이 아니라 요청 번호로 걸러 마지막 요청만 목록을 채운다.
-2. 다음 쪽 불러오기가 실패하면 쪽 버튼이 사라져 초점이 `body`로 떨어졌다. → 실패 문구와 "다시 시도"를 직전 목록 위에 덧붙이고, 목록과 쪽 버튼은 남긴다. 실패한 뒤에는 "불러오는 중…"을 지운다.
-3. 회귀 테스트 2개: 저장 전에 시작한 같은 조건 요청이 마지막에 도착해도 저장한 내역이 남는다. 쪽 불러오기가 실패해도 쪽 버튼과 초점이 남는다. 둘 다 고치기 전 코드에서 실패했다.
+1. If two list requests with the same condition went out (a save right after a filter change, or a bulk classification elsewhere), an old response that arrived late could overwrite the save result. → We filter responses by request number, not by condition, so only the last request fills the list.
+2. If loading the next page failed, the page buttons disappeared and focus fell to `body`. → We append the failure text and "다시 시도" on top of the previous list, and keep the list and the page buttons. After a failure we clear "불러오는 중…".
+3. 2 regression tests: a same-condition request started before the save still leaves the saved entry even if it arrives last. The page buttons and focus remain even if loading a page fails. Both failed with the code before the fix.
 
-검증: `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과. 백엔드 169개 통과(건너뜀 0), 프론트엔드 188개 중 186개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공. headless Chrome 390×844·1440×900에서 처음 시나리오, 마지막 쪽 초점, 범위 밖 쪽, 잘못된 주소 값 정리를 다시 확인했다. 결과는 같고 가로 넘침이 없다.
+Verification: `TEST_DATABASE_URL=<test DB> npm run check` passed. Backend 169 passed (0 skipped), frontend 186 of 188 passed and 2 skipped (existing), 4 skill tests, build succeeded. With headless Chrome at 390×844 and 1440×900, we checked again the first scenario, focus on the last page, a page out of range, and cleaning of bad address values. The results are the same and there is no horizontal overflow.

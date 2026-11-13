@@ -1,71 +1,71 @@
-# #63 침대·컴퓨터·가전제품 감가상각 자산
+# #63 Depreciating assets: beds, computers, and appliances
 
-- 이슈: https://github.com/sirloinbh/money-ledger/issues/63 (상위 #92)
-- 브랜치: `feat/63-depreciating-assets`
+- Issue: https://github.com/sirloinbh/money-ledger/issues/63 (parent #92)
+- Branch: `feat/63-depreciating-assets`
 
-## 목적
+## Purpose
 
-침대·컴퓨터·가전제품처럼 시간이 지나면 가치가 줄어드는 물건을 구입가 그대로 자산에 넣으면 순자산이 부풀려진다. 구입가·구입일·사용 기간·잔존 가치를 넣으면 서버가 기준일의 현재 가치를 계산해 자산 합계에 넣는다.
+If things that lose value over time, such as a bed, a computer, or appliances, are put into assets at their purchase price, the net worth is inflated. When you enter the purchase price, purchase date, useful life, and salvage value, the server computes the current value on the base date and puts it into the asset total.
 
-## 결정 (2026-11-02 사용자 확인, 이슈 댓글 기록)
+## Decision (confirmed by the user on 2026-11-02, recorded in an issue comment)
 
-- 계산 방식: 정액법. 매달 같은 금액이 줄어든다.
-- 사용 기간 기본값: 침대 10년(120개월), 컴퓨터 5년(60개월), 가전제품 7년(84개월). 직접 고칠 수 있다.
-- 잔존 가치 기본값: 0원.
+- Calculation method: the straight-line method. The same amount decreases every month.
+- Default useful life: bed 10 years (120 months), computer 5 years (60 months), appliance 7 years (84 months). It can be edited directly.
+- Default salvage value: 0 won.
 
-## 변경 내용
+## Changes
 
-- `database/migrations/007_depreciable_assets.sql`: `portfolio_assets`에 `purchase_price_krw bigint`, `purchased_on date`, `useful_life_months integer`(1~1200), `salvage_value_krw bigint` 열을 더했다. 다시 실행해도 안전하다.
-  - `portfolio_assets_depreciation_check`: 네 값은 함께 있거나 함께 없다. 있으면 종류는 감가상각 대상, 통화는 원화이고 수량·평가금액은 비어 있으며, 잔존 가치는 구입가 이하다.
-  - `portfolio_assets_quantity_or_value_check`를 다시 만들어 구입가가 있는 자산도 허용한다.
-  - `portfolio_depreciated_value(...)` 함수: `구입가 − round((구입가 − 잔존 가치) × 지난 달 수 / 사용 기간)`. 지난 달 수는 `age()`로 센 꽉 찬 달 수이며 0~사용 기간으로 자른다. 그래서 구입일 전에는 구입가 그대로, 사용 기간이 끝나면 잔존 가치에서 멈춘다. 반올림은 `numeric` `round()`(0.5는 0에서 먼 쪽)이며, 달 수를 `integer`로 바꿔 `double precision`이 섞이지 않게 했다. 같은 날짜가 없는 달은 그다음 달 1일에 한 달로 센다(1월 31일 구입 → 3월 1일에 1개월).
+- `database/migrations/007_depreciable_assets.sql`: added the columns `purchase_price_krw bigint`, `purchased_on date`, `useful_life_months integer` (1 to 1200), and `salvage_value_krw bigint` to `portfolio_assets`. It is safe to run again.
+  - `portfolio_assets_depreciation_check`: the four values are all present or all absent. If present, the kind is depreciable, the currency is KRW, the quantity and valuation are empty, and the salvage value is at most the purchase price.
+  - We recreated `portfolio_assets_quantity_or_value_check` to also allow assets that have a purchase price.
+  - The `portfolio_depreciated_value(...)` function: `purchase price − round((purchase price − salvage value) × months elapsed / useful life)`. The months elapsed are the number of full months counted with `age()`, clamped to 0 through the useful life. So before the purchase date it is the purchase price as it is, and when the useful life ends it stops at the salvage value. Rounding is `numeric` `round()` (0.5 away from zero), and we convert the month count to `integer` so that `double precision` is not mixed in. A month without the same day counts as a month on the 1st of the next month (bought on January 31 → 1 month on March 1).
 - `backend/src/assets.ts`
-  - 요청에 `depreciation: { purchasePriceKrw, purchasedOn, usefulLifeMonths, salvageValueKrw = 0 }`을 받는다. 감가상각 대상은 이 값이 꼭 있어야 하고 다른 종류에는 넣을 수 없다. 원화만, 수량·평가금액 없이, 잔존 가치는 구입가 이하. 오류는 한국어 400.
-  - 응답의 자산마다 `depreciation`과 `currentValueKrw`(합계에 들어가는 원화 값: 감가상각 대상은 기준일의 계산값, 나머지는 입력한 원화 평가금액)를 준다.
-  - `GET /api/portfolio/assets?asOf=YYYY-MM-DD`: 기준일을 고를 수 있다. 없으면 서비스 시간대(Asia/Seoul)의 오늘이다. 응답에 `asOf`를 넣는다. 합계는 `currentValueKrw`를 더한다.
-  - `createApp`의 `today` 옵션을 자산 라우터에도 넘겨 테스트에서 오늘을 고정할 수 있게 했다.
-- `backend/src/entries.ts`: 날짜 검증 스키마 `date`를 내보내 자산에서도 같은 규칙(1900~2100년, 없는 날짜 거부)을 쓴다.
-- `frontend/src/assets.tsx`: 종류에서 감가상각 대상을 고르면 통화·수량·평가금액 대신 구입가, 구입일, 기본 사용 기간(침대 10년·컴퓨터 5년·가전제품 7년·직접 입력), 사용 기간(개월), 잔존 가치(기본 0) 칸이 나온다. 목록에는 "구입가 · 구입일 · 사용 기간"과 서버가 계산한 현재 가치를 보여 준다.
+  - The request accepts `depreciation: { purchasePriceKrw, purchasedOn, usefulLifeMonths, salvageValueKrw = 0 }`. A depreciable asset must have this value, and it cannot be put into other kinds. KRW only, with no quantity or valuation, and the salvage value at most the purchase price. Errors are Korean 400.
+  - Each asset in the response gets `depreciation` and `currentValueKrw` (the KRW value that goes into the total: the computed value on the base date for a depreciable asset, and the KRW valuation entered for the others).
+  - `GET /api/portfolio/assets?asOf=YYYY-MM-DD`: you can choose the base date. If absent, it is today in the service time zone (Asia/Seoul). `asOf` is put in the response. The total adds `currentValueKrw`.
+  - We passed the `today` option of `createApp` to the asset router too, so tests can pin today.
+- `backend/src/entries.ts`: we export the date validation schema `date` so assets use the same rules (years 1900 to 2100, rejecting nonexistent dates).
+- `frontend/src/assets.tsx`: when you choose depreciable in the kind, fields for purchase price, purchase date, default useful life (bed 10 years, computer 5 years, appliance 7 years, or direct input), useful life (months), and salvage value (default 0) appear instead of currency, quantity, and valuation. The list shows "purchase price · purchase date · useful life" and the current value the server computed.
 
-## 검증
+## Verification
 
-- 백엔드 단위 테스트 추가(`backend/test/assets.test.ts`): 감가상각 정보 누락, 다른 종류에 넣음, 달러, 평가금액과 함께 보냄, 잔존 가치 > 구입가, 음수·상한 초과 구입가, 구입일 누락·없는 날짜, 사용 기간 0·소수·1200 초과, 목록 기준일이 없는 날짜일 때 DB 전에 한국어 400.
-- DB 통합 테스트 추가(`backend/test/assets.integration.test.ts`):
-  - 1,200,000원·60개월: 구입일 전·구입일·한 달 전날은 1,200,000원, 한 달 뒤 1,180,000원, 30개월 600,000원, 60개월 0원, 그 뒤에도 0원.
-  - 잔존 가치 100,000원·7개월: 3개월 614,286원, 1개월 871,429원, 끝난 뒤 100,000원(잔존 가치 아래로 내려가지 않음). 5원·2개월 1개월 뒤 2원(2.5를 3으로 반올림, 짝수 반올림이면 3원).
-  - 1월 31일 구입: 2월 28일은 아직 0개월, 3월 1일과 3월 30일은 1개월, 3월 31일은 2개월.
-  - 오늘을 2026-11-15로 고정하면 기본 기준일이 오늘이고 현재 가치(1,000,000원)가 자산 합계에 원 단위 정수로 들어간다.
-  - 감가상각 대상을 일반 자산으로 바꾸면 감가상각 정보가 지워진다. DB가 반쪽짜리 일정, 다른 종류의 일정, 구입가보다 큰 잔존 가치를 거부한다(`23514`).
-  - `007`을 두 번 적용해도 오류가 없다.
-- `mock-accounts.integration.test.ts`: 자산 테이블을 다시 만들 때 `007`도 적용한다.
-- 프론트엔드 테스트 추가(`frontend/src/assets.test.tsx`): 감가상각 입력과 요청 본문, 기본 사용 기간 목록과 직접 고치기, 입력 오류 4가지가 요청 전에 막히고 칸에 표시됨, 수정 시 일정이 채워짐. 프론트 자산 테스트 22개 통과.
-- 전용 테스트 DB(`money-ledger-test-agent1`, `127.0.0.1:15491`)에 `001`~`007`을 적용하고 `007`을 한 번 더 적용했다.
-- `TEST_DATABASE_URL=<전용 테스트 DB> npm run check` 통과: 백엔드 127개 통과·건너뜀 0, 프론트엔드 156개 중 154개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공.
-- 브라우저: API(3191)를 같은 컨테이너의 별도 DB `money_browser`(마이그레이션 `001`~`007`)에 연결하고 Vite(5291)를 headless Chrome(CDP로 뷰포트 지정)으로 열었다. 화면 폼으로 현금 5,000,000원, 냉장고(2,520,000원·2025-11-08·가전제품 7년·잔존 100,000원), 노트북(1,200,000원·2026-01-15·컴퓨터 5년)을 추가했다.
-  - 오늘(2026-11-08) 기준 현재 가치: 냉장고 2,174,286원(12개월), 노트북 1,020,000원(9개월). 자산 합계·순자산 8,194,286원.
-  - 모바일 390×844: `scrollWidth` 390 = `clientWidth`. 긴 이름과 "구입가 · 구입일 · 사용 기간 · 잔존 가치" 줄이 줄바꿈된다. 폼 칸은 이름, 종류, 구입가, 구입일, 기본 사용 기간, 사용 기간(개월), 잔존 가치, 메모 순이다.
-  - PC 1440×900: `scrollWidth` 1425 = `clientWidth`(세로 스크롤바 제외). 폼이 두 열로 놓인다.
+- Backend unit tests added (`backend/test/assets.test.ts`): missing depreciation info, putting it in another kind, dollars, sending it together with a valuation, salvage value > purchase price, a negative or over-ceiling purchase price, a missing purchase date or nonexistent date, useful life 0, decimal, or over 1200, and a list base date that does not exist are Korean 400 before the DB.
+- DB integration tests added (`backend/test/assets.integration.test.ts`):
+  - 1,200,000 won, 60 months: before the purchase date, on the purchase date, and the day before one month it is 1,200,000 won, one month later 1,180,000 won, 30 months 600,000 won, 60 months 0 won, and 0 won after that.
+  - Salvage value 100,000 won, 7 months: at 3 months 614,286 won, 1 month 871,429 won, and after the end 100,000 won (it does not go below the salvage value). 5 won, 2 months: after 1 month 2 won (2.5 rounded to 3, but with round-half-to-even it would be 3 won).
+  - Bought on January 31: February 28 is still 0 months, March 1 and March 30 are 1 month, and March 31 is 2 months.
+  - With today pinned to 2026-11-15, the default base date is today and the current value (1,000,000 won) goes into the asset total as a whole-won integer.
+  - Changing a depreciable asset to a normal asset clears the depreciation info. The DB rejects a half schedule, a schedule on another kind, and a salvage value bigger than the purchase price (`23514`).
+  - Applying `007` twice gives no error.
+- `mock-accounts.integration.test.ts`: when recreating the asset table, it also applies `007`.
+- Frontend tests added (`frontend/src/assets.test.tsx`): depreciation input and the request body, the default useful life list and direct editing, 4 kinds of input error blocked before the request and shown on the fields, and the schedule filled in when editing. 22 frontend asset tests passed.
+- We applied `001` to `007` to the dedicated test DB (`money-ledger-test-agent1`, `127.0.0.1:15491`) and applied `007` once more.
+- `TEST_DATABASE_URL=<dedicated test DB> npm run check` passed: backend 127 passed and 0 skipped, frontend 154 of 156 passed and 2 skipped (existing), 4 skill tests, build succeeded.
+- Browser: we connected the API (3191) to a separate DB `money_browser` in the same container (migrations `001` to `007`) and opened Vite (5291) with headless Chrome (viewport set through CDP). With the screen form we added cash 5,000,000 won, a refrigerator (2,520,000 won, 2025-11-08, appliance 7 years, salvage 100,000 won), and a laptop (1,200,000 won, 2026-01-15, computer 5 years).
+  - Current value as of today (2026-11-08): refrigerator 2,174,286 won (12 months), laptop 1,020,000 won (9 months). Asset total and net worth 8,194,286 won.
+  - Mobile 390×844: `scrollWidth` 390 = `clientWidth`. Long names and the "purchase price · purchase date · useful life · salvage value" line wrap. The form fields are in the order name, kind, purchase price, purchase date, default useful life, useful life (months), salvage value, and memo.
+  - PC 1440×900: `scrollWidth` 1425 = `clientWidth` (excluding the vertical scrollbar). The form lays out in two columns.
 
-## 제한·후속
+## Limits and follow-up
 
-- #45에서 감가상각 대상을 평가금액만으로 만든 행(일정 없음)은 그대로 읽히고 합계에도 들어간다. 수정할 때는 기존 평가금액이 구입가 칸에 미리 채워지므로 구입일과 사용 기간만 넣으면 된다. 아직 배포 전이다.
-- 기준일을 고르는 화면은 만들지 않았다. 화면은 늘 오늘 기준이며, 순자산 추이(#49)에서 `asOf`를 쓸 수 있다.
+- A row that #45 made as a depreciable asset with only a valuation (no schedule) is still read as it is and goes into the total. When editing, the existing valuation is prefilled in the purchase price field, so you only need to enter the purchase date and useful life. It is not deployed yet.
+- We did not build a screen to choose the base date. The screen is always based on today, and the net worth trend (#49) can use `asOf`.
 
-## 리뷰 기록
+## Review record
 
-### 1차 — 병합을 막는 결함 없음, 고칠 점 1건과 사소한 지적 5건 모두 반영
+### Round 1: no defect blocking the merge, 1 point to fix and 5 minor comments all addressed
 
-- (고칠 점) `age(date, date)`는 PostgreSQL이 `age(timestamptz, timestamptz)`로 풀어서 세션 TimeZone에 따라 달 수가 달라졌다. `America/Sao_Paulo`에서 2018-11-04 → 2018-12-04가 서머타임 때문에 `29 days 23 hours`가 되어 0개월로 셌다(1,180,000원이어야 할 값이 1,200,000원). 날짜를 `timestamp`로 바꿔 넘겨 시간대와 무관하게 했다. 같은 조건의 통합 테스트를 더했다.
-- 31일 구입 규칙 설명을 실제 동작에 맞췄다. 같은 날짜가 없는 달은 그다음 달 1일에 한 달로 센다. 3월 1일·3월 30일 경계 테스트를 더했다.
-- #45에서 평가금액만으로 만든 감가상각 행을 수정할 때 기존 평가금액을 구입가 칸에 미리 채운다.
-- 구입일 칸에 `min=1900-01-01`, `max=2100-12-31`을 달고, 서버와 같은 범위를 클라이언트에서도 검사한다.
-- 테스트 추가: 일반 자산 → 감가상각 자산 PUT, `007` 적용 전 #45 형태 행이 적용 후에도 목록·합계에 그대로 잡힘, 구입일 범위, 옛 행 수정 시 구입가 채움.
-- `currentValue`·`columns`를 쓰는 쿼리는 첫 번째 인자가 기준일이어야 한다는 경고 주석을 더했다.
-- 검증: `TEST_DATABASE_URL=<전용 테스트 DB> npm run check` 통과(백엔드 129개 통과·건너뜀 0, 프론트엔드 158개 중 156개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공).
+- (To fix) PostgreSQL resolves `age(date, date)` as `age(timestamptz, timestamptz)`, so the month count varied with the session TimeZone. In `America/Sao_Paulo`, 2018-11-04 → 2018-12-04 became `29 days 23 hours` because of daylight saving time and was counted as 0 months (1,200,000 won where it should be 1,180,000 won). We now pass the dates as `timestamp` so it does not depend on the time zone. We added an integration test of the same condition.
+- We matched the explanation of the rule for a purchase on the 31st to the real behavior. A month without the same day counts as a month on the 1st of the next month. We added March 1 and March 30 boundary tests.
+- When editing a depreciable row that #45 made with only a valuation, the existing valuation is prefilled in the purchase price field.
+- We put `min=1900-01-01` and `max=2100-12-31` on the purchase date field, and the client also checks the same range as the server.
+- Tests added: a PUT from a normal asset to a depreciable asset, a #45-shaped row from before applying `007` is still picked up in the list and total after applying it, the purchase date range, and filling the purchase price when editing an old row.
+- We added a warning comment that in queries that use `currentValue` and `columns`, the first argument must be the base date.
+- Verification: `TEST_DATABASE_URL=<dedicated test DB> npm run check` passed (backend 129 passed and 0 skipped, frontend 156 of 158 passed and 2 skipped (existing), 4 skill tests, build succeeded).
 
-### 2차 — 1차 반영 6건 확인, 막는 결함 없음, 사소한 지적 2건 반영
+### Round 2: 6 first-round fixes confirmed, no blocking defect, 2 minor points addressed
 
-- 리뷰어가 2000~2030년 매일을 구입일로 잡아 시간대 8곳(São Paulo, Santiago, Tehran, Apia, Havana, Lord Howe, UTC, Seoul)에서 계산한 결과가 모두 같았다. 31일·윤일 경계도 주석·문서 설명과 일치했다.
-- 테스트 주석의 "서버와 같은 메시지"를 "서버와 같은 범위"로 고쳤다(문구는 구입일·날짜로 다르다).
-- 위 "제한·후속"에 옛 행 수정 시 구입가가 미리 채워진다는 내용을 반영했다.
-- 표준에 따라 3차 리뷰는 하지 않는다.
+- The reviewer took every day from 2000 to 2030 as the purchase date and computed in 8 time zones (São Paulo, Santiago, Tehran, Apia, Havana, Lord Howe, UTC, Seoul), and all results were the same. The 31st and leap day boundaries also matched the comment and doc explanation.
+- We changed "the same message as the server" in a test comment to "the same range as the server" (the wording differs between purchase date and date).
+- We reflected in "Limits and follow-up" above that the purchase price is prefilled when editing an old row.
+- By the standard, we do not run a third review.
