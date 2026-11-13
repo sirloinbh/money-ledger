@@ -7,13 +7,6 @@
       "Bash(git branch --delete *)",
       "Bash(git fetch origin)",
       "Bash(git fetch --prune origin)",
-      "PowerShell(git switch *)",
-      "PowerShell(git pull --ff-only)",
-      "PowerShell(git branch --delete *)",
-      "PowerShell(git fetch origin)",
-      "PowerShell(git fetch --prune origin)"
-    ],
-    "ask": [
       "Bash(git switch -f *)",
       "Bash(git switch * -f)",
       "Bash(git switch * -f *)",
@@ -34,6 +27,12 @@
       "Bash(git stash *)",
       "Bash(git rebase)",
       "Bash(git rebase *)",
+      "Bash(git branch -d *)",
+      "PowerShell(git switch *)",
+      "PowerShell(git pull --ff-only)",
+      "PowerShell(git branch --delete *)",
+      "PowerShell(git fetch origin)",
+      "PowerShell(git fetch --prune origin)",
       "PowerShell(git switch -f *)",
       "PowerShell(git switch * -f)",
       "PowerShell(git switch * -f *)",
@@ -53,7 +52,8 @@
       "PowerShell(git stash)",
       "PowerShell(git stash *)",
       "PowerShell(git rebase)",
-      "PowerShell(git rebase *)"
+      "PowerShell(git rebase *)",
+      "PowerShell(git branch -d *)"
     ],
     "deny": [
       "Bash(npm install *)",

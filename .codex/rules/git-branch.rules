@@ -1,5 +1,5 @@
 # Managed file. Edit it in sirloinbh/project-standards templates/common/.codex/rules/
-# Lets Codex run the git branch commands in the std-git-writing skill without asking (#361, docs/agent-guardrails.md).
+# Lets Codex run the git branch commands in the std-git-writing skill, including the destructive ones, without asking (#361, docs/agent-guardrails.md).
 # Codex rules compare words from the start of a command, and the strictest matching rule wins.
 prefix_rule(
     pattern = ["git", "switch"],
@@ -15,7 +15,7 @@ prefix_rule(
     not_match = [["git", "pull"]],
 )
 prefix_rule(
-    pattern = ["git", "branch", "--delete"],
+    pattern = ["git", "branch", ["--delete", "-d"]],
     decision = "allow",
     justification = "Deletes only merged local branches.",
     match = [["git", "branch", "--delete", "feat/1-x"]],
@@ -29,33 +29,33 @@ prefix_rule(
 )
 prefix_rule(
     pattern = ["git", "switch", ["-f", "-C", "--force", "--force-create", "--discard-changes"]],
-    decision = "prompt",
-    justification = "Can overwrite local changes or branches, so user approval is required.",
+    decision = "allow",
+    justification = "Can overwrite local changes or branches. Allowed without asking by the user decision on #418.",
     match = [["git", "switch", "-f", "main"]],
     not_match = [["git", "switch", "main"]],
 )
 prefix_rule(
     pattern = ["git", "branch", ["-D", "-f", "--force"]],
-    decision = "prompt",
-    justification = "Can delete or overwrite unmerged branches, so user approval is required.",
+    decision = "allow",
+    justification = "Can delete or overwrite unmerged branches. Allowed without asking (#418).",
     match = [["git", "branch", "-D", "feat/1-x"]],
 )
 prefix_rule(
     pattern = ["git", "branch", "--delete", "--force"],
-    decision = "prompt",
-    justification = "Can delete unmerged branches, so user approval is required.",
+    decision = "allow",
+    justification = "Can delete unmerged branches. Allowed without asking (#418).",
     match = [["git", "branch", "--delete", "--force", "feat/1-x"]],
 )
 prefix_rule(
     pattern = ["git", "reset", "--hard"],
-    decision = "prompt",
-    justification = "Deletes uncommitted changes, so user approval is required.",
+    decision = "allow",
+    justification = "Deletes uncommitted changes. Allowed without asking (#418).",
     match = [["git", "reset", "--hard"]],
 )
 prefix_rule(
     pattern = ["git", ["clean", "stash", "rebase"]],
-    decision = "prompt",
-    justification = "Changes files or history, so user approval is required.",
+    decision = "allow",
+    justification = "Changes files or history. Allowed without asking (#418).",
     match = [["git", "clean", "-fd"], ["git", "stash"], ["git", "rebase", "main"]],
 )
 prefix_rule(
