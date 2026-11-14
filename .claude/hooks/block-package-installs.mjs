@@ -5,6 +5,7 @@
 // rules and the Codex rules, which miss `npm --silent install`, `sh -c "npm i"`, and full paths
 // such as `C:\nodejs\npm.cmd install`.
 // Node built-ins only. It is a guard against mistakes, not a security boundary.
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -416,4 +417,22 @@ export async function main() {
 // Claude Code runs this file (`node <this file>`). Codex imports it and calls main() from
 // `node -e` in .codex/hooks.json, because Codex has no project-directory placeholder (#180).
 // Tests import the functions above.
-if (process.argv[1] && path.resolve(process.argv[1]).toLowerCase() === fileURLToPath(import.meta.url).toLowerCase()) await main();
+/**
+ * True when Node runs this file directly. Node loads the main module from its real path, while
+ * Claude Code may start it through a junction or symlink (Orca's profile plugins folder, a repo
+ * opened through a link), so compare real paths. A plain path compare made the hook exit 0
+ * without reading the event (#526).
+ */
+export function isMainModule(argv1, moduleUrl) {
+  if (!argv1) return false;
+  const real = (p) => {
+    try {
+      return fs.realpathSync(p);
+    } catch {
+      return path.resolve(p);
+    }
+  };
+  return real(argv1).toLowerCase() === real(fileURLToPath(moduleUrl)).toLowerCase();
+}
+
+if (isMainModule(process.argv[1], import.meta.url)) await main();

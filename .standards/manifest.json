@@ -1,16 +1,16 @@
 {
-  "centralSha": "d90a6a8664894eb56910a42df12fa1f0767c9df2",
+  "centralSha": "cd9d82e588b02e8ab6cb1293412ef3c81b14f1b1",
   "profile": "app",
   "project": "money-ledger",
   "files": {
     ".claude/hooks/block-forbidden-commands.mjs": {
       "mode": "full",
-      "sha256": "6d2b7f964f72874750f95570542b24b983b13a2b9cb654406af5e1ccc7ba2fbd",
+      "sha256": "f2209c4d1d703155fa794ea9f5b6be13351227c074f77ff16943adebdd1195ec",
       "source": "templates/common/.claude/hooks/block-forbidden-commands.mjs"
     },
     ".claude/hooks/block-package-installs.mjs": {
       "mode": "full",
-      "sha256": "0f757d6ab647f25fb5aac5317df990c7c7a64fbe91c93200ae057fbb9a64b013",
+      "sha256": "ca5a2591b9e84553b7b325321b5300e30cb2aa3403575edf003aecce4433fdd8",
       "source": "templates/common/.claude/hooks/block-package-installs.mjs"
     },
     ".claude/hooks/pc-setup-notice.mjs": {
@@ -155,7 +155,7 @@
     },
     ".prettierignore": {
       "mode": "section",
-      "sha256": "97597dc0ed0f17c5bfe311975651928831dd00683439bcb378298786ca9c7fa6",
+      "sha256": "ba680d387c295fdab5181eac54b1e2b3a88e5abd3d0cf3ed149830927410623e",
       "source": "templates/app/.prettierignore.tmpl"
     },
     ".standards/blocked-packages.json": {
@@ -663,6 +663,11 @@
       "mode": "full",
       "sha256": "2daa22b9f4d1fae152acda1d84c7aabb6559ff5c44a2281a6c4f43dbb6f9e5d4",
       "source": "templates/app/knip.json"
+    },
+    "orca.yaml": {
+      "mode": "full",
+      "sha256": "6db0e665d7298a7079bc6c58a291742684085f91a351ae59e34ec1511cb801bf",
+      "source": "templates/app/orca.yaml"
     },
     "package.json": {
       "mode": "fields",
