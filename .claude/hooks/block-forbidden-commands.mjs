@@ -8,9 +8,8 @@
 // mistakes, not a security boundary: commands held in variables or script files are not seen.
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { programName, splitCommands } from './block-package-installs.mjs';
+import { isMainModule, programName, splitCommands } from './block-package-installs.mjs';
 
 const MAX_DEPTH = 6;
 const PROTECTED_BRANCHES = new Set(['main', 'master']);
@@ -204,4 +203,4 @@ export async function main() {
   process.exit(2);
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]).toLowerCase() === fileURLToPath(import.meta.url).toLowerCase()) await main();
+if (isMainModule(process.argv[1], import.meta.url)) await main();

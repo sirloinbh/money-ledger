@@ -23,6 +23,7 @@ skills/std-*/
 .github/workflows/ci.yml
 prettier.config.mjs
 knip.json
+orca.yaml
 lighthouserc.json
 frontend/src/test/contract-api.ts
 frontend/src/test/contract-api.test.ts
