@@ -1,5 +1,5 @@
 {
-  "centralSha": "5a310d6f58dc6d2d229793f3981f49066f2da3f7",
+  "centralSha": "d90a6a8664894eb56910a42df12fa1f0767c9df2",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -40,7 +40,7 @@
     },
     ".claude/settings.json": {
       "mode": "full",
-      "sha256": "0f4fe35fd6af44bbf9b99895a7daf80a9ae4e3938f17ae02c47f62d01062b25f",
+      "sha256": "7babc0f79219971126c67980940c1e02ab6ccc794a69e93aadd19b3dc95ea976",
       "source": "templates/common/.claude/settings.json.tmpl"
     },
     ".claude/skills/std-backlog/SKILL.md": {
@@ -65,7 +65,7 @@
     },
     ".claude/skills/std-git-writing/SKILL.md": {
       "mode": "full",
-      "sha256": "5c49dc7adf06eed78b6eee5f880939b866656ddf6d5ad36499a6be0d060b7515",
+      "sha256": "ff16ff1f1ca3f5feb224ef03fba0deb81e9770b196ee5a049580db271741efe2",
       "source": "templates/common/skills/std-git-writing/SKILL.md"
     },
     ".claude/skills/std-implementation/SKILL.md": {
@@ -95,7 +95,7 @@
     },
     ".codex/rules/git-branch.rules": {
       "mode": "full",
-      "sha256": "467f15be697997711c349a4dbb89b6223e4f0cb5450c2bdfb41e859941a1bcb0",
+      "sha256": "f99871fb8c23d93187972d4fe666451950678abfd302b6134472e721b1f5fd94",
       "source": "templates/common/.codex/rules/git-branch.rules"
     },
     ".codex/rules/package-installs.rules": {
@@ -130,7 +130,7 @@
     },
     ".github/workflows/ci.yml": {
       "mode": "full",
-      "sha256": "382b4f645233101160f3058987461abc529f309c65b27b0ccf0ca2cff46c9c89",
+      "sha256": "ac38fd431ba9b9284ff37a1d694282bc1de57486af790cea20b2ab82deb2fb3c",
       "source": "templates/app/.github/workflows/ci.yml.tmpl"
     },
     ".gitignore": {
@@ -737,7 +737,7 @@
     },
     "skills/std-git-writing/SKILL.md": {
       "mode": "full",
-      "sha256": "5c49dc7adf06eed78b6eee5f880939b866656ddf6d5ad36499a6be0d060b7515",
+      "sha256": "ff16ff1f1ca3f5feb224ef03fba0deb81e9770b196ee5a049580db271741efe2",
       "source": "templates/common/skills/std-git-writing/SKILL.md"
     },
     "skills/std-implementation/SKILL.md": {

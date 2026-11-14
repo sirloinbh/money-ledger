@@ -76,7 +76,7 @@ Local branches are managed with the git CLI. The agent runs these commands itsel
 - **If `git branch --delete` is refused:** do not switch to `--force` or `-D`; report the reason.
 - **Use long options:** the PowerShell tool's permission rules are case-insensitive and treat `-c`/`-d` like `-C`/`-D`. Write `--create` and `--delete`.
 - **Folder locks:** if OneDrive or similar holds a file and git asks whether to retry, answer `n` and do not repeat the command. Check with `git branch --list <branch>` whether the branch was deleted and report the result.
-- **Commands not used:** `git branch -D`, `git reset --hard`, `git clean`, `git stash`, and `git rebase` are used only when the user asked for and approved them. Never force-push or push directly to main.
+- **Destructive commands:** `git branch -D`, `git reset --hard`, `git clean`, `git stash`, and `git rebase` may be run without asking the user (user decision on #418, 2026-11-08), because the permission files allow them. Use them only when the work needs them, and prefer the safe forms first. Never force-push or push directly to main.
 - **Do not use `pr merge --delete-branch`.** The repo setting "Automatically delete head branches" removes the remote branch; the cleanup steps above remove the local one.
 
 ## 4. Commit messages
