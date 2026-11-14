@@ -28,18 +28,35 @@ if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
   NODE_AUTH_TOKEN=$(sed -n 's/^NODE_AUTH_TOKEN=//p' .env 2>/dev/null | tail -n 1 | tr -d "\"'\r")
 fi
 export NODE_AUTH_TOKEN="${NODE_AUTH_TOKEN:-}"
-# Claude API key (ADR-0010): apps with features.claude read it from AWS SSM on every deploy
-# and pass it to compose through the environment, so the server .env holds no copy. The SSM
-# key pair is in the shared server file /opt/project-standards/.env (or the app .env). Without
-# it, or when SSM cannot be read, a value already in .env stays in use.
-if [ "false" = true ] && grep -qs '^SECRETS_AWS_ACCESS_KEY_ID=.' "${STANDARDS_ENV_FILE:-/opt/project-standards/.env}" .env; then
-  if claude_key=$(bash deploy/ssm-get.sh /sirloinbh/anthropic-api-key); then
-    export ANTHROPIC_API_KEY="$claude_key"
-  else
-    echo "warning: could not read the Claude API key from SSM; using the .env value if there is one" >&2
+# Keys from AWS SSM (ADR-0010, ADR-0014): every .env.example key whose comment line has
+# @ssm=<parameter> is read on each deploy and exported, so compose passes it to the containers
+# and the server .env holds no copy. Apps with features.claude also get ANTHROPIC_API_KEY from
+# /sirloinbh/shared/anthropic-api-key when .env.example does not tag it. The SSM key pair is in
+# the shared server file /opt/project-standards/.env (or the app .env). Without it, or when a
+# read fails, a value already in .env stays in use. Values are never printed.
+ssm_keys() {
+  awk '
+    /^[[:space:]]*#/ { tag = ""; if (match($0, /@ssm=[^[:space:]@]+/)) tag = substr($0, RSTART + 5, RLENGTH - 5); next }
+    /^[A-Z][A-Z0-9_]*=/ { if (tag != "") { sub(/=.*/, ""); print $0, tag }; tag = ""; next }
+    { tag = "" }
+  ' .env.example 2> /dev/null || true
+}
+load_ssm_env() {
+  grep -qs '^SECRETS_AWS_ACCESS_KEY_ID=.' "${STANDARDS_ENV_FILE:-/opt/project-standards/.env}" .env || return 0
+  local list key name value
+  list=$(ssm_keys)
+  if [ "false" = true ] && ! printf '%s\n' "$list" | grep -q '^ANTHROPIC_API_KEY '; then
+    list=$(printf '%s\n%s' "$list" 'ANTHROPIC_API_KEY /sirloinbh/shared/anthropic-api-key')
   fi
-  unset claude_key
-fi
+  while read -r key name; do
+    [ -n "$key" ] || continue
+    if value=$(bash deploy/ssm-get.sh "$name"); then
+      export "$key=$value"
+    else
+      echo "warning: could not read $key from SSM ($name); using the .env value if there is one" >&2
+    fi
+  done <<< "$list"
+}
 
 health() {
   for _ in $(seq 1 30); do
@@ -52,6 +69,7 @@ health() {
 start() {
   # Check out the commit that matches the images so compose.yaml and migrations agree.
   git checkout --quiet --detach "$1"
+  load_ssm_env
   IMAGE_TAG="$1" docker compose up -d --wait db
   IMAGE_TAG="$1" docker compose up -d
 }
@@ -68,6 +86,7 @@ case "${1:-}" in
     ref=${2:?usage: remote-deploy.sh deploy <git ref>}
     git fetch --quiet --tags origin
     git checkout --quiet --detach "$ref"
+    load_ssm_env
     tag=$(git rev-parse --short=12 HEAD)
     echo "deploy $tag (previous: ${current:-none})"
     IMAGE_TAG="$tag" docker compose build
