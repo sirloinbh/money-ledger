@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseEnvExample, ssmProblems } from './lib/env-tags.mjs';
 import { compareWorkspaceLockfile, workspaceLockfiles } from './lib/lockfiles.mjs';
 import { checkManifest, MANIFEST_PATH } from './lib/manifest.mjs';
 
@@ -234,6 +235,11 @@ export function runCheck(root) {
   checkPackages(manifest.packages, read, problems);
   if (manifest.registry) checkRegistry(manifest.registry, read, problems, warnings);
   checkLockfiles(read, problems);
+  // @ssm= tags name the SSM parameter the deploy script reads for a key (ADR-0014).
+  const envExample = read('.env.example');
+  if (envExample !== null && manifest.project) {
+    for (const message of ssmProblems(parseEnvExample(envExample), manifest.project)) problems.push({ group: 'SSM key', path: '.env.example', message });
+  }
   const backend = apiSources(root);
   warnings.push(...checkApi(backend));
   warnings.push(...checkZodArrays(backend));

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Managed file. Edit it in sirloinbh/project-standards templates/app/deploy/
-# Prints the value of one SecureString parameter from AWS SSM Parameter Store (ADR-0010).
-#   ssm-get.sh <parameter name>     e.g. ssm-get.sh /sirloinbh/anthropic-api-key
+# Prints the value of one SecureString parameter from AWS SSM Parameter Store (ADR-0010, ADR-0014).
+#   ssm-get.sh <parameter name>     e.g. ssm-get.sh /sirloinbh/shared/anthropic-api-key
 # Signs the request with curl's built-in SigV4, so the server needs no AWS CLI. The key pair
 # (SECRETS_AWS_*) comes from the shared server file /opt/project-standards/.env, or the app .env
 # as a fallback, and goes to curl on standard input, never as an argument. The value goes to

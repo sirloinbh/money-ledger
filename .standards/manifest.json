@@ -1,5 +1,5 @@
 {
-  "centralSha": "cd9d82e588b02e8ab6cb1293412ef3c81b14f1b1",
+  "centralSha": "65b816e25fbef5923a9f83c6af80f50d629625af",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -165,13 +165,18 @@
     },
     ".standards/check.mjs": {
       "mode": "full",
-      "sha256": "fbd266416cbd51fe62b81d05701113ea08d23d4ed3ab9ea0fee371874ec14966",
+      "sha256": "91ac23ba0d4e95ad4fb673d9c5b533947f048d96da2092d16f69572b49d4aa08",
       "source": "scripts/standards-check.mjs"
     },
     ".standards/ioc-scan.mjs": {
       "mode": "full",
       "sha256": "a89be5071d7761fe9a77a9f9b3a14288aa2a261a04a55e46a21d1fe09e5d75b6",
       "source": "scripts/ioc-scan.mjs"
+    },
+    ".standards/lib/env-tags.mjs": {
+      "mode": "full",
+      "sha256": "fea1e12ba393d21203a1bc9a0c778f677f653e3ea4330cf2ca4f99672f00cf83",
+      "source": "scripts/lib/env-tags.mjs"
     },
     ".standards/lib/hash.mjs": {
       "mode": "full",
@@ -318,7 +323,7 @@
     },
     "deploy/remote-deploy.sh": {
       "mode": "full",
-      "sha256": "b0a475fcfd37d868e3dbecf37ff976b2ff291c1a42d7d57154f47ff1851f250c",
+      "sha256": "b3e76337102ab3dc383686c41668825ca94517a9007d86ccd9422c5daacf9c01",
       "source": "templates/app/deploy/remote-deploy.sh.tmpl"
     },
     "deploy/report.service": {
@@ -348,7 +353,7 @@
     },
     "deploy/ssm-get.sh": {
       "mode": "full",
-      "sha256": "3f12e6bf647a4d93b77dcea99f11d00105cd6180e562d743e9b535ed8281e7e3",
+      "sha256": "5b9ab96b0c39db17b2d8d20113ee0b588f94288c7a15a08c7d95c73e2d022064",
       "source": "templates/app/deploy/ssm-get.sh.tmpl"
     },
     "eslint.config.mjs": {
