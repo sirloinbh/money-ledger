@@ -1,5 +1,5 @@
 {
-  "centralSha": "65b816e25fbef5923a9f83c6af80f50d629625af",
+  "centralSha": "33d737bf7d53689d3c16730036236f6cd4188aed",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -483,6 +483,21 @@
       "mode": "full",
       "sha256": "ff03a10e45b8d4c79a8719c6e8325dca7f5743edb110246a125376bece4afcec",
       "source": "templates/ui/frontend/src/components/ui/checkbox.tsx"
+    },
+    "frontend/src/components/ui/combobox-filter.ts": {
+      "mode": "full",
+      "sha256": "02b891b1a955ae6ad3a892ec2a3aa44f46a093bf40be97413f3d8f95cc47a26f",
+      "source": "templates/ui/frontend/src/components/ui/combobox-filter.ts"
+    },
+    "frontend/src/components/ui/combobox.test.tsx": {
+      "mode": "full",
+      "sha256": "975a07a5213c03c7756bba0e2aa9a4023e7113497b8cdb693a56c6446ae3db82",
+      "source": "templates/ui/frontend/src/components/ui/combobox.test.tsx"
+    },
+    "frontend/src/components/ui/combobox.tsx": {
+      "mode": "full",
+      "sha256": "7e3121830a82d61b549c69f00f771c47f9618ebba2b242b67ae3f44235848e9a",
+      "source": "templates/ui/frontend/src/components/ui/combobox.tsx"
     },
     "frontend/src/components/ui/confirm-dialog.test.tsx": {
       "mode": "full",
