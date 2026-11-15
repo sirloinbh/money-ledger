@@ -47,3 +47,8 @@ The DB structure does not change (only the existing `price_fetch_state` columns 
 - No blocking issues.
 - Fixed in this PR: a reopen on the day of the 404 returned `up_to_date` and showed no message, while later days showed "not found". The `known_missing` check now comes before the `up_to_date` return, and the integration test also opens the detail on the day of the 404. Also noted the old Korean note rows above and dropped a guess about the wip failure.
 - Not taken: tests for the exact 6d23h boundary and for a 404 note surviving a `rate_limited` run (optional extras), and replacing the free-text note match with a typed column (a data structure change, not needed now).
+
+### Second review (PR #138)
+
+- Nothing to fix. The early `known_missing` return only changes the day of the 404, where the daily loop treats it the same as `up_to_date` (no log, `complete` unchanged), and the detail now shows `not_found`.
+- Left as is (nitpick): asset creation logs `price_fetch_now` for a skipped `known_missing` ticker, as it did for `not_found` before.
