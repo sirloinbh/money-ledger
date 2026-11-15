@@ -17,3 +17,8 @@ The user chose to reserve the name (2026-11-16, recorded on #110). The alternati
 - `backend/test/categories.test.ts`: 5 reserved spellings refused when adding, refused when renaming, and "Uncategorized food" allowed. 17 passed.
 - With the test DB (`categories.integration.test.ts` and the unit tests): 24 passed, none skipped.
 - `npm run check` passed: frontend 344 passed / 2 skipped; backend 180 passed / 18 DB tests skipped (no test DB in that run). `npm run knip` passed.
+
+### Review (PR #147)
+
+- No blocking findings. Add and rename are both covered; hiding a category that already has the name still works; the seeded names and the CSV export never use it.
+- Not changed (nit): zero-width characters are not stripped. Getting past the check that way is deliberate, and the name would still look different on screen.
