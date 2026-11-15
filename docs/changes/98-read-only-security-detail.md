@@ -37,3 +37,8 @@ The user chose to make the GET read-only, move fetching and tracking to a POST, 
 - Whole backend suite on the test DB: 365 passed, none skipped.
 - `npm run check` passed: frontend 346 passed / 2 skipped; backend 180 passed / 18 DB tests skipped (no test DB in that run). `npm run knip` passed.
 - No browser check: the only visible change is one caption line, covered by the screen tests.
+
+### Review (PR #148)
+
+- No blocking findings. The GET and the POST share one answer shape. The cap check and the tracking write run in one locked transaction. Writing `viewed_at` before the fetch does not change the fetch logic.
+- Known limit, not changed: the cap counts a moving 30 days, while Tiingo counts distinct tickers in a calendar month. Opening 450 new tickers, waiting for them to expire, and opening 450 more within one month could still go past 500. It takes deliberate heavy use and is closed by the authentication design. If needed, count distinct tickers fetched this month instead.
