@@ -37,3 +37,7 @@ In the category rename form, "Cancel" still worked while the new name was being 
 
 - `npm run check` (with `TEST_DATABASE_URL` unset): passed. Frontend 315 tests: 313 passed, 2 skipped. Backend 173 passed, 16 DB tests skipped (no backend change).
 - `npm run knip`: passed.
+
+### Second review (PR #139)
+
+- Nothing to fix. The `isComposing` guard matches `combobox.tsx`, and the test sets `nativeEvent.isComposing` through jsdom's `KeyboardEvent`, so it exercises the guard. The double-submit note is already covered by the `saving` ref above.
