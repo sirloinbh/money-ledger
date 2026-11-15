@@ -24,8 +24,10 @@ const reasonText = (reason) => REASONS[reason] ?? reason.replace(/^field\(s\) ch
 
 // Where each registry value appears in an app repository. A file that does not exist is skipped;
 // a file that exists but no longer contains the pattern is reported as a warning.
-export function portRules({ ports, db }) {
+export function portRules({ ports, db, host = null }) {
   return [
+    // The server proxy forwards <subdomain>.<domain> to this nginx (#254). Manifests synced before #254 have no host.
+    ...(host ? [{ file: 'frontend/nginx.conf', label: 'server_name', pattern: /^\s*server_name\s+([^\s;]+)/gm, expected: host }] : []),
     { file: 'compose.yaml', label: 'web port', pattern: /(\d{4,5})\}?:80\b/g, expected: ports.web },
     { file: 'compose.yaml', label: 'host DB port', pattern: /(\d{4,5})\}?:5432\b/g, expected: ports.db },
     { file: 'compose.yaml', label: 'API port', pattern: /\bPORT:\s*['"]?(\d{4,5})/g, expected: ports.api },
