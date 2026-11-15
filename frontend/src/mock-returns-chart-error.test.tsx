@@ -8,10 +8,10 @@ const chartFile = vi.hoisted(() => ({ loads: 0 }));
 vi.mock('./mock-return-chart', () => {
   chartFile.loads += 1;
   if (chartFile.loads === 1) throw new Error('Failed to fetch dynamically imported module');
-  return { MockReturnChart: () => <p>차트</p> };
+  return { MockReturnChart: () => <p>Chart</p> };
 });
 
-test('a chart file that fails to load leaves the table, and 다시 시도 loads it again', async () => {
+test('a chart file that fails to load leaves the table, and Try again loads it again', async () => {
   vi.stubGlobal(
     'fetch',
     vi.fn(() =>
@@ -31,10 +31,10 @@ test('a chart file that fails to load leaves the table, and 다시 시도 loads 
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
   render(<MockReturns accountId={7} refreshKey={0} />);
   expect(
-    await screen.findByText('차트를 불러오지 못했습니다. 아래 표에서 값을 확인하세요.'),
+    await screen.findByText('Could not load the chart. Check the values in the table below.'),
   ).toBeInTheDocument();
   expect(screen.getByRole('table')).toBeInTheDocument();
 
-  fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
-  expect(await screen.findByText('차트')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+  expect(await screen.findByText('Chart')).toBeInTheDocument();
 });

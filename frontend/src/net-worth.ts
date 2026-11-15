@@ -30,10 +30,10 @@ export function saveTodayOnce() {
 export type Period = '1m' | '3m' | '1y' | 'all';
 
 export const periods: { id: Period; label: string; months: number | null }[] = [
-  { id: '1m', label: '1개월', months: 1 },
-  { id: '3m', label: '3개월', months: 3 },
-  { id: '1y', label: '1년', months: 12 },
-  { id: 'all', label: '전체', months: null },
+  { id: '1m', label: '1 month', months: 1 },
+  { id: '3m', label: '3 months', months: 3 },
+  { id: '1y', label: '1 year', months: 12 },
+  { id: 'all', label: 'All', months: null },
 ];
 
 /**
@@ -56,16 +56,17 @@ export function periodStart(today: string, period: Period) {
 /** A date as a number for the time axis: days are evenly spaced whatever is saved. */
 export const dayValue = (date: string) => Date.parse(`${date}T00:00:00Z`);
 
-/** "2026-11-10" → "2026년 11월 10일" */
-export const dayLabel = (date: string) =>
-  `${date.slice(0, 4)}년 ${Number(date.slice(5, 7))}월 ${Number(date.slice(8, 10))}일`;
+const dayFormat = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeZone: 'UTC' });
+
+/** "2026-11-10" → "Nov 10, 2026" */
+export const dayLabel = (date: string) => dayFormat.format(dayValue(date));
 
 const oneDay = 86_400_000;
 
 /**
  * Evenly spaced axis ticks between `start` and `end` (UTC day values), not the saved days: every 7 days up to
- * about a month and a half ("10.10"), each month's first day up to about a year ("26.9"), and January and July
- * beyond ("26.7"). Recharts still drops ticks that would overlap on a narrow screen.
+ * about a month and a half ("10/10"), each month's first day up to about a year ("Sep '26"), and January and July
+ * beyond ("Jul '26"). Recharts still drops ticks that would overlap on a narrow screen.
  */
 export function timeTicks(start: number, end: number) {
   const span = end - start;
@@ -92,27 +93,35 @@ export function timeTicks(start: number, end: number) {
   return { ticks, label: (value: number) => yearMonth(value) };
 }
 
+const monthName = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' });
+
 const monthDay = (value: number) => {
   const date = new Date(value).toISOString();
-  return `${Number(date.slice(5, 7))}.${Number(date.slice(8, 10))}`;
+  return `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`;
 };
 const yearMonth = (value: number) => {
-  const date = new Date(value).toISOString();
-  return `${date.slice(2, 4)}.${Number(date.slice(5, 7))}`;
+  const date = new Date(value);
+  return `${monthName.format(date)} '${date.toISOString().slice(2, 4)}`;
 };
 
 /**
- * Won axis ticks for these values: in 억 from 100,000,000 and 만 from 10,000, with as many decimals as it takes
- * for ticks over a narrow spread to differ (2.76억, 2.78억 rather than 2.8억 five times).
+ * Won axis ticks for these values: in B from 1,000,000,000, M from 1,000,000 and K from 10,000, with as many
+ * decimals as it takes for ticks over a narrow spread to differ (2.76B, 2.78B rather than 2.8B five times).
  */
 export function wonAxisLabel(values: number[]) {
   const largest = Math.max(...values.map(Math.abs));
   const spread = Math.max(...values) - Math.min(...values);
   const [unit, suffix] =
-    largest >= 100_000_000 ? [100_000_000, '억'] : largest >= 10_000 ? [10_000, '만'] : [1, ''];
+    largest >= 1_000_000_000
+      ? [1_000_000_000, 'B']
+      : largest >= 1_000_000
+        ? [1_000_000, 'M']
+        : largest >= 10_000
+          ? [1_000, 'K']
+          : [1, ''];
   let decimals = 0;
   while (unit > 1 && spread > 0 && (spread / unit) * 10 ** decimals < 10 && decimals < 4)
     decimals++;
-  const format = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: Math.max(decimals, 1) });
+  const format = new Intl.NumberFormat('en-US', { maximumFractionDigits: Math.max(decimals, 1) });
   return (value: number) => (value === 0 ? '0' : `${format.format(value / unit)}${suffix}`);
 }

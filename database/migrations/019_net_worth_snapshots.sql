@@ -1,5 +1,5 @@
 -- #49 Net worth by day. Safe to re-run.
--- Decisions (2026-11-10): the app saves today's values (Seoul) once when it opens, and "지금 값으로 저장" saves
+-- Decisions (2026-11-10): the app saves today's values (Seoul) once when it opens, and "Save current values" saves
 -- them again; a day keeps one row, the latest save. The values are the asset screen's totals on that day
 -- (depreciating and prepaid assets at their current value); past days are never computed again.
 

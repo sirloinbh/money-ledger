@@ -9,7 +9,7 @@ import { formatWon, realDate, serviceToday, withoutThousands as digits } from '.
 import { RequestError, requestJson } from './lib/api';
 import { errorText, useNotice } from './lib/use-notice';
 
-// #64 Uses of a stored-value prepaid asset (금액권). Add and delete only (decision 2026-11-08); the server
+// #64 Uses of a stored-value prepaid asset (voucher). Add and delete only (decision 2026-11-08); the server
 // refuses a use larger than the balance or after the expiry date. A use is not a ledger expense: the
 // payment already was one.
 
@@ -47,7 +47,7 @@ export function PrepaidUsages({
   }, [path]);
 
   useEffect(() => {
-    load().catch((cause: unknown) => showError(cause, '사용 기록을 불러오지 못했습니다'));
+    load().catch((cause: unknown) => showError(cause, 'Could not load the usage records'));
   }, [load, showError]);
 
   const refresh = async (done: string) => {
@@ -55,7 +55,7 @@ export function PrepaidUsages({
       await Promise.all([load(), onChanged()]);
       showStatus(done);
     } catch {
-      showError(`${done}. 목록을 새로 불러오지 못했습니다`);
+      showError(`${done}. Could not reload the list`);
     }
   };
 
@@ -67,24 +67,24 @@ export function PrepaidUsages({
   const add = async (event: FormEvent) => {
     event.preventDefault();
     if (saving.current) {
-      showError('저장 중입니다. 잠시 후 다시 시도하세요');
+      showError('Saving in progress. Try again in a moment');
       return;
     }
     if (!realDate(usedOn)) {
       setInvalid('usedOn');
-      showError('사용한 날짜를 1900년부터 2100년 사이로 입력하세요');
+      showError('Enter the date of use between 1900 and 2100');
       return;
     }
     // Same rule as the server: a use has already happened.
     if (usedOn > serviceToday()) {
       setInvalid('usedOn');
-      showError('오늘 이후 날짜에는 사용을 기록할 수 없습니다');
+      showError('Usage dated after today cannot be recorded');
       return;
     }
     const plain = digits(amount);
     if (!/^\d{1,16}$/.test(plain) || Number(plain) < 1 || Number(plain) > 1e15) {
       setInvalid('amount');
-      showError('사용 금액은 1원 이상의 원 단위 정수로 입력하세요');
+      showError('Enter the amount used as a whole number of won, at least ₩1');
       return;
     }
     setInvalid(undefined);
@@ -97,14 +97,14 @@ export function PrepaidUsages({
           body: { usedOn, amountKrw: Number(plain), memo },
         });
       } catch (cause) {
-        // The balance, expiry and dates are checked on the server; its Korean message says which. A refusal
+        // The balance, expiry and dates are checked on the server; its message says which. A refusal
         // about the date marks the date field, one about the balance the amount; others mark no field.
         const text = errorText(cause);
         const refused = cause instanceof RequestError && cause.status === 400;
         setInvalid(
-          refused && text.includes('날짜')
+          refused && text.includes('date')
             ? 'usedOn'
-            : refused && text.includes('잔액')
+            : refused && text.includes('balance')
               ? 'amount'
               : undefined,
         );
@@ -113,7 +113,7 @@ export function PrepaidUsages({
       }
       setAmount('');
       setMemo('');
-      await refresh(`${formatWon(Number(plain))} 사용을 기록했습니다`);
+      await refresh(`${formatWon(Number(plain))} use recorded`);
     } finally {
       saving.current = false;
       setBusy(false);
@@ -123,7 +123,7 @@ export function PrepaidUsages({
   // Called by the confirm dialog: rejecting keeps it open with the error shown.
   const remove = async (usage: Usage) => {
     if (saving.current) {
-      showError('저장 중입니다. 잠시 후 다시 시도하세요');
+      showError('Saving in progress. Try again in a moment');
       throw new Error('saving');
     }
     saving.current = true;
@@ -141,7 +141,7 @@ export function PrepaidUsages({
     }
     // The row and its button go away; the dialog returns focus to the panel title.
     afterDelete.current = title.current;
-    await refresh(`${usage.usedOn} ${formatWon(usage.amountKrw)} 사용 기록을 지웠습니다`);
+    await refresh(`${usage.usedOn} ${formatWon(usage.amountKrw)} usage record deleted`);
   };
 
   const prefix = `usage-${assetId}`;
@@ -156,16 +156,16 @@ export function PrepaidUsages({
         tabIndex={-1}
         className="text-body-sm font-semibold outline-none"
       >
-        {assetName} 사용 기록
+        {assetName} usage records
       </h4>
       <Notice id={noticeId} notice={notice.notice} />
       <form
-        aria-label={`${assetName} 사용 추가`}
+        aria-label={`${assetName} add usage`}
         onSubmit={(event) => void add(event)}
         className="grid gap-3 sm:grid-cols-[auto_1fr_1fr_auto] sm:items-end"
       >
         <div className="flex flex-col gap-1">
-          <Label htmlFor={`${prefix}-date`}>사용한 날짜</Label>
+          <Label htmlFor={`${prefix}-date`}>Date used</Label>
           <Input
             id={`${prefix}-date`}
             type="date"
@@ -180,12 +180,12 @@ export function PrepaidUsages({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <Label htmlFor={`${prefix}-amount`}>사용 금액(원)</Label>
+          <Label htmlFor={`${prefix}-amount`}>Amount used (KRW)</Label>
           <Input
             id={`${prefix}-amount`}
             inputMode="numeric"
             autoComplete="off"
-            placeholder="예: 30000"
+            placeholder="e.g. 30000"
             value={amount}
             {...fieldProps('amount')}
             onChange={(event) => {
@@ -195,24 +195,24 @@ export function PrepaidUsages({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <Label htmlFor={`${prefix}-memo`}>메모</Label>
+          <Label htmlFor={`${prefix}-memo`}>Note</Label>
           <Input
             id={`${prefix}-memo`}
             maxLength={100}
-            placeholder="예: 커트"
+            placeholder="e.g. Haircut"
             value={memo}
             onChange={(event) => setMemo(event.target.value)}
           />
         </div>
         {/* Stays enabled while saving so focus is kept; the ref ignores a second press. */}
         <Button type="submit" size="sm" aria-busy={busy || undefined}>
-          {busy ? '저장 중…' : '사용 추가'}
+          {busy ? 'Saving…' : 'Add usage'}
         </Button>
       </form>
       {usages === undefined ? null : usages.length === 0 ? (
-        <p className="text-body-sm text-muted-foreground">아직 사용 기록이 없습니다.</p>
+        <p className="text-body-sm text-muted-foreground">No usage records yet.</p>
       ) : (
-        <ul aria-label={`${assetName} 사용 내역`} className="flex flex-col divide-y">
+        <ul aria-label={`${assetName} usage list`} className="flex flex-col divide-y">
           {usages.map((usage) => (
             <li key={usage.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
               <span className="min-w-0 text-body-sm break-words">
@@ -224,9 +224,9 @@ export function PrepaidUsages({
                   {formatWon(usage.amountKrw)}
                 </span>
                 <ConfirmDialog
-                  title="사용 기록을 지울까요?"
-                  description={`${usage.usedOn} ${formatWon(usage.amountKrw)}. 지우면 잔액이 그만큼 늘어납니다.`}
-                  confirmLabel="지우기"
+                  title="Delete this usage record?"
+                  description={`${usage.usedOn} ${formatWon(usage.amountKrw)}. Deleting it adds that amount back to the balance.`}
+                  confirmLabel="Delete"
                   onConfirm={() => remove(usage)}
                   returnFocusRef={afterDelete}
                   onOpenChange={(open) => {
@@ -238,9 +238,9 @@ export function PrepaidUsages({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      aria-label={`${usage.usedOn} ${formatWon(usage.amountKrw)} 사용 기록 지우기`}
+                      aria-label={`Delete usage record ${usage.usedOn} ${formatWon(usage.amountKrw)}`}
                     >
-                      지우기
+                      Delete
                     </Button>
                   }
                 />

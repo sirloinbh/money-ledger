@@ -1,6 +1,6 @@
-# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
+# Managed file. Edit it in sirloinbh/project-standards templates/app/deploy/
 [Unit]
-Description=가계부·자산·모의투자 health check signal for healthchecks.io
+Description=Money Ledger health check signal for healthchecks.io
 After=network-online.target docker.service
 Wants=network-online.target
 

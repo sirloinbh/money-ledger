@@ -75,10 +75,10 @@ test('net worth snapshots against the real database', { skip: !url }, async (t) 
   await t.test('saving takes the asset screen totals, current values included', async () => {
     await reset();
     await api(async (call) => {
-      await add(call, cash('통장', 5_000_000));
-      await add(call, { name: '대출', type: 'debt', currency: 'KRW', valueKrw: 2_000_000 });
+      await add(call, cash('Bank account', 5_000_000));
+      await add(call, { name: 'Loan', type: 'debt', currency: 'KRW', valueKrw: 2_000_000 });
       await add(call, {
-        name: '노트북',
+        name: 'Laptop',
         type: 'depreciable',
         currency: 'KRW',
         depreciation: {
@@ -88,7 +88,7 @@ test('net worth snapshots against the real database', { skip: !url }, async (t) 
         },
       });
       await add(call, {
-        name: '헬스장',
+        name: 'Gym',
         type: 'prepaid',
         currency: 'KRW',
         prepaid: {
@@ -99,7 +99,7 @@ test('net worth snapshots against the real database', { skip: !url }, async (t) 
         },
       });
       // No USD rate stored: left out and counted.
-      await add(call, { name: '달러', type: 'cash', currency: 'USD', valueForeign: '10' });
+      await add(call, { name: 'Dollars', type: 'cash', currency: 'USD', valueForeign: '10' });
       const { data: screen } = await call(assets);
       const totals = (screen as { totals: Record<string, number> }).totals;
 
@@ -120,9 +120,9 @@ test('net worth snapshots against the real database', { skip: !url }, async (t) 
   await t.test('a day keeps one row: saving again replaces it with the latest totals', async () => {
     await reset();
     await api(async (call) => {
-      const id = await add(call, cash('통장', 1_000));
+      const id = await add(call, cash('Bank account', 1_000));
       await save(call);
-      await call(`${assets}/${id}`, { method: 'PUT', body: cash('통장', 3_000) });
+      await call(`${assets}/${id}`, { method: 'PUT', body: cash('Bank account', 3_000) });
       const { data } = await save(call);
       assert.equal(data.snapshot?.netKrw, 3_000);
       const { snapshots } = await list(call);
@@ -140,13 +140,13 @@ test('net worth snapshots against the real database', { skip: !url }, async (t) 
     async () => {
       await reset();
       await api(async (call) => {
-        await add(call, cash('통장', 1_000));
+        await add(call, cash('Bank account', 1_000));
         day = '2026-08-01';
         await save(call);
         day = '2026-10-15';
         await save(call);
         day = '2026-11-10';
-        await add(call, { name: '대출', type: 'debt', currency: 'KRW', valueKrw: 5_000 });
+        await add(call, { name: 'Loan', type: 'debt', currency: 'KRW', valueKrw: 5_000 });
         await save(call);
 
         const all = await list(call);
@@ -176,20 +176,21 @@ test('net worth snapshots against the real database', { skip: !url }, async (t) 
       await reset();
       await api(async (call) => {
         // Ten of 10^15 won: 10^16 is past 2^53.
-        for (let i = 1; i <= 10; i++) await add(call, cash(`큰 통장 ${i}`, 1_000_000_000_000_000));
+        for (let i = 1; i <= 10; i++)
+          await add(call, cash(`Big account ${i}`, 1_000_000_000_000_000));
         const { status, data } = await save(call);
         assert.equal(status, 422);
-        assert.equal(data.error, '합계가 너무 커서 순자산을 저장하지 못했습니다');
+        assert.equal(data.error, 'The totals are too large to save the net worth');
         assert.deepEqual((await list(call)).snapshots, []);
       });
     },
   );
 
-  await t.test('a wrong `from` is a Korean 400', async () => {
+  await t.test('a wrong `from` is a 400 that names the date', async () => {
     await api(async (call) => {
       const response = await call(`${netWorth}?from=2026-13-01`);
       assert.equal(response.status, 400);
-      assert.match((response.data as { error: string }).error, /날짜/);
+      assert.match((response.data as { error: string }).error, /date/);
     });
   });
 

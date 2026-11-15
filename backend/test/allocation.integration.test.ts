@@ -218,7 +218,7 @@ test('asset allocation against the real database', { skip: !url }, async (t) => 
     });
   });
 
-  await t.test('a 9th asset is shown by name, not as "그 밖의 1개"', async () => {
+  await t.test('a 9th asset is shown by name, not as "Other 1"', async () => {
     await reset();
     await api(async (call) => {
       for (let i = 1; i <= 9; i++) await add(call, cash(`통장 ${i}`, i * 1000));
@@ -243,7 +243,7 @@ test('asset allocation against the real database', { skip: !url }, async (t) => 
         allocation.byAsset.slice(0, 8).map((row) => String(row.id)),
       );
       assert.equal(sumOf(allocation.chart), 1000);
-      // A 9th asset above 0 won is shown by name, not as "그 밖의 3개" with the two empty ones.
+      // A 9th asset above 0 won is shown by name, not as "Other 3" with the two empty ones.
       await add(call, cash('통장 9', 500));
       ({ allocation } = await read(call));
       assert.equal(allocation.chart.length, 9);

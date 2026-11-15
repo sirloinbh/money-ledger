@@ -21,7 +21,7 @@ test('the chart is one image naming the period, the number of days and the lates
     />,
   );
   expect(screen.getByRole('img')).toHaveAccessibleName(
-    '2026년 8월 10일부터 2026년 11월 10일까지 순자산 꺾은선 차트. 기록은 2일이고 마지막 기록(2026년 11월 10일)은 12,345,000원입니다. 모든 값은 아래 표로 보기에 있습니다.',
+    'Net worth line chart from Aug 10, 2026 to Nov 10, 2026. 2 days saved; the last one (Nov 10, 2026) is ₩12,345,000. Every value is in the table below.',
   );
 });
 
@@ -33,5 +33,5 @@ test('one saved day on a one-day axis still renders', () => {
       to="2026-11-10"
     />,
   );
-  expect(screen.getByRole('img')).toHaveAccessibleName(/기록은 1일이고 .*-300,000원입니다/);
+  expect(screen.getByRole('img')).toHaveAccessibleName(/1 day saved; .* is -₩300,000./);
 });

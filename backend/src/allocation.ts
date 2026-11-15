@@ -1,14 +1,14 @@
 import type { PoolClient } from 'pg';
 
 // #48 How the asset total is spread: by asset type and by asset (decisions 2026-11-10).
-// - Assets only: debts are left out, so the shares add up to the "자산 합계" amount. Assets without a won value
+// - Assets only: debts are left out, so the shares add up to the "Total assets" amount. Assets without a won value
 //   (no price, no USD rate, too large) are left out of both and counted in `excluded`.
 // - Shares are percentages with one decimal, computed exactly in SQL numeric: each share in tenths of a percent
 //   is the integer quotient of amount × 1000 by the total, and the tenths still missing to 1000 go to the
 //   largest remainders (largest remainder method), so they always add up to exactly 100.0%. Ties go to the
 //   larger amount, then the earlier asset.
 // - By asset: one line per asset, named after its linked security when it has one. The chart leaves out 0 won
-//   assets, shows the 8 largest and puts the rest in one "그 밖의 N개" line (only when that is 2 or more assets:
+//   assets, shows the 8 largest and puts the rest in one "Other N" line (only when that is 2 or more assets:
 //   a 9th asset is shown by name); the table lists every asset.
 
 /** Assets the chart shows one by one before the rest are put together. */

@@ -69,14 +69,14 @@ export function mockSnapshotsRouter(pool: Pool) {
   const router = Router({ mergeParams: true });
 
   router.get('/', async (req, res) => {
-    const accountId = parseId((req.params as { accountId?: string }).accountId, '모의투자 계좌');
+    const accountId = parseId((req.params as { accountId?: string }).accountId, 'mock account');
     const account = await pool.query<{ start_date: string; initial_cash_krw: string }>(
       `SELECT (created_at AT TIME ZONE '${serviceTimeZone}')::date::text AS start_date, initial_cash_krw
        FROM mock_accounts WHERE id = $1`,
       [accountId],
     );
     const found = account.rows[0];
-    if (!found) throw new HttpError(404, '모의투자 계좌를 찾을 수 없습니다');
+    if (!found) throw new HttpError(404, 'Mock trading account not found');
     // One row a day, so even years of them are a small answer; the screen picks the period.
     const { rows } = await pool.query<SnapshotRow>(
       `SELECT snapshot_date, total_krw, profit_krw, return_pct FROM mock_snapshots

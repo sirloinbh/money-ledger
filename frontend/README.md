@@ -1,3 +1,3 @@
-# 가계부·자산·모의투자 frontend
+# Household ledger, assets, and mock investing: frontend
 
-우산 저장소 `sirloinbh/money-ledger`의 `frontend/`에서 subtree로 동기화한 배포용 저장소입니다. 변경은 우산 저장소에서 이슈·PR로 진행합니다.
+This is the deploy repository synced as a subtree from `frontend/` in the umbrella repository `sirloinbh/money-ledger`. Changes go through issues and PRs in the umbrella repository.

@@ -13,17 +13,17 @@ const noDb = {
 } as unknown as Pool;
 
 const invalid = [
-  { query: '', error: '월을 YYYY-MM 형식으로 입력하세요' },
-  { query: 'month=2026-13', error: '월을 YYYY-MM 형식으로 입력하세요' },
-  { query: 'month=2026-1', error: '월을 YYYY-MM 형식으로 입력하세요' },
-  { query: 'month=2026-11-01', error: '월을 YYYY-MM 형식으로 입력하세요' },
-  { query: 'month=2026-11&month=2026-12', error: '월을 YYYY-MM 형식으로 입력하세요' },
-  { query: 'month=1899-12', error: '월은 1900년부터 2100년 사이로 입력하세요' },
-  { query: 'month=2101-01', error: '월은 1900년부터 2100년 사이로 입력하세요' },
+  { query: '', error: 'Enter the month as YYYY-MM' },
+  { query: 'month=2026-13', error: 'Enter the month as YYYY-MM' },
+  { query: 'month=2026-1', error: 'Enter the month as YYYY-MM' },
+  { query: 'month=2026-11-01', error: 'Enter the month as YYYY-MM' },
+  { query: 'month=2026-11&month=2026-12', error: 'Enter the month as YYYY-MM' },
+  { query: 'month=1899-12', error: 'Enter the month between 1900 and 2100' },
+  { query: 'month=2101-01', error: 'Enter the month between 1900 and 2100' },
 ];
 
 for (const { query, error } of invalid) {
-  test(`a summary for "${query}" is a Korean 400 before the DB`, async () => {
+  test(`a summary for "${query}" is a 400 before the DB`, async () => {
     await withApi(noDb, async (call) => {
       const response = await call(`/api/ledger/summary?${query}`);
       assert.equal(response.status, 400);

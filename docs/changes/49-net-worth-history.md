@@ -1,87 +1,93 @@
-# #49 순자산 기록과 추이 차트
+# #49 Net worth history and trend chart
 
-- 이슈: https://github.com/sirloinbh/money-ledger/issues/49
-- 브랜치: `feat/49-net-worth-history`
+- Issue: https://github.com/sirloinbh/money-ledger/issues/49
+- Branch: `feat/49-net-worth-history`
 
-## 목적
+## Purpose
 
-현재 값만 있으면 지난 순자산을 나중에 계산할 수 없다. 날짜별 순자산을 저장하고 시간에 따른 변화를 차트로 본다.
+With only current values, past net worth cannot be worked out later. Save net worth by day and see how it changes over time in a chart.
 
-## 결정 (2026-11-10 사용자 확인, 이슈 댓글 기록)
+## Decisions (confirmed by the user 2026-11-10, recorded in an issue comment)
 
-1. 저장 주기: 앱을 처음 열 때(어느 화면이든) 서울 기준 오늘 스냅샷을 한 번 저장한다. "지금 값으로 저장" 버튼도 둔다. 같은 날 다시 저장하면 그날 한 건을 최신 값으로 덮어쓴다.
-2. 저장하는 값: 자산 합계, 부채 합계, 순자산, 빠진 자산 수. 자산 화면 합계와 같은 계산이다(감가상각·선입금은 현재 가치). 계산하지 못할 만큼 크면 저장하지 않고 알린다. 빠진 자산이 있던 날은 툴팁과 표에 "N개 빠짐"을 보인다.
-3. 위치와 모양: 자산 포트폴리오 화면의 "자산 배분" 카드 아래 "순자산 추이" 카드. 순자산 꺾은선 하나(`--chart-series-1`)이고, 툴팁에는 자산·부채도 보인다. 아래에 기록 표를 두고, 차트는 따로 불러온다.
-4. 기간: 1개월·3개월·1년·전체, 기본 3개월. 가로축은 실제 날짜 간격이다.
-5. 기록이 없는 날: 0원으로 채우지 않고 기록끼리 잇는다. 기간에 기록이 없으면 안내문을 보인다. 과거는 소급 저장하지 않는다.
+1. When to save: the first time the app opens (any screen), save today's snapshot (Seoul time) once. There is also a "Save current values" button. Saving again the same day overwrites that day's one row with the latest values.
+2. What is saved: total assets, total liabilities, net worth, and the number of assets left out. It is the same calculation as the asset screen totals (depreciating and prepaid assets at their current value). A total too large to calculate is not saved, and the user is told. A day with assets left out shows "N left out" in the tooltip and the table.
+3. Place and look: a "Net worth trend" card under the "Asset allocation" card on the asset portfolio screen. One net worth line (`--chart-series-1`); the tooltip also shows assets and liabilities. A record table sits below, and the chart loads separately.
+4. Periods: 1 month, 3 months, 1 year, and all; 3 months by default. The x axis uses real date spacing.
+5. Days without a record: not filled with ₩0; the records are joined. A period with no records shows a note. Past days are not saved after the fact.
 
-## 구현에서 정한 것
+## Choices made during implementation
 
-- 저장(`POST /api/portfolio/net-worth`):
-  - 서버의 서울 기준 오늘 날짜로 저장한다.
-  - 자산 화면과 같은 합계 SQL(`readTotals`, `assets.ts`)을 한 스냅샷(REPEATABLE READ) 안에서 읽는다.
-  - 같은 날이면 `ON CONFLICT (snapshot_date) DO UPDATE`로 덮어쓴다. 동시에 두 번 저장해도 한 건이다.
-  - 합계 중 하나라도 JS에서 정확히 다룰 수 없는 크기(2^53 이상)면 한국어 422("합계가 너무 커서 순자산을 저장하지 못했습니다")를 보내고, 아무것도 저장하지 않는다.
-- 테이블(`019_net_worth_snapshots.sql`): 날짜가 기본 키이고, 금액은 bigint 원 단위다. DB CHECK로 `순자산 = 자산 − 부채`를 지킨다. 다시 실행해도 안전하다.
-- 앱을 열 때 저장: `App`이 처음 그려질 때 한 번 보낸다. 같은 페이지 로드에서는 다시 보내지 않는다(`saveTodayOnce`).
-  - 실패하면 조용히 넘어간다. 화면에서 직접 저장하면 오류가 보인다.
-  - 추이 카드는 이 저장이 끝난 뒤 목록을 읽어서, 오늘 기록이 처음부터 보인다.
-- 카드 위치: `AssetManager`가 자산 배분 카드 바로 아래 자리(`afterAllocation`)를 열어 두고, 자산 포트폴리오 화면이 그 자리에 카드를 넣는다. 자산 화면 테스트들은 이 카드 없이 그대로 돈다.
-- 기간 시작일은 오늘에서 같은 날짜로 N달 전이다. 그 달에 그 날짜가 없으면 그 달의 마지막 날로 한다(5월 31일의 3개월 전 → 2월 28일). "전체"는 첫 기록부터다.
-- 차트:
-  - 가로축은 시간 축이다. 기간 첫날부터 오늘까지를 실제 날짜 간격으로 그린다.
-  - 기록한 날마다 점(반지름 3px)을 찍고, 점끼리 직선으로 잇는다. 기록이 하루뿐이면 점 하나다.
-  - 순자산이 음수인 날이 있으면 0원 기준선을 그린다.
-  - 가로 눈금은 저장한 날이 아니라 고르게 놓는다. 한 달 반까지는 7일마다("10.17"), 1년 남짓까지는 매달 1일("26.9"), 그보다 길면 1월과 7월이다. 좁은 화면에서 겹치는 눈금은 Recharts가 뺀다.
-  - 세로축은 만·억 단위다. 값의 폭이 좁으면 소수 자리를 늘린다(1개월에 "2.8억"이 다섯 번 나오던 것을 "2.76억, 2.78억…"으로). 0은 "0"이다.
-- 표는 #41처럼 "표로 보기(N일)"로 접어 둔다. 기간이 길면 줄이 많기 때문이다. 최근 날짜부터 날짜·순자산·자산·부채를 보이고, 단위 "(원)"은 열 제목에 적었다.
-- 화면 낭독기에는 차트를 이미지 하나로 알린다. 기간, 기록한 날 수, 마지막 기록과 그 값을 말하고, 표를 가리킨다.
+- Save (`POST /api/portfolio/net-worth`):
+  - Saves under the server's today in Seoul time.
+  - Reads the same totals SQL as the asset screen (`readTotals`, `assets.ts`) inside one snapshot (REPEATABLE READ).
+  - The same day is overwritten with `ON CONFLICT (snapshot_date) DO UPDATE`. Two saves at once still leave one row.
+  - If any total is too large for JS to handle exactly (2^53 or more), it sends a 422 ("The totals are too large to save the net worth") and saves nothing.
+- Table (`019_net_worth_snapshots.sql`): the date is the primary key, amounts are bigint won. A DB CHECK keeps `net worth = assets − liabilities`. Safe to re-run.
+- Save when the app opens: sent once when `App` first renders. Not sent again in the same page load (`saveTodayOnce`).
+  - A failure passes quietly. Saving by hand on the screen shows the error.
+  - The trend card reads the list after this save finishes, so today's record is there from the start.
+- Card place: `AssetManager` keeps a slot right under the asset allocation card (`afterAllocation`), and the asset portfolio screen puts the card there. The asset screen tests run unchanged without this card.
+- A period starts on the same date N months before today. If that month has no such date, it is that month's last day (3 months before May 31 → February 28). "All" starts at the first record.
+- Chart:
+  - The x axis is a time axis, drawn from the period's first day to today with real date spacing.
+  - Each saved day gets a dot (radius 3px), and the dots are joined with straight lines. A single saved day is a single dot.
+  - If any day has a negative net worth, a ₩0 reference line is drawn.
+  - The x ticks are evenly spaced, not on the saved days: every 7 days up to a month and a half ("10/17"), each month's first day up to about a year ("Sep '26"), and January and July beyond that. Recharts drops ticks that overlap on a narrow screen.
+  - The y axis uses K, M, and B units, like the other charts. With a narrow spread it adds decimals ("2.76B, 2.78B…" rather than "2.8B" five times). 0 is "0".
+- The table is folded as "Show as a table (N days)", like #41, because a long period has many rows. It shows date, net worth, assets, and liabilities from the newest date; the unit "(₩)" is in the column headings.
+- Screen readers get the chart as one image. It names the period, the number of saved days, the last record and its value, and points to the table.
 
-## 변경 내용
+## Changes
 
-- `database/migrations/019_net_worth_snapshots.sql`: `net_worth_snapshots` 테이블.
+- `database/migrations/019_net_worth_snapshots.sql`: the `net_worth_snapshots` table.
 - `backend/src/net-worth.ts`, `backend/src/app.ts`:
   - `POST /api/portfolio/net-worth` → `{ snapshot: { date, assetsKrw, debtsKrw, netKrw, uncounted } }`
-  - `GET /api/portfolio/net-worth?from=YYYY-MM-DD` → `{ today, snapshots: [...] }`(오래된 날부터, `from` 없으면 전체). 날짜 형식 오류는 한국어 400이다.
-- `backend/src/assets.ts`: 합계 SQL을 `readTotals`로 빼서 자산 목록과 순자산 저장이 함께 쓴다(동작은 같음).
-- `frontend/src/net-worth.ts`: API 경로, 앱을 열 때 한 번 저장, 기간과 시작일 계산, 가로 눈금과 세로축 단위.
-- `frontend/src/net-worth-history.tsx`: "순자산 추이" 카드(기간 버튼, 지금 값으로 저장, 차트, 표, 빈 기간, 실패와 다시 시도).
-- `frontend/src/net-worth-chart.tsx`: Recharts 꺾은선 차트(따로 불러옴).
-- `frontend/src/app.tsx`, `frontend/src/portfolio.tsx`, `frontend/src/assets.tsx`: 앱을 열 때 저장, 카드 위치.
+  - `GET /api/portfolio/net-worth?from=YYYY-MM-DD` → `{ today, snapshots: [...] }` (oldest first; everything without `from`). A wrong date format is a 400.
+- `backend/src/assets.ts`: the totals SQL moved into `readTotals` so the asset list and the net worth save share it (same behavior).
+- `frontend/src/net-worth.ts`: the API path, the one save when the app opens, periods and start dates, x ticks and y axis units.
+- `frontend/src/net-worth-history.tsx`: the "Net worth trend" card (period buttons, Save current values, chart, table, empty period, failure and retry).
+- `frontend/src/net-worth-chart.tsx`: the Recharts line chart (loaded separately).
+- `frontend/src/app.tsx`, `frontend/src/portfolio.tsx`, `frontend/src/assets.tsx`: the save when the app opens, the card place.
 
-## 테스트
+## Tests
 
-- `backend/test/net-worth.integration.test.ts`: 실제 DB에서
-  - 저장값이 자산 화면 합계와 같다(감가상각·선입금은 현재 가치, 환율 없는 달러 자산은 빠진 수 1).
-  - 같은 날 다시 저장하면 한 건만 남고 최신 값이다.
-  - 기록 없는 날은 채우지 않는다. 오래된 날부터 나오고, `from`으로 자른다. 음수 순자산도 저장한다.
-  - 너무 큰 합계는 한국어 422이고 아무것도 저장하지 않는다.
-  - 잘못된 `from`은 한국어 400이다.
-  - DB CHECK가 `순자산 ≠ 자산 − 부채`를 막는다.
-- `frontend/src/net-worth-history.test.tsx`: 처음 열 때 저장 한 번 뒤 3개월 목록, 기간별 요청과 "전체", 표(최근부터, 빠진 수), 빈 기간, 지금 값으로 저장과 다시 읽기, 저장 거부 메시지, 실패와 다시 시도, 기간 시작일 계산(월말·윤년·연도 넘김), 가로 눈금(7일·매달·반년), 세로축 소수 자리.
-- `frontend/src/net-worth-chart.test.tsx`: 차트 이미지 이름, 기록 하루·음수.
-- `frontend/src/app.test.tsx`: 어느 화면으로 열어도 저장은 한 번.
+- `backend/test/net-worth.integration.test.ts`, on a real DB:
+  - The saved values equal the asset screen totals (depreciating and prepaid assets at current value; a dollar asset without an exchange rate counts as 1 left out).
+  - Saving again the same day leaves one row with the latest values.
+  - Days without a record are not filled. Records come oldest first and are cut by `from`. A negative net worth is saved too.
+  - A total that is too large is a 422 and saves nothing.
+  - A wrong `from` is a 400 that names the date.
+  - The DB CHECK blocks `net worth ≠ assets − liabilities`.
+- `frontend/src/net-worth-history.test.tsx`: one save on first open then the 3-month list, requests per period and "All", the table (newest first, left-out count), an empty period, Save current values and reading again, the refused save message, failure and retry, period start dates (month end, leap year, across years), x ticks (7 days, monthly, half-yearly), y axis decimals.
+- `frontend/src/net-worth-chart.test.tsx`: the chart image name, one saved day, a negative value.
+- `frontend/src/app.test.tsx`: whichever screen opens, the save happens once.
 
-## 검증
+## Verification
 
-- 테스트 DB: 전용 컨테이너 `money-ledger-test-agent1`(127.0.0.1:15491)에 019를 적용했다. 두 번 적용해도 오류가 없다. `TEST_DATABASE_URL`은 매번 직접 지정했다.
-- `npm run knip`: 통과.
-- `TEST_DATABASE_URL=<테스트 DB> npm run check`:
-  - origin/main을 병합하기 전에는 통과했다. 백엔드 315개 통과(건너뜀 0), 프론트엔드 278개 중 276개 통과·2개 건너뜀(기존), 빌드 성공. 차트는 별도 파일 `net-worth-chart-*.js`(2.3 kB)이다.
-  - origin/main(#54, #42 포함)을 병합한 뒤에는 백엔드 318개가 통과(건너뜀 0)했다. 프론트엔드는 290개 중 287개 통과, 2개 건너뜀(기존), 1개 실패다. 실패한 것은 #54에서 들어온 `mock-account.test.tsx`의 "without an account the form suggests 1,000만 원 and creates it"이다.
-    - 원인: `findByRole('status')`가 모의 계좌 알림과 #54 수익률 추이 카드의 "불러오는 중" 문구(`role="status"`)를 함께 찾는다.
-    - 그 파일만 세 번 돌리면 한 번 실패한다. 이 PR은 그 화면과 파일을 건드리지 않는다. 컨트롤 타워에 알렸다.
-- #54의 `mock_snapshots`(018) 때문에 이 PR 통합 테스트의 초기화가 `mock_snapshots`를 함께 지우고 018을 다시 적용하게 했다.
-- 브라우저: API(3191)를 테스트 DB에 연결하고 Vite(5291)를 띄워 headless Chrome(CDP)으로 `/portfolio`를 확인했다.
-  - 준비한 데이터: 지난 기록 8일(2025-12-20 ~ 2026-11-03, 그중 3일은 빠진 자산 1개)을 SQL로 넣었다. 오늘 자산은 API로 넣었다(아파트, 통장, 수량만 넣은 주식, 대출).
-  - 앱을 열자 오늘 기록(순자산 282,500,000원, 1개 빠짐)이 저장되어 바로 차트 끝에 나왔다.
-  - 카드 순서는 자산 배분 → 순자산 추이 → 새 자산 → 보유 자산과 부채이다.
-  - 390×844: 기간별로 점 4개(1개월), 6개(3개월), 9개(1년·전체)가 모두 카드 안에 있다. 범위 문구는 "2026년 8월 10일 ~ 2026년 11월 10일" 등이고, 가로 넘침이 없다(scrollWidth 390).
-    - 가로 눈금: 1개월은 10.10, 10.17, 10.24, 10.31, 11.7이고, 1년은 매달 1일(좁아서 26.2, 26.5, 26.8, 26.11만 보임)이다.
-    - 1개월 세로축은 2.76억 ~ 2.84억이다.
-  - 1440×900: 같은 결과이고, 가로 넘침이 없다. "전체"는 2025-12-20부터 오늘까지다.
-  - 다크 모드에서 선 색은 `#3987e5`이다.
-  - 마지막 점에 마우스를 올리면 툴팁에 "2026년 11월 10일 / 순자산 282,500,000원 / 자산 532,500,000원 · 부채 250,000,000원 / 1개 빠짐"이 나온다.
-  - 표로 보기는 최근 날짜부터 나오고 "1개 빠짐"이 표시된다.
-  - "지금 값으로 저장"을 누르면 "2026년 11월 10일 순자산 282,500,000원을 저장했습니다"가 나온다.
-  - 확인하면서 두 가지를 고쳤다. 가로 눈금이 저장한 날에 붙던 것, 그리고 1개월 세로축이 "2.8억"만 반복되던 것이다.
+- Test DB: applied 019 to the dedicated container `money-ledger-test-agent1` (127.0.0.1:15491). Applying it twice gives no error. `TEST_DATABASE_URL` was set by hand each time.
+- `npm run knip`: passed.
+- `TEST_DATABASE_URL=<test DB> npm run check`:
+  - Before merging origin/main it passed: backend 315 passed (0 skipped), frontend 276 of 278 passed and 2 skipped (existing), build succeeded. The chart is its own file `net-worth-chart-*.js` (2.3 kB).
+  - After merging origin/main (with #54 and #42), backend 318 passed (0 skipped). Frontend: 287 of 290 passed, 2 skipped (existing), 1 failed. The failure was "without an account the form suggests 1,000만 원 and creates it" in `mock-account.test.tsx`, which came in with #54.
+    - Cause: `findByRole('status')` found both the mock account notice and the "loading" text (`role="status"`) of the #54 return trend card.
+    - Running that file alone three times fails once. This PR does not touch that screen or file. The control tower was told.
+- Because of #54's `mock_snapshots` (018), this PR's integration test setup also clears `mock_snapshots` and applies 018 again.
+- Browser: the API (3191) on the test DB and Vite (5291), checked `/portfolio` with headless Chrome (CDP). This was on the Korean screens, before the English UI (#120) was merged in.
+  - Data: 8 past records (2025-12-20 to 2026-11-03, 3 of them with 1 asset left out) inserted with SQL. Today's assets were added through the API (an apartment, a bank account, a stock with only a quantity, a loan).
+  - Opening the app saved today's record (net worth ₩282,500,000, 1 left out), and it showed at the end of the chart right away.
+  - Card order: asset allocation → net worth trend → new asset → assets and liabilities held.
+  - 390×844: per period, 4 dots (1 month), 6 (3 months), and 9 (1 year and all), all inside the card. The range text showed both dates, and there was no horizontal overflow (scrollWidth 390).
+    - X ticks: 1 month showed 5 weekly ticks from 10/10 to 11/7; 1 year showed month starts (only 4 fit on the narrow screen).
+    - The 1-month y axis ran from 276M to 284M (then shown in Korean units).
+  - 1440×900: the same results, no horizontal overflow. "All" ran from 2025-12-20 to today.
+  - In dark mode the line color is `#3987e5`.
+  - Hovering the last dot showed the date, net worth ₩282,500,000, assets ₩532,500,000 · liabilities ₩250,000,000, and 1 left out.
+  - The table listed the newest date first and showed the left-out count.
+  - "Save current values" showed a message naming the date and the saved ₩282,500,000.
+  - Two things were fixed during the check: x ticks that sat on the saved days, and a 1-month y axis that repeated "2.8억" (2.8 × 100M).
+
+## Merge with main (2026-11-15)
+
+- `main` switched the UI, comments, and docs to English (#120, #123, #124, #125) and added `budgets` to the test server data. The only text conflict was `frontend/src/app.test.tsx` (both `snapshots` and `budgets` kept).
+- The card, chart, API message, tests, and this record were translated to match: money with `formatWon` (₩), dates as "Nov 10, 2026", period labels "1 month / 3 months / 1 year / All" (as in `mock-returns.tsx`), y axis K/M/B (as in `trend-chart.tsx`), x ticks "10/17" and "Sep '26", table dates as YYYY-MM-DD.
+- The browser check above was not repeated on the English screens.

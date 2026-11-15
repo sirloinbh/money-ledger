@@ -1,4 +1,4 @@
-// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/ui/frontend/src/components/ui/에서
+// Managed file. Edit it in sirloinbh/project-standards templates/ui/frontend/src/components/ui/
 import { XIcon } from 'lucide-react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import type * as React from 'react';
@@ -56,7 +56,7 @@ function DialogContent({
             className="absolute top-3 right-3 flex size-8 items-center justify-center rounded-sm opacity-70 transition-opacity outline-none hover:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:size-11 [&_svg]:size-4"
           >
             <XIcon aria-hidden />
-            <span className="sr-only">닫기</span>
+            <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
         ) : null}
       </DialogPrimitive.Content>

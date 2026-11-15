@@ -31,7 +31,7 @@ export function Page({
           </p>
         )}
       </header>
-      {children ?? <EmptyState title="아직 기능이 없습니다" description={emptyDescription} />}
+      {children ?? <EmptyState title="No features yet" description={emptyDescription} />}
     </section>
   );
 }

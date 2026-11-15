@@ -1,9 +1,9 @@
-// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/ui/frontend/src/components/ui/에서
+// Managed file. Edit it in sirloinbh/project-standards templates/ui/frontend/src/components/ui/
 import type * as React from 'react';
 
 import { cn } from '../../lib/utils';
 
-// Loading placeholders in the shape of the real content (docs/design-system.md "로딩 표시").
+// Loading placeholders in the shape of the real content (docs/design-system.md "Loading indicators").
 // The pulse is hidden from screen readers; wrap a loading region in aria-busy and give it a label.
 
 function Skeleton({ className, ...props }: React.ComponentProps<'div'>) {

@@ -15,13 +15,13 @@ const shownClosedAccounts = 20;
 const accountBody = z.object(
   {
     initialCashKrw: z
-      .number({ error: '시작 금액을 숫자로 입력하세요' })
-      .int('시작 금액은 원 단위 정수로 입력하세요')
-      .min(10_000, '시작 금액은 1만 원 이상이어야 합니다')
-      .max(10_000_000_000, '시작 금액은 100억 원 이하로 입력하세요')
+      .number({ error: 'Enter the starting amount as a number' })
+      .int('Enter the starting amount as a whole number of won')
+      .min(10_000, 'The starting amount must be at least ₩10,000')
+      .max(10_000_000_000, 'Enter a starting amount of ₩10 billion or less')
       .default(defaultInitialCashKrw),
   },
-  { error: '요청 본문은 JSON 객체여야 합니다' },
+  { error: 'The request body must be a JSON object' },
 );
 
 type Row = {
@@ -75,14 +75,15 @@ export function mockAccountsRouter(pool: Pool) {
       );
       res.status(201).json({ account: toAccount(rows[0]) });
     } catch (error) {
-      if (isUniqueViolation(error)) throw new HttpError(409, '이미 모의투자 계좌가 있습니다');
+      if (isUniqueViolation(error))
+        throw new HttpError(409, 'A mock trading account already exists');
       throw error;
     }
   });
 
   // The id names the account the screen showed, so a second click or a stale tab cannot close the new one.
   router.post('/:id/reset', async (req, res) => {
-    const id = parseId(req.params.id, '모의투자 계좌');
+    const id = parseId(req.params.id, 'mock account');
     const body = accountBody.parse(req.body);
     const account = await inTransaction(pool, async (client) => {
       const closed = await client.query(
@@ -92,8 +93,8 @@ export function mockAccountsRouter(pool: Pool) {
       if (!closed.rowCount) {
         const exists = await client.query('SELECT 1 FROM mock_accounts WHERE id = $1', [id]);
         throw exists.rowCount
-          ? new HttpError(409, '이미 초기화된 계좌입니다. 화면을 새로 고친 뒤 다시 시도하세요')
-          : new HttpError(404, '모의투자 계좌를 찾을 수 없습니다');
+          ? new HttpError(409, 'This account was already reset. Refresh the page and try again')
+          : new HttpError(404, 'Mock trading account not found');
       }
       const { rows } = await client.query<Row>(
         `INSERT INTO mock_accounts (initial_cash_krw, cash_krw) VALUES ($1, $1) RETURNING ${columns}`,

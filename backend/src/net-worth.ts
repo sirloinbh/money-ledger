@@ -9,7 +9,7 @@ import { HttpError } from './standard/http.js';
 
 // #49 Net worth by day (decisions 2026-11-10, database/migrations/019_net_worth_snapshots.sql).
 // POST saves today's (Seoul) asset screen totals as the day's row; saving again the same day replaces it. The app
-// saves once when it opens and on "지금 값으로 저장". GET lists the saved days, oldest first: days without a save
+// saves once when it opens and on "Save current values". GET lists the saved days, oldest first: days without a save
 // are not filled in (the chart joins the saved days), and past days are never computed again.
 
 type Row = {
@@ -54,7 +54,7 @@ export function netWorthRouter(pool: Pool, { today }: { today: () => string }) {
       const sums = await readTotals(client, day);
       // Only exact won numbers are saved (and sent back): a total past 2^53 is refused, not rounded.
       if ([sums.assets, sums.debts, sums.net].some((value) => total(value) === null)) {
-        throw new HttpError(422, '합계가 너무 커서 순자산을 저장하지 못했습니다');
+        throw new HttpError(422, 'The totals are too large to save the net worth');
       }
       const saved = await client.query<Row>(
         `INSERT INTO net_worth_snapshots (snapshot_date, assets_krw, debts_krw, net_krw, uncounted)

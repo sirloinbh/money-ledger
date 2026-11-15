@@ -1,10 +1,11 @@
-// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/common/.claude/hooks/에서
+// Managed file. Edit it in sirloinbh/project-standards templates/common/.claude/hooks/
 // Claude Code and Codex PreToolUse hook (#162, #180, docs/agent-guardrails.md): reads the Bash
 // or PowerShell command, splits it into simple commands, and exits 2 (block) when one of them
 // installs, removes, or runs packages. It complements the Claude Code permissions.deny prefix
 // rules and the Codex rules, which miss `npm --silent install`, `sh -c "npm i"`, and full paths
 // such as `C:\nodejs\npm.cmd install`.
 // Node built-ins only. It is a guard against mistakes, not a security boundary.
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -399,7 +400,7 @@ export async function main() {
   try {
     event = JSON.parse(input);
   } catch {
-    process.stderr.write('패키지 설치 차단 훅이 입력을 읽지 못해 명령을 막았습니다.\n');
+    process.stderr.write('The package install blocking hook could not read its input, so it blocked the command.\n');
     process.exit(2);
   }
   const command = event?.tool_input?.command;
@@ -407,8 +408,8 @@ export async function main() {
   const found = findInstall(command);
   if (!found) process.exit(0);
   process.stderr.write(
-    `패키지 설치·삭제·실행 명령이라 막았습니다(${found}). 에이전트는 잠금 파일대로 설치하는 npm ci만 실행합니다. ` +
-      '설치가 필요하면 사용자에게 요청하세요. 자세한 내용: docs/agent-guardrails.md (sirloinbh/project-standards)\n',
+    `Blocked because this is a package install, remove, or run command (${found}). Agents run only npm ci, which installs from the lock file. ` +
+      'If an install is needed, ask the user. Details: docs/agent-guardrails.md (sirloinbh/project-standards)\n',
   );
   process.exit(2);
 }
@@ -416,4 +417,22 @@ export async function main() {
 // Claude Code runs this file (`node <this file>`). Codex imports it and calls main() from
 // `node -e` in .codex/hooks.json, because Codex has no project-directory placeholder (#180).
 // Tests import the functions above.
-if (process.argv[1] && path.resolve(process.argv[1]).toLowerCase() === fileURLToPath(import.meta.url).toLowerCase()) await main();
+/**
+ * True when Node runs this file directly. Node loads the main module from its real path, while
+ * Claude Code may start it through a junction or symlink (Orca's profile plugins folder, a repo
+ * opened through a link), so compare real paths. A plain path compare made the hook exit 0
+ * without reading the event (#526).
+ */
+export function isMainModule(argv1, moduleUrl) {
+  if (!argv1) return false;
+  const real = (p) => {
+    try {
+      return fs.realpathSync(p);
+    } catch {
+      return path.resolve(p);
+    }
+  };
+  return real(argv1).toLowerCase() === real(fileURLToPath(moduleUrl)).toLowerCase();
+}
+
+if (isMainModule(process.argv[1], import.meta.url)) await main();

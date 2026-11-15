@@ -7,50 +7,50 @@ import { merchantText, ruleCategorySql } from './rules.js';
 import { HttpError, parseId } from './standard/http.js';
 
 // #38 Income and expense entries: whole-won amounts, a date in the service calendar, a category of the same kind.
-// #60 An entry may have a merchant and may be uncategorized (category NULL, "미분류"). Saved without a
+// #60 An entry may have a merchant and may be uncategorized (category NULL, "Uncategorized"). Saved without a
 // category, it gets the category of the matching keyword rule if there is one; a chosen category is kept.
 
 export const date = z
-  .string({ error: '날짜를 YYYY-MM-DD 형식으로 입력하세요' })
-  .regex(/^\d{4}-\d{2}-\d{2}$/, { error: '날짜를 YYYY-MM-DD 형식으로 입력하세요', abort: true })
+  .string({ error: 'Enter the date as YYYY-MM-DD' })
+  .regex(/^\d{4}-\d{2}-\d{2}$/, { error: 'Enter the date as YYYY-MM-DD', abort: true })
   // PostgreSQL has no year 0, and far-off years are typos: keep dates in a range a ledger can mean.
   .refine(
     (value) => {
       const year = Number(value.slice(0, 4));
       return year >= 1900 && year <= 2100;
     },
-    { error: '날짜는 1900년부터 2100년 사이로 입력하세요', abort: true },
+    { error: 'Enter a date between 1900 and 2100', abort: true },
   )
   .refine((value) => {
     const parsed = new Date(`${value}T00:00:00Z`);
     return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
-  }, '없는 날짜입니다');
+  }, 'That date does not exist');
 
 const amount = z
-  .number({ error: '금액을 숫자로 입력하세요' })
-  .int('금액은 원 단위 정수로 입력하세요')
-  .min(0, '금액은 0원 이상이어야 합니다')
-  .max(Number.MAX_SAFE_INTEGER, '금액이 너무 큽니다');
+  .number({ error: 'Enter the amount as a number' })
+  .int('Enter the amount as a whole number of won')
+  .min(0, 'The amount must be ₩0 or more')
+  .max(Number.MAX_SAFE_INTEGER, 'The amount is too large');
 
 const categoryId = z
-  .number({ error: '카테고리를 고르세요' })
-  .int('카테고리를 고르세요')
-  .positive('카테고리를 고르세요');
+  .number({ error: 'Choose a category' })
+  .int('Choose a category')
+  .positive('Choose a category');
 
-const objectBody = { error: '요청 본문은 JSON 객체여야 합니다' };
+const objectBody = { error: 'The request body must be a JSON object' };
 
 const entryBody = z.object(
   {
     date,
-    kind: z.enum(['income', 'expense'], { error: '종류는 수입 또는 지출 중에서 고르세요' }),
+    kind: z.enum(['income', 'expense'], { error: 'Choose income or expense as the kind' }),
     amount,
     // null or left out: uncategorized unless a rule matches the merchant.
     categoryId: categoryId.nullable().default(null),
-    merchant: merchantText('가맹점은').default(''),
+    merchant: merchantText('The merchant').default(''),
     memo: z
-      .string({ error: '메모는 글자로 입력하세요' })
+      .string({ error: 'The note must be text' })
       .trim()
-      .max(200, '메모는 200자 이하로 입력하세요')
+      .max(200, 'The note must be 200 characters or fewer')
       .default(''),
   },
   objectBody,
@@ -68,31 +68,31 @@ const positiveInt = (message: string) =>
 const listQuery = z
   .object({
     // `uncategorized=true` lists only entries without a category: the bulk classification list.
-    uncategorized: z.enum(['true'], { error: 'uncategorized는 true만 쓸 수 있습니다' }).optional(),
+    uncategorized: z.enum(['true'], { error: 'uncategorized can only be true' }).optional(),
     from: date.optional(),
     to: date.optional(),
     kind: z
-      .enum(['income', 'expense'], { error: '종류는 수입 또는 지출 중에서 고르세요' })
+      .enum(['income', 'expense'], { error: 'Choose income or expense as the kind' })
       .optional(),
-    // A category id, or `none` for 미분류.
+    // A category id, or `none` for Uncategorized.
     category: z
-      .union([z.literal('none'), positiveInt('카테고리가 올바르지 않습니다')], {
-        error: '카테고리가 올바르지 않습니다',
+      .union([z.literal('none'), positiveInt('The category is not valid')], {
+        error: 'The category is not valid',
       })
       .optional(),
     // Searched in the merchant and the memo, ignoring letter case.
     q: z
-      .string({ error: '검색어는 글자로 입력하세요' })
+      .string({ error: 'The search term must be text' })
       .trim()
-      .max(50, '검색어는 50자 이하로 입력하세요')
+      .max(50, 'The search term must be 50 characters or fewer')
       .optional(),
-    page: positiveInt('쪽 번호가 올바르지 않습니다').optional(),
-    size: positiveInt('한 쪽의 내역 수가 올바르지 않습니다')
-      .pipe(z.number().max(pageSizes.max, `한 쪽에 ${pageSizes.max}건까지 볼 수 있습니다`))
+    page: positiveInt('The page number is not valid').optional(),
+    size: positiveInt('The page size is not valid')
+      .pipe(z.number().max(pageSizes.max, `You can view at most ${pageSizes.max} entries per page`))
       .optional(),
   })
   .refine((query) => !query.from || !query.to || query.from <= query.to, {
-    error: '시작일이 종료일보다 늦습니다',
+    error: 'The start date is after the end date',
   });
 type ListQuery = z.infer<typeof listQuery>;
 
@@ -122,18 +122,18 @@ const classifyBody = z.object(
     entryIds: z
       .array(
         z
-          .number({ error: '내역 ID가 올바르지 않습니다' })
+          .number({ error: 'The entry ID is not valid' })
           .int()
-          .positive('내역 ID가 올바르지 않습니다'),
+          .positive('The entry ID is not valid'),
         {
-          error: '분류할 내역을 고르세요',
+          error: 'Select the entries to classify',
         },
       )
-      .min(1, '분류할 내역을 고르세요')
-      .max(maxClassify, `한 번에 ${maxClassify}건까지 분류할 수 있습니다`),
+      .min(1, 'Select the entries to classify')
+      .max(maxClassify, `You can classify at most ${maxClassify} entries at a time`),
     categoryId,
     // Also save each merchant of the classified entries as a rule for this category.
-    remember: z.boolean({ error: '규칙 저장 여부가 올바르지 않습니다' }).default(false),
+    remember: z.boolean({ error: 'The save-as-rule flag is not valid' }).default(false),
   },
   objectBody,
 );
@@ -173,7 +173,7 @@ const toEntry = (row: Row) => ({
 
 /**
  * The category must exist and match the entry's kind. A hidden category is refused for a new choice, but an
- * entry may keep the hidden category it already has (`keep`). This gives the Korean message; the write
+ * entry may keep the hidden category it already has (`keep`). This gives the message; the write
  * repeats the same conditions so a category hidden in between cannot slip through.
  */
 async function checkCategory(
@@ -186,12 +186,12 @@ async function checkCategory(
     [body.categoryId],
   );
   const category = rows[0];
-  if (!category) throw new HttpError(400, '카테고리를 찾을 수 없습니다');
+  if (!category) throw new HttpError(400, 'Category not found');
   if (category.kind !== body.kind) {
-    throw new HttpError(400, '카테고리의 종류가 내역의 종류와 다릅니다');
+    throw new HttpError(400, "The category's kind does not match the entry's kind");
   }
   if (category.hidden && body.categoryId !== keep) {
-    throw new HttpError(400, '숨긴 카테고리에는 새 내역을 넣을 수 없습니다');
+    throw new HttpError(400, 'Cannot add a new entry to a hidden category');
   }
 }
 
@@ -202,17 +202,17 @@ async function writing<T>(run: () => Promise<T>) {
     return await run();
   } catch (error) {
     if ((error as { code?: unknown }).code === '23503') {
-      throw new HttpError(400, '카테고리의 종류가 내역의 종류와 다릅니다');
+      throw new HttpError(400, "The category's kind does not match the entry's kind");
     }
     throw error;
   }
 }
 
-const changedMeanwhile = '카테고리가 방금 바뀌었습니다. 다시 시도하세요';
+const changedMeanwhile = 'The category just changed. Try again';
 
 async function findEntry(pool: Pool, id: number) {
   const { rows } = await pool.query<Row>(`${select} WHERE e.id = $1`, [id]);
-  if (!rows[0]) throw new HttpError(404, '내역을 찾을 수 없습니다');
+  if (!rows[0]) throw new HttpError(404, 'Entry not found');
   return rows[0];
 }
 
@@ -297,13 +297,14 @@ export function entriesRouter(pool: Pool) {
           [body.categoryId],
         )
       ).rows[0];
-      if (!category) throw new HttpError(400, '카테고리를 찾을 수 없습니다');
-      if (category.hidden) throw new HttpError(400, '숨긴 카테고리로는 분류할 수 없습니다');
+      if (!category) throw new HttpError(400, 'Category not found');
+      if (category.hidden) throw new HttpError(400, 'Cannot classify into a hidden category');
       const other = await client.query(
         'SELECT 1 FROM ledger_entries WHERE id = ANY($1::bigint[]) AND kind <> $2 LIMIT 1',
         [ids, category.kind],
       );
-      if (other.rowCount) throw new HttpError(400, '고른 카테고리와 종류가 다른 내역이 있습니다');
+      if (other.rowCount)
+        throw new HttpError(400, 'Some entries are a different kind from the chosen category');
       const updated = await client.query<{ merchant: string }>(
         // Rows are locked in id order first, so two overlapping bulk classifications wait instead of deadlocking.
         `WITH target AS (
@@ -357,7 +358,7 @@ export function entriesRouter(pool: Pool) {
   });
 
   router.put('/:id', async (req, res) => {
-    const id = parseId(req.params.id, '내역');
+    const id = parseId(req.params.id, 'entry');
     const body = entryBody.parse(req.body);
     if (!chosen(body)) {
       const { rows } = await pool.query<{ id: string }>(
@@ -368,7 +369,7 @@ export function entriesRouter(pool: Pool) {
          WHERE id = $1 RETURNING id`,
         [id, body.date, body.kind, body.amount, body.merchant, body.memo],
       );
-      if (!rows[0]) throw new HttpError(404, '내역을 찾을 수 없습니다');
+      if (!rows[0]) throw new HttpError(404, 'Entry not found');
       res.json({ entry: toEntry(await findEntry(pool, id)) });
       return;
     }
@@ -404,9 +405,9 @@ export function entriesRouter(pool: Pool) {
   });
 
   router.delete('/:id', async (req, res) => {
-    const id = parseId(req.params.id, '내역');
+    const id = parseId(req.params.id, 'entry');
     const { rowCount } = await pool.query('DELETE FROM ledger_entries WHERE id = $1', [id]);
-    if (!rowCount) throw new HttpError(404, '내역을 찾을 수 없습니다');
+    if (!rowCount) throw new HttpError(404, 'Entry not found');
     res.status(204).end();
   });
 

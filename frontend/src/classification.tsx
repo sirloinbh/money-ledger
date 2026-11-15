@@ -32,7 +32,7 @@ type Rule = {
   categoryHidden: boolean;
 };
 
-const kindLabel: Record<Kind, string> = { expense: '지출', income: '수입' };
+const kindLabel: Record<Kind, string> = { expense: 'Expense', income: 'Income' };
 const kinds = ['expense', 'income'] as const;
 const selectClass =
   'flex h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none pointer-coarse:min-h-11 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-body-sm dark:bg-input/30';
@@ -58,7 +58,7 @@ function useCategories(version: number, onError: (cause: unknown, fallback?: str
   useEffect(() => {
     requestJson<{ categories: Category[] }>('/api/ledger/categories?visible=true')
       .then((data) => setCategories(data.categories))
-      .catch((cause: unknown) => onError(cause, '카테고리를 불러오지 못했습니다'));
+      .catch((cause: unknown) => onError(cause, 'Could not load the categories'));
   }, [version, onError]);
   return categories;
 }
@@ -119,7 +119,7 @@ export function UncategorizedEntries({
       skipReload.current = false;
       return;
     }
-    load().catch((cause: unknown) => showError(cause, '미분류 내역을 불러오지 못했습니다'));
+    load().catch((cause: unknown) => showError(cause, 'Could not load the uncategorized entries'));
   }, [load, showError, version, skipReload]);
 
   const toggle = (id: number) =>
@@ -137,7 +137,7 @@ export function UncategorizedEntries({
       showStatus(done);
       if (left.length === 0) title.current?.focus();
     } catch {
-      showError(`${done}. 목록을 새로 불러오지 못했습니다`);
+      showError(`${done}. Could not reload the list`);
     }
   };
 
@@ -146,11 +146,13 @@ export function UncategorizedEntries({
     if (saving.current || !entries) return;
     const picked = entries.filter((entry) => selected.has(entry.id));
     const category = categories.find((item) => String(item.id) === categoryId);
-    if (picked.length === 0) return showError('분류할 내역을 고르세요');
+    if (picked.length === 0) return showError('Select the entries to classify');
     if (!category || picked.some((entry) => entry.kind !== category.kind)) {
       setCategoryInvalid(true);
       return showError(
-        category ? '고른 카테고리와 종류가 다른 내역이 있습니다' : '카테고리를 고르세요',
+        category
+          ? 'Some entries are a different kind from the chosen category'
+          : 'Choose a category',
       );
     }
     setCategoryInvalid(false);
@@ -173,14 +175,20 @@ export function UncategorizedEntries({
         return;
       }
       notifyChange();
-      const parts = [`${result.classified}건을 ${category.name}(으)로 분류했습니다`];
+      const parts = [
+        `${result.classified} ${result.classified === 1 ? 'entry' : 'entries'} classified as ${category.name}`,
+      ];
       if (result.skipped > 0) {
-        parts.push(`${result.skipped}건은 이미 분류되었거나 바뀌어 건너뛰었습니다`);
+        parts.push(`${result.skipped} skipped (already classified or changed)`);
       }
       if (result.rulesAdded > 0)
-        parts.push(`가맹점 ${result.rulesAdded}개를 규칙으로 저장했습니다`);
+        parts.push(
+          `Saved ${result.rulesAdded} merchant ${result.rulesAdded === 1 ? 'rule' : 'rules'}`,
+        );
       if (result.rulesUpdated > 0) {
-        parts.push(`기존 규칙 ${result.rulesUpdated}개를 ${category.name}(으)로 바꿨습니다`);
+        parts.push(
+          `${result.rulesUpdated} existing ${result.rulesUpdated === 1 ? 'rule' : 'rules'} changed to ${category.name}`,
+        );
       }
       setSelected(new Set());
       await reloadAfter(parts.join('. '));
@@ -205,8 +213,8 @@ export function UncategorizedEntries({
       if (result.classified > 0) notifyChange();
       await reloadAfter(
         result.classified > 0
-          ? `${result.classified}건을 규칙으로 분류했습니다`
-          : '규칙에 맞는 미분류 내역이 없습니다',
+          ? `${result.classified} ${result.classified === 1 ? 'entry' : 'entries'} classified by rules`
+          : 'No uncategorized entries match the rules',
       );
     } finally {
       saving.current = false;
@@ -219,18 +227,18 @@ export function UncategorizedEntries({
   return (
     <section aria-labelledby="uncategorized-title" className="flex flex-col gap-4">
       <h2 id="uncategorized-title" ref={title} tabIndex={-1} className="outline-none">
-        미분류 내역{entries && entries.length > 0 ? ` (${entries.length}건)` : ''}
+        Uncategorized entries{entries && entries.length > 0 ? ` (${entries.length})` : ''}
       </h2>
       <Notice id="uncategorized-notice" notice={notice.notice} />
       {entries === undefined ? (
         notice.notice?.kind === 'error' ? null : (
-          <p className="text-body-sm text-muted-foreground">미분류 내역을 불러오는 중입니다</p>
+          <p className="text-body-sm text-muted-foreground">Loading uncategorized entries</p>
         )
       ) : entries.length === 0 ? (
-        <p className="text-body-sm text-muted-foreground">미분류 내역이 없습니다.</p>
+        <p className="text-body-sm text-muted-foreground">There are no uncategorized entries.</p>
       ) : (
         <form
-          aria-label="미분류 내역 분류"
+          aria-label="Classify uncategorized entries"
           onSubmit={(event) => void classify(event)}
           className="flex flex-col gap-4"
         >
@@ -243,9 +251,12 @@ export function UncategorizedEntries({
                 setSelected(allSelected ? new Set() : new Set(entries.map((entry) => entry.id)))
               }
             />
-            전체 선택
+            Select all
           </label>
-          <ul aria-label="미분류 내역" className="flex flex-col divide-y rounded-xl border">
+          <ul
+            aria-label="Uncategorized entries"
+            className="flex flex-col divide-y rounded-xl border"
+          >
             {entries.map((entry) => (
               <li key={entry.id}>
                 <label className="flex flex-wrap items-center gap-3 px-4 py-3">
@@ -263,7 +274,7 @@ export function UncategorizedEntries({
                       </Badge>
                     </span>
                     <span className="break-words">
-                      {[entry.merchant || '가맹점 없음', entry.memo].filter(Boolean).join(' · ')}
+                      {[entry.merchant || 'No merchant', entry.memo].filter(Boolean).join(' · ')}
                     </span>
                   </span>
                   <span className="font-medium tabular-nums">{formatWon(entry.amount)}</span>
@@ -273,7 +284,7 @@ export function UncategorizedEntries({
           </ul>
           <div className="grid gap-4 md:grid-cols-2 md:items-end">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="classify-category">분류할 카테고리</Label>
+              <Label htmlFor="classify-category">Category to apply</Label>
               <select
                 id="classify-category"
                 className={selectClass}
@@ -285,7 +296,7 @@ export function UncategorizedEntries({
                   setCategoryId(event.target.value);
                 }}
               >
-                <option value="">고르세요</option>
+                <option value="">Choose</option>
                 <CategoryOptions categories={categories} />
               </select>
             </div>
@@ -296,16 +307,16 @@ export function UncategorizedEntries({
                 checked={remember}
                 onChange={(event) => setRemember(event.target.checked)}
               />
-              다음에도 같은 가맹점은 이 카테고리로 분류(규칙으로 저장)
+              Classify the same merchant into this category next time (save as a rule)
             </label>
           </div>
           <div className="flex flex-wrap gap-2">
             {/* Stays enabled while saving so focus is kept; the ref ignores a second press. */}
             <Button type="submit" aria-busy={busy || undefined}>
-              {busy ? '처리 중…' : `선택한 ${selected.size}건 분류`}
+              {busy ? 'Working…' : `Classify ${selected.size} selected`}
             </Button>
             <Button type="button" variant="outline" onClick={() => void applyRules()}>
-              규칙으로 다시 분류
+              Reclassify with rules
             </Button>
           </div>
         </form>
@@ -348,7 +359,7 @@ export function RuleManager({
       skipReload.current = false;
       return;
     }
-    load().catch((cause: unknown) => showError(cause, '분류 규칙을 불러오지 못했습니다'));
+    load().catch((cause: unknown) => showError(cause, 'Could not load the classification rules'));
     // categoriesVersion too: a rule shows its category's current name and hidden state.
   }, [load, showError, version, categoriesVersion, skipReload]);
 
@@ -357,7 +368,7 @@ export function RuleManager({
       await load();
       showStatus(done);
     } catch {
-      showError(`${done}. 목록을 새로 불러오지 못했습니다`);
+      showError(`${done}. Could not reload the list`);
     }
   };
 
@@ -367,11 +378,11 @@ export function RuleManager({
     const text = keyword.trim();
     if (!text) {
       setInvalid('keyword');
-      return showError('키워드를 입력하세요');
+      return showError('Enter a keyword');
     }
     if (!categoryId) {
       setInvalid('category');
-      return showError('카테고리를 고르세요');
+      return showError('Choose a category');
     }
     setInvalid(undefined);
     saving.current = true;
@@ -388,7 +399,7 @@ export function RuleManager({
       }
       notifyChange();
       setKeyword('');
-      await reload(`'${text}' 규칙을 추가했습니다`);
+      await reload(`Rule '${text}' added`);
     } finally {
       saving.current = false;
       setBusy(false);
@@ -404,7 +415,7 @@ export function RuleManager({
     }
     notifyChange();
     afterDelete.current = title.current;
-    await reload(`'${rule.keyword}' 규칙을 삭제했습니다`);
+    await reload(`Rule '${rule.keyword}' deleted`);
   };
 
   const fieldProps = (field: 'keyword' | 'category') => ({
@@ -416,30 +427,31 @@ export function RuleManager({
     <section aria-labelledby="rules-title" className="flex flex-col gap-4">
       {/* Focus lands here after a delete: the deleted row held the dialog trigger. */}
       <h2 id="rules-title" ref={title} tabIndex={-1} className="outline-none">
-        분류 규칙
+        Classification rules
       </h2>
       <Notice id="rules-notice" notice={notice.notice} />
       <Card>
         <CardHeader>
-          <CardTitle asHeading="h3">새 규칙</CardTitle>
+          <CardTitle asHeading="h3">New rule</CardTitle>
           <CardDescription>
-            가맹점 이름에 키워드가 들어 있으면(대소문자 무시) 그 카테고리로 분류합니다. 여러 규칙이
-            맞으면 더 긴 키워드를 씁니다. 직접 고른 카테고리는 바꾸지 않습니다.
+            If a merchant name contains the keyword (case-insensitive), the entry is put in that
+            category. When several rules match, the longer keyword wins. A category you chose by
+            hand is not changed.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form
-            aria-label="새 규칙"
+            aria-label="New rule"
             onSubmit={(event) => void add(event)}
             className="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end"
           >
             <div className="flex flex-col gap-2">
-              <Label htmlFor="rule-keyword">키워드</Label>
+              <Label htmlFor="rule-keyword">Keyword</Label>
               <Input
                 id="rule-keyword"
                 maxLength={50}
                 autoComplete="off"
-                placeholder="예: 스타벅스"
+                placeholder="e.g. Starbucks"
                 value={keyword}
                 {...fieldProps('keyword')}
                 onChange={(event) => {
@@ -449,7 +461,7 @@ export function RuleManager({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="rule-category">카테고리</Label>
+              <Label htmlFor="rule-category">Category</Label>
               <select
                 id="rule-category"
                 className={selectClass}
@@ -460,24 +472,24 @@ export function RuleManager({
                   setCategoryId(event.target.value);
                 }}
               >
-                <option value="">고르세요</option>
+                <option value="">Choose</option>
                 <CategoryOptions categories={categories} />
               </select>
             </div>
             <Button type="submit" aria-busy={busy || undefined}>
-              {busy ? '저장 중…' : '규칙 추가'}
+              {busy ? 'Saving…' : 'Add rule'}
             </Button>
           </form>
         </CardContent>
       </Card>
       {rules === undefined ? (
         notice.notice?.kind === 'error' ? null : (
-          <p className="text-body-sm text-muted-foreground">분류 규칙을 불러오는 중입니다</p>
+          <p className="text-body-sm text-muted-foreground">Loading classification rules</p>
         )
       ) : rules.length === 0 ? (
-        <p className="text-body-sm text-muted-foreground">아직 분류 규칙이 없습니다.</p>
+        <p className="text-body-sm text-muted-foreground">There are no classification rules yet.</p>
       ) : (
-        <ul aria-label="분류 규칙 목록" className="flex flex-col divide-y rounded-xl border">
+        <ul aria-label="Classification rules" className="flex flex-col divide-y rounded-xl border">
           {rules.map((rule) => (
             <li
               key={rule.id}
@@ -492,13 +504,13 @@ export function RuleManager({
                 {rule.categoryName}
                 {rule.categoryHidden ? (
                   <span className="text-caption text-muted-foreground">
-                    (숨긴 카테고리라 적용하지 않음)
+                    (not applied because the category is hidden)
                   </span>
                 ) : null}
               </span>
               <ConfirmDialog
-                title="규칙을 삭제할까요?"
-                description={`'${rule.keyword}' → ${rule.categoryName}. 이미 분류한 내역은 그대로 둡니다.`}
+                title="Delete this rule?"
+                description={`'${rule.keyword}' → ${rule.categoryName}. Entries already classified stay as they are.`}
                 onConfirm={() => remove(rule)}
                 returnFocusRef={afterDelete}
                 onOpenChange={(open) => {
@@ -509,9 +521,9 @@ export function RuleManager({
                     type="button"
                     variant="outline"
                     size="sm"
-                    aria-label={`${rule.keyword} 규칙 삭제`}
+                    aria-label={`Delete rule ${rule.keyword}`}
                   >
-                    삭제
+                    Delete
                   </Button>
                 }
               />

@@ -14,6 +14,6 @@ test('the chart is one image named by its period and last return, pointing at th
     />,
   );
   expect(screen.getByRole('img')).toHaveAccessibleName(
-    '날짜별 수익률 꺾은선 차트. 11월 1일부터 11월 9일까지, 마지막 수익률은 +1.94%입니다. 모든 값은 아래 표에 있습니다.',
+    'Return by date line chart. From Nov 1 to Nov 9, the latest return is +1.94%. All values are in the table below.',
   );
 });

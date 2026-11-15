@@ -17,9 +17,9 @@ const november = {
   expense: 100000,
   balance: 2950000,
   categories: [
-    { categoryId: 4, name: '교통', hidden: true, amount: 50000, share: '50.0' },
-    { categoryId: 1, name: '식비', hidden: false, amount: 42000, share: '42.0' },
-    { categoryId: null, name: '미분류', hidden: false, amount: 8000, share: '8.0' },
+    { categoryId: 4, name: 'Transport', hidden: true, amount: 50000, share: '50.0' },
+    { categoryId: 1, name: 'Food', hidden: false, amount: 42000, share: '42.0' },
+    { categoryId: null, name: 'Uncategorized', hidden: false, amount: 8000, share: '8.0' },
   ],
 };
 
@@ -52,7 +52,7 @@ afterEach(() => {
 });
 
 function Address() {
-  return <output aria-label="주소">{useLocation().search}</output>;
+  return <output aria-label="Address">{useLocation().search}</output>;
 }
 
 const show = (path = '/ledger', version = 0) =>
@@ -62,7 +62,7 @@ const show = (path = '/ledger', version = 0) =>
       <Address />
     </MemoryRouter>,
   );
-const address = () => screen.getByLabelText('주소').textContent;
+const address = () => screen.getByLabelText('Address').textContent;
 const total = (label: string) =>
   screen.getByText(label, { selector: 'dt' }).nextElementSibling?.textContent;
 
@@ -70,42 +70,42 @@ test('this month in Seoul: the totals, the chart, and the same values in a table
   show();
   await screen.findByRole('table');
   expect(urls).toEqual(['/api/ledger/summary?month=2026-11']);
-  expect(screen.getByText('2026년 11월')).toBeInTheDocument();
-  expect(total('수입')).toBe('3,050,000원');
-  expect(total('지출')).toBe('100,000원');
-  expect(total('잔액')).toBe('2,950,000원');
-  expect(await screen.findByTestId('chart')).toHaveTextContent('교통,식비,미분류');
+  expect(screen.getByText('November 2026')).toBeInTheDocument();
+  expect(total('Income')).toBe('₩3,050,000');
+  expect(total('Expense')).toBe('₩100,000');
+  expect(total('Balance')).toBe('₩2,950,000');
+  expect(await screen.findByTestId('chart')).toHaveTextContent('Transport,Food,Uncategorized');
 
   const rows = within(screen.getByRole('table'))
     .getAllByRole('row')
     .map((row) => row.textContent);
   expect(rows).toEqual([
-    '카테고리금액비중',
-    '교통 (숨김)50,000원50.0%',
-    '식비42,000원42.0%',
-    '미분류8,000원8.0%',
-    '합계100,000원100%',
+    'CategoryAmountShare',
+    'Transport (hidden)₩50,00050.0%',
+    'Food₩42,00042.0%',
+    'Uncategorized₩8,0008.0%',
+    'Total₩100,000100%',
   ]);
 });
 
 test('the month buttons move the summary and keep the list filters in the address', async () => {
   show('/ledger?from=2026-10-01&to=2026-10-31&kind=expense');
   await screen.findByRole('table');
-  fireEvent.click(screen.getByRole('button', { name: '요약 이전 달' }));
-  expect(await screen.findByText('이 달에는 지출이 없습니다.')).toBeInTheDocument();
-  expect(screen.getByText('2026년 10월')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Summary previous month' }));
+  expect(await screen.findByText('There is no expense this month.')).toBeInTheDocument();
+  expect(screen.getByText('October 2026')).toBeInTheDocument();
   expect(urls.at(-1)).toBe('/api/ledger/summary?month=2026-10');
   expect(address()).toBe('?from=2026-10-01&to=2026-10-31&kind=expense&month=2026-10');
 
   // Back on this month the address does not need the month.
-  fireEvent.click(screen.getByRole('button', { name: '요약 다음 달' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Summary next month' }));
   await screen.findByRole('table');
   expect(address()).toBe('?from=2026-10-01&to=2026-10-31&kind=expense');
 });
 
 test('the month in the address survives a reload; a month the server would refuse is this month', async () => {
   const first = show('/ledger?month=2025-12');
-  await screen.findByText('2025년 12월');
+  await screen.findByText('December 2025');
   expect(urls.at(-1)).toBe('/api/ledger/summary?month=2025-12');
   first.unmount();
 
@@ -118,18 +118,18 @@ test('a negative balance is shown with its sign', async () => {
   answer = () =>
     json({ month: '2026-11', income: 1000, expense: 2500, balance: -1500, categories: [] });
   show();
-  await screen.findByText('이 달에는 지출이 없습니다.');
-  expect(total('잔액')).toBe('-1,500원');
+  await screen.findByText('There is no expense this month.');
+  expect(total('Balance')).toBe('-₩1,500');
 });
 
 test('a failed load says so and can be retried', async () => {
-  answer = () => json({ error: '서버 오류' }, 500);
+  answer = () => json({ error: 'Server error' }, 500);
   show();
-  expect(await screen.findByText('요약을 불러오지 못했습니다.')).toBeInTheDocument();
+  expect(await screen.findByText('Could not load the summary.')).toBeInTheDocument();
   answer = () => json(november);
-  fireEvent.click(screen.getByRole('button', { name: '요약 다시 시도' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Retry loading summary' }));
   await screen.findByRole('table');
-  expect(screen.queryByText('요약을 불러오지 못했습니다.')).not.toBeInTheDocument();
+  expect(screen.queryByText('Could not load the summary.')).not.toBeInTheDocument();
 });
 
 test('a new version (an entry changed elsewhere on the page) reloads the totals', async () => {
@@ -142,7 +142,7 @@ test('a new version (an entry changed elsewhere on the page) reloads the totals'
       <Address />
     </MemoryRouter>,
   );
-  await vi.waitFor(() => expect(total('수입')).toBe('3,060,000원'));
+  await vi.waitFor(() => expect(total('Income')).toBe('₩3,060,000'));
   expect(urls).toHaveLength(2);
 });
 
@@ -167,34 +167,34 @@ test('an older month that answers last does not replace the month shown', async 
       : json(november);
   show();
   await screen.findByRole('table');
-  fireEvent.click(screen.getByRole('button', { name: '요약 이전 달' }));
-  fireEvent.click(screen.getByRole('button', { name: '요약 다음 달' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Summary previous month' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Summary next month' }));
   await vi.waitFor(() => expect(urls.at(-1)).toBe('/api/ledger/summary?month=2026-11'));
   finishOctober();
   await screen.findByRole('table');
-  expect(screen.getByText('2026년 11월')).toBeInTheDocument();
-  expect(total('수입')).toBe('3,050,000원');
+  expect(screen.getByText('November 2026')).toBeInTheDocument();
+  expect(total('Income')).toBe('₩3,050,000');
 });
 
 test('a month that fails to load does not show the previous month under its name', async () => {
   show();
   await screen.findByRole('table');
-  answer = () => json({ error: '서버 오류' }, 500);
-  fireEvent.click(screen.getByRole('button', { name: '요약 이전 달' }));
-  expect(await screen.findByText('요약을 불러오지 못했습니다.')).toBeInTheDocument();
-  expect(screen.getByText('2026년 10월')).toBeInTheDocument();
-  expect(screen.queryByText('3,050,000원')).not.toBeInTheDocument();
+  answer = () => json({ error: 'Server error' }, 500);
+  fireEvent.click(screen.getByRole('button', { name: 'Summary previous month' }));
+  expect(await screen.findByText('Could not load the summary.')).toBeInTheDocument();
+  expect(screen.getByText('October 2026')).toBeInTheDocument();
+  expect(screen.queryByText('₩3,050,000')).not.toBeInTheDocument();
   expect(screen.queryByRole('table')).not.toBeInTheDocument();
 });
 
 test('retrying keeps focus in the summary: on its title', async () => {
-  answer = () => json({ error: '서버 오류' }, 500);
+  answer = () => json({ error: 'Server error' }, 500);
   show();
-  const retry = await screen.findByRole('button', { name: '요약 다시 시도' });
+  const retry = await screen.findByRole('button', { name: 'Retry loading summary' });
   answer = () => json(november);
   retry.focus();
   fireEvent.click(retry);
-  expect(screen.getByRole('heading', { name: '월별 요약' })).toHaveFocus();
+  expect(screen.getByRole('heading', { name: 'Monthly summary' })).toHaveFocus();
   await screen.findByRole('table');
 });
 

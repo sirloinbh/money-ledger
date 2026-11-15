@@ -26,8 +26,8 @@ import {
   type Snapshot,
 } from './net-worth';
 
-// #49 "순자산 추이" under the asset allocation card (decisions 2026-11-10). The saved days of a period as a line
-// and a table; days without a save are not filled in. "지금 값으로 저장" saves today's totals again.
+// #49 "Net worth trend" under the asset allocation card (decisions 2026-11-10). The saved days of a period as a line
+// and a table; days without a save are not filled in. "Save current values" saves today's totals again.
 
 // Recharts is large: the chart loads in its own file when there is something to draw, not with the app.
 // `lazy` keeps a failed load, so a failure starts a new one for the next period or retry.
@@ -42,7 +42,7 @@ export function NetWorthHistory() {
   const [list, setList] = useState<{ period: Period; data: List } | undefined>(undefined);
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
-  // Bumped by 다시 시도 and by a save, so the list (and a chart that failed to load) is read again.
+  // Bumped by Try again and by a save, so the list (and a chart that failed to load) is read again.
   const [attempt, setAttempt] = useState(0);
   const latest = useRef(0);
   const notice = useNotice();
@@ -75,10 +75,12 @@ export function NetWorthHistory() {
       const { snapshot } = await requestJson<{ snapshot: Snapshot }>(netWorthPath, {
         method: 'POST',
       });
-      showStatus(`${dayLabel(snapshot.date)} 순자산 ${formatWon(snapshot.netKrw)}을 저장했습니다`);
+      showStatus(
+        `Saved the net worth of ${formatWon(snapshot.netKrw)} for ${dayLabel(snapshot.date)}`,
+      );
       setAttempt((value) => value + 1);
     } catch (cause) {
-      showError(cause, '순자산을 저장하지 못했습니다');
+      showError(cause, 'Could not save the net worth');
     } finally {
       setSaving(false);
     }
@@ -93,15 +95,16 @@ export function NetWorthHistory() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle asHeading="h2">순자산 추이</CardTitle>
+        <CardTitle asHeading="h2">Net worth trend</CardTitle>
         <CardDescription>
-          앱을 연 날마다 그날의 순자산(자산 합계 − 부채 합계)을 한 번 기록합니다. 같은 날 다시
-          저장하면 그날 기록을 바꿉니다. 기록이 없는 날은 앞뒤 기록을 잇습니다.
+          On each day you open the app, its net worth (total assets − total liabilities) is saved
+          once. Saving again the same day replaces that day. Days without a save join the days on
+          either side.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div role="group" aria-label="순자산 기간" className="flex gap-1">
+          <div role="group" aria-label="Net worth period" className="flex gap-1">
             {periods.map((item) => (
               <Button
                 key={item.id}
@@ -122,30 +125,32 @@ export function NetWorthHistory() {
             disabled={saving}
             onClick={() => void saveNow()}
           >
-            {saving ? '저장 중' : '지금 값으로 저장'}
+            {saving ? 'Saving…' : 'Save current values'}
           </Button>
         </div>
         <Notice notice={notice.notice} />
         <p aria-live="polite" className="text-body-sm text-muted-foreground">
-          {from ? `${dayLabel(from)} ~ ${dayLabel(today)}` : `전체 기록 ~ ${dayLabel(today)}`}
+          {from ? `${dayLabel(from)} ~ ${dayLabel(today)}` : `All records ~ ${dayLabel(today)}`}
         </p>
         {failed ? (
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-body-sm text-muted-foreground">순자산 기록을 불러오지 못했습니다.</p>
+            <p className="text-body-sm text-muted-foreground">
+              Could not load the net worth records.
+            </p>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              aria-label="순자산 기록 다시 시도"
+              aria-label="Try loading the net worth records again"
               onClick={() => setAttempt((value) => value + 1)}
             >
-              다시 시도
+              Try again
             </Button>
           </div>
         ) : null}
         {shown === undefined ? (
           failed ? null : (
-            <p className="text-body-sm text-muted-foreground">순자산 기록을 불러오는 중입니다</p>
+            <p className="text-body-sm text-muted-foreground">Loading the net worth records</p>
           )
         ) : (
           <div
@@ -153,13 +158,13 @@ export function NetWorthHistory() {
             className={cn('flex flex-col gap-4', loading && 'opacity-60')}
           >
             {shown.snapshots.length === 0 ? (
-              <p className="text-body-sm text-muted-foreground">이 기간에는 기록이 없습니다.</p>
+              <p className="text-body-sm text-muted-foreground">No records in this period.</p>
             ) : (
               <>
                 <ChartBoundary key={`${period}:${attempt}`}>
                   <Suspense
                     fallback={
-                      <p className="text-body-sm text-muted-foreground">차트를 불러오는 중입니다</p>
+                      <p className="text-body-sm text-muted-foreground">Loading the chart</p>
                     }
                   >
                     <chart.Chart snapshots={shown.snapshots} from={axisFrom} to={today} />
@@ -167,7 +172,7 @@ export function NetWorthHistory() {
                 </ChartBoundary>
                 <details>
                   <summary className="cursor-pointer text-body-sm font-medium">
-                    표로 보기({shown.snapshots.length}일)
+                    Show as a table ({shown.snapshots.length} days)
                   </summary>
                   <SnapshotTable snapshots={shown.snapshots} />
                 </details>
@@ -195,7 +200,7 @@ class ChartBoundary extends Component<{ children: ReactNode }, { failed: boolean
   render() {
     return this.state.failed ? (
       <p className="text-body-sm text-muted-foreground">
-        차트를 불러오지 못했습니다. 아래 표로 보기에서 값을 확인하세요.
+        Could not load the chart. Check the values in the table below.
       </p>
     ) : (
       this.props.children
@@ -207,20 +212,20 @@ class ChartBoundary extends Component<{ children: ReactNode }, { failed: boolean
 function SnapshotTable({ snapshots }: { snapshots: Snapshot[] }) {
   return (
     <table className="mt-2 w-full text-body-sm">
-      <caption className="sr-only">날짜별 순자산, 자산, 부채</caption>
+      <caption className="sr-only">Net worth, assets, and liabilities by date</caption>
       <thead>
         <tr className="border-b text-left text-muted-foreground">
           <th scope="col" className="py-2 font-medium">
-            날짜
+            Date
           </th>
           <th scope="col" className="py-2 text-right font-medium">
-            순자산(원)
+            Net worth (₩)
           </th>
           <th scope="col" className="py-2 text-right font-medium">
-            자산(원)
+            Assets (₩)
           </th>
           <th scope="col" className="py-2 text-right font-medium">
-            부채(원)
+            Liabilities (₩)
           </th>
         </tr>
       </thead>
@@ -228,10 +233,10 @@ function SnapshotTable({ snapshots }: { snapshots: Snapshot[] }) {
         {[...snapshots].reverse().map((snapshot) => (
           <tr key={snapshot.date} className="border-b last:border-b-0">
             <th scope="row" className="py-2 pr-2 text-left font-normal whitespace-nowrap">
-              {snapshot.date.slice(2).replaceAll('-', '.')}
+              {snapshot.date}
               {snapshot.uncounted > 0 ? (
                 <span className="block text-caption text-muted-foreground">
-                  {snapshot.uncounted}개 빠짐
+                  {snapshot.uncounted} left out
                 </span>
               ) : null}
             </th>
@@ -245,4 +250,4 @@ function SnapshotTable({ snapshots }: { snapshots: Snapshot[] }) {
   );
 }
 
-const number = (value: number) => new Intl.NumberFormat('ko-KR').format(value);
+const number = (value: number) => new Intl.NumberFormat('en-US').format(value);

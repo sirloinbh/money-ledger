@@ -16,16 +16,16 @@ INSERT INTO ledger_categories (kind, name)
 SELECT kind, name
 FROM (
   VALUES
-  ('expense', U&'\C2DD\BE44'), -- 식비
-  ('expense', U&'\AD50\D1B5'), -- 교통
-  ('expense', U&'\C8FC\AC70'), -- 주거
-  ('expense', U&'\D1B5\C2E0'), -- 통신
-  ('expense', U&'\C0DD\D65C'), -- 생활
-  ('expense', U&'\C758\B8CC'), -- 의료
-  ('expense', U&'\C5EC\AC00'), -- 여가
-  ('expense', U&'\AE30\D0C0'), -- 기타
-  ('income', U&'\AE09\C5EC'), -- 급여
-  ('income', U&'\BD80\C218\C785'), -- 부수입
-  ('income', U&'\AE30\D0C0') -- 기타
+  ('expense', U&'\C2DD\BE44'), -- Food
+  ('expense', U&'\AD50\D1B5'), -- Transport
+  ('expense', U&'\C8FC\AC70'), -- Housing
+  ('expense', U&'\D1B5\C2E0'), -- Telecom
+  ('expense', U&'\C0DD\D65C'), -- Living
+  ('expense', U&'\C758\B8CC'), -- Medical
+  ('expense', U&'\C5EC\AC00'), -- Leisure
+  ('expense', U&'\AE30\D0C0'), -- Other
+  ('income', U&'\AE09\C5EC'), -- Salary
+  ('income', U&'\BD80\C218\C785'), -- Side income
+  ('income', U&'\AE30\D0C0') -- Other
 ) AS defaults (kind, name)
 WHERE NOT EXISTS (SELECT 1 FROM ledger_categories);

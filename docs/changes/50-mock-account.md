@@ -1,54 +1,54 @@
-# #50 모의투자 계좌 만들기와 초기화
+# #50 Create and reset a mock investing account
 
-- 이슈: https://github.com/sirloinbh/money-ledger/issues/50
-- 브랜치: `feat/50-mock-account`
+- Issue: https://github.com/sirloinbh/money-ledger/issues/50
+- Branch: `feat/50-mock-account`
 
-## 목적
+## Purpose
 
-가상 투자금으로 모의투자 계좌를 만들고 잔고를 확인하며, 처음부터 다시 시작(초기화)할 수 있게 한다. 주문(#52), 보유 종목·수익률(#53), 거래 내역·추이(#54)는 범위 밖이다.
+Let the user create a mock investing account with virtual money, check the balance, and start over from the beginning (reset). Orders (#52), holdings and returns (#53), and trade history and trend (#54) are out of scope.
 
-## 결정 (2026-11-03 사용자 확인, 이슈 댓글 기록)
+## Decision (confirmed by the user on 2026-11-03, recorded in an issue comment)
 
-- 초기 투자금: 기본 1,000만 원, 직접 입력 가능. (입력 범위 1만 원~100억 원은 사용자 결정이 아니라 구현에서 정했다.)
-- 계좌 수: 하나. DB의 부분 고유 인덱스로 열린 계좌를 하나로 제한한다.
-- 초기화 때 이전 기록: 지우지 않고 보관한다. 이슈 완료 기준의 "관련 데이터가 한 트랜잭션으로 지워집니다"는 이 결정에 맞춰 "지금 계좌를 닫고(`closed_at`) 새 계좌를 여는 일이 한 트랜잭션으로 처리된다"로 구현했다. 주문·보유 종목이 생기면(#52, #53) 계좌 ID로 묶이므로 새 계좌에는 따라오지 않는다.
-- 현금은 원화(`bigint`)만 둔다. 미국 주식 주문에 달러 현금이 필요한지는 주문 이슈(#52)와 시세 출처(#36)에서 정한다.
+- Initial funds: the default is 10 million won, and a direct input is possible. (The input range of 10,000 won to 10 billion won is not a user decision; we set it in the implementation.)
+- Number of accounts: one. A partial unique index in the DB limits open accounts to one.
+- Earlier records at reset: we keep them and do not delete them. The done criterion in the issue, "the related data is deleted in one transaction", was implemented to fit this decision as "closing the current account (`closed_at`) and opening a new account is handled in one transaction". Once orders and holdings exist (#52, #53), they are tied to the account ID, so they do not follow into the new account.
+- Cash is held only in won (`bigint`). Whether dollar cash is needed for US stock orders is decided in the order issue (#52) and the price source (#36).
 
-## 변경 내용
+## Changes
 
-- `database/migrations/005_mock_accounts.sql`: `mock_accounts` 테이블(시작 금액, 현금 잔고, 시작·종료 시각). 시작 금액·잔고 범위 CHECK, 열린 계좌 하나만 허용하는 부분 고유 인덱스. 다시 실행해도 안전하다.
-- `backend/src/mock-accounts.ts`: `GET /api/mock/accounts`(열린 계좌와 최근 닫힌 계좌 20개, 한 쿼리로 같은 시점을 읽음), `POST /api/mock/accounts`(계좌 만들기, 이미 있으면 409), `POST /api/mock/accounts/:id/reset`(초기화). 초기화는 화면이 보여 준 계좌 ID를 받아, 그 계좌가 열려 있을 때만 닫고 새 계좌를 연다. 두 번 누르거나 오래된 탭에서 다시 보내면 409, 없는 계좌는 404이다. 중간에 실패하면 롤백한다.
-- `frontend/src/mock-account.tsx`, `frontend/src/mock-trading.tsx`: 모의투자 화면. 계좌가 없으면 시작 금액(기본 10,000,000) 입력과 "계좌 만들기", 있으면 현금 잔고·시작 금액·시작 시각과 "처음부터 다시 시작". 초기화는 금액을 먼저 검사한 뒤 확인 대화상자를 연다. 닫힌 계좌는 "이전 계좌" 목록에 남는다. 가상 금액이 가계부·포트폴리오 합계에 들어가지 않는다는 안내를 보여 준다.
-- `frontend/src/format.ts`: 세 자리 쉼표만 지우는 `withoutThousands`(자산 화면의 내부 함수를 옮김), 서비스 시간대 시각 표시 `formatDateTime`.
+- `database/migrations/005_mock_accounts.sql`: the `mock_accounts` table (starting amount, cash balance, start and end times). CHECKs on the range of the starting amount and balance, and a partial unique index that allows only one open account. It is safe to run again.
+- `backend/src/mock-accounts.ts`: `GET /api/mock/accounts` (the open account and the latest 20 closed accounts, read at the same moment with one query), `POST /api/mock/accounts` (create an account, 409 if one exists), and `POST /api/mock/accounts/:id/reset` (reset). The reset receives the account ID the screen showed, and closes it and opens a new account only if that account is still open. Pressing twice or resending from an old tab gives 409, and a nonexistent account gives 404. If it fails halfway, it rolls back.
+- `frontend/src/mock-account.tsx`, `frontend/src/mock-trading.tsx`: the mock investing screen. With no account, a starting amount input (default 10,000,000) and "계좌 만들기" ("Create account"); with an account, the cash balance, the starting amount, the start time, and "처음부터 다시 시작" ("Start over"). A reset checks the amount first and then opens a confirmation dialog. A closed account stays in the "이전 계좌" ("Previous accounts") list. We show a note that virtual amounts are not included in the ledger and portfolio totals.
+- `frontend/src/format.ts`: `withoutThousands`, which removes only three-digit commas (moved from an internal function of the asset screen), and `formatDateTime`, which displays a time in the service time zone.
 
-## 검증
+## Verification
 
-- 테스트 DB: 일회용 `postgres:17-alpine` 컨테이너(마이그레이션 001~005 자동 적용)를 `TEST_DATABASE_URL`로 지정했다.
-- `npm test`(backend): 87개 통과, 건너뜀 0. 새 DB 통합 테스트는 기본 1,000만 원 생성·중복 409, 초기화 후 이전 계좌 보관, 이미 닫힌 계좌 재초기화 409·없는 계좌 404, 동시 초기화 2건 중 하나만 성공, 새 계좌 INSERT 실패 시 롤백, DB CHECK·고유 인덱스, 모의 계좌가 포트폴리오 합계에 들어가지 않음을 확인한다.
-- `npm test -- src/mock-account.test.tsx src/app.test.tsx src/format.test.ts src/assets.test.tsx`(frontend): 43개 통과.
-- `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과: 백엔드 87개 통과(건너뜀 0), 프론트엔드 127개 중 125개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공.
-- 브라우저: API를 테스트 DB에 연결하고 headless Chrome(CDP로 뷰포트 지정)으로 `/mock-trading`을 390×844와 1440×900에서 확인했다. 두 크기 모두 가로 넘침 없음(scrollWidth = clientWidth). 빈 화면에서 기본 10,000,000으로 계좌를 만들면 포커스가 "모의투자 계좌" 제목으로 가고, 30,000,000으로 초기화하면 확인 대화상자에 현재 현금과 새 금액이 보이며, 확인 후 포커스가 "초기화" 버튼으로 돌아오고 이전 계좌가 목록에 남는다.
-- 로컬 `npm run knip`은 oxc-resolver 네이티브 바인딩이 없어 실행되지 않는다(#45와 같음). CI에서 확인한다.
+- Test DB: we set a disposable `postgres:17-alpine` container (migrations 001 to 005 applied automatically) as `TEST_DATABASE_URL`.
+- `npm test` (backend): 87 passed, 0 skipped. The new DB integration tests check creating with the default 10 million won and a duplicate 409, keeping the previous account after a reset, re-resetting an already closed account 409 and a nonexistent account 404, only one of 2 simultaneous resets succeeding, a rollback when the new account INSERT fails, the DB CHECKs and unique index, and the mock account not entering the portfolio total.
+- `npm test -- src/mock-account.test.tsx src/app.test.tsx src/format.test.ts src/assets.test.tsx` (frontend): 43 passed.
+- `TEST_DATABASE_URL=<test DB> npm run check` passed: backend 87 passed (0 skipped), frontend 125 of 127 passed and 2 skipped (existing), 4 skill tests, build succeeded.
+- Browser: we connected the API to the test DB and checked `/mock-trading` at 390×844 and 1440×900 with headless Chrome (viewport set through CDP). No horizontal overflow at either size (scrollWidth = clientWidth). From the empty screen, creating an account with the default 10,000,000 moves focus to the "모의투자 계좌" ("Mock investing account") heading, and resetting with 30,000,000 shows the current cash and the new amount in the confirmation dialog. After confirming, focus returns to the "초기화" ("Reset") button and the previous account stays in the list.
+- The local `npm run knip` does not run because the oxc-resolver native binding is missing (the same as #45). We check it in CI.
 
-## 제한·후속
+## Limits and follow-up
 
-- 수익률·보유 종목·주문은 #52~#54. 시세 출처는 #36(사용자 결정 대기).
-- 닫힌 계좌는 최근 20개만 보여 준다.
+- Returns, holdings, and orders are #52 to #54. The price source is #36 (waiting for the user's decision).
+- Closed accounts show only the latest 20.
 
-## 리뷰 기록
+## Review record
 
-### 1차 — 병합을 막는 결함 없음, 4건 반영
+### Round 1: no defect blocking the merge, 4 addressed
 
-- 다른 탭에서 이미 계좌를 만든 뒤 "계좌 만들기"를 눌러 409가 나면, 폼이 계좌 카드로 바뀌면서 포커스가 페이지 본문으로 빠졌다. 다시 불러온 뒤 포커스를 잃었으면 계좌 제목으로 옮긴다.
-- 초기화 중 404(계좌 없음)로 만들기 폼이 나타나면 대화상자가 돌려줄 버튼이 사라졌다. 대화상자를 먼저 닫고, 포커스를 만들기 폼의 금액 칸으로 보낸다.
-- `GET`이 열린 계좌와 닫힌 계좌를 쿼리 두 개로 읽어, 그 사이 초기화가 커밋되면 서로 다른 시점이 섞일 수 있었다. 한 쿼리로 합쳤다.
-- 문서: 1만~100억 원 범위가 사용자 결정처럼 읽혀 구현에서 정한 값이라고 고쳤다.
-- 테스트 추가: 만들기 409 뒤 제목 포커스, 초기화 404 뒤 금액 칸 포커스, 닫힌 계좌 25개 중 최근 20개만 오는 DB 통합 테스트.
-- 반영하지 않음: 초기화 500 오류가 대화상자 뒤 알림에 표시되는 점은 중앙 `ConfirmDialog`의 공통 동작이라 이 PR 범위가 아니다. 가계부 합계 제외 테스트는 모의 계좌가 `ledger_entries`와 연결되지 않는 구조라 추가하지 않았다. "이전 계좌" 제목 스타일은 자산 화면의 목록 제목(`h2`)과 같은 기본 스타일이다.
-- 검증: `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과(백엔드 88개 통과·건너뜀 0, 프론트엔드 128개 중 126개 통과·2개 건너뜀(기존), 스킬 4개).
+- If "계좌 만들기" gave a 409 because an account was already created in another tab, the form turned into the account card and focus fell to the page body. If focus was lost after reloading, we move it to the account heading.
+- If the create form appeared because of a 404 (no account) during a reset, the button for the dialog to return to disappeared. We close the dialog first and send focus to the amount field of the create form.
+- `GET` read the open account and the closed accounts with two queries, so if a reset committed between them, different moments could be mixed. We merged them into one query.
+- Doc: the range of 10,000 to 10 billion won read like a user decision, so we corrected it to say it is a value set in the implementation.
+- Tests added: focus on the heading after a create 409, focus on the amount field after a reset 404, and a DB integration test that only the latest 20 of 25 closed accounts come back.
+- Not addressed: a reset 500 error showing in the notice behind the dialog is the common behavior of the central `ConfirmDialog` and out of scope for this PR. We did not add a test that the ledger total excludes it, because the mock account is not connected to `ledger_entries` in the structure. The "이전 계좌" heading style is the same default style as the list heading (`h2`) on the asset screen.
+- Verification: `TEST_DATABASE_URL=<test DB> npm run check` passed (backend 88 passed and 0 skipped, frontend 126 of 128 passed and 2 skipped (existing), 4 skill tests).
 
-### 2차 — 1차 반영 4건 확인, 막는 결함 없음, 추가 수정 없음
+### Round 2: 4 first-round fixes confirmed, no blocking defect, no further fixes
 
-- 만들기 409·초기화 404 뒤 포커스, 한 쿼리 조회, 문서 문구가 모두 맞게 고쳐졌다. 대화상자 닫힘 애니메이션과 다시 불러오기 중 어느 쪽이 먼저 끝나도 포커스가 금액 칸으로 간다. 성공·취소·409 흐름에서는 초기화 버튼으로 돌아간다.
-- 참고(반영 안 함): 만들기와 이어진 다시 불러오기가 모두 실패하면 포커스 플래그가 켜진 채 남는다. 다음 불러오기는 만들기 흐름에서만 일어나고 포커스를 잃었을 때만 옮기므로 실제 증상은 없다.
-- 표준에 따라 3차 리뷰는 하지 않는다.
+- The focus after a create 409 and a reset 404, the one-query read, and the doc wording were all fixed correctly. Whichever finishes first, the dialog close animation or the reload, focus goes to the amount field. In the success, cancel, and 409 flows, it returns to the reset button.
+- Note (not addressed): if the create and the reload that follows both fail, the focus flag stays on. The next load happens only in the create flow and moves focus only when it was lost, so there is no real symptom.
+- By the standard, we do not run a third review.

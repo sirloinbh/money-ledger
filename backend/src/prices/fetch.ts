@@ -28,11 +28,11 @@ export type PriceLog = (event: Record<string, unknown>) => void;
 export const tiingoHourlyLimit = 50;
 export const dailyTiingoLimit = 40;
 
-const notConfigured = '시세 출처가 설정되지 않았습니다';
+const notConfigured = 'No quote source is configured';
 const tickersEveryDays = 7;
 
 const messageOf = (error: unknown) =>
-  error instanceof SourceError ? error.message : '시세를 받거나 저장하지 못했습니다';
+  error instanceof SourceError ? error.message : 'Could not get or save the quote';
 
 /** Runs every source once. `complete` is false when something should be retried in an hour. */
 export async function runDailyFetch(pool: Pool, sources: PriceSources, now: Date, log: PriceLog) {
@@ -161,7 +161,7 @@ export async function fetchUsCloses(
         latest,
         tiingo.name,
         now,
-        'Tiingo에 없는 종목입니다',
+        'Not found at Tiingo',
       );
       return 'not_found';
     }

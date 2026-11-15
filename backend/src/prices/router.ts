@@ -18,10 +18,10 @@ const searchLimit = 20;
 
 const searchQuery = z.object({
   q: z
-    .string({ error: '검색어를 입력하세요' })
+    .string({ error: 'Enter a search term' })
     .trim()
-    .min(1, '검색어를 입력하세요')
-    .max(40, '검색어는 40자 이하로 입력하세요'),
+    .min(1, 'Enter a search term')
+    .max(40, 'The search term must be 40 characters or fewer'),
 });
 
 type SecurityRow = {
@@ -96,7 +96,7 @@ export function pricesRouter(pool: Pool, { sources, today, now, log }: Options) 
   });
 
   router.get('/securities/:id', async (req, res) => {
-    const id = parseId(req.params.id, '종목');
+    const id = parseId(req.params.id, 'security');
     const at = now();
     const read = async () =>
       (
@@ -106,7 +106,7 @@ export function pricesRouter(pool: Pool, { sources, today, now, log }: Options) 
         )
       ).rows[0];
     let row = await read();
-    if (!row) throw new HttpError(404, '종목을 찾을 수 없습니다');
+    if (!row) throw new HttpError(404, 'Security not found');
 
     let issue: QuoteIssue | null = null;
     const tracked =

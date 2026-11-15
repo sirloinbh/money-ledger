@@ -1,4 +1,4 @@
-// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/vitest/frontend/에서
+// Managed file. Edit it in sirloinbh/project-standards templates/vitest/frontend/
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({

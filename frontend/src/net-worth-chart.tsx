@@ -28,12 +28,12 @@ function NetWorthTooltip({ active, payload }: TooltipContentProps) {
   return (
     <div className="rounded-md border bg-popover px-3 py-2 text-body-sm text-popover-foreground shadow-sm">
       <p className="font-medium">{dayLabel(point.date)}</p>
-      <p className="tabular-nums">순자산 {formatWon(point.netKrw)}</p>
+      <p className="tabular-nums">Net worth {formatWon(point.netKrw)}</p>
       <p className="text-muted-foreground tabular-nums">
-        자산 {formatWon(point.assetsKrw)} · 부채 {formatWon(point.debtsKrw)}
+        Assets {formatWon(point.assetsKrw)} · Liabilities {formatWon(point.debtsKrw)}
       </p>
       {point.uncounted > 0 ? (
-        <p className="text-muted-foreground">{point.uncounted}개 빠짐</p>
+        <p className="text-muted-foreground">{point.uncounted} left out</p>
       ) : null}
     </div>
   );
@@ -65,7 +65,7 @@ export function NetWorthChart({
   return (
     <div
       role="img"
-      aria-label={`${dayLabel(from)}부터 ${dayLabel(to)}까지 순자산 꺾은선 차트. 기록은 ${snapshots.length}일이고 마지막 기록(${dayLabel(latest.date)})은 ${formatWon(latest.netKrw)}입니다. 모든 값은 아래 표로 보기에 있습니다.`}
+      aria-label={`Net worth line chart from ${dayLabel(from)} to ${dayLabel(to)}. ${snapshots.length} ${snapshots.length === 1 ? 'day' : 'days'} saved; the last one (${dayLabel(latest.date)}) is ${formatWon(latest.netKrw)}. Every value is in the table below.`}
       className="h-64 w-full sm:h-72"
     >
       <ResponsiveContainer width="100%" height="100%">
@@ -105,7 +105,7 @@ export function NetWorthChart({
           />
           <Line
             dataKey="netKrw"
-            name="순자산"
+            name="Net worth"
             type="linear"
             stroke="var(--chart-series-1)"
             strokeWidth={2}

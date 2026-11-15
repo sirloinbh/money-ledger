@@ -126,7 +126,9 @@ test('prepaid assets against the real database', { skip: !url }, async (t) => {
 
         const over = await use({ usedOn: '2026-03-02', amountKrw: 50_001 });
         assert.equal(over.status, 400);
-        assert.deepEqual(over.data, { error: '잔액보다 많이 쓸 수 없습니다(남은 금액 50,000원)' });
+        assert.deepEqual(over.data, {
+          error: 'Cannot use more than the balance (remaining ₩50,000)',
+        });
         assert.equal((await use({ usedOn: '2026-03-02', amountKrw: 50_000 })).status, 201); // exactly the rest
 
         const valueOn = async (asOf: string) =>
@@ -185,7 +187,9 @@ test('prepaid assets against the real database', { skip: !url }, async (t) => {
         body: { usedOn: '2026-07-01', amountKrw: 1 },
       });
       assert.equal(late.status, 400);
-      assert.deepEqual(late.data, { error: '만료일(2026-06-30)이 지난 날짜에는 쓸 수 없습니다' });
+      assert.deepEqual(late.data, {
+        error: 'The expiry date (2026-06-30) has passed, so it cannot be used on that date',
+      });
     });
   });
 
@@ -225,7 +229,9 @@ test('prepaid assets against the real database', { skip: !url }, async (t) => {
           body: { usedOn: '2026-01-05', amountKrw: 1 },
         });
         assert.equal(passUse.status, 400);
-        assert.deepEqual(passUse.data, { error: '사용 기록은 선입금 금액권에만 넣을 수 있습니다' });
+        assert.deepEqual(passUse.data, {
+          error: 'Usage records can only be added to a prepaid voucher',
+        });
 
         const { data } = await call(path, { method: 'POST', body: salon });
         const id = (data.asset as Asset).id;
@@ -244,7 +250,7 @@ test('prepaid assets against the real database', { skip: !url }, async (t) => {
           204,
         );
         const again = await call(`${path}/${id}/usages/${usageId}`, { method: 'DELETE' });
-        assert.deepEqual(again.data, { error: '사용 기록을 찾을 수 없습니다' });
+        assert.deepEqual(again.data, { error: 'Usage record not found' });
 
         await call(`${path}/${id}/usages`, {
           method: 'POST',
@@ -275,11 +281,11 @@ test('prepaid assets against the real database', { skip: !url }, async (t) => {
         assert.equal(toPass.status, 400);
         assert.deepEqual(toPass.data, {
           error:
-            '사용 기록이 있는 금액권은 금액권으로만 바꿀 수 있습니다. 사용 기록을 먼저 지우세요',
+            'A voucher with usage records can only be changed to a voucher. Delete the usage records first',
         });
         const tooSmall = await put({ ...salon, prepaid: { kind: 'amount', amountKrw: 119_999 } });
         assert.deepEqual(tooSmall.data, {
-          error: '결제액은 이미 쓴 금액(120,000원)보다 적을 수 없습니다',
+          error: 'The amount paid cannot be less than the amount already used (₩120,000)',
         });
         const renamed = await put({
           ...salon,
@@ -290,7 +296,7 @@ test('prepaid assets against the real database', { skip: !url }, async (t) => {
         assert.equal((renamed.data.asset as Asset).currentValueKrw, 280_000);
         const missing = await call(`${path}/999999`, { method: 'PUT', body: salon });
         assert.equal(missing.status, 404);
-        assert.deepEqual(missing.data, { error: '자산을 찾을 수 없습니다' });
+        assert.deepEqual(missing.data, { error: 'Asset not found' });
       });
     },
   );
@@ -386,7 +392,7 @@ test('prepaid assets against the real database', { skip: !url }, async (t) => {
         assert.equal((await use('2026-02-15')).status, 201); // today
         const later = await use('2026-02-16');
         assert.equal(later.status, 400);
-        assert.deepEqual(later.data, { error: '오늘 이후 날짜에는 사용을 기록할 수 없습니다' });
+        assert.deepEqual(later.data, { error: 'Usage dated after today cannot be recorded' });
       },
       { today: () => '2026-02-15' },
     );
@@ -409,7 +415,7 @@ test('prepaid assets against the real database', { skip: !url }, async (t) => {
       const early = await put('2026-03-09');
       assert.equal(early.status, 400);
       assert.deepEqual(early.data, {
-        error: '만료일은 마지막 사용일(2026-03-10)보다 앞설 수 없습니다',
+        error: 'The expiry date cannot be before the last usage date (2026-03-10)',
       });
       assert.equal((await put('2026-03-10')).status, 200);
     });

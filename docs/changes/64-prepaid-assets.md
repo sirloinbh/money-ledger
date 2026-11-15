@@ -1,92 +1,92 @@
-# #64 미용실·헬스장 선입금 자산
+# #64 Prepaid assets for hair salons and gyms
 
-- 이슈: https://github.com/sirloinbh/money-ledger/issues/64 (상위 #92)
-- 브랜치: `feat/64-prepaid-assets`
+- Issue: https://github.com/sirloinbh/money-ledger/issues/64 (parent #92)
+- Branch: `feat/64-prepaid-assets`
 
-## 목적
+## Purpose
 
-미용실·헬스장에 미리 낸 돈은 이미 나갔지만 아직 받지 않은 서비스의 가치가 남아 있다. 금액권은 쓸 때마다, 기간권은 날이 갈수록 줄어드는 남은 가치를 자산으로 보여 준다.
+Money paid in advance to a hair salon or a gym has already gone out, but the value of the service not yet received remains. We show the remaining value, which shrinks each time a voucher is used or as the days pass for a term pass, as an asset.
 
-## 결정 (2026-11-08 사용자 확인, 이슈 댓글 기록)
+## Decision (confirmed by the user on 2026-11-08, recorded in an issue comment)
 
-- 가계부와의 관계: 결제한 날 가계부에 지출로 한 번만 기록하고, 자산에는 남은 가치만 보여 준다. 사용할 때 다시 지출로 잡지 않는다.
-- 자산 종류: 새 종류 "선입금"을 추가하고, 기타 종류 이름을 "기타(코인·선입금 등)"에서 "기타(코인 등)"으로 바꾼다.
-- 기간권: 현재 가치 = round(결제액 × 남은 일수 ÷ 전체 일수), 원 단위 정수. 시작일 전에는 결제액 그대로, 만료일 당일까지 쓸 수 있고 다음 날부터 0원.
-- 금액권: 잔액 = 충전액 − 사용 합계. 잔액보다 많이 쓰면 서버가 거부한다. 만료일은 선택이며 지나면 0원. 사용 기록은 추가와 삭제만 한다.
+- Relation to the ledger: record the payment once as an expense in the ledger on the day it is paid, and show only the remaining value in assets. Usage is not counted as an expense again.
+- Asset kind: add a new kind "선입금" ("Prepaid"), and rename the other kind from "기타(코인·선입금 등)" ("Other (crypto, prepayments, and so on)") to "기타(코인 등)" ("Other (crypto and so on)").
+- Term pass: current value = round(amount paid × remaining days ÷ total days), a whole-won integer. Before the start date it is the amount paid as it is, it can be used through the expiry date itself, and it is 0 won from the next day.
+- Amount voucher: balance = amount charged − the sum of usage. The server rejects using more than the balance. The expiry date is optional, and after it passes the value is 0 won. Usage records only get added and deleted.
 
-### 기타 종류 이름을 바꾼 이유
+### Why we renamed the other kind
 
-#45(2026-11-03 결정)에서는 종류를 6개로 두고 선입금을 "기타(코인·선입금 등)"에 넣었다. 그때는 선입금도 평가금액을 손으로 적는 자산이었다. #64에서 선입금은 금액권·기간권 구분, 사용 기록, 만료일처럼 전용 입력과 계산이 필요해져 감가상각 대상(#63)처럼 별도 종류가 되었다. 그래서 기타에는 코인 등만 남고 이름도 그에 맞췄다. `docs/changes/45-portfolio-assets.md`의 결정 항목에 이 변경을 가리키는 메모를 더했다.
+In #45 (decided on 2026-11-03) we had 6 kinds and put prepayments in "기타(코인·선입금 등)". Back then a prepayment was also an asset whose valuation you wrote by hand. In #64 a prepayment needs its own input and calculation, such as the amount voucher and term pass distinction, usage records, and the expiry date, so it became a separate kind like depreciable assets (#63). So only crypto and so on remain in other, and we matched the name to that. We added a note pointing at this change to the decision item of `docs/changes/45-portfolio-assets.md`.
 
-## 변경 내용
+## Changes
 
-- `database/migrations/010_prepaid_assets.sql` (다시 실행해도 안전)
-  - `portfolio_assets_asset_type_check`를 다시 만들어 `prepaid`를 허용한다.
-  - `prepaid_kind`(`amount`/`period`), `prepaid_amount_krw bigint`, `prepaid_starts_on`, `prepaid_expires_on` 열.
-  - `portfolio_assets_prepaid_check`: 선입금 정보가 있으면 종류는 선입금, 원화, 수량·평가금액 없음. 금액권은 시작일이 없고, 기간권은 시작일·만료일이 있으며 시작일 ≤ 만료일.
-  - `portfolio_assets_quantity_or_value_check`를 다시 만들어 선입금 자산도 허용한다.
-  - `portfolio_prepaid_usages` 테이블: 자산(`ON DELETE CASCADE`), 사용일, 금액(1원 이상 `bigint`), 메모(100자).
-  - `portfolio_prepaid_value(...)` 함수: 위 결정대로 기준일의 가치를 계산한다. 날짜끼리 빼서 정수 일수를 얻고 `numeric` `round()`로 반올림한다(0.5는 0에서 먼 쪽).
+- `database/migrations/010_prepaid_assets.sql` (safe to run again)
+  - We recreate `portfolio_assets_asset_type_check` to allow `prepaid`.
+  - The columns `prepaid_kind` (`amount`/`period`), `prepaid_amount_krw bigint`, `prepaid_starts_on`, and `prepaid_expires_on`.
+  - `portfolio_assets_prepaid_check`: if there is prepaid info, the kind is prepaid, KRW, and there is no quantity or valuation. An amount voucher has no start date, and a term pass has a start date and expiry date with start date ≤ expiry date.
+  - We recreate `portfolio_assets_quantity_or_value_check` to allow prepaid assets too.
+  - The `portfolio_prepaid_usages` table: the asset (`ON DELETE CASCADE`), the usage date, the amount (`bigint` of 1 won or more), and a memo (100 characters).
+  - The `portfolio_prepaid_value(...)` function: computes the value on the base date as decided above. We subtract dates to get an integer number of days and round with `numeric` `round()` (0.5 away from zero).
 - `backend/src/assets.ts`
-  - 요청에 `prepaid: { kind, amountKrw, startsOn, expiresOn }`을 받는다. 선입금 자산에만 넣을 수 있고, 선입금 자산은 꼭 넣어야 한다. 오류는 한국어 400.
-  - 응답의 자산마다 `prepaid`(기준일까지 쓴 금액 `usedKrw` 포함)를 주고, `currentValueKrw`와 합계에 선입금 가치를 넣는다. 금액권 가치는 기준일까지의 사용만 빼므로 `?asOf=`로 지난 날의 가치도 맞게 나온다.
-  - `GET/POST /api/portfolio/assets/:id/usages`, `DELETE /api/portfolio/assets/:id/usages/:usageId`. 추가는 트랜잭션에서 자산 행을 잠근 뒤 사용 합계를 따로 읽어 잔액을 확인한다. 금액권이 아니면 400, 오늘 이후 날짜면 400, 만료일 뒤 날짜면 400, 잔액을 넘으면 `잔액보다 많이 쓸 수 없습니다(남은 금액 N원)` 400.
-  - 수정(PUT)도 트랜잭션에서 자산 행을 잠근다. 사용 기록이 있는 자산을 금액권이 아닌 것으로 바꾸거나, 충전액을 이미 쓴 금액보다 적게 고치거나, 만료일을 마지막 사용일보다 앞당기면 400.
-  - 금액 검증 메시지의 조사를 받침에 맞춘다(구입가는, 결제액은).
-- `frontend/src/assets.tsx`: 종류에 "선입금" 추가, 기타 이름 변경. 선입금을 고르면 금액권/기간권, 충전액(또는 결제액), 기간권의 시작일, 만료일(기간권 필수, 금액권 선택) 칸이 나온다. 목록에 "금액권 · 충전액 · 사용 · 만료" 또는 "기간권 · 결제액 · 시작~만료"와 현재 가치를 보여 준다.
-- `frontend/src/prepaid-usages.tsx`: 금액권 행의 "사용 기록" 버튼(`aria-expanded`)으로 여는 패널. 사용한 날짜(기본 오늘), 금액, 메모로 추가하고 지우기 버튼으로 지운다. 바꾸면 자산 목록과 합계를 다시 불러온다. 서버 거부 메시지를 패널 안에 보여 주고, 날짜 때문이면 날짜 칸, 잔액 때문이면 금액 칸에 `aria-invalid`를 붙인다. 날짜 칸은 오늘까지만 고를 수 있다. 지우기 전에 확인을 받고, 지운 뒤에는 포커스를 패널 제목으로 옮긴다.
+  - The request accepts `prepaid: { kind, amountKrw, startsOn, expiresOn }`. It can be put only in a prepaid asset, and a prepaid asset must have it. Errors are Korean 400.
+  - Each asset in the response gets `prepaid` (including the amount used up to the base date, `usedKrw`), and the prepaid value goes into `currentValueKrw` and the total. The value of an amount voucher subtracts only usage up to the base date, so with `?asOf=` the value on a past day also comes out right.
+  - `GET/POST /api/portfolio/assets/:id/usages` and `DELETE /api/portfolio/assets/:id/usages/:usageId`. An add locks the asset row in a transaction and then reads the usage sum separately to check the balance. If it is not an amount voucher it is 400, a date after today is 400, a date after the expiry date is 400, and over the balance gives a 400 `잔액보다 많이 쓸 수 없습니다(남은 금액 N원)` ("You cannot use more than the balance (N won left)").
+  - An update (PUT) also locks the asset row in a transaction. Changing an asset with usage records to something that is not an amount voucher, fixing the charged amount to less than what has already been used, or moving the expiry date earlier than the last usage date is 400.
+  - We match the particle in the amount validation messages to the final consonant (구입가는, 결제액은).
+- `frontend/src/assets.tsx`: added "선입금" to the kinds and renamed other. When you choose prepaid, fields for amount voucher or term pass, the charged amount (or amount paid), the start date of a term pass, and the expiry date (required for a term pass, optional for an amount voucher) appear. The list shows "금액권 · 충전액 · 사용 · 만료" ("Amount voucher · charged · used · expiry") or "기간권 · 결제액 · 시작~만료" ("Term pass · paid · start to expiry") and the current value.
+- `frontend/src/prepaid-usages.tsx`: a panel opened with the "사용 기록" ("Usage records") button (`aria-expanded`) on the row of an amount voucher. You add with the usage date (default today), amount, and memo, and delete with the delete button. Changing it reloads the asset list and total. It shows the server's rejection message inside the panel, and puts `aria-invalid` on the date field if the reason is the date and on the amount field if the reason is the balance. The date field allows choosing only up to today. It asks for confirmation before deleting, and after deleting moves focus to the panel heading.
 
-## 검증
+## Verification
 
-- 백엔드 단위 테스트(`backend/test/assets.test.ts`): 선입금 정보 누락·다른 종류에 넣음·모르는 종류·달러·평가금액과 함께·음수 결제액·기간권 만료일 누락·시작일보다 이른 만료일·금액권 시작일·없는 날짜, 사용 기록의 날짜 누락·0원·소수·메모 100자 초과·잘못된 ID. 모두 DB 전에 한국어 400.
-- DB 통합 테스트(`backend/test/prepaid.integration.test.ts`)
-  - 기간권 270,000원·2026-01-01~03-31(90일): 시작 전과 시작일 270,000원, 다음 날 267,000원, 2월 15일 135,000원, 만료일 3,000원, 다음 날 0원. 5원·2일권 마지막 날 3원(0.5 반올림).
-  - 금액권 300,000원: 50,000원과 200,000원 사용 뒤 50,001원은 `잔액보다 많이 쓸 수 없습니다(남은 금액 50,000원)`, 정확히 50,000원은 허용. 기준일마다 그날까지의 사용만 빠진다. 목록은 최신순.
-  - 같은 금액권에 마지막 잔액 10,000원 사용 5건을 동시에 보내면 1건만 성공한다. 처음에는 잠그는 문장 안의 하위 쿼리로 합계를 읽어 2건이 통과했다(READ COMMITTED에서 잠금을 기다리기 전 스냅샷을 읽음). 잠근 뒤 합계를 따로 읽도록 고쳤다.
-  - 만료일 있는 금액권: 만료일까지 100,000원, 다음 날 0원, 만료일 뒤 사용은 400.
-  - 오늘을 2026-02-15로 고정한 합계: 기간권 135,000원 + 금액권 270,000원 = 405,000원(원 단위 정수).
-  - 기간권에 사용 기록 400, 다른 자산의 사용 기록은 지울 수 없음(404), 자산을 지우면 사용 기록도 지워짐.
-  - 사용 기록이 있는 금액권을 기간권으로 바꾸면 400, 충전액을 쓴 금액보다 적게 고치면 400, 늘리면 현재 가치가 따라 바뀜.
-  - DB CHECK가 반쪽짜리 기간권, 만료일이 시작일보다 이른 기간권, 시작일 있는 금액권, 평가금액을 함께 넣은 선입금, 다른 종류의 선입금 정보를 거부한다(`23514`). `010`을 두 번 적용해도 오류가 없다(빈 테이블 기준, 데이터가 있는 재실행은 아래 1차 리뷰 참고).
-- 기존 자산·모의투자 통합 테스트는 테이블을 다시 만들 때 `010`도 적용한다.
-- 프론트엔드 테스트(`frontend/src/prepaid.test.tsx`): 종류 이름, 금액권 추가 요청과 목록 표시, 기간권 날짜 검사와 추가, 사용 추가·잔액 초과 메시지·지우기와 합계 갱신·포커스, 0원 사용 거부, 수정 시 칸 채움.
-- `TEST_DATABASE_URL=<전용 테스트 DB money-ledger-test-agent1> npm run check` 통과: 백엔드 154개 통과·건너뜀 0, 프론트엔드 164개 중 162개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공.
-- 브라우저: API(3191)를 같은 컨테이너의 별도 DB `money_browser`(마이그레이션 `001`~`010`)에 연결하고 Vite(5291)를 headless Chrome(CDP로 뷰포트 지정)으로 열었다. 화면 폼으로 현금 5,000,000원, 금액권(300,000원·만료 2026-12-31), 기간권(273,000원·2026-10-01~12-30, 91일)을 추가했다.
-  - 사용 패널에서 2026-11-01 45,000원(커트와 염색)을 추가하니 "45,000원 사용을 기록했습니다". 이어 300,000원을 넣으니 서버가 `잔액보다 많이 쓸 수 없습니다(남은 금액 255,000원)`로 거부했고 금액 칸이 빨갛게 표시됐다.
-  - 2026-11-08 기준: 금액권 255,000원, 기간권 159,000원(53일 남음, 273,000 × 53 ÷ 91), 자산 합계 5,414,000원.
-  - 모바일 390×844: `scrollWidth` 390 = `clientWidth`. 긴 이름과 "금액권 · 충전액 · 사용 · 만료" 줄, 사용 패널이 한 열로 줄바꿈된다.
-  - PC 1440×900: `scrollWidth` 1425 = `clientWidth`(세로 스크롤바 제외). 사용 패널의 날짜·금액·메모·추가가 한 줄에 놓인다.
-- `origin/main`(#51 시세 모듈, 마이그레이션 `009`)을 병합한 뒤 다시 `npm run check` 통과: 백엔드 183개 통과·건너뜀 0, 프론트엔드 174개 중 172개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공.
-- 참고: 반복 실행 중 #60 분류 통합 테스트(`classification.integration.test.ts`)가 한 번 실패했다. 이 작업과 무관한 파일이며, 그 파일만 6번 다시 돌렸을 때는 모두 통과했다.
+- Backend unit tests (`backend/test/assets.test.ts`): missing prepaid info, putting it in another kind, an unknown kind, dollars, together with a valuation, a negative amount paid, a missing expiry date on a term pass, an expiry date earlier than the start date, a start date on an amount voucher, a nonexistent date, and for usage records a missing date, 0 won, a decimal, a memo over 100 characters, and a bad ID. All are Korean 400 before the DB.
+- DB integration tests (`backend/test/prepaid.integration.test.ts`)
+  - Term pass 270,000 won, 2026-01-01 to 03-31 (90 days): before the start and on the start date 270,000 won, the next day 267,000 won, February 15 135,000 won, the expiry date 3,000 won, and the next day 0 won. A 5 won, 2-day pass on its last day is 3 won (0.5 rounded).
+  - Amount voucher 300,000 won: after using 50,000 won and 200,000 won, 50,001 won gives `잔액보다 많이 쓸 수 없습니다(남은 금액 50,000원)`, and exactly 50,000 won is allowed. For each base date only the usage up to that day is subtracted. The list is newest first.
+  - If 5 usages of the last balance of 10,000 won are sent to the same amount voucher at once, only 1 succeeds. At first it read the sum with a subquery inside the locking statement, and 2 got through (under READ COMMITTED it read the snapshot before waiting for the lock). We fixed it to read the sum separately after locking.
+  - An amount voucher with an expiry date: 100,000 won through the expiry date, 0 won the next day, and usage after the expiry date is 400.
+  - The total with today pinned to 2026-02-15: term pass 135,000 won + amount voucher 270,000 won = 405,000 won (a whole-won integer).
+  - A usage record on a term pass is 400, a usage record of another asset cannot be deleted (404), and deleting the asset deletes its usage records.
+  - Changing an amount voucher with usage records to a term pass is 400, fixing the charged amount to less than what was used is 400, and increasing it makes the current value follow.
+  - The DB CHECKs reject a half term pass, a term pass whose expiry date is earlier than the start date, an amount voucher with a start date, a prepaid with a valuation together, and prepaid info on another kind (`23514`). Applying `010` twice gives no error (on empty tables; for a rerun with data, see the first-round review below).
+- The existing asset and mock investing integration tests also apply `010` when they recreate tables.
+- Frontend tests (`frontend/src/prepaid.test.tsx`): the kind names, the add request and list display for an amount voucher, date checks and adding for a term pass, adding usage, the over-balance message, deleting with the total refresh and focus, rejecting 0 won usage, and filling the fields when editing.
+- `TEST_DATABASE_URL=<dedicated test DB money-ledger-test-agent1> npm run check` passed: backend 154 passed and 0 skipped, frontend 162 of 164 passed and 2 skipped (existing), 4 skill tests, build succeeded.
+- Browser: we connected the API (3191) to a separate DB `money_browser` in the same container (migrations `001` to `010`) and opened Vite (5291) with headless Chrome (viewport set through CDP). With the screen form we added cash 5,000,000 won, an amount voucher (300,000 won, expiry 2026-12-31), and a term pass (273,000 won, 2026-10-01 to 12-30, 91 days).
+  - In the usage panel, adding 45,000 won on 2026-11-01 (a cut and dye) showed "45,000원 사용을 기록했습니다" ("Recorded a usage of 45,000 won"). Then entering 300,000 won was rejected by the server with `잔액보다 많이 쓸 수 없습니다(남은 금액 255,000원)`, and the amount field turned red.
+  - As of 2026-11-08: amount voucher 255,000 won, term pass 159,000 won (53 days left, 273,000 × 53 ÷ 91), asset total 5,414,000 won.
+  - Mobile 390×844: `scrollWidth` 390 = `clientWidth`. Long names, the "amount voucher · charged · used · expiry" line, and the usage panel wrap in one column.
+  - PC 1440×900: `scrollWidth` 1425 = `clientWidth` (excluding the vertical scrollbar). The date, amount, memo, and add of the usage panel lay out on one line.
+- After merging `origin/main` (#51 price module, migration `009`), `npm run check` passed again: backend 183 passed and 0 skipped, frontend 172 of 174 passed and 2 skipped (existing), 4 skill tests, build succeeded.
+- Note: during repeated runs, the #60 classification integration test (`classification.integration.test.ts`) failed once. It is a file unrelated to this work, and when we reran only that file 6 times, all passed.
 
-## 제한·후속
+## Limits and follow-up
 
-- #45 때 "기타(코인·선입금 등)"에 넣은 선입금 행은 자동으로 옮기지 않는다. "기타(코인 등)"에 그대로 남으므로, 금액권·기간권으로 다루려면 선입금으로 다시 등록한다(아직 배포 전).
-- 사용 기록은 수정하지 않는다(결정). 잘못 넣었으면 지우고 다시 넣는다.
-- 사용 기록을 가계부와 연결하지 않는다(결정: 사용은 지출이 아님).
+- Prepayment rows that were put in "기타(코인·선입금 등)" at the time of #45 are not moved automatically. They stay in "기타(코인 등)", so to handle them as an amount voucher or term pass, register them again as prepaid (not deployed yet).
+- Usage records are not edited (decision). If you entered one wrong, delete it and enter it again.
+- Usage records are not connected to the ledger (decision: usage is not an expense).
 
-## 리뷰 기록
+## Review record
 
-### 1차 — 병합을 막는 결함 없음, 고칠 점 2건과 사소한 지적 7건 반영
+### Round 1: no defect blocking the merge, 2 points to fix and 7 minor comments addressed
 
-- (고칠 점) 마이그레이션 재실행: `010`이 넓힌 `portfolio_assets_quantity_or_value_check`를 `007`을 다시 실행하면 선입금 조건이 없는 옛 정의로 되돌렸다. 선입금 행이 있으면 `007`에서 CHECK 위반으로 멈춘다. 공유 CHECK(`quantity_or_value`, `asset_type`)는 자기 열이나 종류가 이미 들어 있지 않을 때만 다시 만들도록 `007`과 `010`을 고쳤다. 선입금·감가상각 행이 있는 상태에서 `004`→`007`→`010`→`007`을 다시 적용하는 테스트를 더했다.
-- (고칠 점) 미래 날짜 사용: 오늘 이후 날짜를 넣으면 잔액 검사에는 들어가지만 화면의 "사용"과 현재 가치에는 아직 빠져 숫자가 어긋났다. 사용 기록은 실제로 쓴 것이므로 오늘 이후 날짜는 `오늘 이후 날짜에는 사용을 기록할 수 없습니다`로 거부한다.
-- 만료일을 마지막 사용일보다 앞당기는 수정을 거부한다(새 사용과 같은 규칙).
-- DB가 선입금 정보 없는 `prepaid` 행도 거부한다.
-- 서버가 날짜 때문에 거부하면 날짜 칸에 `aria-invalid`를 붙인다. 클라이언트도 없는 날짜와 1900~2100년 밖을 먼저 막는다.
-- "사용 기록" 버튼의 `aria-controls`는 패널이 열려 있을 때만 단다.
-- 사용 기록 지우기 전에 확인 대화상자를 띄운다. 이미 지워져 404면 목록을 다시 불러온다.
-- 테스트 추가: 데이터가 있는 마이그레이션 재실행, 미래 날짜 거부, 만료일 앞당김 거부, 충전액 낮추기와 사용 추가 동시 실행, `prepaid` 종류의 정보 누락 DB 거부, 날짜 칸 표시, `aria-controls`, 지우기 확인.
-- 검증: `TEST_DATABASE_URL=<전용 테스트 DB> npm run check` 통과(백엔드 187개 통과·건너뜀 0, 프론트엔드 176개 중 174개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공).
+- (To fix) Migration rerun: running `007` again reverted the `portfolio_assets_quantity_or_value_check` that `010` had widened to the old definition without the prepaid condition. If there is a prepaid row, it stops at `007` with a CHECK violation. We changed `007` and `010` to recreate the shared CHECKs (`quantity_or_value`, `asset_type`) only when their own column or kind is not already in them. We added a test that reapplies `004` → `007` → `010` → `007` with prepaid and depreciable rows present.
+- (To fix) Usage on a future date: if you entered a date after today, it entered the balance check but was not yet reflected in the "used" and current value on the screen, so the numbers disagreed. A usage record is something actually used, so a date after today is rejected with `오늘 이후 날짜에는 사용을 기록할 수 없습니다` ("You cannot record usage on a date after today").
+- We reject an update that moves the expiry date earlier than the last usage date (the same rule as a new usage).
+- The DB also rejects a `prepaid` row with no prepaid info.
+- If the server rejects because of the date, we put `aria-invalid` on the date field. The client also blocks nonexistent dates and years outside 1900 to 2100 first.
+- We add `aria-controls` of the "사용 기록" button only while the panel is open.
+- We show a confirmation dialog before deleting a usage record. If it is already deleted and gives 404, we reload the list.
+- Tests added: a migration rerun with data, rejecting a future date, rejecting moving the expiry date earlier, lowering the charged amount and adding usage running at the same time, a DB rejection of a `prepaid` kind with missing info, the date field display, `aria-controls`, and the delete confirmation.
+- Verification: `TEST_DATABASE_URL=<dedicated test DB> npm run check` passed (backend 187 passed and 0 skipped, frontend 174 of 176 passed and 2 skipped (existing), 4 skill tests, build succeeded).
 
-### 2차 — 1차 반영 9건 확인, 막는 결함 없음, 사소한 지적 6건 반영
+### Round 2: 9 first-round fixes confirmed, no blocking defect, 6 minor points addressed
 
-- 리뷰어가 별도 DB에서 빈 DB 적용, 선입금·감가상각 행이 있는 상태의 여러 순서 재적용, main의 옛 `007`에서 올라오는 경로를 모두 돌려 제약 정의가 같게 나오는 것을 확인했다.
-- 재실행 테스트가 넓힌 CHECK 정의(`'prepaid'`, `prepaid_kind`)를 직접 확인하게 고쳤다.
-- 서버 거부는 400이면서 날짜 때문이면 날짜 칸, 잔액 때문이면 금액 칸에만 표시하고, 404·네트워크 오류는 칸 표시 없이 알린다.
-- 사용 날짜 칸의 `max`를 오늘로 하고, 클라이언트도 오늘 이후 날짜를 먼저 막는다.
-- 없는 날짜 검사(`realDate`)를 `format.ts`로 옮겨 자산 폼의 기간권·만료일에도 쓴다.
-- 사용 기록을 지우는 동안에도 저장 중 상태를 켜고, 그때 "사용 추가"를 누르면 "저장 중입니다"를 알린다.
-- 본문의 API·패널 설명을 실제 동작에 맞췄다.
-- 표준에 따라 3차 리뷰는 하지 않는다.
-- 검증: `TEST_DATABASE_URL=<전용 테스트 DB> npm run check` 통과(백엔드 187개 통과·건너뜀 0, 프론트엔드 177개 중 175개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공).
+- The reviewer ran, on a separate DB, applying to an empty DB, reapplying in several orders with prepaid and depreciable rows present, and the path coming up from main's old `007`, and confirmed that the constraint definitions come out the same.
+- We changed the rerun test to directly check the widened CHECK definition (`'prepaid'`, `prepaid_kind`).
+- A server rejection is a 400, and if the reason is the date it is shown only on the date field and if the reason is the balance only on the amount field, while a 404 or network error is announced without marking a field.
+- We set the `max` of the usage date field to today, and the client also blocks a date after today first.
+- We moved the nonexistent date check (`realDate`) to `format.ts` and use it for the term pass and expiry date of the asset form too.
+- While deleting a usage record the saving state is also on, and pressing "사용 추가" ("Add usage") then announces "저장 중입니다" ("Saving").
+- We matched the API and panel descriptions in the body to the real behavior.
+- By the standard, we do not run a third review.
+- Verification: `TEST_DATABASE_URL=<dedicated test DB> npm run check` passed (backend 187 passed and 0 skipped, frontend 175 of 177 passed and 2 skipped (existing), 4 skill tests, build succeeded).

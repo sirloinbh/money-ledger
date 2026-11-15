@@ -20,39 +20,39 @@ const maxQuantity = 1_000_000;
 const maxWon = 1_000_000_000_000_000n; // the CHECK ceiling of cash and amounts in 015
 
 const quantityField = z
-  .string({ error: '수량을 입력하세요' })
-  .regex(/^[1-9]\d{0,6}$/, '수량은 1주 단위의 정수로 입력하세요')
-  .refine((text) => Number(text) <= maxQuantity, '수량은 1,000,000주 이하로 입력하세요');
-const sideField = z.enum(['buy', 'sell'], { error: '매수 또는 매도를 고르세요' });
+  .string({ error: 'Enter the quantity' })
+  .regex(/^[1-9]\d{0,6}$/, 'Enter the quantity as a whole number of shares')
+  .refine((text) => Number(text) <= maxQuantity, 'Enter 1,000,000 shares or fewer');
+const sideField = z.enum(['buy', 'sell'], { error: 'Choose buy or sell' });
 const securityField = z
-  .string({ error: '종목을 고르세요' })
-  .regex(/^[1-9]\d{0,14}$/, '종목 ID가 올바르지 않습니다');
+  .string({ error: 'Choose a security' })
+  .regex(/^[1-9]\d{0,14}$/, 'The security ID is not valid');
 
 const orderBody = z.object(
   {
     securityId: z
-      .number({ error: '종목을 고르세요' })
-      .int('종목 ID가 올바르지 않습니다')
-      .positive('종목 ID가 올바르지 않습니다'),
+      .number({ error: 'Choose a security' })
+      .int('The security ID is not valid')
+      .positive('The security ID is not valid'),
     side: sideField,
     quantity: quantityField,
-    requestKey: z.uuid({ error: '주문 키가 올바르지 않습니다' }),
+    requestKey: z.uuid({ error: 'The order key is not valid' }),
     // What the confirmation showed. The fill still uses the server's latest close and rate; these are only
     // compared with them, so an order never fills at a price the person did not see (#52 review).
     expectedPrice: z
-      .string({ error: '확인한 시세가 없습니다. 주문을 다시 확인하세요' })
-      .max(30, '확인한 시세가 올바르지 않습니다')
+      .string({ error: 'No confirmed quote. Review the order again' })
+      .max(30, 'The confirmed quote is not valid')
       .nullable(),
     expectedPriceDate: z
-      .string({ error: '확인한 시세가 없습니다. 주문을 다시 확인하세요' })
-      .max(10, '확인한 시세가 올바르지 않습니다')
+      .string({ error: 'No confirmed quote. Review the order again' })
+      .max(10, 'The confirmed quote is not valid')
       .nullable(),
     expectedFxRate: z
-      .string({ error: '확인한 시세가 없습니다. 주문을 다시 확인하세요' })
-      .max(30, '확인한 시세가 올바르지 않습니다')
+      .string({ error: 'No confirmed quote. Review the order again' })
+      .max(30, 'The confirmed quote is not valid')
       .nullable(),
   },
-  { error: '요청 본문은 JSON 객체여야 합니다' },
+  { error: 'The request body must be a JSON object' },
 );
 
 const previewQuery = z.object({
@@ -70,12 +70,12 @@ const historyQuery = z
     to: date.optional(),
     securityId: securityField.optional(),
     before: z
-      .string({ error: '이어 볼 위치가 올바르지 않습니다' })
-      .regex(/^[1-9]\d{0,14}$/, '이어 볼 위치가 올바르지 않습니다')
+      .string({ error: 'The continuation position is not valid' })
+      .regex(/^[1-9]\d{0,14}$/, 'The continuation position is not valid')
       .optional(),
   })
   .refine((query) => !query.from || !query.to || query.from <= query.to, {
-    error: '시작일은 종료일보다 늦을 수 없습니다',
+    error: 'The start date cannot be after the end date',
     path: ['from'],
   });
 
@@ -131,31 +131,31 @@ async function quote(
     [securityId, quantity, account.id, account.fee_rate, today],
   );
   const row = rows[0];
-  if (!row) throw new HttpError(404, '종목을 찾을 수 없습니다');
+  if (!row) throw new HttpError(404, 'Security not found');
   return row;
 }
 
-/** The Korean reason the order cannot fill, or null. The same checks run for the preview and the order. */
+/** The reason the order cannot fill, or null. The same checks run for the preview and the order. */
 function problemOf(account: Account, row: QuoteRow, side: Side, quantity: string) {
-  if (side === 'buy' && !row.active) return '거래가 중단된 종목은 살 수 없습니다';
-  if (row.close === null) return '저장된 종가가 없어 주문할 수 없습니다';
+  if (side === 'buy' && !row.active) return 'A security with trading halted cannot be bought';
+  if (row.close === null) return 'No saved close, so the order cannot be placed';
   if (row.currency === 'USD' && row.fx_rate === null) {
-    return '저장된 환율이 없어 미국 주식을 주문할 수 없습니다';
+    return 'No saved exchange rate, so a US stock cannot be ordered';
   }
   const amount = BigInt(row.amount_krw!);
   const fee = BigInt(row.fee_krw!);
   const cash = BigInt(account.cash_krw);
-  if (amount > maxWon) return '주문 금액이 너무 큽니다';
-  if (side === 'buy' && amount + fee > cash) return '현금이 부족합니다';
-  // The cost of a holding has the same 1,000조 ceiling as cash (015).
+  if (amount > maxWon) return 'The order amount is too large';
+  if (side === 'buy' && amount + fee > cash) return 'Not enough cash';
+  // The cost of a holding has the same ₩1 quadrillion ceiling as cash (015).
   if (side === 'buy' && BigInt(row.held_cost ?? '0') + amount + fee > maxWon) {
-    return '주문 금액이 너무 큽니다';
+    return 'The order amount is too large';
   }
   if (side === 'sell') {
     // Whole shares on both sides, so comparing as integers is exact.
     const held = row.held === null ? 0n : BigInt(row.held.split('.')[0]);
-    if (BigInt(quantity) > held) return '보유 수량이 부족합니다';
-    if (cash + amount - fee > maxWon) return '계좌 현금 한도를 넘습니다';
+    if (BigInt(quantity) > held) return 'Not enough shares held';
+    if (cash + amount - fee > maxWon) return 'The account cash limit would be exceeded';
   }
   return null;
 }
@@ -190,7 +190,7 @@ type OrderRow = {
 const orderColumns = `o.id, o.account_id, o.security_id, o.request_key, o.side, o.quantity, o.price, o.currency,
   o.price_date, o.fx_rate, o.fx_date, o.amount_krw, o.fee_krw, o.cash_after_krw, o.created_at, s.symbol, s.name`;
 
-// Won amounts stay within the 1,000조 CHECK of 015, so they are exact as JSON numbers.
+// Won amounts stay within the ₩1 quadrillion CHECK of 015, so they are exact as JSON numbers.
 const toOrder = (row: OrderRow) => ({
   id: Number(row.id),
   accountId: Number(row.account_id),
@@ -214,9 +214,9 @@ async function account(db: Db, id: number, lock: boolean) {
     [id],
   );
   const found = rows[0];
-  if (!found) throw new HttpError(404, '모의투자 계좌를 찾을 수 없습니다');
+  if (!found) throw new HttpError(404, 'Mock trading account not found');
   if (found.closed_at !== null) {
-    throw new HttpError(409, '초기화된 계좌입니다. 화면을 새로 고친 뒤 다시 시도하세요');
+    throw new HttpError(409, 'This account was already reset. Refresh the page and try again');
   }
   return found;
 }
@@ -225,10 +225,10 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
   const router = Router({ mergeParams: true });
 
   router.get('/', async (req, res) => {
-    const accountId = parseId((req.params as { accountId?: string }).accountId, '모의투자 계좌');
+    const accountId = parseId((req.params as { accountId?: string }).accountId, 'mock account');
     const query = historyQuery.parse(req.query);
     const exists = await pool.query('SELECT 1 FROM mock_accounts WHERE id = $1', [accountId]);
-    if (!exists.rowCount) throw new HttpError(404, '모의투자 계좌를 찾을 수 없습니다');
+    if (!exists.rowCount) throw new HttpError(404, 'Mock trading account not found');
     const values: unknown[] = [accountId];
     const where = ['o.account_id = $1'];
     const add = (sql: (n: string) => string, value: unknown) => {
@@ -266,7 +266,7 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
 
   // What the order would do now, for the confirmation step. Nothing is saved.
   router.get('/preview', async (req, res) => {
-    const accountId = parseId((req.params as { accountId?: string }).accountId, '모의투자 계좌');
+    const accountId = parseId((req.params as { accountId?: string }).accountId, 'mock account');
     const query = previewQuery.parse(req.query);
     const found = await account(pool, accountId, false);
     const row = await quote(pool, found, Number(query.securityId), query.quantity, today());
@@ -291,7 +291,7 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
   });
 
   router.post('/', async (req, res) => {
-    const accountId = parseId((req.params as { accountId?: string }).accountId, '모의투자 계좌');
+    const accountId = parseId((req.params as { accountId?: string }).accountId, 'mock account');
     const body = orderBody.parse(req.body);
     const result = await inTransaction(pool, async (client) => {
       // The account row lock puts orders of one account in a line, so a repeated request sees the first one.
@@ -308,7 +308,7 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
           Number(first.security_id) === body.securityId &&
           first.side === body.side &&
           BigInt(first.quantity.split('.')[0]) === BigInt(body.quantity);
-        if (!same) throw new HttpError(409, '같은 주문 키로 다른 주문을 보냈습니다');
+        if (!same) throw new HttpError(409, 'A different order was sent with the same order key');
         return { order: first, cashKrw: found.cash_krw, created: false };
       }
 
@@ -320,7 +320,7 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
         row.trade_date !== body.expectedPriceDate ||
         row.fx_rate !== body.expectedFxRate
       ) {
-        throw new HttpError(409, '시세가 바뀌었습니다. 주문을 다시 확인하세요');
+        throw new HttpError(409, 'The quote changed. Review the order again');
       }
 
       const cash = await client.query<{ cash_krw: string }>(
@@ -382,7 +382,7 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
       // The same key sent at once for two accounts passes both account locks; the unique key stops one.
       const pg = error as { code?: unknown; constraint?: unknown } | null;
       if (pg?.code === '23505' && pg.constraint === 'mock_orders_request_key_key') {
-        throw new HttpError(409, '같은 주문 키로 다른 주문을 보냈습니다');
+        throw new HttpError(409, 'A different order was sent with the same order key');
       }
       throw error;
     });

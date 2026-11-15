@@ -1,5 +1,5 @@
 -- #45 Held assets and debts. Safe to re-run.
--- Formats follow AGENTS.project.md "수량·외화·환율" (#35): won amounts are bigint, foreign amounts are
+-- Formats follow AGENTS.project.md "Quantity, foreign currency, and exchange rate" (#35): won amounts are bigint, foreign amounts are
 -- numeric(20,4) and USD only, quantities are numeric(20,8).
 CREATE TABLE IF NOT EXISTS portfolio_assets (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS portfolio_assets (
   currency text NOT NULL DEFAULT 'KRW' CHECK (currency IN ('KRW', 'USD')),
   quantity numeric(20, 8) CHECK (quantity > 0),
   -- The value entered by hand: what the asset is worth, or for a debt what is still owed.
-  -- Up to 1,000조 won, so thousands of rows still total to a safe JSON integer.
+  -- Up to 1,000 trillion won, so thousands of rows still total to a safe JSON integer.
   value_krw bigint CHECK (value_krw BETWEEN 0 AND 1000000000000000),
   value_foreign numeric(20, 4) CHECK (value_foreign >= 0),
   memo text NOT NULL DEFAULT '' CHECK (char_length(memo) <= 200),

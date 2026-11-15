@@ -1,6 +1,6 @@
-# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
+# Managed file. Edit it in sirloinbh/project-standards templates/app/deploy/
 [Unit]
-Description=가계부·자산·모의투자 daily server report for healthchecks.io
+Description=Money Ledger daily server report for healthchecks.io
 After=docker.service
 
 [Service]

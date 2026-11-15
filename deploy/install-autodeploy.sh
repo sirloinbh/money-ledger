@@ -1,5 +1,5 @@
 #!/bin/bash
-# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
+# Managed file. Edit it in sirloinbh/project-standards templates/app/deploy/
 # Installs and starts the pull-based deployment timer. Run as root on the server:
 #   sudo bash /opt/money-ledger/deploy/install-autodeploy.sh
 set -euo pipefail

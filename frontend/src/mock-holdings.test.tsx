@@ -4,7 +4,13 @@ import { beforeEach, expect, test, vi } from 'vitest';
 import { MockHoldings } from './mock-holdings';
 
 const samsung = {
-  security: { id: 1, symbol: '005930', name: '삼성전자', currency: 'KRW', active: false },
+  security: {
+    id: 1,
+    symbol: '005930',
+    name: 'Samsung Electronics',
+    currency: 'KRW',
+    active: false,
+  },
   quantity: '10.00000000',
   price: '80000.0000',
   priceDate: '2026-11-09',
@@ -64,28 +70,26 @@ const term = (scope: HTMLElement, label: string) =>
 
 test('shows the total, profit and return of the account and each holding as the server sent them', async () => {
   render(<MockHoldings accountId={7} refreshKey={0} onOrdered={() => undefined} />);
-  const list = await screen.findByRole('list', { name: '보유 종목과 수익률' });
+  const list = await screen.findByRole('list', { name: 'Holdings and returns' });
   expect(urls).toEqual(['/api/mock/accounts/7/holdings']);
 
-  const section = screen.getByRole('region', { name: '보유 종목과 수익률' }).querySelector('dl')!;
-  expect(term(section, '총자산')).toHaveTextContent('10,082,976원');
-  expect(term(section, '평가금액')).toHaveTextContent('1,430,000원');
-  expect(term(section, '계좌 손익')).toHaveTextContent('+82,976원');
-  expect(term(section, '수익률')).toHaveTextContent('+0.83%');
+  const section = screen.getByRole('region', { name: 'Holdings and returns' }).querySelector('dl')!;
+  expect(term(section, 'Total assets')).toHaveTextContent('₩10,082,976');
+  expect(term(section, 'Valuation')).toHaveTextContent('₩1,430,000');
+  expect(term(section, 'Account gain/loss')).toHaveTextContent('+₩82,976');
+  expect(term(section, 'Return')).toHaveTextContent('+0.83%');
 
   const [first, second] = within(list).getAllByRole('listitem');
   // An inactive security keeps its last close and is marked.
-  expect(first).toHaveTextContent('삼성전자005930거래 중단');
-  expect(first).toHaveTextContent('10주 · 11월 9일 종가 80,000원');
-  expect(term(first, '평가금액')).toHaveTextContent('800,000원');
-  expect(term(first, '매입원가')).toHaveTextContent('706,000원');
-  expect(term(first, '손익')).toHaveTextContent('+94,000원 (+13.31%)');
+  expect(first).toHaveTextContent('Samsung Electronics005930Trading halted');
+  expect(first).toHaveTextContent('10 shares · Nov 9 close ₩80,000');
+  expect(term(first, 'Valuation')).toHaveTextContent('₩800,000');
+  expect(term(first, 'Cost basis')).toHaveTextContent('₩706,000');
+  expect(term(first, 'Gain/loss')).toHaveTextContent('+₩94,000 (+13.31%)');
 
-  expect(second).not.toHaveTextContent('거래 중단');
-  expect(second).toHaveTextContent(
-    '2주 · 시세 지연 · 11월 2일 종가 231.5달러 · 환율 1,400원(11월 9일)',
-  );
-  expect(term(second, '손익')).toHaveTextContent('-11,024원 (-1.72%)');
+  expect(second).not.toHaveTextContent('Trading halted');
+  expect(second).toHaveTextContent('2 shares · Delayed · Nov 2 close $231.5 · rate ₩1,400 (Nov 9)');
+  expect(term(second, 'Gain/loss')).toHaveTextContent('-₩11,024 (-1.72%)');
 });
 
 test('without holdings it says so; the return of an untouched account is 0%', async () => {
@@ -105,10 +109,10 @@ test('without holdings it says so; the return of an untouched account is 0%', as
     },
   };
   render(<MockHoldings accountId={7} refreshKey={0} onOrdered={() => undefined} />);
-  expect(await screen.findByText(/보유 종목이 없습니다/)).toBeInTheDocument();
-  const section = screen.getByRole('region', { name: '보유 종목과 수익률' }).querySelector('dl')!;
-  expect(term(section, '수익률')).toHaveTextContent('0%');
-  expect(term(section, '계좌 손익')).toHaveTextContent('0원');
+  expect(await screen.findByText(/No holdings/)).toBeInTheDocument();
+  const section = screen.getByRole('region', { name: 'Holdings and returns' }).querySelector('dl')!;
+  expect(term(section, 'Return')).toHaveTextContent('0%');
+  expect(term(section, 'Account gain/loss')).toHaveTextContent('₩0');
 });
 
 test('a new refresh key or account reloads; a failure shows the reason', async () => {
@@ -126,16 +130,16 @@ test('a new refresh key or account reloads; a failure shows the reason', async (
     ]),
   );
 
-  answer = { status: 500, body: { error: '서버 오류가 발생했습니다' } };
+  answer = { status: 500, body: { error: 'A server error occurred' } };
   rerender(<MockHoldings accountId={9} refreshKey={1} onOrdered={() => undefined} />);
-  expect(await screen.findByRole('alert')).toHaveTextContent('서버 오류가 발생했습니다');
+  expect(await screen.findByRole('alert')).toHaveTextContent('A server error occurred');
   // Values of the earlier account are not shown for the new one.
   expect(screen.queryByRole('list')).toBeNull();
 });
 
 test('a holding opens the order form, so a suspended security found by no search can be sold', async () => {
   const preview = {
-    security: { id: 1, symbol: '005930', name: '삼성전자', currency: 'KRW' },
+    security: { id: 1, symbol: '005930', name: 'Samsung Electronics', currency: 'KRW' },
     price: '80000.0000',
     priceDate: '2026-11-09',
     priceStale: false,
@@ -164,17 +168,19 @@ test('a holding opens the order form, so a suspended security found by no search
   );
   const onOrdered = vi.fn();
   const { rerender } = render(<MockHoldings accountId={7} refreshKey={0} onOrdered={onOrdered} />);
-  const button = await screen.findByRole('button', { name: '삼성전자 주문' });
+  const button = await screen.findByRole('button', { name: 'Samsung Electronics order' });
   expect(button).toHaveAttribute('aria-expanded', 'false');
   fireEvent.click(button);
   expect(button).toHaveAttribute('aria-expanded', 'true');
 
-  fireEvent.click(screen.getByRole('button', { name: '매도' }));
-  fireEvent.change(screen.getByLabelText('수량(주)'), { target: { value: '10' } });
-  fireEvent.click(screen.getByRole('button', { name: '주문 확인' }));
-  const dialog = await screen.findByRole('dialog', { name: '삼성전자 10주 매도' });
-  expect(dialog).toHaveTextContent('보유 10주 중 10주를 팝니다');
-  fireEvent.click(within(dialog).getByRole('button', { name: '매도' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Sell' }));
+  fireEvent.change(screen.getByLabelText('Quantity (shares)'), { target: { value: '10' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Review order' }));
+  const dialog = await screen.findByRole('dialog', {
+    name: 'Sell 10 shares of Samsung Electronics',
+  });
+  expect(dialog).toHaveTextContent('Selling 10 of the 10 shares held');
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Sell' }));
   await vi.waitFor(() => expect(onOrdered).toHaveBeenCalledTimes(1));
   expect(urls).toContain(
     'GET /api/mock/accounts/7/orders/preview?securityId=1&side=sell&quantity=10',
@@ -186,10 +192,10 @@ test('a holding opens the order form, so a suspended security found by no search
     body: { ...(answer.body as object), holdings: [apple] },
   };
   rerender(<MockHoldings accountId={7} refreshKey={1} onOrdered={onOrdered} />);
-  expect(await screen.findByText('삼성전자 보유분을 모두 팔았습니다')).toHaveAttribute(
+  expect(await screen.findByText('Sold all your Samsung Electronics')).toHaveAttribute(
     'role',
     'status',
   );
-  expect(screen.queryByLabelText('수량(주)')).toBeNull();
+  expect(screen.queryByLabelText('Quantity (shares)')).toBeNull();
   expect(screen.getAllByRole('listitem')).toHaveLength(1);
 });

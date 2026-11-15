@@ -191,7 +191,7 @@ test('shared price store against the real database', { skip: !url }, async (t) =
         name: 'FAKE',
         daily: (market: 'KOSPI' | 'KOSDAQ' | 'KRX_ETF', date: string) =>
           market === 'KOSDAQ' && date === '2026-11-04'
-            ? Promise.reject(new SourceError('KRX 시세 응답 오류 (HTTP 503)'))
+            ? Promise.reject(new SourceError('KRX quote response error (HTTP 503)'))
             : sources.krx.daily(market, date),
       },
     };
@@ -200,7 +200,7 @@ test('shared price store against the real database', { skip: !url }, async (t) =
     assert.deepEqual(result, { complete: false });
     assert.deepEqual(await state('KRX', 'KOSDAQ'), {
       checked_through: '2026-11-03',
-      last_error: 'KRX 시세 응답 오류 (HTTP 503)',
+      last_error: 'KRX quote response error (HTTP 503)',
     });
     // Other markets are not held back.
     assert.equal((await state('KRX', 'KOSPI'))?.checked_through, '2026-11-07');
@@ -238,9 +238,9 @@ test('shared price store against the real database', { skip: !url }, async (t) =
       assert.deepEqual(
         logged.map((event) => [event.event, event.source, event.message]),
         [
-          ['price_source_missing', 'KRX', '시세 출처가 설정되지 않았습니다'],
-          ['price_source_missing', 'KOREAEXIM', '시세 출처가 설정되지 않았습니다'],
-          ['price_source_missing', 'TIINGO', '시세 출처가 설정되지 않았습니다'],
+          ['price_source_missing', 'KRX', 'No quote source is configured'],
+          ['price_source_missing', 'KOREAEXIM', 'No quote source is configured'],
+          ['price_source_missing', 'TIINGO', 'No quote source is configured'],
         ],
       );
     },
@@ -258,7 +258,7 @@ test('shared price store against the real database', { skip: !url }, async (t) =
           name: 'FAKE',
           usd: (date: string) =>
             fail
-              ? Promise.reject(new SourceError('수출입은행 환율에 연결하지 못했습니다'))
+              ? Promise.reject(new SourceError('Could not connect to Korea Eximbank exchange rate'))
               : sources.fx.usd(date),
         },
       };
@@ -465,7 +465,7 @@ test('shared price store against the real database', { skip: !url }, async (t) =
       const none = (await call(`/api/prices/securities/${fresh2.rows[0].id}`)).data as Detail;
       assert.deepEqual([none.quote, none.quoteIssue], [null, null]);
       const missing = await call('/api/prices/securities/999999');
-      assert.deepEqual([missing.status, missing.data], [404, { error: '종목을 찾을 수 없습니다' }]);
+      assert.deepEqual([missing.status, missing.data], [404, { error: 'Security not found' }]);
     });
   });
 
@@ -665,7 +665,7 @@ test('shared price store against the real database', { skip: !url }, async (t) =
     assert.equal(active.rows[0].n, 4);
     assert.deepEqual(await state('TIINGO', 'tickers'), {
       checked_through: '2026-11-09',
-      last_error: 'Tiingo 종목 목록이 평소보다 너무 짧아 저장하지 않았습니다',
+      last_error: 'The Tiingo security list is much shorter than usual, so it was not saved',
     });
   });
 

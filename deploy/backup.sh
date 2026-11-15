@@ -1,5 +1,5 @@
 #!/bin/bash
-# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
+# Managed file. Edit it in sirloinbh/project-standards templates/app/deploy/
 # Database backups of money-ledger on the Lightsail server (#262).
 #   backup.sh dump [label]  pg_dump to /var/backups/money (14 days), row counts beside it,
 #                           and a copy to S3 when the server .env names a bucket

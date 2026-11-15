@@ -16,8 +16,8 @@ type Category = { id: number; kind: CategoryKind; name: string; hidden: boolean 
 
 const categoriesPath = '/api/ledger/categories';
 const kinds: { kind: CategoryKind; title: string }[] = [
-  { kind: 'expense', title: '지출 카테고리' },
-  { kind: 'income', title: '수입 카테고리' },
+  { kind: 'expense', title: 'Expense category' },
+  { kind: 'income', title: 'Income category' },
 ];
 
 // Runs one change, then reloads the list. Resolves true when the change itself succeeded.
@@ -38,7 +38,7 @@ export function CategoryManager({ onChange }: { onChange?: () => void } = {}) {
   }, []);
 
   useEffect(() => {
-    load().catch((cause: unknown) => showError(cause, '카테고리를 불러오지 못했습니다'));
+    load().catch((cause: unknown) => showError(cause, 'Could not load the categories'));
   }, [load, showError]);
 
   const save: Save = async (run, done) => {
@@ -57,7 +57,7 @@ export function CategoryManager({ onChange }: { onChange?: () => void } = {}) {
         await load();
         showStatus(done);
       } catch {
-        showError(`${done}. 목록을 새로 불러오지 못했습니다`);
+        showError(`${done}. Could not reload the list`);
       }
       return true;
     } finally {
@@ -68,15 +68,16 @@ export function CategoryManager({ onChange }: { onChange?: () => void } = {}) {
   return (
     <section aria-labelledby="categories-title" className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h2 id="categories-title">카테고리</h2>
+        <h2 id="categories-title">Categories</h2>
         <p className="text-body-sm text-muted-foreground">
-          쓰지 않는 카테고리는 숨기면 새 내역 입력 목록에서 빠집니다. 지난 내역은 그대로 남습니다.
+          Hiding a category you no longer use removes it from the new-entry list. Past entries stay
+          as they are.
         </p>
       </div>
       <Notice notice={notice.notice} />
       {categories === undefined ? (
         notice.notice?.kind === 'error' ? null : (
-          <p className="text-body-sm text-muted-foreground">카테고리를 불러오는 중입니다</p>
+          <p className="text-body-sm text-muted-foreground">Loading categories</p>
         )
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
@@ -115,7 +116,7 @@ function KindCard({
     if (!trimmed) return;
     const added = await save(
       () => requestJson(categoriesPath, { method: 'POST', body: { kind, name: trimmed } }),
-      `${trimmed} 카테고리를 추가했습니다`,
+      `${trimmed} category added`,
     );
     if (added) setName('');
   };
@@ -125,22 +126,22 @@ function KindCard({
       <CardHeader>
         <CardTitle asHeading="h3">{title}</CardTitle>
         <CardDescription>
-          {categories.filter((category) => !category.hidden).length}개 사용 중
+          {categories.filter((category) => !category.hidden).length} in use
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <form onSubmit={(event) => void add(event)} className="flex flex-col gap-2">
-          <Label htmlFor={inputId}>새 {title}</Label>
+          <Label htmlFor={inputId}>New {title.toLowerCase()}</Label>
           <div className="flex gap-2">
             <Input
               id={inputId}
               value={name}
               maxLength={30}
-              placeholder="예: 반려동물"
+              placeholder="e.g. Pets"
               onChange={(event) => setName(event.target.value)}
             />
             <Button type="submit" disabled={!name.trim()}>
-              추가
+              Add
             </Button>
           </div>
         </form>
@@ -180,7 +181,7 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
     if (!trimmed) return;
     const renamed = await save(
       () => requestJson(path, { method: 'PATCH', body: { name: trimmed } }),
-      `카테고리 이름을 ${trimmed}(으)로 바꿨습니다`,
+      `Category renamed to ${trimmed}`,
     );
     if (renamed) setEditing(false);
   };
@@ -189,8 +190,8 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
     save(
       () => requestJson(path, { method: 'PATCH', body: { hidden: !category.hidden } }),
       category.hidden
-        ? `${category.name} 카테고리를 다시 보이게 했습니다`
-        : `${category.name} 카테고리를 숨겼습니다`,
+        ? `${category.name} category is visible again`
+        : `${category.name} category hidden`,
     );
 
   if (editing) {
@@ -199,7 +200,7 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
       <li className="py-2">
         <form onSubmit={(event) => void rename(event)} className="flex flex-col gap-2">
           <Label htmlFor={inputId} className="sr-only">
-            {category.name} 새 이름
+            {category.name} new name
           </Label>
           <div className="flex flex-wrap gap-2">
             <Input
@@ -211,10 +212,10 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
               onChange={(event) => setName(event.target.value)}
             />
             <Button type="submit" disabled={!name.trim()}>
-              저장
+              Save
             </Button>
             <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
-              취소
+              Cancel
             </Button>
           </div>
         </form>
@@ -232,7 +233,7 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
         }
       >
         {category.name}
-        {category.hidden ? <Badge variant="outline">숨김</Badge> : null}
+        {category.hidden ? <Badge variant="outline">Hidden</Badge> : null}
       </span>
       <span className="flex gap-1">
         <Button
@@ -240,19 +241,19 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
           type="button"
           variant="ghost"
           size="sm"
-          aria-label={`${category.name} 이름 바꾸기`}
+          aria-label={`Rename ${category.name}`}
           onClick={startRename}
         >
-          이름 바꾸기
+          Rename
         </Button>
         <Button
           type="button"
           variant="outline"
           size="sm"
-          aria-label={category.hidden ? `${category.name} 다시 보이기` : `${category.name} 숨기기`}
+          aria-label={category.hidden ? `Show ${category.name} again` : `Hide ${category.name}`}
           onClick={() => void toggleHidden()}
         >
-          {category.hidden ? '다시 보이기' : '숨기기'}
+          {category.hidden ? 'Show again' : 'Hide'}
         </Button>
       </span>
     </li>

@@ -1,72 +1,72 @@
-# #60 소비 내역 자동 분류와 일괄 분류
+# #60 Automatic classification and bulk classification of spending entries
 
-- 이슈: https://github.com/sirloinbh/money-ledger/issues/60
-- 브랜치: `feat/60-entry-classification`
+- Issue: https://github.com/sirloinbh/money-ledger/issues/60
+- Branch: `feat/60-entry-classification`
 
-## 목적
+## Purpose
 
-가맹점 이름으로 카테고리를 자동 지정하고, 미분류 내역을 한 번에 분류한다. 카드·쿠팡·카카오페이 내역 불러오기(#57~#59)의 선행 작업이다.
+Assign a category automatically by merchant name, and classify uncategorized entries at once. This is preliminary work for importing card, Coupang, and KakaoPay entries (#57 to #59).
 
-## 결정 (2026-11-05 사용자 확인, 이슈 댓글 기록)
+## Decision (confirmed by the user on 2026-11-05, recorded in an issue comment)
 
-- 분류 방식: 키워드 규칙. 금융 내역을 외부 AI로 보내지 않는다. AI 분류는 #83에서 나중에 검토한다.
-- 맞출 대상: 내역에 선택 입력 "가맹점" 칸(50자)을 새로 만들고, 규칙은 가맹점에만 맞춘다.
-- 미분류: 수입·지출 모두 카테고리 없이 저장할 수 있다.
-- 구현에서 정한 것: 키워드는 대소문자를 무시하고 가맹점에 들어 있으면 맞는다. 여러 규칙이 맞으면 긴 키워드가 이긴다(길이가 같으면 먼저 만든 규칙). 숨긴 카테고리의 규칙은 남겨 두되 적용하지 않는다. 일괄 분류의 "규칙으로 저장"은 기본으로 켜 둔다.
+- Classification method: keyword rules. Financial entries are not sent to an external AI. AI classification will be reviewed later in #83.
+- What to match: we add an optional "가맹점" ("Merchant") field (50 characters) to entries, and rules match only the merchant.
+- Uncategorized: both income and expenses can be saved without a category.
+- Decided during implementation: a keyword matches if the merchant contains it, ignoring case. If several rules match, the longer keyword wins (for the same length, the rule created first). Rules of a hidden category are kept but not applied. "Save as rule" in bulk classification is on by default.
 
-## 변경 내용
+## Changes
 
-- `database/migrations/006_ledger_classification.sql`: `ledger_entries.merchant` 추가, `category_id` NULL 허용(미분류), 미분류 부분 인덱스, `ledger_category_rules` 테이블(키워드·종류·카테고리, `(category_id, kind)` 외래 키로 종류 일치, 종류별 키워드 대소문자 무시 고유). 다시 실행해도 안전하다.
-- `backend/src/rules.ts`: `GET/POST /api/ledger/rules`, `DELETE /api/ledger/rules/:id`. 종류는 카테고리에서 가져오고, 숨긴 카테고리에는 규칙을 만들 수 없다. 규칙 매칭 SQL(`ruleCategorySql`)을 내역 API와 함께 쓴다.
+- `database/migrations/006_ledger_classification.sql`: added `ledger_entries.merchant`, allowed NULL for `category_id` (uncategorized), a partial index for uncategorized, and the `ledger_category_rules` table (keyword, kind, category, kind match through the `(category_id, kind)` foreign key, and keywords unique per kind ignoring case). It is safe to run again.
+- `backend/src/rules.ts`: `GET/POST /api/ledger/rules` and `DELETE /api/ledger/rules/:id`. The kind is taken from the category, and a rule cannot be created for a hidden category. The rule matching SQL (`ruleCategorySql`) is shared with the entry API.
 - `backend/src/entries.ts`:
-  - `categoryId`를 `null`로(또는 빼고) 저장하면 같은 SQL 문 안에서 가맹점에 맞는 규칙의 카테고리를 넣고, 없으면 미분류로 둔다. 카테고리를 고르면 규칙을 보지 않는다(사용자 선택을 덮어쓰지 않음). 수정(`PUT`)도 같다.
-  - `GET /api/ledger/entries?uncategorized=true`: 미분류 내역(최근 200건).
-  - `POST /api/ledger/entries/classify`: 고른 내역(최대 200건)을 한 카테고리로 분류. 한 트랜잭션에서 카테고리를 `FOR SHARE`로 잡고, 종류가 다른 내역이 있으면 400, 이미 분류된 내역은 건드리지 않고 `skipped`로 센다. `remember`이면 분류한 내역의 가맹점마다 규칙을 저장하고, 같은 키워드 규칙이 있으면 이 카테고리로 바꾼다.
-  - `POST /api/ledger/entries/apply-rules`: 지금 규칙을 미분류 내역에만 적용한다.
-- `backend/src/db.ts`: 트랜잭션 도우미 `inTransaction`. 모의투자 초기화(#50)도 이것을 쓰도록 바꿨다(동작 같음).
-- `frontend/src/entries.tsx`: 가맹점 칸, 카테고리 첫 선택지 "미분류"(필수 아님)와 안내 문구, 목록에 미분류·가맹점 표시.
-- `frontend/src/classification.tsx`, `frontend/src/ledger.tsx`: 가계부 화면에 "미분류 내역"(체크박스·전체 선택·카테고리·규칙 저장·"규칙으로 다시 분류")과 "분류 규칙"(추가·삭제) 구역. 내역·분류·규칙이 바뀌면 세 구역이 함께 다시 불러온다.
+  - When `categoryId` is saved as `null` (or omitted), the same SQL statement puts in the category of the rule matching the merchant, and if there is none it leaves it uncategorized. When a category is chosen, the rules are not consulted (the user's choice is not overwritten). The update (`PUT`) is the same.
+  - `GET /api/ledger/entries?uncategorized=true`: the uncategorized entries (latest 200).
+  - `POST /api/ledger/entries/classify`: classify the chosen entries (at most 200) into one category. In one transaction it takes the category with `FOR SHARE`, gives 400 if any entry has a different kind, and counts entries that are already classified as `skipped` without touching them. With `remember`, it saves a rule for each merchant of the classified entries, and if a rule with the same keyword exists, it changes it to this category.
+  - `POST /api/ledger/entries/apply-rules`: apply the current rules only to uncategorized entries.
+- `backend/src/db.ts`: the transaction helper `inTransaction`. We changed the mock investing reset (#50) to use it too (same behavior).
+- `frontend/src/entries.tsx`: the merchant field, the first category choice "미분류" ("Uncategorized", not required) with a guidance text, and showing uncategorized and merchant in the list.
+- `frontend/src/classification.tsx`, `frontend/src/ledger.tsx`: on the ledger screen, an "미분류 내역" ("Uncategorized entries") section (checkboxes, select all, category, save as rule, and "규칙으로 다시 분류", "Reclassify by rules") and a "분류 규칙" ("Classification rules") section (add and delete). When entries, classification, or rules change, the three sections reload together.
 
-## 검증
+## Verification
 
-- 테스트 DB: 일회용 `postgres:17-alpine` 컨테이너(마이그레이션 001~006 자동 적용)를 `TEST_DATABASE_URL`로 지정했다.
-- `npm test`(backend): 108개 통과, 건너뜀 0. 새 DB 통합 테스트는 규칙 적용(긴 키워드 우선, 대소문자 무시, 빈 가맹점·다른 종류·숨긴 카테고리 제외), 고른 카테고리 유지, 수정 시 규칙 적용, 일괄 분류(종류 불일치 400, 이미 분류된 내역 건너뜀, 규칙 저장과 기존 규칙 갱신, 다음 내역에 적용), 숨긴·없는 카테고리 거부, 규칙 다시 적용이 미분류만 바꿈, 규칙 API(중복 409, 종류별 같은 키워드 허용, 삭제 404), DB 제약을 확인한다.
-- `npm test`(frontend): 143개 중 141개 통과·2개 건너뜀(기존).
-- `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과: 백엔드 108개 통과(건너뜀 0), 프론트엔드 143개 중 141개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공.
-- 브라우저: API를 테스트 DB에 연결하고 headless Chrome(CDP로 뷰포트 지정)으로 `/ledger`를 확인했다. 두 크기 모두 가로 넘침 없음(scrollWidth = clientWidth).
-  - 390×844: API로 "스타벅스" 규칙과 내역 5건을 넣자 스타벅스 내역만 식비로 자동 지정되고 4건이 미분류였다. 김밥천국 2건을 골라 식비로 분류하자 "2건을 식비(으)로 분류했습니다. 가맹점 1개를 규칙으로 저장했습니다"가 보였고, 미분류가 2건으로 줄었으며, 규칙 목록에 "김밥천국 역삼점 → 식비"가 생겼다. 포커스는 분류 버튼에 남았다. 긴 가맹점 이름은 줄바꿈된다.
-  - 1440×900: "쇼핑몰 → 생활" 규칙을 추가하고 "규칙으로 다시 분류"를 누르자 긴 이름의 쇼핑몰 내역 1건만 생활로 바뀌고, 가맹점이 없는 내역은 미분류로 남았다.
-- 로컬 `npm run knip`은 oxc-resolver 네이티브 바인딩이 없어 실행되지 않는다(#45와 같음). CI에서 확인한다.
+- Test DB: we set a disposable `postgres:17-alpine` container (migrations 001 to 006 applied automatically) as `TEST_DATABASE_URL`.
+- `npm test` (backend): 108 passed, 0 skipped. The new DB integration tests check rule application (the longer keyword first, ignoring case, excluding an empty merchant, a different kind, and a hidden category), keeping a chosen category, applying rules on update, bulk classification (kind mismatch 400, skipping already classified entries, saving a rule and updating an existing rule, applying to the next entry), rejecting hidden and nonexistent categories, reapplying rules changing only uncategorized entries, the rules API (duplicate 409, the same keyword allowed per kind, delete 404), and the DB constraints.
+- `npm test` (frontend): 141 of 143 passed and 2 skipped (existing).
+- `TEST_DATABASE_URL=<test DB> npm run check` passed: backend 108 passed (0 skipped), frontend 141 of 143 passed and 2 skipped (existing), 4 skill tests, build succeeded.
+- Browser: we connected the API to the test DB and checked `/ledger` with headless Chrome (viewport set through CDP). No horizontal overflow at either size (scrollWidth = clientWidth).
+  - 390×844: after we put a "스타벅스" ("Starbucks") rule and 5 entries through the API, only the Starbucks entry was assigned to food automatically and 4 were uncategorized. When we chose 2 "김밥천국" ("Kimbap Heaven") entries and classified them as food, "2건을 식비(으)로 분류했습니다. 가맹점 1개를 규칙으로 저장했습니다" ("Classified 2 entries as food. Saved 1 merchant as a rule") appeared, uncategorized dropped to 2, and "김밥천국 역삼점 → 식비" ("Kimbap Heaven Yeoksam branch → Food") appeared in the rule list. Focus stayed on the classify button. Long merchant names wrap.
+  - 1440×900: after adding a "쇼핑몰 → 생활" ("Shopping mall → Living") rule and pressing "규칙으로 다시 분류", only the 1 shopping mall entry with a long name changed to living, and entries with no merchant stayed uncategorized.
+- The local `npm run knip` does not run because the oxc-resolver native binding is missing (the same as #45). We check it in CI.
 
-## 제한·후속
+## Limits and follow-up
 
-- 규칙에 맞는 가맹점의 내역은 "미분류"로 저장해도 규칙이 다시 카테고리를 넣는다. 미분류로 두려면 그 규칙을 지운다.
+- For an entry whose merchant matches a rule, even if you save it as "미분류", the rule puts the category back in. To leave it uncategorized, delete that rule.
 
-- 규칙 수정 화면은 없다. 삭제 후 다시 만든다.
-- 미분류 목록은 최근 200건만 보여 준다.
-- AI 분류 검토는 #83. 카드·쿠팡·카카오페이 불러오기에서 가맹점을 채우는 일은 #57~#59.
+- There is no rule edit screen. Delete and create again.
+- The uncategorized list shows only the latest 200.
+- Reviewing AI classification is #83. Filling in merchants when importing card, Coupang, and KakaoPay entries is #57 to #59.
 
-## 리뷰 기록
+## Review record
 
-### 1차 — 병합을 막는 결함 없음, 6건 반영
+### Round 1: no defect blocking the merge, 6 addressed
 
-- 고른 카테고리가 숨겨지면 조용히 미분류로 저장되던 회귀: 선택 칸에 "다시 고르세요"를 보이고, 그대로 기록하면 "고른 카테고리를 쓸 수 없습니다. 카테고리를 다시 고르세요"로 막는다. 미분류를 직접 고르면 저장된다.
-- 한 번 저장·분류·규칙 변경에 같은 목록을 두 번 불러오던 문제: 변경을 알린 구역은 버전이 바뀌어도 한 번 건너뛰고, 자기 상태 문구를 위해 한 번만 다시 불러온다.
-- "규칙으로 다시 분류" 도중 같은 내역의 종류나 가맹점이 바뀌어 커밋되면 외래 키 위반 500이 날 수 있었다: 갱신하는 행의 종류와 가맹점을 다시 비교한다.
-- "규칙으로 저장"이 기존 규칙을 조용히 바꾸던 점: 새 규칙(`rulesAdded`)과 바뀐 규칙(`rulesUpdated`)을 나눠 세고 화면에 따로 알린다. 이미 같은 카테고리인 규칙은 건드리지도 세지도 않는다.
-- 건너뛴 건수 문구를 "이미 분류되었거나 바뀌어 건너뛰었습니다"로 바꿨다.
-- 일괄 분류의 카테고리 오류에 `aria-invalid`를 단다.
-- 테스트 추가: 숨겨진 선택 뒤 기록 차단과 미분류 직접 선택(프론트), 한 번만 불러오기, 바뀐 규칙·건너뜀 문구, 종류 불일치 표시, 같은 규칙 다시 저장 시 0/0, 다시 분류 중 종류가 바뀐 내역을 건드리지 않음(DB 통합, 행 잠금으로 재현).
-- 반영하지 않음: 같은 순간에 숨김이 커밋되면 숨긴 카테고리 규칙이 생길 수 있는 점(적용 단계에서 숨긴 카테고리는 거르므로 피해 없음), 카테고리 목록을 구역마다 따로 불러오는 점(요청 수 최적화는 이 PR 범위 밖).
-- 검증: `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과(백엔드 109개 통과·건너뜀 0, 프론트엔드 146개 중 144개 통과·2개 건너뜀(기존), 스킬 4개).
+- A regression where a chosen category that became hidden was silently saved as uncategorized: the select field shows "다시 고르세요" ("Choose again"), and recording as it is is blocked with "고른 카테고리를 쓸 수 없습니다. 카테고리를 다시 고르세요" ("The chosen category cannot be used. Choose a category again"). If you choose uncategorized directly, it is saved.
+- The same list was loaded twice for one save, classification, or rule change: the section that announced the change skips once even when the version changes, and reloads only once for its own status text.
+- If the kind or merchant of the same entry changed and committed during "규칙으로 다시 분류", a foreign key violation 500 could happen: we compare the kind and merchant of the row being updated again.
+- "Save as rule" silently changed existing rules: we count new rules (`rulesAdded`) and changed rules (`rulesUpdated`) separately and announce them separately on the screen. A rule that is already the same category is neither touched nor counted.
+- We changed the skipped count text to "이미 분류되었거나 바뀌어 건너뛰었습니다" ("Skipped because already classified or changed").
+- We add `aria-invalid` to the category error of bulk classification.
+- Tests added: blocking a record after a hidden choice and choosing uncategorized directly (frontend), loading only once, the changed rule and skipped text, kind mismatch display, 0/0 when saving the same rule again, and not touching an entry whose kind changed during reclassification (DB integration, reproduced with a row lock).
+- Not addressed: that a rule for a hidden category can be created if hiding commits at the same moment (no harm, because the apply step filters out hidden categories), and that the category list is loaded separately by each section (optimizing the number of requests is outside this PR).
+- Verification: `TEST_DATABASE_URL=<test DB> npm run check` passed (backend 109 passed and 0 skipped, frontend 144 of 146 passed and 2 skipped (existing), 4 skill tests).
 
-### 2차 — 1차 반영 5건 확인, 막는 결함 없음, 2차 보완 커밋으로 6건 반영
+### Round 2: 5 first-round fixes confirmed, no blocking defect, 6 addressed in the second-round fix commit
 
-- 규칙 목록이 카테고리 이름 변경·숨김을 따라가지 않던 문제: 카테고리가 바뀌면 규칙 목록도 다시 불러온다.
-- 수정 중인 내역이 아래 "미분류 내역"에서 분류되면 저장할 때 미분류로 되돌아가던 문제: 다시 불러온 목록에서 카테고리가 바뀌었으면 폼에 반영하고 알린다(사용자가 이미 다른 카테고리를 골랐으면 그대로 둔다). 포커스는 옮기지 않는다.
-- 카테고리를 아직 못 불러온 상태에서 "다시 고르세요"가 잘못 뜨던 점: 불러온 뒤에만 판정한다. 오류 표시도 그 상태일 때만 남긴다.
-- 겹치는 일괄 분류 두 건이 동시에 오면 교착 상태가 날 수 있던 점: 행을 id 순서로 먼저 잠근다.
-- 다시 분류 경쟁 테스트가 300ms 고정 대기에 기대던 점: 잠금 대기가 보일 때까지 확인한 뒤 커밋한다.
-- `skipReload`의 전제(부모가 올린 버전을 다시 내려 줌)와 `xmax = 0`이 PostgreSQL 구현 세부라는 점을 주석으로 남겼다.
-- 테스트 추가: 다른 곳에서 분류된 내역 수정 저장, 카테고리 로딩 전 표시, 카테고리 변경 시 규칙 다시 불러오기.
-- 표준에 따라 3차 리뷰는 하지 않는다.
+- The rule list did not follow category renames and hiding: when a category changes, the rule list is reloaded too.
+- If the entry being edited was classified in the "미분류 내역" section below, saving put it back to uncategorized: if the category changed in the reloaded list, we reflect it in the form and announce it (if the user already chose another category, we leave it). We do not move focus.
+- "다시 고르세요" wrongly appeared before the categories were loaded: we judge only after loading. The error display also stays only in that state.
+- Two overlapping bulk classifications arriving at the same time could deadlock: we lock rows first in id order.
+- The reclassification race test relied on a fixed 300 ms wait: we now check until the lock wait is visible, then commit.
+- We left a comment that the premise of `skipReload` (the parent passes down the raised version again) and `xmax = 0` are PostgreSQL implementation details.
+- Tests added: saving an edit of an entry classified elsewhere, display before the categories load, and reloading the rules when a category changes.
+- By the standard, we do not run a third review.

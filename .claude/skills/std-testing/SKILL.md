@@ -3,32 +3,32 @@ name: std-testing
 description: Write or update behavior-focused tests with implementations and fixes in a sirloinbh app repository, run them before commits and PR creation or updates, and record actual results. Use with std-implementation; for documentation-only changes validate the changed artifacts instead of adding unrelated app tests.
 ---
 
-<!-- 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/skills/std-testing/에서 -->
+<!-- Managed file. Edit it in sirloinbh/project-standards templates/app/skills/std-testing/ -->
 
-# 가계부·자산·모의투자 테스트 작성과 실행
+# Money Ledger Writing and Running Tests
 
-프로젝트의 `AGENTS.md`, `AGENTS.project.md`와 [std-implementation](../std-implementation/SKILL.md) 절차를 함께 따른다. 이 스킬은 테스트 작성·실행 기준이며, 이슈·브랜치·docs·PR 절차와 병합 정책을 바꾸지 않는다. 프로젝트에 설치된 테스트 도구와 위치는 `AGENTS.project.md`에 있다.
+Follow the project's `AGENTS.md`, `AGENTS.project.md`, and the [std-implementation](../std-implementation/SKILL.md) procedure together with this skill. This skill sets the standard for writing and running tests. It does not change the issue, branch, docs, and PR procedure or the merge policy. The test tools installed in the project and their locations are in `AGENTS.project.md`.
 
-## 구현·수정과 함께 작성
+## Write tests with the implementation or fix
 
-- 기능을 구현하거나 동작을 바꿀 때 그 요구사항을 검증하는 테스트를 함께 추가·수정하고, 구현과 테스트를 같은 커밋에 포함한다. 기존 테스트 실행만으로 새 기능 검증을 대신하지 않는다.
-- 버그 수정에는 그 버그의 재발을 잡는 회귀 테스트를 추가한다. 가능하면 수정 전 실패·수정 후 성공을 확인하고, 재현하지 못하면 그 한계를 기록한다.
-- 리팩터링은 기존 동작 보존을 검증한다. 부족한 시나리오는 보강한다.
-- 내부 구현을 그대로 반복하는 테스트보다 사용자에게 보이는 결과와 도메인 규칙을 검증한다. 정상 경로와, 변경에 관련된 입력 오류·경계·실패 경로를 고른다.
-- 업무 로직은 단위, API·DB 저장·트랜잭션은 통합, 화면 입력·저장 흐름은 컴포넌트 또는 브라우저 테스트를 고른다. 모든 변경에 모든 종류를 추가하지 않는다.
-- 현재 설치된 테스트 도구와 명령을 확인한다. 아직 도입하지 않은 도구(Vitest, Playwright 등)를 쓴 것처럼 보고하지 않는다.
-- 테스트 데이터는 운영·사용자 데이터와 분리한다. 테스트 DB는 `money_test`처럼 전용 DB를 쓴다. 시간·날짜·무작위 값에 의존하는 검사는 실행 환경이 바뀌어도 같은 의미를 검증하도록 쓴다.
+- When you implement a feature or change behavior, add or update tests that verify that requirement, and put the implementation and the tests in the same commit. Do not let running existing tests stand in for verifying the new feature.
+- For a bug fix, add a regression test that catches the bug if it comes back. If possible, confirm it fails before the fix and passes after; if you cannot reproduce the bug, record that limit.
+- For a refactor, verify that existing behavior is preserved. Add the scenarios that are missing.
+- Verify results the user can see and domain rules, rather than writing tests that repeat the internal implementation. Pick the happy path plus the invalid input, boundary, and failure paths that relate to the change.
+- Pick unit tests for business logic, integration tests for API, DB writes, and transactions, and component or browser tests for screen input and save flows. Do not add every kind of test to every change.
+- Check the test tools and commands that are installed now. Do not report as if you used a tool the project has not adopted yet (Vitest, Playwright, and so on).
+- Keep test data separate from production and user data. Use a dedicated DB for tests, such as `money_test`. Write checks that depend on time, dates, or random values so they verify the same meaning when the runtime environment changes.
 
-## 커밋 전
+## Before a commit
 
-- 최종 커밋 대상의 변경과 테스트를 확인하고 관련 테스트를 실제로 실행한다. 구현·테스트·docs 기록을 같은 커밋에 넣는다.
-- 테스트 코드 경로, 검증한 동작, 실행 명령과 결과를 `docs/changes`의 해당 이슈 기록에 남긴다.
-- 실패한 테스트를 skip·삭제하거나 assertion을 약하게 바꿔 통과시키지 않는다. 실패를 해결한 뒤 커밋한다.
-- 필요한 실행 환경을 준비할 수 없다면 실행하지 않았다고 기록한다. 검증되지 않은 구현을 완료로 보고하지 않고, 남은 검증이 있는 PR은 draft로 전달한다.
+- Check the changes and tests that will be in the final commit, and actually run the relevant tests. Put the implementation, tests, and docs record in the same commit.
+- Record the test code paths, the behavior you verified, and the run commands and results in the `docs/changes` record for that issue.
+- Do not make a failing test pass by skipping it, deleting it, or weakening its assertions. Fix the failure, then commit.
+- If you cannot prepare the environment needed to run the tests, record that you did not run them. Do not report unverified work as done, and hand off a PR with remaining verification as a draft.
 
-## PR 생성·갱신 전
+## Before creating or updating a PR
 
-- 최종 diff에 대해 관련 테스트와 프로젝트 필수 검사를 실행하고 성공을 확인한다. 커밋 후 변경이 없고 같은 대상의 결과가 유효하면 같은 검사를 반복하지 않는다.
-- PR에 추가·수정한 테스트, 실행 명령, pass/fail/skip, 실행하지 않은 이유를 적는다. DB 환경변수가 없어 건너뛴 통합 테스트는 성공으로 세지 않는다.
-- PR 이후 코드·테스트를 고치면 영향받는 검사를 다시 실행하고 docs·PR 결과를 갱신한다. CI 실패도 해결한다.
-- 문서·스킬·포맷만 바뀌고 앱 동작 변경이 없으면, 그 산출물의 검증기·포맷·링크 검사로 검증하고 앱 테스트를 추가하지 않은 이유를 적는다.
+- Run the relevant tests and the project's required checks against the final diff, and confirm they pass. If nothing changed after the commit and the results for the same target are still valid, do not repeat the same checks.
+- In the PR, list the tests you added or changed, the run commands, pass/fail/skip, and the reason for anything you did not run. Do not count an integration test that was skipped because the DB environment variables were missing as a pass.
+- If you change code or tests after the PR is open, rerun the affected checks and update the results in the docs and the PR. Fix CI failures too.
+- If only docs, skills, or formatting changed and app behavior did not change, verify with the validators, formatters, and link checks for those artifacts, and write why you did not add app tests.

@@ -35,11 +35,11 @@ type Detail = {
 };
 
 const issueText: Record<QuoteIssue | 'none', string> = {
-  not_configured: '시세 출처가 설정되지 않았습니다',
-  rate_limited: '잠시 후 다시 시도하세요',
-  fetch_failed: '시세를 받지 못했습니다. 잠시 후 다시 시도하세요',
-  not_found: '시세 출처에서 찾을 수 없는 종목입니다',
-  none: '아직 받은 종가가 없습니다',
+  not_configured: 'No quote source is configured',
+  rate_limited: 'Try again in a moment',
+  fetch_failed: 'Could not get the quote. Try again in a moment',
+  not_found: 'This security was not found in the quote source',
+  none: 'No close received yet',
 };
 
 const title = (security: Security) => security.name ?? security.symbol;
@@ -80,7 +80,7 @@ export function SecuritySearch({ onOrdered }: { onOrdered?: () => void } = {}) {
     const q = query.trim();
     if (!q) {
       setInvalid(true);
-      setSearch({ state: 'error', message: '검색어를 입력하세요' });
+      setSearch({ state: 'error', message: 'Enter a search term' });
       return;
     }
     setInvalid(false);
@@ -94,7 +94,7 @@ export function SecuritySearch({ onOrdered }: { onOrdered?: () => void } = {}) {
         setSearch({ state: 'done', query: q, securities: data.securities });
     } catch (cause) {
       if (id === latest.current) {
-        setSearch({ state: 'error', message: errorText(cause, '종목을 검색하지 못했습니다') });
+        setSearch({ state: 'error', message: errorText(cause, 'Could not search securities') });
       }
     }
   };
@@ -103,14 +103,14 @@ export function SecuritySearch({ onOrdered }: { onOrdered?: () => void } = {}) {
     search.state === 'error'
       ? { kind: 'error', text: search.message }
       : search.state === 'loading'
-        ? { kind: 'status', text: '검색하는 중입니다' }
+        ? { kind: 'status', text: 'Searching' }
         : search.state === 'done'
           ? {
               kind: 'status',
               text:
                 search.securities.length === 0
-                  ? `"${search.query}" 검색 결과가 없습니다`
-                  : `"${search.query}" 검색 결과 ${search.securities.length}개`,
+                  ? `No results for "${search.query}"`
+                  : `${search.securities.length} ${search.securities.length === 1 ? 'result' : 'results'} for "${search.query}"`,
             }
           : undefined;
 
@@ -118,20 +118,20 @@ export function SecuritySearch({ onOrdered }: { onOrdered?: () => void } = {}) {
     <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
-          <CardTitle asHeading="h2">종목 찾기</CardTitle>
+          <CardTitle asHeading="h2">Find a security</CardTitle>
           <CardDescription id="security-search-hint">
-            국내 종목은 이름이나 종목코드로 찾습니다. 미국 종목은 티커로 검색하세요(예: AAPL).
+            Find Korean securities by name or code. Search US securities by ticker (e.g. AAPL).
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <form
             role="search"
-            aria-label="종목 검색"
+            aria-label="Security search"
             onSubmit={(event) => void submit(event)}
             className="flex flex-col gap-2 sm:flex-row sm:items-end"
           >
             <div className="flex flex-col gap-2 sm:w-80">
-              <Label htmlFor="security-query">종목 이름, 코드 또는 티커</Label>
+              <Label htmlFor="security-query">Security name, code, or ticker</Label>
               <Input
                 id="security-query"
                 type="search"
@@ -147,12 +147,12 @@ export function SecuritySearch({ onOrdered }: { onOrdered?: () => void } = {}) {
               />
             </div>
             <Button type="submit" aria-busy={search.state === 'loading' || undefined}>
-              검색
+              Search
             </Button>
           </form>
           <Notice id="security-search-notice" notice={notice} />
           {search.state === 'done' && search.securities.length > 0 ? (
-            <ul aria-label="검색 결과" className="flex flex-col divide-y rounded-xl border">
+            <ul aria-label="Search results" className="flex flex-col divide-y rounded-xl border">
               {search.securities.map((found) => (
                 <li key={found.id}>
                   <button
@@ -182,7 +182,7 @@ export function SecuritySearch({ onOrdered }: { onOrdered?: () => void } = {}) {
                         </>
                       ) : (
                         <span className="text-body-sm text-muted-foreground">
-                          {found.currency === 'USD' ? '열면 시세를 받습니다' : '시세 없음'}
+                          {found.currency === 'USD' ? 'Open to get a quote' : 'No quote'}
                         </span>
                       )}
                     </span>
@@ -222,7 +222,7 @@ function SecurityDetail({
         onLoaded(data);
       })
       .catch((cause: unknown) => {
-        if (current) setError(errorText(cause, '종목 시세를 불러오지 못했습니다'));
+        if (current) setError(errorText(cause, 'Could not load the security quote'));
       });
     return () => {
       current = false;
@@ -238,7 +238,7 @@ function SecurityDetail({
     return (
       <section aria-labelledby="security-detail-title" className="flex flex-col gap-2">
         <h2 id="security-detail-title" ref={heading} tabIndex={-1} className="outline-none">
-          종목 시세
+          Security quote
         </h2>
         {error ? (
           <p role="alert" className="text-body-sm text-destructive">
@@ -246,7 +246,7 @@ function SecurityDetail({
           </p>
         ) : (
           <p role="status" className="text-body-sm text-muted-foreground">
-            시세를 불러오는 중입니다
+            Loading the quote
           </p>
         )}
       </section>
@@ -270,14 +270,14 @@ function SecurityDetail({
           <span className="tabular-nums">{security.symbol}</span>
           <Badge variant="outline">{marketNames[security.market] ?? security.market}</Badge>
           {security.kind === 'etf' ? <Badge variant="secondary">ETF</Badge> : null}
-          <span>{security.currency === 'KRW' ? '원화' : '달러'}</span>
-          {security.active ? null : <Badge variant="warning">거래 중단</Badge>}
+          <span>{security.currency === 'KRW' ? 'KRW' : 'USD'}</span>
+          {security.active ? null : <Badge variant="warning">Trading halted</Badge>}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         <dl className="grid gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1 rounded-xl border px-4 py-3">
-            <dt className="text-body-sm text-muted-foreground">현재가(종가)</dt>
+            <dt className="text-body-sm text-muted-foreground">Current price (close)</dt>
             {quote ? (
               <dd className="flex flex-col gap-1">
                 <span className="text-lg font-semibold tabular-nums">{formatClose(quote)}</span>
@@ -293,7 +293,7 @@ function SecurityDetail({
               </dd>
             ) : (
               <dd className="flex flex-col gap-1">
-                <span className="text-lg font-semibold">시세 없음</span>
+                <span className="text-lg font-semibold">No quote</span>
                 <span className="text-caption text-muted-foreground">
                   {issueText[quoteIssue ?? 'none']}
                 </span>
@@ -302,19 +302,21 @@ function SecurityDetail({
           </div>
           {security.currency === 'USD' ? (
             <div className="flex flex-col gap-1 rounded-xl border px-4 py-3">
-              <dt className="text-body-sm text-muted-foreground">원/달러 환율(매매기준율)</dt>
+              <dt className="text-body-sm text-muted-foreground">
+                KRW/USD exchange rate (base rate)
+              </dt>
               {fx ? (
                 <dd className="flex flex-col gap-1">
                   <span className="text-lg font-semibold tabular-nums">
-                    {formatDecimal(fx.fxRate)}원
+                    ₩{formatDecimal(fx.fxRate)}
                   </span>
                   <span className="text-caption text-muted-foreground">
-                    {fx.stale ? '환율 지연 · ' : ''}
-                    {formatMonthDay(fx.rateDate)} 기준
+                    {fx.stale ? 'Rate delayed · ' : ''}
+                    as of {formatMonthDay(fx.rateDate)}
                   </span>
                 </dd>
               ) : (
-                <dd className="text-lg font-semibold">환율 없음</dd>
+                <dd className="text-lg font-semibold">No exchange rate</dd>
               )}
             </div>
           ) : null}

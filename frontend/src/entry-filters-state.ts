@@ -1,3 +1,5 @@
+import { monthLabel } from './trend-series';
+
 // #39 Filters for the entry list. They live in the address (`?from=…&to=…&kind=…&category=…&q=…&page=…`)
 // so a reload or a shared link shows the same list. Without `from` and `to` the list is this month in Seoul;
 // `from=&to=` (both empty) is every date.
@@ -8,13 +10,13 @@ export type Filters = {
   from: string;
   to: string;
   kind: '' | Kind;
-  /** '' all, 'none' 미분류, or a category id. */
+  /** '' all, 'none' uncategorized, or a category id. */
   category: string;
   q: string;
   page: number;
 };
 
-export const kindLabel: Record<Kind, string> = { expense: '지출', income: '수입' };
+export const kindLabel: Record<Kind, string> = { expense: 'Expense', income: 'Income' };
 export const selectClass =
   'flex h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none pointer-coarse:min-h-11 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-body-sm dark:bg-input/30';
 
@@ -97,16 +99,16 @@ export function apiQuery(filters: Filters, pageSize: number) {
   return params.toString();
 }
 
-/** "2026년 11월" for a whole month, otherwise the dates as given. */
+/** "November 2026" for a whole month, otherwise the dates as given. */
 export function periodLabel({ from, to }: { from: string; to: string }) {
   if (from && to) {
     const month = from.slice(0, 7);
     if (from === `${month}-01` && to === monthRange(month).to) {
-      return `${month.slice(0, 4)}년 ${Number(month.slice(5))}월`;
+      return monthLabel(month);
     }
     return `${from} ~ ${to}`;
   }
-  if (from) return `${from}부터`;
-  if (to) return `${to}까지`;
-  return '전체 기간';
+  if (from) return `From ${from}`;
+  if (to) return `Through ${to}`;
+  return 'All time';
 }
