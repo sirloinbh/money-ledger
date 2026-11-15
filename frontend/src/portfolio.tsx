@@ -1,5 +1,6 @@
 import { AssetManager } from './assets';
 import type { Health } from './health';
+import { NetWorthHistory } from './net-worth-history';
 import { Page } from './page';
 
 export function PortfolioPage({ health }: { health: Health }) {
@@ -9,7 +10,7 @@ export function PortfolioPage({ health }: { health: Health }) {
       description="Record your assets and liabilities and track how your net worth changes"
       health={health}
     >
-      <AssetManager />
+      <AssetManager afterAllocation={<NetWorthHistory />} />
     </Page>
   );
 }
