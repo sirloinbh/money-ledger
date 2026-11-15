@@ -22,16 +22,25 @@ export const stateSources = {
   job: 'DAILY_JOB',
 } as const;
 
-export type FetchState = { checkedThrough: string | null; lastAttemptAt: Date | null };
+export type FetchState = {
+  checkedThrough: string | null;
+  lastAttemptAt: Date | null;
+  lastError: string | null;
+};
 
 export async function getState(db: Db, source: string, scope: string): Promise<FetchState> {
-  const { rows } = await db.query<{ checked_through: string | null; last_attempt_at: Date | null }>(
-    'SELECT checked_through, last_attempt_at FROM price_fetch_state WHERE source = $1 AND scope = $2',
+  const { rows } = await db.query<{
+    checked_through: string | null;
+    last_attempt_at: Date | null;
+    last_error: string | null;
+  }>(
+    'SELECT checked_through, last_attempt_at, last_error FROM price_fetch_state WHERE source = $1 AND scope = $2',
     [source, scope],
   );
   return {
     checkedThrough: rows[0]?.checked_through ?? null,
     lastAttemptAt: rows[0]?.last_attempt_at ?? null,
+    lastError: rows[0]?.last_error ?? null,
   };
 }
 

@@ -29,6 +29,14 @@ export const tiingoHourlyLimit = 50;
 export const dailyTiingoLimit = 40;
 
 const notConfigured = 'No quote source is configured';
+const notFoundNote = 'Not found at Tiingo';
+/**
+ * A ticker Tiingo did not know is asked for again 7 days later (#96). The daily run starts at about the same
+ * time each day but not to the millisecond, so an hour less keeps the 7th day's run from just missing it.
+ */
+const notFoundRetryMs = 7 * 86_400_000 - 3_600_000;
+/** Screens ask for one US security at most once an hour, so reopening it does not spend the limit (#96). */
+export const screenRetryMs = 3_600_000;
 const tickersEveryDays = 7;
 
 const messageOf = (error: unknown) =>
@@ -114,6 +122,7 @@ export async function runDailyFetch(pool: Pool, sources: PriceSources, now: Date
       break; // the rest waits for the next hourly retry
     }
     if (result === 'fetch_failed') complete = false;
+    // 'known_missing' (asked within the last 7 days, still unknown) is skipped without a log line each day.
     if (result === 'fetch_failed' || result === 'not_found') {
       log({
         event: 'price_fetch_failed',
@@ -134,7 +143,19 @@ function checks(date: string, latest: string, values: number) {
   return date < latest || values > 0;
 }
 
-export type UsFetchResult = 'saved' | 'up_to_date' | 'rate_limited' | 'fetch_failed' | 'not_found';
+/**
+ * `known_missing`, `tried_recently` and `failed_recently` spend no call: the ticker was unknown within the last
+ * 7 days, or (with `retryAfterMs`) it was asked for within that time and the answer was empty or failed.
+ */
+export type UsFetchResult =
+  | 'saved'
+  | 'up_to_date'
+  | 'rate_limited'
+  | 'fetch_failed'
+  | 'not_found'
+  | 'known_missing'
+  | 'tried_recently'
+  | 'failed_recently';
 
 /** Closes of one US security for the dates it is missing, within the hourly call `limit`. */
 export async function fetchUsCloses(
@@ -143,11 +164,17 @@ export async function fetchUsCloses(
   security: UsSecurity,
   now: Date,
   limit: number,
+  retryAfterMs = 0,
 ): Promise<UsFetchResult> {
   const latest = latestUsDate(now);
   const state = await getState(pool, stateSources.tiingo, security.symbol);
   const dates = datesToFetch(state.checkedThrough, latest);
+  const since =
+    state.lastAttemptAt === null ? Infinity : now.getTime() - state.lastAttemptAt.getTime();
+  // Checked before "up to date" so a reopen on the day of the 404 still says the ticker is missing.
+  if (state.lastError === notFoundNote && since < notFoundRetryMs) return 'known_missing';
   if (dates.length === 0) return 'up_to_date';
+  if (since < retryAfterMs) return state.lastError === null ? 'tried_recently' : 'failed_recently';
   if (!(await reserveCall(pool, stateSources.tiingo, limit, now))) return 'rate_limited';
   try {
     const closes = await tiingo.closes(security.symbol, dates[0], latest);
@@ -161,7 +188,7 @@ export async function fetchUsCloses(
         latest,
         tiingo.name,
         now,
-        'Not found at Tiingo',
+        notFoundNote,
       );
       return 'not_found';
     }

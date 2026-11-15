@@ -3,7 +3,13 @@ import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
 import { HttpError, parseId } from '../standard/http.js';
-import { fetchUsCloses, fetchUsName, type PriceLog, tiingoHourlyLimit } from './fetch.js';
+import {
+  fetchUsCloses,
+  fetchUsName,
+  type PriceLog,
+  screenRetryMs,
+  tiingoHourlyLimit,
+} from './fetch.js';
 import type { PriceSources } from './sources.js';
 import { trackedDays } from './store.js';
 
@@ -118,12 +124,22 @@ export function pricesRouter(pool: Pool, { sources, today, now, log }: Options) 
     if (row.currency === 'USD' && (!tracked || !hasCloses)) {
       if (!tiingo) issue = 'not_configured';
       else {
-        const result = await fetchUsCloses(pool, tiingo, security, at, tiingoHourlyLimit);
+        const result = await fetchUsCloses(
+          pool,
+          tiingo,
+          security,
+          at,
+          tiingoHourlyLimit,
+          screenRetryMs,
+        );
         if (result === 'saved') hasCloses = true;
         if (result === 'rate_limited' || result === 'fetch_failed' || result === 'not_found') {
           issue = result;
           log({ event: 'price_fetch_now', symbol: row.symbol, result });
         }
+        // No call this time: the last answer stands.
+        if (result === 'known_missing') issue = 'not_found';
+        if (result === 'failed_recently') issue = 'fetch_failed';
       }
     }
     // The name is fetched on any open while it is missing, but only for a ticker Tiingo has closes for,
