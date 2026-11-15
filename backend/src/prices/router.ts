@@ -11,12 +11,13 @@ import {
   tiingoHourlyLimit,
 } from './fetch.js';
 import type { PriceSources } from './sources.js';
-import { trackedDays } from './store.js';
+import { trackedDays, trackedUsLimit, trackOpened } from './store.js';
 
 // #51 Security search and quote API, shared by mock trading and the portfolio (#47).
 // Search reads the DB only. US securities are found by ticker; a US name is saved when the detail is first
 // opened and is searchable from then on (2026-11-08 decision). Opening a US security that is not on the
-// daily fetch fetches its recent closes right away (docs/price-source.md).
+// daily fetch fetches its recent closes right away (docs/price-source.md). Since #98 the GET is read-only and
+// the screen opens a detail with POST .../view, which fetches and tracks.
 
 /** "Delayed" means more than 5 calendar days since the close or rate date (docs/price-source.md). */
 const staleAfterDays = 5;
@@ -80,7 +81,13 @@ const withLatestClose = `
 /** `%`, `_` and `\` typed by the user match themselves in LIKE. */
 const likeLiteral = (text: string) => text.replace(/[\\%_]/g, (char) => `\\${char}`);
 
-type QuoteIssue = 'not_configured' | 'rate_limited' | 'fetch_failed' | 'not_found';
+type QuoteIssue =
+  | 'not_configured'
+  | 'rate_limited'
+  | 'fetch_failed'
+  | 'not_found'
+  // #98 Not tracked: as many US securities as allowed are tracked already.
+  | 'tracking_full';
 
 type Options = { sources: PriceSources; today: () => string; now: () => Date; log: PriceLog };
 
@@ -101,17 +108,52 @@ export function pricesRouter(pool: Pool, { sources, today, now, log }: Options) 
     });
   });
 
+  const read = async (id: number) =>
+    (
+      await pool.query<SecurityRow & { viewed_at: Date | null }>(
+        `${withLatestClose} WHERE s.id = $2`,
+        [today(), id],
+      )
+    ).rows[0];
+
+  const detail = async (row: SecurityRow, issue: QuoteIssue | null) => {
+    let fx = null;
+    if (row.currency === 'USD') {
+      const rate = await pool.query<{ fx_rate: string; rate_date: string; stale: boolean }>(
+        `SELECT fx_rate, rate_date, ($1::date - rate_date) > ${staleAfterDays} AS stale
+         FROM fx_rates WHERE currency = 'USD' ORDER BY rate_date DESC LIMIT 1`,
+        [today()],
+      );
+      const latest = rate.rows[0];
+      fx = latest
+        ? { fxRate: latest.fx_rate, rateDate: latest.rate_date, stale: latest.stale }
+        : null;
+    }
+    const quote = toQuote(row);
+    return {
+      security: toSecurity(row),
+      quote,
+      // Why there is no close, when a fetch was tried and failed. A security past the tracking limit says so
+      // even with a stored close, since that close will not be updated.
+      quoteIssue: quote === null || issue === 'tracking_full' ? issue : null,
+      fx,
+    };
+  };
+
+  // #98 Reading a detail never calls a quote source or tracks the security: a link preview or a crawler
+  // walking ids must not spend the Tiingo plan. The screen opens a detail with the POST below.
   router.get('/securities/:id', async (req, res) => {
+    const row = await read(parseId(req.params.id, 'security'));
+    if (!row) throw new HttpError(404, 'Security not found');
+    res.json(await detail(row, null));
+  });
+
+  // Opening a detail on the screen: a US security off the daily fetch, or one still without any close, is
+  // fetched now, and the security goes on the daily fetch for 30 days, within `trackedUsLimit`.
+  router.post('/securities/:id/view', async (req, res) => {
     const id = parseId(req.params.id, 'security');
     const at = now();
-    const read = async () =>
-      (
-        await pool.query<SecurityRow & { viewed_at: Date | null }>(
-          `${withLatestClose} WHERE s.id = $2`,
-          [today(), id],
-        )
-      ).rows[0];
-    let row = await read();
+    let row = await read(id);
     if (!row) throw new HttpError(404, 'Security not found');
 
     let issue: QuoteIssue | null = null;
@@ -120,8 +162,11 @@ export function pricesRouter(pool: Pool, { sources, today, now, log }: Options) 
     const tiingo = sources.tiingo;
     const security = { id, symbol: row.symbol, name: row.name };
     let hasCloses = row.close !== null;
-    // A US security off the daily fetch, or one still without any close, is fetched right away.
-    if (row.currency === 'USD' && (!tracked || !hasCloses)) {
+    if (!(await trackOpened(pool, id, at))) {
+      // A new US security past the limit: the stored close, if any, without a call.
+      issue = 'tracking_full';
+      log({ event: 'price_tracking_full', symbol: row.symbol, limit: trackedUsLimit });
+    } else if (row.currency === 'USD' && (!tracked || !hasCloses)) {
       if (!tiingo) issue = 'not_configured';
       else {
         const result = await fetchUsCloses(
@@ -147,30 +192,8 @@ export function pricesRouter(pool: Pool, { sources, today, now, log }: Options) 
     if (row.currency === 'USD' && tiingo && hasCloses && issue === null) {
       await fetchUsName(pool, tiingo, security, at);
     }
-    // Opening the detail puts a US security on the daily fetch for the next 30 days.
-    await pool.query('UPDATE securities SET viewed_at = $2 WHERE id = $1', [id, at]);
-    row = (await read()) ?? row;
-
-    let fx = null;
-    if (row.currency === 'USD') {
-      const rate = await pool.query<{ fx_rate: string; rate_date: string; stale: boolean }>(
-        `SELECT fx_rate, rate_date, ($1::date - rate_date) > ${staleAfterDays} AS stale
-         FROM fx_rates WHERE currency = 'USD' ORDER BY rate_date DESC LIMIT 1`,
-        [today()],
-      );
-      const latest = rate.rows[0];
-      fx = latest
-        ? { fxRate: latest.fx_rate, rateDate: latest.rate_date, stale: latest.stale }
-        : null;
-    }
-    const quote = toQuote(row);
-    res.json({
-      security: toSecurity(row),
-      quote,
-      // Why there is no close, when a fetch was tried and failed. A stored close is still shown if one exists.
-      quoteIssue: quote === null ? issue : null,
-      fx,
-    });
+    row = (await read(id)) ?? row;
+    res.json(await detail(row, issue));
   });
 
   return router;

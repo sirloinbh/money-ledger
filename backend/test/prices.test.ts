@@ -182,10 +182,14 @@ for (const [query, error] of [
   });
 }
 
-test('a malformed security id is a 400', async () => {
+test('a malformed security id is a 400, to read or to open', async () => {
   await withApi(noDb, async (call) => {
-    const response = await call('/api/prices/securities/abc');
-    assert.equal(response.status, 400);
-    assert.deepEqual(response.data, { error: 'Invalid security ID' });
+    for (const response of [
+      await call('/api/prices/securities/abc'),
+      await call('/api/prices/securities/abc/view', { method: 'POST' }),
+    ]) {
+      assert.equal(response.status, 400);
+      assert.deepEqual(response.data, { error: 'Invalid security ID' });
+    }
   });
 });
