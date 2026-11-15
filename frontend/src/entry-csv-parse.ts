@@ -20,7 +20,8 @@ export function exportUrl(filters: Filters) {
 
 /**
  * Splits CSV text into rows of fields (RFC 4180): quoted fields may hold commas, doubled quotes and line
- * breaks; lines end with CRLF or LF. A leading BOM and empty lines are dropped.
+ * breaks; lines end with CRLF or LF. A leading BOM is dropped. Empty lines are kept as rows, so a row's index
+ * is its row number in a spreadsheet; `toImportRows` leaves them out.
  */
 export function parseCsv(text: string) {
   const rows: string[][] = [];
@@ -30,7 +31,7 @@ export function parseCsv(text: string) {
   const source = text.startsWith(bom) ? text.slice(1) : text;
   const endRow = () => {
     row.push(field);
-    if (row.length > 1 || row[0] !== '') rows.push(row);
+    rows.push(row);
     row = [];
     field = '';
   };
@@ -115,28 +116,37 @@ export type ImportRow = {
 };
 
 /**
- * The data rows (after the header) as the server takes them. `line` is the row's number in the file, counting
- * the header as 1, as a spreadsheet shows it. Kind words in Korean are translated, thousands separators and a
+ * The data rows (after the header) as the server takes them, without empty ones (Excel often pads a file with
+ * `,,,,` rows). `line` is the row number a spreadsheet shows for the row, counting the header as 1. Kind words in Korean are translated, thousands separators and a
  * leading ₩ are dropped from amounts, and dates like 2026.11.05 or 2026/11/05 become 2026-11-05; anything else
  * is sent as it is, so the server names the problem.
  */
 export function toImportRows(rows: string[][], mapping: Mapping, fixedKind: FixedKind) {
   const cell = (row: string[], field: Field) =>
     mapping[field] >= 0 ? (row[mapping[field]] ?? '').trim() : '';
-  return rows.slice(1).map((row, index): ImportRow => {
+  return rows.flatMap((row, index): ImportRow[] => {
+    if (index === 0 || blank(row)) return [];
     const kind = cell(row, 'kind');
     const date = cell(row, 'date');
-    return {
-      line: index + 2,
-      date: /^\d{4}[./]\d{2}[./]\d{2}$/.test(date) ? date.replace(/[./]/g, '-') : date,
-      kind: mapping.kind >= 0 ? (kindWords[kind.toLowerCase()] ?? kind) : fixedKind,
-      amount: withoutThousands(cell(row, 'amount').replace(/^₩\s*/, '').replace(/원$/, '')),
-      category: cell(row, 'category'),
-      merchant: cell(row, 'merchant'),
-      memo: cell(row, 'memo'),
-    };
+    return [
+      {
+        line: index + 1,
+        date: /^\d{4}[./]\d{2}[./]\d{2}$/.test(date) ? date.replace(/[./]/g, '-') : date,
+        kind: mapping.kind >= 0 ? (kindWords[kind.toLowerCase()] ?? kind) : fixedKind,
+        amount: withoutThousands(cell(row, 'amount').replace(/^₩\s*/, '').replace(/원$/, '')),
+        category: cell(row, 'category'),
+        merchant: cell(row, 'merchant'),
+        memo: cell(row, 'memo'),
+      },
+    ];
   });
 }
+
+/** A row with nothing in it: an empty line or only commas. */
+const blank = (row: string[]) => row.every((field) => field.trim() === '');
+
+/** How many data rows the file has: rows after the header that are not blank. */
+export const dataRowCount = (rows: string[][]) => rows.slice(1).filter((row) => !blank(row)).length;
 
 /** A file read as UTF-8 that was saved in another encoding has replacement characters in it. */
 export const notUtf8 = (text: string) => text.includes(replacement);

@@ -29,7 +29,6 @@ Download entries as a CSV file, and import entries from a bank or card statement
 
 - The browser parses the CSV and sends JSON rows, so the server never handles file uploads or encodings, and the mapping stays on screen.
 - Duplicate detection compares with entries already saved, not rows inside the same file: two identical card payments on one day are normal.
-- Exported merchant or note text that started with a formula character comes back with the leading `'` if the file is imported again. That is the price of the formula guard; such text is rare in a ledger.
 
 ## Verification (2026-11-16)
 
@@ -49,3 +48,14 @@ Download entries as a CSV file, and import entries from a bank or card statement
   - Choosing the same file again flagged rows 2, 3, and 4 as likely duplicates; with "Skip these rows" checked the button says "Nothing to import".
   - At 1440×900 the column choices sit in three columns.
   - Page width was 390 and 1425 (no horizontal scroll).
+
+### First review (PR #145)
+
+- No blocking issues. Fixed in this PR:
+  - A preview that answers after the file, a column, or the kind changed is dropped. The import sends the very rows that were checked, kept with the preview.
+  - Blank rows and rows of only commas (Excel often adds them) are left out instead of failing the import. Row numbers still match the spreadsheet: blank lines are counted, and a quoted field with a line break stays one row.
+  - Import strips the leading `'` that export adds before `=`, `+`, `-`, `@`, tab, or CR, so an exported file imports back as the same text (DB test with `+Cafe` and `@home`).
+  - The preview reads categories without a lock; only the import share-locks them. A comment says the advisory lock does not hold back entries saved by hand: duplicates are a hint, not a constraint.
+- Tests: a parse test for blank rows and row numbers, a quote inside an unquoted field, and a lone CR; screen tests for the dropped late answer and for importing the checked rows; the round trip now includes formula-guarded text.
+- Not changed: the remaining test-gap ideas (413 over 2 MB, two imports at once, NFD names) are covered by the shared error handler and the existing lock and normalization code.
+- After the fixes: `npm run check` passed (frontend 338 passed / 2 skipped; backend 173 passed / 18 DB tests skipped), `npm run knip` passed, and the CSV DB tests passed 6/6 subtests on the test DB. The layout did not change, so the browser check above was not repeated.

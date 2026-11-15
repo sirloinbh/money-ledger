@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './com
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
 import {
+  dataRowCount,
   entryCsvPath,
   exportUrl,
   type Field,
@@ -12,6 +13,7 @@ import {
   fields,
   type FixedKind,
   guessMapping,
+  type ImportRow,
   type Mapping,
   maxImportRows,
   notUtf8,
@@ -27,6 +29,8 @@ type Preview = {
   valid: number;
   problems: { line: number; message: string }[];
   duplicates: number[];
+  /** The rows this preview checked. */
+  sent: ImportRow[];
 };
 
 /** Problems listed on screen; the rest are counted. */
@@ -45,10 +49,17 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
   const fileInput = useRef<HTMLInputElement>(null);
   const previewHeading = useRef<HTMLHeadingElement>(null);
 
-  // The preview is for one mapping: a change asks for a new one.
+  // Counts changes of the file, the columns, or the kind: an answer to a request sent before a change is dropped,
+  // so the preview always describes what is on screen.
+  const choice = useRef(0);
+  const changed = () => {
+    choice.current++;
+    setPreview(undefined);
+  };
+
   const changeMapping = (next: Mapping) => {
     setMapping(next);
-    setPreview(undefined);
+    changed();
   };
 
   useEffect(() => {
@@ -58,33 +69,36 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
   const reset = () => {
     setFile(undefined);
     setMapping(undefined);
-    setPreview(undefined);
+    changed();
     if (fileInput.current) fileInput.current.value = '';
   };
 
   const choose = async (event: ChangeEvent<HTMLInputElement>) => {
     const chosen = event.target.files?.[0];
-    setPreview(undefined);
+    changed();
+    const asked = choice.current;
     clear();
     if (!chosen) {
       reset();
       return;
     }
     const text = await chosen.text();
+    if (choice.current !== asked) return; // another file was chosen meanwhile
     if (notUtf8(text)) {
       reset();
       showError('This file is not UTF-8. In Excel, save it as "CSV UTF-8" and choose it again');
       return;
     }
     const rows = parseCsv(text);
-    if (rows.length < 2) {
+    const count = dataRowCount(rows);
+    if (count === 0) {
       reset();
       showError('The file has no rows under its header');
       return;
     }
-    if (rows.length - 1 > maxImportRows) {
+    if (count > maxImportRows) {
       reset();
-      showError(`The file has ${rows.length - 1} rows. Import at most ${maxImportRows} at a time`);
+      showError(`The file has ${count} rows. Import at most ${maxImportRows} at a time`);
       return;
     }
     setFile({ name: chosen.name, rows });
@@ -104,15 +118,17 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
     }
     setBusy(true);
     clear();
+    const asked = choice.current;
+    const rows = body();
     try {
-      setPreview(
-        await requestJson<Preview>(`${entryCsvPath}/preview`, {
-          method: 'POST',
-          body: { rows: body() },
-        }),
-      );
+      const answer = await requestJson<Omit<Preview, 'sent'>>(`${entryCsvPath}/preview`, {
+        method: 'POST',
+        body: { rows },
+      });
+      // The import sends the very rows that were checked.
+      if (choice.current === asked) setPreview({ ...answer, sent: rows });
     } catch (cause) {
-      showError(cause, 'Could not check the file');
+      if (choice.current === asked) showError(cause, 'Could not check the file');
     } finally {
       setBusy(false);
     }
@@ -127,7 +143,7 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
         `${entryCsvPath}/import`,
         {
           method: 'POST',
-          body: { rows: body(), skipDuplicates },
+          body: { rows: preview.sent, skipDuplicates },
         },
       );
       reset();
@@ -183,7 +199,7 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
         {file && mapping ? (
           <fieldset className="flex flex-col gap-3">
             <legend className="mb-2 text-sm font-medium">
-              Columns of {file.name} ({file.rows.length - 1} rows)
+              Columns of {file.name} ({dataRowCount(file.rows)} rows)
             </legend>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {fields.map((field: Field) => (
@@ -220,7 +236,7 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
                     value={fixedKind}
                     onChange={(event) => {
                       setFixedKind(event.target.value as FixedKind);
-                      setPreview(undefined);
+                      changed();
                     }}
                   >
                     <option value="expense">Expense</option>

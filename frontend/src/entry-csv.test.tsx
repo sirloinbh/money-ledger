@@ -185,3 +185,30 @@ test('a refused import says nothing was saved and asks for a new check', async (
   expect(screen.getByRole('button', { name: 'Check the rows' })).toBeInTheDocument();
   expect(onImported).not.toHaveBeenCalled();
 });
+
+test('a preview that answers after the columns changed is dropped', async () => {
+  show();
+  await choose(statement);
+  let answer!: (response: Response) => void;
+  answers[previewPath] = () => new Promise<Response>((resolve) => (answer = resolve));
+  fireEvent.click(screen.getByRole('button', { name: 'Check the rows' }));
+  fireEvent.change(screen.getByLabelText('Note (optional)'), { target: { value: '1' } });
+  answer(new Response(JSON.stringify({ rows: 2, valid: 2, problems: [], duplicates: [] })));
+  await vi.waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Check the rows' })).not.toHaveAttribute(
+      'aria-disabled',
+    ),
+  );
+  expect(screen.queryByRole('heading', { level: 4 })).not.toBeInTheDocument();
+});
+
+test('the import sends the rows that were checked', async () => {
+  show();
+  await choose(`${statement}\n,,\n`);
+  await checked({ rows: 2, valid: 2, problems: [], duplicates: [] });
+  answers[importPath] = () => json({ imported: 2, skipped: 0 });
+  fireEvent.click(screen.getByRole('button', { name: 'Import 2 entries' }));
+  await screen.findByRole('status');
+  expect(sent[1].body.rows).toEqual(sent[0].body.rows);
+  expect(sent[1].body.rows.map((row) => row.line)).toEqual([2, 3]);
+});

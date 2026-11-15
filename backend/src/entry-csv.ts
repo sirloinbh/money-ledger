@@ -21,6 +21,9 @@ function csvField(value: string) {
   return /[",\r\n]/.test(safe) ? `"${safe.replaceAll('"', '""')}"` : safe;
 }
 
+/** Undoes csvField's guard, so an exported file imports back as the same text. */
+const unguarded = (value: string) => (/^'[=+\-@\t\r]/.test(value) ? value.slice(1) : value);
+
 const rowInput = z.object({
   // The line in the user's file, for the messages.
   line: z.number().int().positive(),
@@ -58,10 +61,13 @@ type Problem = { line: number; message: string };
 const merchant = merchantText('The merchant');
 const memo = z.string().trim().max(200, 'The note must be 200 characters or fewer');
 
-/** Checks every row against the categories as they are now. Problems name the file's line. */
-async function check(db: Pool | PoolClient, rows: RowInput[]) {
+/**
+ * Checks every row against the categories as they are now. Problems name the file's line. Inside the import's
+ * transaction (`lock`) the categories are share-locked, so one cannot be hidden or renamed before the INSERT.
+ */
+async function check(db: Pool | PoolClient, rows: RowInput[], lock = false) {
   const { rows: categories } = await db.query<{ id: string; kind: string; name: string }>(
-    'SELECT id::text, kind, name FROM ledger_categories WHERE NOT hidden FOR SHARE',
+    `SELECT id::text, kind, name FROM ledger_categories WHERE NOT hidden${lock ? ' FOR SHARE' : ''}`,
   );
   const byName = new Map(
     categories.map((c) => [`${c.kind}/${c.name.normalize('NFC')}`, Number(c.id)]),
@@ -84,17 +90,17 @@ async function check(db: Pool | PoolClient, rows: RowInput[]) {
       fail(`Amount "${row.amount}" is not a whole number of won, 0 or more`);
       continue;
     }
-    const shop = merchant.safeParse(row.merchant);
+    const shop = merchant.safeParse(unguarded(row.merchant.trim()));
     if (!shop.success) {
       fail(shop.error.issues[0].message);
       continue;
     }
-    const note = memo.safeParse(row.memo);
+    const note = memo.safeParse(unguarded(row.memo.trim()));
     if (!note.success) {
       fail(note.error.issues[0].message);
       continue;
     }
-    const categoryName = row.category.trim().normalize('NFC');
+    const categoryName = unguarded(row.category.trim()).normalize('NFC');
     let categoryId: number | null = null;
     if (categoryName) {
       const found = byName.get(`${row.kind}/${categoryName}`);
@@ -189,9 +195,10 @@ export function entryCsvRouter(pool: Pool, { today }: { today: () => string }) {
     const body = importBody.parse(req.body);
     type Result = { problems: Problem[] } | { imported: number; skipped: number };
     const result = await inTransaction<Result>(pool, async (client) => {
-      // One import at a time, so two imports of the same file cannot both miss each other's rows.
+      // One import at a time, so two imports of the same file cannot both miss each other's rows. An entry saved
+      // by hand meanwhile is not locked out: duplicates are a hint for the user, not a constraint.
       await client.query("SELECT pg_advisory_xact_lock(hashtext('ledger_entries_import'))");
-      const { valid, problems } = await check(client, body.rows);
+      const { valid, problems } = await check(client, body.rows, true);
       if (problems.length > 0) return { problems };
       const duplicate = await duplicates(client, valid);
       const saving = body.skipDuplicates ? valid.filter((row) => !duplicate.has(row.line)) : valid;

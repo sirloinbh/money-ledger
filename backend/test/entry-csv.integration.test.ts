@@ -191,6 +191,8 @@ test('entry CSV export and import against the real database', { skip: !url }, as
     await reset();
     await add('2026-11-02', 'expense', 12500, ids['expense/식비'], '스타벅스', 'latte, large');
     await add('2026-11-01', 'income', 3000000, ids['income/급여'], 'Company', 'say "hi"');
+    // Exported with a leading ' so Excel does not run them, and imported back without it.
+    await add('2026-11-03', 'expense', 1, null, '+Cafe', '@home');
     const before = await entries();
     const { text } = await exported();
     // A tiny CSV reader for this file: quoted fields with doubled quotes, no line breaks inside.
@@ -210,7 +212,7 @@ test('entry CSV export and import against the real database', { skip: !url }, as
       });
     await pool.query('DELETE FROM ledger_entries');
     const response = await call('/import', { rows });
-    assert.deepEqual(response.data, { imported: 2, skipped: 0 });
+    assert.deepEqual(response.data, { imported: 3, skipped: 0 });
     assert.deepEqual(await entries(), before);
   });
 

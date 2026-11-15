@@ -1,6 +1,13 @@
 import { expect, test } from 'vitest';
 
-import { exportUrl, guessMapping, notUtf8, parseCsv, toImportRows } from './entry-csv-parse';
+import {
+  dataRowCount,
+  exportUrl,
+  guessMapping,
+  notUtf8,
+  parseCsv,
+  toImportRows,
+} from './entry-csv-parse';
 
 const filters = {
   from: '2026-11-01',
@@ -23,9 +30,23 @@ test('CSV fields: BOM, quotes, doubled quotes, commas and line breaks inside quo
   expect(parseCsv(text)).toEqual([
     ['date', 'memo'],
     ['2026-11-01', 'a, "b"\r\nc'],
+    // Kept, so each row's index stays its row number in a spreadsheet.
+    [''],
     ['2026-11-02', ''],
   ]);
   expect(parseCsv('x,y')).toEqual([['x', 'y']]);
+  // A quote inside an unquoted field is kept as it is; a lone CR ends a row.
+  expect(parseCsv('ab"c,d\re')).toEqual([['ab"c', 'd'], ['e']]);
+});
+
+test('blank rows and rows of only commas are left out, and row numbers stay those of the sheet', () => {
+  const rows = parseCsv('date,amount\n\n2026-11-01,1\n,\n2026-11-02,2\n,,\n');
+  const mapping = guessMapping(rows[0]);
+  expect(toImportRows(rows, mapping, 'expense').map((row) => [row.line, row.amount])).toEqual([
+    [3, '1'],
+    [5, '2'],
+  ]);
+  expect(dataRowCount(rows)).toBe(2);
 });
 
 test('columns are guessed from English or Korean headers, each column used once', () => {
