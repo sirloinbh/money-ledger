@@ -140,6 +140,64 @@ test('renaming saves the new name and cancelling keeps the old one', async () =>
   expect(screen.getByRole('button', { name: 'Hide Dining out' })).toBeInTheDocument();
 });
 
+test('Escape cancels a rename and returns focus to its button', async () => {
+  render(<CategoryManager />);
+  await list('Expense category');
+  fireEvent.click(screen.getByRole('button', { name: 'Rename Food' }));
+  const input = screen.getByLabelText('Food new name');
+  fireEvent.change(input, { target: { value: 'Dining out' } });
+  // Escape that ends a Korean composition keeps the form.
+  fireEvent.keyDown(input, { key: 'Escape', isComposing: true });
+  expect(screen.getByLabelText('Food new name')).toHaveValue('Dining out');
+
+  fireEvent.keyDown(input, { key: 'Escape' });
+  expect(screen.queryByLabelText('Food new name')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Rename Food' })).toHaveFocus();
+  expect(requests.filter((request) => request.method === 'PATCH')).toHaveLength(0);
+  fireEvent.click(screen.getByRole('button', { name: 'Rename Food' }));
+  expect(screen.getByLabelText('Food new name')).toHaveValue('Food');
+});
+
+test('cancel and Escape wait while the rename saves, and a refused name stays in the form', async () => {
+  render(<CategoryManager />);
+  await list('Expense category');
+  // Hold the PATCH until the test releases it, then answer as the server would.
+  const api = vi.mocked(fetch);
+  const answer = api.getMockImplementation()!;
+  let release: () => void = () => {};
+  api.mockImplementation((url, init) =>
+    init?.method === 'PATCH'
+      ? new Promise((resolve) => {
+          release = () => resolve(answer(url, init));
+        })
+      : answer(url, init),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Rename Food' }));
+  const input = screen.getByLabelText('Food new name');
+  fireEvent.change(input, { target: { value: 'Transport' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+  const cancel = screen.getByRole('button', { name: 'Cancel' });
+  await vi.waitFor(() => expect(cancel).toHaveAttribute('aria-disabled', 'true'));
+  cancel.focus();
+  fireEvent.click(cancel);
+  fireEvent.keyDown(input, { key: 'Escape' });
+  expect(screen.getByLabelText('Food new name')).toHaveValue('Transport');
+  expect(cancel).toHaveFocus();
+
+  release();
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'A category with this name already exists for this kind',
+  );
+  expect(screen.getByLabelText('Food new name')).toHaveValue('Transport');
+  expect(cancel).not.toHaveAttribute('aria-disabled');
+  expect(requests.filter((request) => request.method === 'PATCH')).toHaveLength(1);
+
+  // Once the save is over, cancel works again.
+  fireEvent.click(cancel);
+  expect(screen.queryByLabelText('Food new name')).not.toBeInTheDocument();
+});
+
 test('a failure to load is reported as an alert', async () => {
   vi.stubGlobal(
     'fetch',

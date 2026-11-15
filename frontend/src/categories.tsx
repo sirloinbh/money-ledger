@@ -158,6 +158,8 @@ function KindCard({
 function CategoryRow({ category, save }: { category: Category; save: Save }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(category.name);
+  // Cancel waits for the rename to finish: closing first would lose the typed name if the save fails (#76).
+  const [renaming, setRenaming] = useState(false);
   const nameInput = useRef<HTMLInputElement>(null);
   const renameButton = useRef<HTMLButtonElement>(null);
   const wasEditing = useRef(false);
@@ -179,11 +181,20 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
     event.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) return;
-    const renamed = await save(
-      () => requestJson(path, { method: 'PATCH', body: { name: trimmed } }),
-      `Category renamed to ${trimmed}`,
-    );
-    if (renamed) setEditing(false);
+    setRenaming(true);
+    try {
+      const renamed = await save(
+        () => requestJson(path, { method: 'PATCH', body: { name: trimmed } }),
+        `Category renamed to ${trimmed}`,
+      );
+      if (renamed) setEditing(false);
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+  const cancelRename = () => {
+    if (!renaming) setEditing(false);
   };
 
   const toggleHidden = () =>
@@ -210,11 +221,24 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
               ref={nameInput}
               className="min-w-0 flex-1"
               onChange={(event) => setName(event.target.value)}
+              onKeyDown={(event) => {
+                // Escape while composing Korean ends the composition; it must not drop the name too.
+                if (event.key !== 'Escape' || event.nativeEvent.isComposing) return;
+                event.preventDefault();
+                cancelRename();
+              }}
             />
             <Button type="submit" disabled={!name.trim()}>
               Save
             </Button>
-            <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
+            {/* aria-disabled, not disabled: a disabled button would drop keyboard focus to the page. */}
+            <Button
+              type="button"
+              variant="ghost"
+              aria-disabled={renaming || undefined}
+              className="aria-disabled:pointer-events-none aria-disabled:opacity-50"
+              onClick={cancelRename}
+            >
               Cancel
             </Button>
           </div>
