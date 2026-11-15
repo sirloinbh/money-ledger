@@ -4,6 +4,7 @@ import { BudgetProgress } from './budget-progress';
 import { CategoryManager } from './categories';
 import { RuleManager, UncategorizedEntries } from './classification';
 import { EntryManager } from './entries';
+import { FixedCostManager } from './fixed-costs';
 import type { Health } from './health';
 import { MonthlySummary } from './monthly-summary';
 import { MonthlyTrend } from './monthly-trend';
@@ -26,6 +27,7 @@ export function LedgerPage({ health }: { health: Health }) {
         <MonthlySummary version={ledgerVersion + categoriesVersion} />
         <BudgetProgress version={ledgerVersion + categoriesVersion} />
         <MonthlyTrend version={ledgerVersion} />
+        <FixedCostManager version={ledgerVersion + categoriesVersion} onChange={ledgerChanged} />
         <EntryManager
           categoriesVersion={categoriesVersion}
           entriesVersion={ledgerVersion}
