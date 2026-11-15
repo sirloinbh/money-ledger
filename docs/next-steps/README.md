@@ -11,8 +11,9 @@ Last updated: **2026-11-16 (Asia/Seoul)**.
 | 3     | Get price and exchange rate API keys (#85) | User step          | Sign up at KRX, Tiingo, and Korea Eximbank and store the keys in AWS SSM (`/sirloinbh/money-ledger/*-api-key`). `node tools/app-secrets.mjs pull money-ledger` in project-standards writes them into `.env` |
 | 4     | Fixed costs (#43)                          | Done               | Merged as PR #144 ([record](../changes/43-fixed-costs.md))                                                                                                                                                  |
 | 5     | Entries as CSV (#44)                       | Done               | Merged as PR #145 ([record](../changes/44-entry-csv.md))                                                                                                                                                    |
-| 6     | Summary dashboard (#55)                    | In progress        | Branch `feat/55-summary-dashboard`: open the PR, two reviews, merge ([record](../changes/55-summary-dashboard.md)); then bugs #98 and #110                                                                  |
-| 7     | Rename the installable app to the new name | Waiting on central | Merge the `project-standards#399` sync PR                                                                                                                                                                   |
+| 6     | Summary dashboard (#55)                    | Done               | Merged as PR #146 ([record](../changes/55-summary-dashboard.md))                                                                                                                                            |
+| 7     | Reserve the name "Uncategorized" (#110)    | In progress        | Branch `fix/110-reserve-uncategorized` ([record](../changes/110-reserve-uncategorized.md)); then #98 (read-only stock detail, tracking cap)                                                                 |
+| 8     | Rename the installable app to the new name | Waiting on central | Merge the `project-standards#399` sync PR                                                                                                                                                                   |
 
 ## Development environment follow-ups (deferred)
 
