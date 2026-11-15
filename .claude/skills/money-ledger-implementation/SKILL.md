@@ -5,7 +5,7 @@ description: Follow the user's issue, numbered branch, implementation with docs,
 
 # Household ledger, assets, and mock investing: implementation procedure
 
-This skill applies to changes in `sirloinbh/money-ledger`. Do not apply this account, repository, or policy to other projects. First read `AGENTS.md` at the project root and the related docs. Follow the order below, go through automatic code review after the PR (at most 2 rounds), and finish by merging a PR whose required CI has passed.
+This skill applies to changes in `sirloinbh/money-ledger`. Do not apply this account, repository, or policy to other projects. First read `AGENTS.md` at the project root and the related docs. Follow the order below, go through automatic code review after the PR (1 or 2 rounds, more only while blocking findings remain), and finish by merging a PR whose required CI has passed.
 
 ## 1. Register an issue card
 
@@ -44,13 +44,13 @@ This skill applies to changes in `sirloinbh/money-ledger`. Do not apply this acc
 
 ## 5. Automatic code review after the PR (at most 2 rounds)
 
-After you open the PR, go through automatic code review at most 2 times. If there is nothing to fix, go straight to the CI check and the merge.
+After you open the PR, review it yourself 1 or 2 times (more only while blocking findings remain, std-code-review section 8). If there is nothing to fix, go straight to the CI check and the merge.
 
 1. **First review**: after you open the PR, run a read-only review separate from the authoring context (a separate agent, a review tool, and so on). Based on the issue's done criteria and the whole PR diff, look at correctness, regressions, security, missing tests, and the docs record.
 2. **If nothing needs fixing**, end the review and go on to the CI check and the merge.
 3. **If something needs fixing**, address only the comments that belong in this PR's scope. Make a follow-up commit that includes the related tests and the docs record, and push it.
 4. **Second review**: check that the first-round comments were addressed and look at the added diff. Also look at the final whole PR diff. If nothing needs fixing, go on to CI.
-5. **Second-round fixes**: address the second-round comments in a follow-up commit. The review is at most 2 rounds, so do not run a third review and go on to CI.
+5. **Second-round fixes**: Apply the second findings in an additional commit. Stop after round 2 unless a blocking finding remains. If one does, fix it on the same branch and review again, repeating only while blocking findings remain (std-code-review section 8), then go on to CI.
 6. **Split large fixes**: do not fix comments of the following kinds in this PR. Instead, create a new issue card (with the problem, scope, and done criteria) in `sirloinbh/money-ledger`. Leave the issue link in a PR comment and in the docs record, and keep going with this PR.
    - Features outside the requested scope
    - Changes to design or data structure
