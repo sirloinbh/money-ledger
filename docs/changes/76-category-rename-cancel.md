@@ -25,5 +25,15 @@ In the category rename form, "Cancel" still worked while the new name was being 
   - Both sizes: during the save, Cancel had `aria-disabled="true"`, opacity 0.5, no pointer events, and kept focus; the form stayed open with 교통 and one PATCH was sent.
   - After release: the alert "A category with this name already exists for this kind" showed above the cards, the form kept 교통, and Cancel was enabled again. No horizontal scroll at 390 (page width 390).
   - Not checked in a real (headed) browser: the Claude in Chrome extension was not connected.
+
+### First review (PR #139)
+
+- No blocking issues.
+- Fixed: Escape that ends a Korean IME composition (`isComposing`) no longer cancels the edit and drops the name, the same guard as `combobox.tsx`. The Escape test also covers that, and that reopening starts from the saved name.
+- Note: Save is not blocked during the save. A second submit sends nothing because of the existing `saving` ref in `CategoryManager`, which is what keeps it to one PATCH.
+- Not taken: a "Saving" live-region message (not in the done criteria).
+
+### After the first review
+
 - `npm run check` (with `TEST_DATABASE_URL` unset): passed. Frontend 315 tests: 313 passed, 2 skipped. Backend 173 passed, 16 DB tests skipped (no backend change).
 - `npm run knip`: passed.

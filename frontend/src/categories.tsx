@@ -222,7 +222,8 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
               className="min-w-0 flex-1"
               onChange={(event) => setName(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key !== 'Escape') return;
+                // Escape while composing Korean ends the composition; it must not drop the name too.
+                if (event.key !== 'Escape' || event.nativeEvent.isComposing) return;
                 event.preventDefault();
                 cancelRename();
               }}

@@ -146,10 +146,16 @@ test('Escape cancels a rename and returns focus to its button', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Rename Food' }));
   const input = screen.getByLabelText('Food new name');
   fireEvent.change(input, { target: { value: 'Dining out' } });
+  // Escape that ends a Korean composition keeps the form.
+  fireEvent.keyDown(input, { key: 'Escape', isComposing: true });
+  expect(screen.getByLabelText('Food new name')).toHaveValue('Dining out');
+
   fireEvent.keyDown(input, { key: 'Escape' });
   expect(screen.queryByLabelText('Food new name')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Rename Food' })).toHaveFocus();
   expect(requests.filter((request) => request.method === 'PATCH')).toHaveLength(0);
+  fireEvent.click(screen.getByRole('button', { name: 'Rename Food' }));
+  expect(screen.getByLabelText('Food new name')).toHaveValue('Food');
 });
 
 test('cancel and Escape wait while the rename saves, and a refused name stays in the form', async () => {
