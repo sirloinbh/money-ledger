@@ -7,6 +7,7 @@ import { assetsRouter } from './assets.js';
 import { budgetsRouter } from './budgets.js';
 import { categoriesRouter } from './categories.js';
 import { entriesRouter } from './entries.js';
+import { fixedCostsRouter } from './fixed-costs.js';
 import { mockAccountsRouter } from './mock-accounts.js';
 import { mockHoldingsRouter } from './mock-holdings.js';
 import { mockOrdersRouter } from './mock-orders.js';
@@ -57,6 +58,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   app.use('/api/ledger/budgets', budgetsRouter(pool));
   app.use('/api/ledger/categories', categoriesRouter(pool));
   app.use('/api/ledger/entries', entriesRouter(pool));
+  app.use('/api/ledger/fixed-costs', fixedCostsRouter(pool, { today }));
   app.use('/api/ledger/rules', rulesRouter(pool));
   app.use('/api/ledger/summary', summaryRouter(pool));
   app.use('/api/ledger/trend', trendRouter(pool));

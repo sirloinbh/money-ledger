@@ -3,7 +3,7 @@ import { expect, test, vi } from 'vitest';
 
 import { App } from './app';
 
-// /api/health answers with `body`; every list (categories, entries, assets, trend months, budgets) is empty and there is no mock account.
+// /api/health answers with `body`; every list (categories, entries, assets, trend months, budgets, fixed costs) is empty and there is no mock account.
 const health = (body: object, status = 200) =>
   vi.stubGlobal(
     'fetch',
@@ -18,8 +18,10 @@ const health = (body: object, status = 200) =>
                 months: [],
                 snapshots: [],
                 budgets: [],
+                fixedCosts: [],
+                added: 0,
                 assets: [],
-                totals: { assetsKrw: 0, debtsKrw: 0, netKrw: 0, uncounted: 0 },
+                totals: { assetsKrw: 0, debtsKrw: 0, netKrw: 0, uncounted: 0, fixed: 0, other: 0 },
                 account: null,
                 closedAccounts: [],
               }),
@@ -114,4 +116,22 @@ test("opening the app saves today's net worth once, whichever page opens (#49)",
   render(<FreshApp />);
   await screen.findByText('Server connected · 2026-11-10');
   expect(saves()).toHaveLength(1);
+});
+
+test('opening the app adds the due fixed-cost entries once (#43)', async () => {
+  vi.resetModules();
+  const { App: FreshApp } = await import('./app');
+  health({ today: '2026-11-10' });
+  window.history.replaceState(null, '', '/');
+  const { unmount } = render(<FreshApp />);
+  await screen.findByText('Server connected · 2026-11-10');
+  const adds = () =>
+    vi.mocked(fetch).mock.calls.filter(([url]) => url === '/api/ledger/fixed-costs/generate');
+  await vi.waitFor(() => expect(adds()).toHaveLength(1));
+  unmount();
+  // The ledger page waits for the same request instead of sending another.
+  window.history.replaceState(null, '', '/ledger');
+  render(<FreshApp />);
+  await screen.findByRole('heading', { level: 2, name: 'Fixed costs' });
+  expect(adds()).toHaveLength(1);
 });

@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 
 import { AppShell, type NavItem } from './components/layout/app-shell';
 import { Toaster } from './components/ui/sonner';
+import { addDueOnce } from './fixed-costs-api';
 import type { Health } from './health';
 import { LedgerPage } from './ledger';
 import { MockTradingPage } from './mock-trading';
@@ -51,8 +52,10 @@ function useHealth() {
 export function App() {
   const health = useHealth();
   // #49 Opening the app saves today's net worth once (decision 2026-11-10), whichever page opens first.
+  // #43 It also adds the fixed-cost entries that are due (decision 2026-11-15).
   useEffect(() => {
     void saveTodayOnce();
+    void addDueOnce();
   }, []);
   return (
     <BrowserRouter>
