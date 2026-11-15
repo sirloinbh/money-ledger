@@ -169,10 +169,11 @@ export async function fetchUsCloses(
   const latest = latestUsDate(now);
   const state = await getState(pool, stateSources.tiingo, security.symbol);
   const dates = datesToFetch(state.checkedThrough, latest);
-  if (dates.length === 0) return 'up_to_date';
   const since =
     state.lastAttemptAt === null ? Infinity : now.getTime() - state.lastAttemptAt.getTime();
+  // Checked before "up to date" so a reopen on the day of the 404 still says the ticker is missing.
   if (state.lastError === notFoundNote && since < notFoundRetryMs) return 'known_missing';
+  if (dates.length === 0) return 'up_to_date';
   if (since < retryAfterMs) return state.lastError === null ? 'tried_recently' : 'failed_recently';
   if (!(await reserveCall(pool, stateSources.tiingo, limit, now))) return 'rate_limited';
   try {

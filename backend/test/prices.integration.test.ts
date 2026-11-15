@@ -565,18 +565,20 @@ test('shared price store against the real database', { skip: !url }, async (t) =
       assert.equal(gone(), 1);
       assert.ok(!logged.some((event) => event.scope === 'GONE'));
 
-      // Opening it in those days answers from the last result without a call.
-      await withApi(
-        pool,
-        async (call) => {
-          const id = (await pool.query("SELECT id FROM securities WHERE symbol = 'GONE'")).rows[0]
-            .id as string;
-          const detail = (await call(`/api/prices/securities/${id}`)).data as Detail;
-          assert.deepEqual([detail.quote, detail.quoteIssue], [null, 'not_found']);
-          assert.equal(gone(), 1);
-        },
-        { now: () => day(7), prices: sources },
-      );
+      // Opening it in those days, even on the day of the 404, answers from the last result without a call.
+      for (const days of [1, 7]) {
+        await withApi(
+          pool,
+          async (call) => {
+            const id = (await pool.query("SELECT id FROM securities WHERE symbol = 'GONE'")).rows[0]
+              .id as string;
+            const detail = (await call(`/api/prices/securities/${id}`)).data as Detail;
+            assert.deepEqual([detail.quote, detail.quoteIssue], [null, 'not_found']);
+            assert.equal(gone(), 1);
+          },
+          { now: () => day(days), prices: sources },
+        );
+      }
 
       // 7 days after the last answer it is asked for once more.
       await runDailyFetch(pool, sources, day(8), log);
