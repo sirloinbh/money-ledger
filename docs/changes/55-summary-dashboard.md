@@ -35,3 +35,7 @@ The first screen (`/`) shows this month's ledger, the latest net worth, and the 
 - Tests added: the month in Seoul time (15:30 UTC on Nov 30 is December); a mock loss with signs, a missing total shown as `-`, and a failed holdings request that loads on retry.
 - Not changed: the `signedWon` helper now exists in five files; merging them into `format.ts` is a cleanup outside this PR. A month with only ₩0 entries shows the empty state, which fits "nothing to summarize".
 - After the fixes: `npm run check` passed (frontend 344 passed / 2 skipped) and `npm run knip` passed. The layout did not change, so the browser check was not repeated.
+
+### Second review (PR #146)
+
+- Nothing to fix: the card loads once and once per retry, title, link, and totals share one month, and the new tests exercise the Seoul rollover and the mock retry without timer flakiness.
