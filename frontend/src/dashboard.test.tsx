@@ -116,3 +116,30 @@ test('areas without data say so', async () => {
   expect(await screen.findByText(/No net worth saved yet/)).toBeInTheDocument();
   expect(await screen.findByText(/No mock account yet/)).toBeInTheDocument();
 });
+
+test('the month is Seoul time: 15:30 UTC on Nov 30 is already December', async () => {
+  vi.setSystemTime(new Date('2026-11-30T15:30:00Z'));
+  answers['GET /api/ledger/summary?month=2026-12'] =
+    answers['GET /api/ledger/summary?month=2026-11'];
+  show();
+  const ledger = card('This month');
+  expect(within(ledger).getByText('Income and spending in December 2026')).toBeInTheDocument();
+  expect(await within(ledger).findByText('₩3,000,000')).toBeInTheDocument();
+  expect(within(ledger).getByRole('link')).toHaveAttribute('href', '/ledger?month=2026-12');
+});
+
+test('mock values: a loss is signed, values without a price show -, and a failed holdings request retries', async () => {
+  answers['GET /api/mock/accounts/7/holdings'] = fail;
+  show();
+  const mock = card('Mock trading');
+  expect(await within(mock).findByText('Could not load this card.')).toBeInTheDocument();
+  answers['GET /api/mock/accounts/7/holdings'] = () =>
+    json({
+      summary: { cashKrw: 0, totalKrw: null, profitKrw: -250_000, returnPct: '-2.50' },
+      holdings: [],
+    });
+  fireEvent.click(within(mock).getByRole('button', { name: 'Retry loading Mock trading' }));
+  expect(await within(mock).findByText('-₩250,000')).toBeInTheDocument();
+  expect(value(mock, 'Total assets')).toBe('-');
+  expect(value(mock, 'Return')).toBe('-2.5%');
+});

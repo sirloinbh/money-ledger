@@ -55,8 +55,6 @@ const signedWon = (amount: number) =>
   amount > 0 ? `+${formatWon(amount)}` : amount < 0 ? `-${formatWon(-amount)}` : formatWon(0);
 
 // The loaders do not change, so each card loads once (and again on retry).
-const loadSummary = () =>
-  requestJson<Summary>(`/api/ledger/summary?month=${serviceToday().slice(0, 7)}`);
 // Waits for today's save when the app opens, like the net worth card on the portfolio page.
 const loadNetWorth = () => saveTodayOnce().then(() => requestJson<NetWorth>(netWorthPath));
 const loadMock = async (): Promise<MockState> => {
@@ -149,14 +147,24 @@ function Values({ items }: { items: [string, string][] }) {
   );
 }
 
-const Loading = () => <p className="text-body-sm text-muted-foreground">Loading</p>;
+const Loading = () => (
+  <p role="status" className="text-body-sm text-muted-foreground">
+    Loading
+  </p>
+);
 const Empty = ({ children }: { children: ReactNode }) => (
   <p className="text-body-sm text-muted-foreground">{children}</p>
 );
 
 function LedgerCard() {
-  const { data, failed, retry } = useCardData(loadSummary);
-  const month = serviceToday().slice(0, 7);
+  // Taken once, so the title, the link, and the totals are the same month even if the page stays open past
+  // midnight at the end of a month.
+  const [month] = useState(() => serviceToday().slice(0, 7));
+  const load = useCallback(
+    () => requestJson<Summary>(`/api/ledger/summary?month=${month}`),
+    [month],
+  );
+  const { data, failed, retry } = useCardData(load);
   return (
     <SummaryCard
       id="dashboard-ledger"

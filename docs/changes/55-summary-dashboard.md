@@ -26,3 +26,12 @@ The first screen (`/`) shows this month's ledger, the latest net worth, and the 
   - After adding an income of ₩3,000,000, an expense of ₩12,500, and a mock account of ₩10,000,000, the cards showed ₩3,000,000 / ₩12,500 / ₩2,987,500 and ₩10,000,000 / ₩0 / 0%.
   - "Open the ledger" opened `/ledger?month=2026-11`, whose summary showed the same ₩3,000,000 / ₩12,500 / ₩2,987,500.
   - At 390×844 the cards stack; at 1440×900 they sit in three columns. Page width was 390 and 1425 (no horizontal scroll).
+
+### First review (PR #146)
+
+- No blocking issues; values and labels match the pages. Fixed in this PR:
+  - The ledger card takes the month once, so its title, link, and totals stay the same month if the page is left open past midnight at a month's end.
+  - "Loading" is a status message, so a screen reader announces it.
+- Tests added: the month in Seoul time (15:30 UTC on Nov 30 is December); a mock loss with signs, a missing total shown as `-`, and a failed holdings request that loads on retry.
+- Not changed: the `signedWon` helper now exists in five files; merging them into `format.ts` is a cleanup outside this PR. A month with only ₩0 entries shows the empty state, which fits "nothing to summarize".
+- After the fixes: `npm run check` passed (frontend 344 passed / 2 skipped) and `npm run knip` passed. The layout did not change, so the browser check was not repeated.
