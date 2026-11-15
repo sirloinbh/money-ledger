@@ -1,5 +1,5 @@
 {
-  "centralSha": "33d737bf7d53689d3c16730036236f6cd4188aed",
+  "centralSha": "162da42858972a7a9e321c6b7d1c3b690f112105",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -165,7 +165,7 @@
     },
     ".standards/check.mjs": {
       "mode": "full",
-      "sha256": "91ac23ba0d4e95ad4fb673d9c5b533947f048d96da2092d16f69572b49d4aa08",
+      "sha256": "94ad732bfdb58d7abb249b3c70d4675f7e71d34192a47e670990569fb39e7f35",
       "source": "scripts/standards-check.mjs"
     },
     ".standards/ioc-scan.mjs": {
@@ -373,7 +373,7 @@
     },
     "frontend/nginx.conf": {
       "mode": "full",
-      "sha256": "d40b35270e77d93aa69db3af50241ca6a6d9c75d2fab6fa3225c036662b25b56",
+      "sha256": "4443d59616dcab85a920ee5eee516871f18af8781711d5cd9aca981558fbc662",
       "source": "templates/app/frontend/nginx.conf.tmpl"
     },
     "frontend/package.json": {
@@ -804,6 +804,7 @@
     "db": {
       "name": "money",
       "testName": "money_test"
-    }
+    },
+    "host": "money-ledger.daysofme.com"
   }
 }
