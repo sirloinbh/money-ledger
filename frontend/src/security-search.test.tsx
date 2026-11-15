@@ -40,9 +40,11 @@ beforeEach(() => {
   answers = {};
   vi.stubGlobal(
     'fetch',
-    vi.fn((url: string) => {
+    vi.fn((url: string, init: RequestInit = {}) => {
       urls.push(url);
-      const answer = answers[url] ?? {
+      // A detail is opened with a POST; any other method is keyed with its name.
+      const key = (init.method ?? 'GET') === 'GET' ? url : `${init.method} ${url}`;
+      const answer = answers[key] ?? {
         status: 404,
         body: { error: 'The requested API was not found' },
       };
@@ -112,7 +114,7 @@ test('no results, a blank query and an API error read differently', async () => 
 
 test('a Korean detail shows the close and marks a delayed one', async () => {
   answers['/api/prices/securities?q=005930'] = { status: 200, body: { securities: [samsung] } };
-  answers['/api/prices/securities/1'] = {
+  answers['POST /api/prices/securities/1/view'] = {
     status: 200,
     body: {
       security: samsung,
@@ -133,7 +135,7 @@ test('a Korean detail shows the close and marks a delayed one', async () => {
 
 test('a US detail shows the close in dollars, the rate, and why a close is missing', async () => {
   answers['/api/prices/securities?q=AAPL'] = { status: 200, body: { securities: [apple] } };
-  answers['/api/prices/securities/2'] = {
+  answers['POST /api/prices/securities/2/view'] = {
     status: 200,
     body: {
       security: { ...apple, name: 'Apple Inc' },
@@ -166,10 +168,14 @@ test.each([
   ['rate_limited', 'Try again in a moment'],
   ['not_configured', 'No quote source is configured'],
   ['fetch_failed', 'Could not get the quote. Try again in a moment'],
+  [
+    'tracking_full',
+    'Too many US securities are followed right now, so no quote was fetched. Try again in a few days',
+  ],
   [null, 'No close received yet'],
 ])('a missing close with issue %s says "No quote" and why', async (issue, text) => {
   answers['/api/prices/securities?q=AAPL'] = { status: 200, body: { securities: [apple] } };
-  answers['/api/prices/securities/2'] = {
+  answers['POST /api/prices/securities/2/view'] = {
     status: 200,
     body: { security: apple, quote: null, quoteIssue: issue, fx: null },
   };
@@ -181,9 +187,38 @@ test.each([
   expect(screen.getByText('No exchange rate')).toBeInTheDocument();
 });
 
+test('past the tracking limit a stored close is shown with the reason it is not updated (#98)', async () => {
+  answers['/api/prices/securities?q=AAPL'] = { status: 200, body: { securities: [apple] } };
+  answers['POST /api/prices/securities/2/view'] = {
+    status: 200,
+    body: {
+      security: apple,
+      quote: {
+        close: '231.5000',
+        currency: 'USD',
+        tradeDate: '2026-11-06',
+        fetchedAt: null,
+        stale: false,
+      },
+      quoteIssue: 'tracking_full',
+      fx: null,
+    },
+  };
+  render(<SecuritySearch />);
+  searchFor('AAPL');
+  fireEvent.click(await screen.findByRole('button', { name: /AAPL/ }));
+  await screen.findByRole('heading', { level: 2, name: 'AAPL' });
+  expect(detailCard().getByText('$231.5')).toBeInTheDocument();
+  expect(
+    detailCard().getByText(
+      'Too many US securities are followed right now, so no quote was fetched. Try again in a few days',
+    ),
+  ).toBeInTheDocument();
+});
+
 test('a delisted or suspended security says Trading halted next to its last close', async () => {
   answers['/api/prices/securities?q=005930'] = { status: 200, body: { securities: [samsung] } };
-  answers['/api/prices/securities/1'] = {
+  answers['POST /api/prices/securities/1/view'] = {
     status: 200,
     body: {
       security: { ...samsung, active: false },
@@ -202,7 +237,7 @@ test('a delisted or suspended security says Trading halted next to its last clos
 
 test('an active security has no Trading halted mark', async () => {
   answers['/api/prices/securities?q=005930'] = { status: 200, body: { securities: [samsung] } };
-  answers['/api/prices/securities/1'] = {
+  answers['POST /api/prices/securities/1/view'] = {
     status: 200,
     body: { security: samsung, quote: samsung.quote, quoteIssue: null, fx: null },
   };
@@ -215,7 +250,10 @@ test('an active security has no Trading halted mark', async () => {
 
 test('a detail that fails to load shows the server message', async () => {
   answers['/api/prices/securities?q=005930'] = { status: 200, body: { securities: [samsung] } };
-  answers['/api/prices/securities/1'] = { status: 404, body: { error: 'Security not found' } };
+  answers['POST /api/prices/securities/1/view'] = {
+    status: 404,
+    body: { error: 'Security not found' },
+  };
   render(<SecuritySearch />);
   searchFor('005930');
   fireEvent.click(await screen.findByRole('button', { name: /Samsung Electronics/ }));

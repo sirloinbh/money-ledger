@@ -7,7 +7,7 @@ import { fakeSources } from '../src/prices/fake.js';
 import { dailyTiingoLimit, runDailyFetch, tiingoHourlyLimit } from '../src/prices/fetch.js';
 import { runIfDue } from '../src/prices/scheduler.js';
 import { type PriceSources, SourceError } from '../src/prices/sources.js';
-import { saveKrxDay } from '../src/prices/store.js';
+import { saveKrxDay, trackedUsLimit } from '../src/prices/store.js';
 import { runMigration, withApi } from './helpers.js';
 
 const url = process.env.TEST_DATABASE_URL;
@@ -384,7 +384,7 @@ test('shared price store against the real database', { skip: !url }, async (t) =
       pool,
       async (call) => {
         const id = ((await call('/api/prices/securities?q=AAPL')).data.securities as Found[])[0].id;
-        const opened = await call(`/api/prices/securities/${id}`);
+        const opened = await call(`/api/prices/securities/${id}/view`, { method: 'POST' });
         assert.equal(opened.status, 200);
         const detail = opened.data as Detail;
         assert.deepEqual(detail.security.name, 'Apple Inc');
@@ -404,7 +404,7 @@ test('shared price store against the real database', { skip: !url }, async (t) =
         assert.equal(calls.names, 1);
 
         // Tracked now: opening it again does not call Tiingo, and the name is searchable.
-        await call(`/api/prices/securities/${id}`);
+        await call(`/api/prices/securities/${id}/view`, { method: 'POST' });
         assert.equal(calls.closes.length, 1);
         assert.equal(calls.names, 1);
         const byName = (await call('/api/prices/securities?q=apple')).data.securities as Found[];
@@ -430,6 +430,100 @@ test('shared price store against the real database', { skip: !url }, async (t) =
     await runDailyFetch(pool, month.sources, at('2026-12-10T03:00:00Z'), quiet);
     assert.deepEqual(month.calls.closes, []);
   });
+
+  await t.test('reading a detail calls no source and does not track it (#98)', async () => {
+    await reset();
+    const { sources, calls } = counted();
+    await runDailyFetch(pool, sources, noon, quiet);
+    const before = { closes: calls.closes.length, names: calls.names };
+    const id = (await pool.query<{ id: string }>("SELECT id FROM securities WHERE symbol = 'AAPL'"))
+      .rows[0].id;
+    await withApi(
+      pool,
+      async (call) => {
+        const read = await call(`/api/prices/securities/${id}`);
+        assert.equal(read.status, 200);
+        const detail = read.data as Detail;
+        assert.deepEqual(
+          [detail.security.symbol, detail.quote, detail.quoteIssue],
+          ['AAPL', null, null],
+        );
+        assert.equal(detail.fx?.fxRate, '1384.5000');
+        const missing = await call('/api/prices/securities/999999/view', { method: 'POST' });
+        assert.deepEqual([missing.status, missing.data], [404, { error: 'Security not found' }]);
+      },
+      { today: () => '2026-11-09', now: () => at('2026-11-09T04:00:00Z'), prices: sources },
+    );
+    assert.deepEqual({ closes: calls.closes.length, names: calls.names }, before);
+    const viewed = await pool.query('SELECT viewed_at FROM securities WHERE id = $1', [id]);
+    assert.equal(viewed.rows[0].viewed_at, null);
+  });
+
+  await t.test(
+    'once 450 US securities are tracked, a new one is neither fetched nor tracked (#98)',
+    async () => {
+      await reset();
+      const { sources, calls } = counted();
+      await runDailyFetch(pool, sources, noon, quiet);
+      const now = at('2026-11-09T04:00:00Z');
+      // 450 opened in the last 30 days, the oldest 29 days ago.
+      await pool.query(
+        `INSERT INTO securities (market, symbol, kind, currency, viewed_at)
+         SELECT 'NYSE', 'T' || n, 'stock', 'USD', $1::timestamptz - interval '29 days'
+         FROM generate_series(1, $2) n`,
+        [now, trackedUsLimit],
+      );
+      const idOf = async (symbol: string) =>
+        (await pool.query<{ id: string }>('SELECT id FROM securities WHERE symbol = $1', [symbol]))
+          .rows[0].id;
+      const view = async (symbol: string, when: Date) => {
+        let detail: Detail | undefined;
+        await withApi(
+          pool,
+          async (call) => {
+            const opened = await call(`/api/prices/securities/${await idOf(symbol)}/view`, {
+              method: 'POST',
+            });
+            assert.equal(opened.status, 200);
+            detail = opened.data as Detail;
+          },
+          { today: () => '2026-11-09', now: () => when, prices: sources },
+        );
+        return detail!;
+      };
+      const viewedAt = async (symbol: string) =>
+        (await pool.query('SELECT viewed_at FROM securities WHERE symbol = $1', [symbol])).rows[0]
+          .viewed_at as Date | null;
+
+      const full = await view('AAPL', now);
+      assert.deepEqual([full.quote, full.quoteIssue], [null, 'tracking_full']);
+      assert.deepEqual(
+        calls.closes.filter((call) => call.startsWith('AAPL ')),
+        [],
+      );
+      assert.equal(await viewedAt('AAPL'), null);
+      // A stored close is still shown, with the reason it is not updated.
+      await pool.query(
+        `INSERT INTO security_prices (security_id, trade_date, close, currency, source)
+         VALUES ($1, '2026-11-06', 415.25, 'USD', 'T')`,
+        [await idOf('MSFT')],
+      );
+      const stored = await view('MSFT', now);
+      assert.deepEqual([stored.quote?.close, stored.quoteIssue], ['415.2500', 'tracking_full']);
+
+      // A tracked one is still opened and its 30 days start again.
+      const tracked = await view('T1', now);
+      assert.notEqual(tracked.quoteIssue, 'tracking_full');
+      assert.equal((await viewedAt('T1'))?.getTime(), now.getTime());
+
+      // A day later the other 449 have dropped off, so AAPL is fetched and tracked.
+      const later = at('2026-11-10T04:00:00Z');
+      const opened = await view('AAPL', later);
+      assert.equal(opened.quoteIssue, null);
+      assert.notEqual(opened.quote, null);
+      assert.equal((await viewedAt('AAPL'))?.getTime(), later.getTime());
+    },
+  );
 
   await t.test('a Korean security shows its stored close, delayed after 5 days', async () => {
     await reset();
@@ -486,7 +580,8 @@ test('shared price store against the real database', { skip: !url }, async (t) =
       await withApi(
         pool,
         async (call) => {
-          const detail = (await call(`/api/prices/securities/${ids.MSFT}`)).data as Detail;
+          const detail = (await call(`/api/prices/securities/${ids.MSFT}/view`, { method: 'POST' }))
+            .data as Detail;
           assert.deepEqual([detail.quote, detail.quoteIssue], [null, 'not_configured']);
         },
         { now: () => now },
@@ -502,7 +597,8 @@ test('shared price store against the real database', { skip: !url }, async (t) =
       await withApi(
         pool,
         async (call) => {
-          const detail = (await call(`/api/prices/securities/${ids.SPY}`)).data as Detail;
+          const detail = (await call(`/api/prices/securities/${ids.SPY}/view`, { method: 'POST' }))
+            .data as Detail;
           assert.deepEqual([detail.quote, detail.quoteIssue], [null, 'rate_limited']);
           assert.deepEqual(calls.closes, []);
         },
@@ -512,7 +608,8 @@ test('shared price store against the real database', { skip: !url }, async (t) =
       await withApi(
         pool,
         async (call) => {
-          const detail = (await call(`/api/prices/securities/${ids.SPY}`)).data as Detail;
+          const detail = (await call(`/api/prices/securities/${ids.SPY}/view`, { method: 'POST' }))
+            .data as Detail;
           assert.equal(detail.quote?.tradeDate, '2026-11-06');
         },
         { now: () => at('2026-11-09T05:01:00Z'), prices: sources },
@@ -528,7 +625,8 @@ test('shared price store against the real database', { skip: !url }, async (t) =
           const id = ((await call('/api/prices/securities?q=GONE')).data.securities as Found[])[0]
             .id;
           const names = calls.names;
-          const detail = (await call(`/api/prices/securities/${id}`)).data as Detail;
+          const detail = (await call(`/api/prices/securities/${id}/view`, { method: 'POST' }))
+            .data as Detail;
           assert.deepEqual([detail.quote, detail.quoteIssue], [null, 'not_found']);
           assert.equal(calls.names, names); // no call spent on a sure 404
         },
@@ -572,7 +670,8 @@ test('shared price store against the real database', { skip: !url }, async (t) =
           async (call) => {
             const id = (await pool.query("SELECT id FROM securities WHERE symbol = 'GONE'")).rows[0]
               .id as string;
-            const detail = (await call(`/api/prices/securities/${id}`)).data as Detail;
+            const detail = (await call(`/api/prices/securities/${id}/view`, { method: 'POST' }))
+              .data as Detail;
             assert.deepEqual([detail.quote, detail.quoteIssue], [null, 'not_found']);
             assert.equal(gone(), 1);
           },
@@ -623,7 +722,8 @@ test('shared price store against the real database', { skip: !url }, async (t) =
             const id = (
               (await call(`/api/prices/securities?q=${symbol}`)).data.securities as Found[]
             )[0].id;
-            detail = (await call(`/api/prices/securities/${id}`)).data as Detail;
+            detail = (await call(`/api/prices/securities/${id}/view`, { method: 'POST' }))
+              .data as Detail;
           },
           { now: () => now, prices: screens },
         );
@@ -852,7 +952,8 @@ test('shared price store against the real database', { skip: !url }, async (t) =
             await pool.query<{ id: string }>("SELECT id FROM securities WHERE symbol = '000660'")
           ).rows[0].id;
           // The detail still opens (holdings will link to it) with the last close and active false.
-          const detail = (await call(`/api/prices/securities/${id}`)).data as Detail & {
+          const detail = (await call(`/api/prices/securities/${id}/view`, { method: 'POST' }))
+            .data as Detail & {
             security: { active: boolean };
           };
           assert.deepEqual(

@@ -270,17 +270,46 @@ export type UsSecurity = { id: number; symbol: string; name: string | null };
  */
 export async function trackedUsSecurities(db: Db, now: Date): Promise<UsSecurity[]> {
   const { rows } = await db.query<{ id: string; symbol: string; name: string | null }>(
-    `SELECT id, symbol, name FROM securities s
-     WHERE currency = 'USD' AND (
-       viewed_at > $1::timestamptz - make_interval(days => $2)
-       OR id IN (SELECT security_id FROM portfolio_assets WHERE security_id IS NOT NULL AND quantity IS NOT NULL)
-       OR EXISTS (SELECT 1 FROM mock_holdings h JOIN mock_accounts a ON a.id = h.account_id
-                  WHERE h.security_id = s.id AND a.closed_at IS NULL)
-     )
-     ORDER BY symbol`,
+    `SELECT id, symbol, name FROM securities s WHERE ${trackedUs} ORDER BY symbol`,
     [now, trackedDays],
   );
   return rows.map((row) => ({ id: Number(row.id), symbol: row.symbol, name: row.name }));
+}
+
+// Alias `s` is a security; $1 is now and $2 the tracked days.
+const trackedUs = `s.currency = 'USD' AND (
+  s.viewed_at > $1::timestamptz - make_interval(days => $2)
+  OR s.id IN (SELECT security_id FROM portfolio_assets WHERE security_id IS NOT NULL AND quantity IS NOT NULL)
+  OR EXISTS (SELECT 1 FROM mock_holdings h JOIN mock_accounts a ON a.id = h.account_id
+             WHERE h.security_id = s.id AND a.closed_at IS NULL)
+)`;
+
+/**
+ * #98 At most this many US securities are tracked at once, below Tiingo's free 500 tickers a month, so opening
+ * many details (no login yet) cannot use up the plan.
+ */
+export const trackedUsLimit = 450;
+
+/**
+ * Puts a security opened on a screen on the daily fetch for 30 days. A US security that is not tracked yet is
+ * refused (false) once `trackedUsLimit` are; a tracked one is extended. The lock makes concurrent opens count
+ * one after another.
+ */
+export async function trackOpened(pool: Pool, id: number, now: Date) {
+  return inTransaction(pool, async (client) => {
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('tracked_us_securities'))");
+    const { rows } = await client.query<{ usd: boolean; tracked: boolean; count: number }>(
+      `SELECT currency = 'USD' AS usd,
+              EXISTS (SELECT 1 FROM securities s WHERE s.id = $3 AND ${trackedUs}) AS tracked,
+              (SELECT count(*)::int FROM securities s WHERE ${trackedUs}) AS count
+       FROM securities WHERE id = $3`,
+      [now, trackedDays, id],
+    );
+    const row = rows[0];
+    if (row?.usd && !row.tracked && row.count >= trackedUsLimit) return false;
+    await client.query('UPDATE securities SET viewed_at = $2 WHERE id = $1', [id, now]);
+    return true;
+  });
 }
 
 /**

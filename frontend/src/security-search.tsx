@@ -26,7 +26,8 @@ type Security = {
   currency: 'KRW' | 'USD';
 };
 type Found = Security & { quote: Quote | null };
-type QuoteIssue = 'not_configured' | 'rate_limited' | 'fetch_failed' | 'not_found';
+type QuoteIssue =
+  'not_configured' | 'rate_limited' | 'fetch_failed' | 'not_found' | 'tracking_full';
 type Detail = {
   security: Security;
   quote: Quote | null;
@@ -39,6 +40,8 @@ const issueText: Record<QuoteIssue | 'none', string> = {
   rate_limited: 'Try again in a moment',
   fetch_failed: 'Could not get the quote. Try again in a moment',
   not_found: 'This security was not found in the quote source',
+  tracking_full:
+    'Too many US securities are followed right now, so no quote was fetched. Try again in a few days',
   none: 'No close received yet',
 };
 
@@ -215,7 +218,9 @@ function SecurityDetail({
 
   useEffect(() => {
     let current = true;
-    requestJson<Detail>(`/api/prices/securities/${id}`)
+    // #98 Opening is a POST: it may fetch the quote now and follow the security for 30 days, which a
+    // plain read never does.
+    requestJson<Detail>(`/api/prices/securities/${id}/view`, { method: 'POST' })
       .then((data) => {
         if (!current) return;
         setDetail(data);
@@ -290,6 +295,11 @@ function SecurityDetail({
                 >
                   {quoteBasis(quote)}
                 </span>
+                {quoteIssue === 'tracking_full' ? (
+                  <span className="text-caption text-muted-foreground">
+                    {issueText.tracking_full}
+                  </span>
+                ) : null}
               </dd>
             ) : (
               <dd className="flex flex-col gap-1">
