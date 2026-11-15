@@ -5,7 +5,7 @@ description: Write or update behavior-focused tests with money-ledger implementa
 
 # Household ledger, assets, and mock investing: writing and running tests
 
-Follow the project's AGENTS.md and the money-ledger-implementation procedure together with this skill. This skill sets the standard for writing and running tests. It keeps the issue, branch, docs, and PR procedure, the automatic code review after the PR (at most 2 rounds), and the merge-after-CI policy.
+Follow the project's AGENTS.md and the money-ledger-implementation procedure together with this skill. This skill sets the standard for writing and running tests. It keeps the issue, branch, docs, and PR procedure, the automatic code review after the PR (1 or 2 rounds, more only while blocking findings remain), and the merge-after-CI policy.
 
 ## Write tests together with the implementation or fix
 

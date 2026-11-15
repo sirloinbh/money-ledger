@@ -42,7 +42,7 @@ This skill applies to changes in `sirloinbh/money-ledger`. Do not apply this acc
 - Pass the PR body as a UTF-8 file. Include the problem and the behavior after the change, the main changes, the real check commands and results, evidence for screen changes where possible, and `Closes #<number>`. If there are no images, say why and state the limits of the verification.
 - Check the GitHub Actions results and fix related failures. Say so when a check is still running. If you changed code after creating the PR, rerun the affected checks and update the docs and PR results.
 
-## 5. Automatic code review after the PR (at most 2 rounds)
+## 5. Automatic code review after the PR (1 or 2 rounds, more only while blocking findings remain)
 
 After you open the PR, review it yourself 1 or 2 times (more only while blocking findings remain, std-code-review section 8). If there is nothing to fix, go straight to the CI check and the merge.
 
