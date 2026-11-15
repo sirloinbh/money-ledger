@@ -116,7 +116,7 @@ export type ImportRow = {
 };
 
 /**
- * The data rows (after the header) as the server takes them, without empty ones (Excel often pads a file with
+ * The data rows (after the header, see `headerIndex`) as the server takes them, without empty ones (Excel often pads a file with
  * `,,,,` rows). `line` is the row number a spreadsheet shows for the row, counting the header as 1. Kind words in Korean are translated, thousands separators and a
  * leading ₩ are dropped from amounts, and dates like 2026.11.05 or 2026/11/05 become 2026-11-05; anything else
  * is sent as it is, so the server names the problem.
@@ -124,8 +124,9 @@ export type ImportRow = {
 export function toImportRows(rows: string[][], mapping: Mapping, fixedKind: FixedKind) {
   const cell = (row: string[], field: Field) =>
     mapping[field] >= 0 ? (row[mapping[field]] ?? '').trim() : '';
+  const header = headerIndex(rows);
   return rows.flatMap((row, index): ImportRow[] => {
-    if (index === 0 || blank(row)) return [];
+    if (index <= header || blank(row)) return [];
     const kind = cell(row, 'kind');
     const date = cell(row, 'date');
     return [
@@ -146,7 +147,15 @@ export function toImportRows(rows: string[][], mapping: Mapping, fixedKind: Fixe
 const blank = (row: string[]) => row.every((field) => field.trim() === '');
 
 /** How many data rows the file has: rows after the header that are not blank. */
-export const dataRowCount = (rows: string[][]) => rows.slice(1).filter((row) => !blank(row)).length;
+/** The header is the first row with something in it: a file may start with blank lines. */
+export const headerIndex = (rows: string[][]) =>
+  Math.max(
+    0,
+    rows.findIndex((row) => !blank(row)),
+  );
+
+export const dataRowCount = (rows: string[][]) =>
+  rows.slice(headerIndex(rows) + 1).filter((row) => !blank(row)).length;
 
 /** A file read as UTF-8 that was saved in another encoding has replacement characters in it. */
 export const notUtf8 = (text: string) => text.includes(replacement);

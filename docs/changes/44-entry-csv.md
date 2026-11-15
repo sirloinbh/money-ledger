@@ -59,3 +59,9 @@ Download entries as a CSV file, and import entries from a bank or card statement
 - Tests: a parse test for blank rows and row numbers, a quote inside an unquoted field, and a lone CR; screen tests for the dropped late answer and for importing the checked rows; the round trip now includes formula-guarded text.
 - Not changed: the remaining test-gap ideas (413 over 2 MB, two imports at once, NFD names) are covered by the shared error handler and the existing lock and normalization code.
 - After the fixes: `npm run check` passed (frontend 338 passed / 2 skipped; backend 173 passed / 18 DB tests skipped), `npm run knip` passed, and the CSV DB tests passed 6/6 subtests on the test DB. The layout did not change, so the browser check above was not repeated.
+
+### Second review (PR #145)
+
+- Fixed: since blank lines are now kept for row numbers, a file starting with a blank line got an empty header. The header is now the first row with something in it; rows before it are skipped (parse test).
+- Left as is: text that really starts with `'` and then `=`, `+`, `-`, or `@` (for example a note `'-5 off`) loses that `'` on import, because it looks like the export's guard. Rare in a ledger. A Check clicked before a column change still waits for its (dropped) answer before it can be clicked again.
+- After the fix: `npm run check` passed (frontend 339 passed / 2 skipped; backend 173 passed / 18 DB tests skipped) and `npm run knip` passed.

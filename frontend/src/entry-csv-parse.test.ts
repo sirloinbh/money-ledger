@@ -4,6 +4,7 @@ import {
   dataRowCount,
   exportUrl,
   guessMapping,
+  headerIndex,
   notUtf8,
   parseCsv,
   toImportRows,
@@ -113,4 +114,15 @@ test('rows are cleaned for the server, and the line counts the header as 1', () 
 test('a file that was not UTF-8 is noticed', () => {
   expect(notUtf8(`a${String.fromCharCode(0xfffd)}b`)).toBe(true);
   expect(notUtf8('스타벅스')).toBe(false);
+});
+
+test('blank lines before the header are skipped, and the header is the first row with something in it', () => {
+  const rows = parseCsv('\n,,\nDate,Amount\n2026-11-01,500\n');
+  expect(headerIndex(rows)).toBe(2);
+  const mapping = guessMapping(rows[headerIndex(rows)]);
+  expect([mapping.date, mapping.amount]).toEqual([0, 1]);
+  expect(toImportRows(rows, mapping, 'expense').map((row) => [row.line, row.date])).toEqual([
+    [4, '2026-11-01'],
+  ]);
+  expect(dataRowCount(rows)).toBe(1);
 });

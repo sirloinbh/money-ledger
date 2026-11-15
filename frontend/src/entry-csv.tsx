@@ -13,6 +13,7 @@ import {
   fields,
   type FixedKind,
   guessMapping,
+  headerIndex,
   type ImportRow,
   type Mapping,
   maxImportRows,
@@ -102,7 +103,7 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
       return;
     }
     setFile({ name: chosen.name, rows });
-    setMapping(guessMapping(rows[0]));
+    setMapping(guessMapping(rows[headerIndex(rows)]));
   };
 
   const body = () => (file && mapping ? toImportRows(file.rows, mapping, fixedKind) : []);
@@ -219,7 +220,7 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
                     <option value={-1}>
                       {field === 'kind' ? 'None: the same kind for every row' : 'None'}
                     </option>
-                    {file.rows[0].map((name, index) => (
+                    {file.rows[headerIndex(file.rows)].map((name, index) => (
                       <option key={index} value={index}>
                         {name.trim() || `Column ${index + 1}`}
                       </option>
