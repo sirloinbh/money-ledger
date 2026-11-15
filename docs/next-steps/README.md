@@ -1,6 +1,6 @@
 # Next steps
 
-Last updated: **2026-11-15 (Asia/Seoul)**.
+Last updated: **2026-11-16 (Asia/Seoul)**.
 
 ## Priority
 
@@ -9,9 +9,10 @@ Last updated: **2026-11-15 (Asia/Seoul)**.
 | 1     | Automatic spending classification (#60)    | Done               | Keyword rules and bulk classification merged (PR #84)                                                                                                                                                       |
 | 2     | Decide the price source (#36)              | Done               | [Price and exchange rate sources](../price-source.md). Applies to current price update (#47) and quotes (#51)                                                                                               |
 | 3     | Get price and exchange rate API keys (#85) | User step          | Sign up at KRX, Tiingo, and Korea Eximbank and store the keys in AWS SSM (`/sirloinbh/money-ledger/*-api-key`). `node tools/app-secrets.mjs pull money-ledger` in project-standards writes them into `.env` |
-| 4     | Fixed costs (#43)                          | In progress        | Branch `feat/43-fixed-costs`: run `npm run check` and knip, finish the browser check at both sizes, open the PR, two reviews, merge ([record](../changes/43-fixed-costs.md))                                |
-| 5     | Remaining feature issues                   | Registered         | Then #44 (CSV export and import, after #43) and #55 (summary dashboard, #49 is merged); bugs #98 and #110                                                                                                   |
-| 6     | Rename the installable app to the new name | Waiting on central | Merge the `project-standards#399` sync PR                                                                                                                                                                   |
+| 4     | Fixed costs (#43)                          | Done               | Merged as PR #144 ([record](../changes/43-fixed-costs.md))                                                                                                                                                  |
+| 5     | Entries as CSV (#44)                       | In progress        | Branch `feat/44-entry-csv`: open the PR, two reviews, merge ([record](../changes/44-entry-csv.md))                                                                                                          |
+| 6     | Remaining feature issues                   | Registered         | #55 (summary dashboard, no open decisions); bugs #98 and #110                                                                                                                                               |
+| 7     | Rename the installable app to the new name | Waiting on central | Merge the `project-standards#399` sync PR                                                                                                                                                                   |
 
 ## Development environment follow-ups (deferred)
 

@@ -16,6 +16,7 @@ import { ConfirmDialog } from './components/ui/confirm-dialog';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
+import { EntryCsv } from './entry-csv';
 import { EntryFilters } from './entry-filters';
 import {
   apiQuery,
@@ -481,6 +482,17 @@ export function EntryManager({
         categories={categories}
         today={today}
         onApply={(next) => setSearchParams((prev) => writeFilters(next, prev))}
+      />
+      {/* Not notifyChange: the version bump that follows is what reloads this list after an import. */}
+      <EntryCsv
+        filters={filters}
+        onImported={() =>
+          onChange
+            ? onChange()
+            : void loadEntries().catch((cause: unknown) =>
+                showError(cause, 'Could not load the entries'),
+              )
+        }
       />
       <EntryList
         entries={entries}
