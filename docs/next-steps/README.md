@@ -1,16 +1,16 @@
 # Next steps
 
-Last updated: **2026-11-06 (Asia/Seoul)**.
+Last updated: **2026-11-15 (Asia/Seoul)**.
 
 ## Priority
 
-| Order | Task                                       | Status             | Next action                                                                                                   |
-| ----- | ------------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------- |
-| 1     | Automatic spending classification (#60)    | Done               | Keyword rules and bulk classification merged (PR #84)                                                         |
-| 2     | Decide the price source (#36)              | Done               | [Price and exchange rate sources](../price-source.md). Applies to current price update (#47) and quotes (#51) |
-| 3     | Get price and exchange rate API keys (#85) | User step          | Get the KRX, Tiingo, and Korea Eximbank keys and put them in the local `.env`                                 |
-| 4     | Remaining feature issues (#39 to #64)      | Registered         | Work through them in order of each issue's prerequisites and priority                                         |
-| 5     | Rename the installable app to the new name | Waiting on central | Merge the `project-standards#399` sync PR                                                                     |
+| Order | Task                                       | Status             | Next action                                                                                                                                                                                                 |
+| ----- | ------------------------------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | Automatic spending classification (#60)    | Done               | Keyword rules and bulk classification merged (PR #84)                                                                                                                                                       |
+| 2     | Decide the price source (#36)              | Done               | [Price and exchange rate sources](../price-source.md). Applies to current price update (#47) and quotes (#51)                                                                                               |
+| 3     | Get price and exchange rate API keys (#85) | User step          | Sign up at KRX, Tiingo, and Korea Eximbank and store the keys in AWS SSM (`/sirloinbh/money-ledger/*-api-key`). `node tools/app-secrets.mjs pull money-ledger` in project-standards writes them into `.env` |
+| 4     | Remaining feature issues (#39 to #64)      | Registered         | Work through them in order of each issue's prerequisites and priority                                                                                                                                       |
+| 5     | Rename the installable app to the new name | Waiting on central | Merge the `project-standards#399` sync PR                                                                                                                                                                   |
 
 ## Development environment follow-ups (deferred)
 
