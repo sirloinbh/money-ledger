@@ -24,14 +24,18 @@ Register rent, the date savings account, electricity, gas, and phone once, and h
 - The app calls `POST /api/ledger/fixed-costs/generate` once per page load (next to the #49 net worth save); the section waits for it and reloads the rest of the page when entries were added. Saving an item also adds what became due right away.
 - API: `GET /api/ledger/fixed-costs?month=`, `POST /`, `PATCH /:id`, `POST /generate`, `PUT /:id/months/:month` (confirm the actual amount).
 
-## Verification so far
+## Verification
 
 - `backend/test/fixed-costs.integration.test.ts` on a dedicated test DB (`money-ledger-test-agent1`, migrations 001–020): 8 subtests passed, 0 skipped: due months once and not before the day, two opens at once add one entry, day 31 incl. a leap year, estimate from the last confirmed amount and confirming, a deleted entry does not come back, stop/start without backfill, the fixed vs other split, input checks. Migration 020 applied twice without error.
 - `frontend/src/fixed-costs.test.tsx` (6 tests) and `frontend/src/app.test.tsx` (13 tests, one new for adding due entries once): passed, 3 runs in a row.
 - Lint and typecheck of the changed files passed.
 
-## Not done yet (stopped here on 2026-11-15)
+- `npm run check` (with `TEST_DATABASE_URL` unset): passed (backend 173 passed, 17 DB tests skipped; frontend 320 passed, 2 skipped). `npm run knip` passed after making `addDueEntries` module-private.
+- Full backend on the dedicated test DB (`money-ledger-test-agent2`, migrations 001–020), 2026-11-16: 348 passed, 0 failed, 0 skipped.
 
-- `npm run check` passed on this commit (backend 173 passed, 17 DB tests skipped without a test DB; frontend 320 passed, 2 skipped) and `npm run knip` passed after making `addDueEntries` module-private. Rerun both after the browser check.
-- Browser check at 390×844 and 1440×900. A headless Edge script (DevTools protocol, the same approach as #76) was written but stopped on a quoting error in the script itself, not in the app.
-- PR, the two automatic reviews, CI, and merge.
+### Browser (2026-11-16)
+
+Headless Edge driven over the DevTools protocol (the Claude in Chrome extension was not connected), the local API on the test DB and Vite, `/ledger?month=2026-11`, today 2026-11-16.
+
+- 390×844 (mobile emulation): the Rent preset filled the name and 주거; with ₩500,000, day 25 and start 2026-09, saving added 2026-09-25 and 2026-10-25 and showed "No entry this month" for November (the 25th is not due yet). The Electricity preset (variable, ₩40,000, day 10) showed "Estimate ₩40,000 on 2026-11-10 · needs the actual amount"; "Confirm amount" focused the field, and 52,340 showed "Added ₩52,340" with the status "Electricity confirmed at ₩52,340". Page width 390, no horizontal scroll.
+- 1440×900: after a reload the same two items and totals ("Fixed costs ₩52,340") showed, and the entries were still exactly the three above (no month added twice). The add form lays out in two columns.
