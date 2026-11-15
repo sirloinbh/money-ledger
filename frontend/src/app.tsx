@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 
 import { AppShell, type NavItem } from './components/layout/app-shell';
 import { Toaster } from './components/ui/sonner';
+import { DashboardPage } from './dashboard';
 import { addDueOnce } from './fixed-costs-api';
 import type { Health } from './health';
 import { LedgerPage } from './ledger';
@@ -61,17 +62,7 @@ export function App() {
     <BrowserRouter>
       <AppShell appName="Ledger, Assets, Mock Trading" nav={nav}>
         <Routes>
-          <Route
-            path={pages.overview}
-            element={
-              <Page
-                title="Dashboard"
-                description="A personal service to record your ledger, asset portfolio, and mock trading and see where your money goes"
-                emptyDescription={emptyDescription}
-                health={health}
-              />
-            }
-          />
+          <Route path={pages.overview} element={<DashboardPage health={health} />} />
           <Route path={pages.ledger} element={<LedgerPage health={health} />} />
           <Route path={pages.portfolio} element={<PortfolioPage health={health} />} />
           <Route path={pages.mockTrading} element={<MockTradingPage health={health} />} />
