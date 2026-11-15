@@ -51,3 +51,8 @@ Headless Edge driven over the DevTools protocol (the Claude in Chrome extension 
 - Tests: DB subtests for the start-month limit and the income case, screen tests for the failed add after a save and the focus on close.
 - Not changed: the totals count fixed-cost entries by their date, the item row by the month they were added for. If the user moves an entry to another month in the entry list, the two differ for that entry; this is expected. The extra fetch when the first open adds entries is kept (it refreshes the other cards).
 - After the fixes: `npm run check` passed (frontend 322 passed / 2 skipped; backend 173 passed / 17 DB tests skipped), `npm run knip` passed, and the fixed-cost DB tests passed 9/9 subtests on the test DB.
+
+### Second review (PR #144)
+
+- Nothing to fix: the 24-month boundary (exactly 24 back is allowed), the confirm 404 rollback, the retry of a failed add, and the save/add split were checked.
+- Left as is (nitpicks): the focus after closing a form is not conditional on where the focus is; and the warning after a failed add says "the next time the app opens", which is accurate there, because the add on open has already succeeded by the time an item is saved.
