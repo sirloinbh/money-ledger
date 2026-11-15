@@ -5,7 +5,7 @@ description: Establish or improve the repeatable development foundation of the m
 
 # Household ledger, assets, and mock investing: development foundation
 
-This skill makes the app's development, verification, and operation repeatable. First read `AGENTS.md` at the project root and `skills/money-ledger-implementation/SKILL.md`, then follow the flow: issue → numbered branch → implementation and docs record → tests and PR → automatic code review (at most 2 rounds) → merge after CI passes. This skill does not skip the issue and PR procedure and does not grant deployment permission.
+This skill makes the app's development, verification, and operation repeatable. First read `AGENTS.md` at the project root and `skills/money-ledger-implementation/SKILL.md`, then follow the flow: issue → numbered branch → implementation and docs record → tests and PR → automatic code review (1 or 2 rounds, more only while blocking findings remain) → merge after CI passes. This skill does not skip the issue and PR procedure and does not grant deployment permission.
 
 ## Baseline
 
