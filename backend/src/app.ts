@@ -7,6 +7,7 @@ import { assetsRouter } from './assets.js';
 import { budgetsRouter } from './budgets.js';
 import { categoriesRouter } from './categories.js';
 import { entriesRouter } from './entries.js';
+import { entryCsvRouter } from './entry-csv.js';
 import { fixedCostsRouter } from './fixed-costs.js';
 import { mockAccountsRouter } from './mock-accounts.js';
 import { mockHoldingsRouter } from './mock-holdings.js';
@@ -50,6 +51,8 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
       message: { error: 'Too many requests. Try again in a moment' },
     }),
   );
+  // Mounted before the app-wide JSON parser: an import of up to 2,000 rows has its own, larger limit (#44).
+  app.use('/api/ledger/entries/csv', entryCsvRouter(pool, { today }));
   app.use(express.json({ limit: '256kb' }));
   app.get('/api/health', async (_req, res) => {
     await pool.query('SELECT 1');

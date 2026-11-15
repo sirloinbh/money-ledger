@@ -65,7 +65,7 @@ const positiveInt = (message: string) =>
     .transform(Number);
 
 // #39 Filters for the entry list. Every parameter is optional; `from` and `to` both include their own day.
-const listQuery = z
+export const listQuery = z
   .object({
     // `uncategorized=true` lists only entries without a category: the bulk classification list.
     uncategorized: z.enum(['true'], { error: 'uncategorized can only be true' }).optional(),
@@ -94,13 +94,13 @@ const listQuery = z
   .refine((query) => !query.from || !query.to || query.from <= query.to, {
     error: 'The start date is after the end date',
   });
-type ListQuery = z.infer<typeof listQuery>;
+export type ListQuery = z.infer<typeof listQuery>;
 
 /** `%`, `_` and `\` typed by the user are matched as themselves in ILIKE (default escape `\`). */
 const likePattern = (text: string) => `%${text.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
 
 /** WHERE conditions and their parameters for the list filters. */
-function listFilter(query: ListQuery) {
+export function listFilter(query: ListQuery) {
   const conditions: string[] = [];
   const params: unknown[] = [];
   const add = (sql: (n: string) => string, value: unknown) => {

@@ -19,7 +19,7 @@ const fetchBlockedPorts = new Set([
   6669, 6679, 6697, 10080,
 ]);
 
-async function listen(app: ReturnType<typeof createApp>) {
+export async function listen(app: ReturnType<typeof createApp>) {
   for (;;) {
     const server = app.listen(0, '127.0.0.1');
     await new Promise<void>((resolve, reject) => {
