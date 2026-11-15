@@ -156,7 +156,7 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
       assert.equal((await call(`/api/portfolio/assets/${id}`, { method: 'DELETE' })).status, 204);
       const again = await call(`/api/portfolio/assets/${id}`, { method: 'DELETE' });
       assert.equal(again.status, 404);
-      assert.deepEqual(again.data, { error: '자산을 찾을 수 없습니다' });
+      assert.deepEqual(again.data, { error: 'Asset not found' });
       const missing = await call(`/api/portfolio/assets/${id}`, {
         method: 'PUT',
         body: { name: '예금', type: 'cash', currency: 'KRW', valueKrw: 1 },
@@ -186,7 +186,7 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
     'totals too large for a JSON number come back as null and the list still loads',
     async () => {
       await reset();
-      // 10,000 rows of 1,000조 won: each is allowed, their sum is not a safe integer.
+      // 10,000 rows of ₩1 quadrillion: each is allowed, their sum is not a safe integer.
       await pool.query(
         `INSERT INTO portfolio_assets (name, asset_type, value_krw)
        SELECT 'a' || n, 'real_estate', 1000000000000000 FROM generate_series(1, 10000) AS n`,
@@ -399,7 +399,7 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
 
         const bad = await call('/api/portfolio/assets?asOf=2026-02-30');
         assert.equal(bad.status, 400);
-        assert.deepEqual(bad.data, { error: '없는 날짜입니다' });
+        assert.deepEqual(bad.data, { error: 'That date does not exist' });
       });
       await assert.rejects(
         pool.query(

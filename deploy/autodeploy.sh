@@ -1,5 +1,5 @@
 #!/bin/bash
-# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
+# Managed file. Edit it in sirloinbh/project-standards templates/app/deploy/
 # Pull-based continuous deployment, run every 2 minutes by money-autodeploy.timer.
 # Deploys origin/main only after every workflow run of the repository for that commit passed.
 # The firewall stays closed to GitHub: the server polls the public repository and API.

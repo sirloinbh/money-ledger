@@ -1,8 +1,8 @@
 {
-  "name": "가계부·자산·모의투자",
-  "short_name": "가계부·자산·모의투자",
-  "description": "수입과 지출, 자산 포트폴리오를 기록해 흐름을 확인하고, 모의투자로 투자 판단을 연습하는 개인 서비스. 사용자는 본인 한 명이며 로그인은 없다. 외부 공개 전에는 사설 접속 또는 인증을 먼저 설계한다.",
-  "lang": "ko",
+  "name": "Ledger, Assets, Mock Trading",
+  "short_name": "Money Ledger",
+  "description": "A personal service for recording income, spending, and an asset portfolio to see the flow of money, and for practicing investment decisions with mock trading. There is one user (me) and no login. Before any public exposure, design private access or authentication first.",
+  "lang": "en",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

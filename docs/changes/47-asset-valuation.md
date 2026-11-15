@@ -1,184 +1,184 @@
-# #47 현재가 갱신과 평가금액·손익 계산
+# #47 Current price update and valuation and profit and loss calculation
 
-- 이슈: https://github.com/sirloinbh/money-ledger/issues/47 (상위 #91)
-- 브랜치: `feat/47-asset-valuation`
+- Issue: https://github.com/sirloinbh/money-ledger/issues/47 (parent #91)
+- Branch: `feat/47-asset-valuation`
 
-## 목적
+## Purpose
 
-자산별 현재 평가금액, 평가 손익, 수익률을 보여 준다. 시세와 환율은 #51의 공용 시세 모듈이 받아 둔 값을 쓴다. 시세가 없는 자산은 현재가를 직접 넣는다.
+Show each asset's current valuation, valuation profit and loss, and rate of return. Prices and exchange rates use the values the shared price module of #51 has already fetched. For assets with no price, you enter the current price directly.
 
-## 결정 (2026-11-10 사용자 확인, 이슈 댓글 기록)
+## Decision (confirmed by the user on 2026-11-10, recorded in an issue comment)
 
-1. **종목 연결:** 주식 자산에 종목을 선택적으로 연결한다(자산 폼의 종목 찾기). 연결하면 통화는 종목의 통화로 고정한다. 이름·코드로 자동 매칭하지 않는다.
-2. **직접 입력:** 연결하지 않은 주식과 기타(코인 등) 자산은 1개당 현재가와 기준일을 직접 넣는다. 평가액은 수량 × 현재가다. 받은 종가가 있으면 받은 종가가 우선한다.
-3. **손익:** 평가 손익은 원화 평가액 − 원화 원가다. 원가에는 매수 수수료가 들어간다(#46). 수익률은 평가 손익 ÷ 원화 원가다. 거래 기록이 없는 자산은 손익 대신 "원가 없음"을 보여 준다.
-4. **환율:** 미국 자산은 저장된 최신 매매기준율로 원화로 바꾼다.
-   - 기준일이 5일 넘게 지났으면 "환율 지연"을 보여 준다.
-   - 환율이 없으면 그 자산을 합계에서 빼고 알린다.
-   - 달러 거래 폼의 환율 칸은 최신 매매기준율로 미리 채운다.
-5. **매일 받기:** 미국 종목에 연결된 보유 자산을 `trackedUsSecurities`에 더한다.
-   - 연결할 때 종가가 없으면 그 자리에서 한 번 받는다.
-   - 거래가 중단된 종목은 마지막 종가로 평가하고 "거래 중단"을 함께 보여 준다.
+1. **Ticker link:** optionally link a ticker to a stock asset (ticker search in the asset form). Once linked, the currency is fixed to the ticker's currency. We do not match automatically by name or code.
+2. **Direct entry:** for stock and other (crypto and so on) assets that are not linked, you enter the current price per unit and its base date directly. The valuation is quantity × current price. If a fetched close exists, the fetched close takes priority.
+3. **Profit and loss:** valuation profit and loss is the KRW valuation − the KRW cost. The cost includes buy fees (#46). The rate of return is valuation profit and loss ÷ KRW cost. For an asset with no trade records, "원가 없음" ("No cost") is shown instead of profit and loss.
+4. **Exchange rate:** US assets are converted to KRW at the latest stored basic rate.
+   - If the base date is more than 5 days old, "환율 지연" ("Rate delayed") is shown.
+   - If there is no exchange rate, that asset is left out of the total and we announce it.
+   - The exchange rate field of the dollar trade form is prefilled with the latest basic rate.
+5. **Daily fetch:** held assets linked to US tickers are added to `trackedUsSecurities`.
+   - If there is no close when linking, it is fetched once on the spot.
+   - A ticker whose trading has halted is valued at the last close and "거래 중단" ("Trading halted") is shown with it.
 
-## 변경 내용
+## Changes
 
-- `database/migrations/016_asset_valuation.sql` (다시 실행해도 안전)
-  - `portfolio_assets`에 세 칸을 더한다.
-    - `security_id`: 연결한 종목.
-    - `manual_price numeric(20,4)`: 직접 넣은 1개당 현재가.
-    - `manual_price_on date`: 그 현재가의 기준일.
-  - `(security_id, currency)` 복합 외래키로 자산 통화가 종목 통화와 같게 한다.
-  - `portfolio_assets_valuation_check`는 네 가지를 막는다.
-    - 주식이 아닌 자산의 종목 연결
-    - 연결한 자산의 직접 입력 현재가
-    - 현재가와 기준일 중 하나만 있는 행, 0 이하의 현재가, 원화 현재가의 소수
-    - 연결한 자산의 평가금액(`value_krw`, `value_foreign`)
+- `database/migrations/016_asset_valuation.sql` (safe to run again)
+  - Adds three columns to `portfolio_assets`.
+    - `security_id`: the linked ticker.
+    - `manual_price numeric(20,4)`: the current price per unit entered directly.
+    - `manual_price_on date`: the base date of that current price.
+  - A composite foreign key `(security_id, currency)` makes the asset currency equal to the ticker currency.
+  - `portfolio_assets_valuation_check` blocks four things.
+    - Linking a ticker to a non-stock asset
+    - A manually entered current price on a linked asset
+    - A row with only one of the current price and the base date, a current price of 0 or less, and decimals in a KRW current price
+    - A valuation (`value_krw`, `value_foreign`) on a linked asset
 - `backend/src/assets.ts`
-  - 자산 목록, 추가, 수정 응답이 한 SQL(`assetQuery`)로 평가한다. 모두 SQL `numeric`으로 계산하고 마지막에 한 번 반올림한다.
-  - 평가액은 다음 순서로 정한다.
-    1. 감가상각·선입금 자산: 계산한 가치(#63, #64).
-    2. 수량과 단가가 있으면 수량 × 단가.
-       - 연결한 종목은 기준일까지의 최신 종가를 단가로 쓴다.
-       - 연결하지 않은 자산은 직접 넣은 현재가를 쓴다.
-       - 연결한 종목에 종가가 없으면 직접 입력 현재가도 평가금액도 섞지 않고 "시세 없음"으로 둔다. 연결한 자산은 평가금액을 받지 않는다(DB CHECK도 막는다).
-    3. 거래로 수량을 정하는 자산이 다 팔렸으면 0.
-    4. 그 밖에는 직접 넣은 평가금액.
-  - 달러 자산은 기준일까지의 최신 USD 매매기준율로 바꾼다. `round(수량 × 단가 × 환율)`을 한 번만 반올림한다.
-  - 자산마다 응답에 더한 것:
-    - `security`: 연결한 종목. 시장, 코드, 이름, 거래 여부.
-    - `manualPrice`: 직접 넣은 현재가와 기준일.
-    - `price`: 실제로 쓴 단가와 출처(`close`·`manual`), 기준일, 지연 여부.
-    - `fx`: 쓴 환율과 기준일, 지연 여부.
-    - `currentValueForeign`: 달러 평가액.
-    - `valueIssue`: 원화 평가액이 없는 이유. `no_price`, `no_fx`, `too_large` 중 하나다.
-    - `costKrw`, `profitKrw`, `returnPercent`: 거래가 있는 자산만. 원가는 `portfolio_trade_positions`(#46)의 마지막 원가이고, 수익률은 소수 2자리 %다.
-  - "지연"의 기준은 docs/price-source.md와 같다. 종가나 환율의 기준일이 5일 넘게 지난 것이다.
-  - 평가액이 1,000조(원 또는 달러)를 넘으면 `too_large`로 합계에서 뺀다. 목록이 500 오류로 깨지지 않는다.
-  - 합계도 같은 평가식으로 더한다. 목록과 합계는 한 스냅샷(`REPEATABLE READ, READ ONLY`)에서 읽는다. `uncounted`는 시세·환율·평가금액이 없거나 너무 큰 자산의 수다.
-  - 요청 본문에 `securityId`와 `manualPrice { price, pricedOn }`를 더했다. 둘 다 생략할 수 있다.
-  - 다음 경우는 한국어 400을 돌려준다.
-    - 주식이 아닌 자산에 종목을 연결할 때
-    - 없는 종목을 연결할 때
-    - 종목과 자산의 통화가 다를 때
-    - 연결한 자산에 현재가를 넣을 때
-    - 원화 현재가가 소수일 때
-    - 수량 없이 현재가를 넣을 때
-    - 부동산 등 다른 종류에 현재가를 넣을 때
-    - 연결하면서 평가금액을 함께 넣을 때
-    - 수량 없이 종목을 연결할 때
-  - 미국 종목을 연결하고 저장된 종가가 없으면 저장한 뒤 한 번 받는다. 상세 화면과 같은 Tiingo 시간당 한도를 쓴다. 실패해도 자산은 저장되고 "시세 없음"으로 보이며, 실패는 `price_fetch_now`로 기록한다.
-  - `assetsRouter`는 이제 `today`, `now`, `prices`, `log`를 받는다(`app.ts`).
+  - The asset list, add, and update responses are valued with one SQL (`assetQuery`). Everything is computed in SQL `numeric` and rounded once at the end.
+  - The valuation is decided in this order.
+    1. Depreciable and prepaid assets: the computed value (#63, #64).
+    2. If there is a quantity and a unit price, quantity × unit price.
+       - A linked ticker uses the latest close up to the base date as the unit price.
+       - An unlinked asset uses the manually entered current price.
+       - If a linked ticker has no close, we do not mix in a manual current price or a valuation, and leave it as "시세 없음" ("No price"). A linked asset does not accept a valuation (the DB CHECK blocks it too).
+    3. 0 if an asset whose quantity is set by trades has been sold off.
+    4. Otherwise the manually entered valuation.
+  - A dollar asset is converted at the latest USD basic rate up to the base date. `round(quantity × unit price × exchange rate)` is rounded only once.
+  - What we added to the response for each asset:
+    - `security`: the linked ticker. Market, code, name, and whether it trades.
+    - `manualPrice`: the manually entered current price and its base date.
+    - `price`: the unit price actually used and its source (`close` or `manual`), the base date, and whether it is delayed.
+    - `fx`: the exchange rate used, its base date, and whether it is delayed.
+    - `currentValueForeign`: the dollar valuation.
+    - `valueIssue`: the reason there is no KRW valuation. One of `no_price`, `no_fx`, and `too_large`.
+    - `costKrw`, `profitKrw`, `returnPercent`: only for assets with trades. The cost is the last cost of `portfolio_trade_positions` (#46), and the rate of return is a % to 2 decimal places.
+  - The standard for "delayed" is the same as docs/price-source.md. The base date of the close or exchange rate is more than 5 days old.
+  - A valuation over 1,000 trillion (won or dollars) is left out of the total as `too_large`. The list does not break with a 500 error.
+  - The totals are added with the same valuation formula. The list and the totals are read from one snapshot (`REPEATABLE READ, READ ONLY`). `uncounted` is the number of assets with no price, exchange rate, or valuation, or that are too large.
+  - We added `securityId` and `manualPrice { price, pricedOn }` to the request body. Both can be omitted.
+  - A Korean 400 is returned in these cases.
+    - Linking a ticker to a non-stock asset
+    - Linking a nonexistent ticker
+    - The ticker and the asset have different currencies
+    - Entering a current price on a linked asset
+    - A KRW current price with decimals
+    - Entering a current price without a quantity
+    - Entering a current price on another kind such as real estate
+    - Entering a valuation together with a link
+    - Linking a ticker without a quantity
+  - If you link a US ticker and there is no stored close, it is fetched once after saving. It uses the same Tiingo hourly limit as the detail screen. Even if it fails, the asset is saved and shown as "시세 없음", and the failure is recorded as `price_fetch_now`.
+  - `assetsRouter` now receives `today`, `now`, `prices`, and `log` (`app.ts`).
 - `backend/src/prices/store.ts`
-  - `trackedUsSecurities`는 최근 30일 안에 연 종목에 더해, 수량이 있는 자산이 연결한 미국 종목도 돌려준다.
-- `frontend/src/security-picker.tsx`(새 파일)
-  - 자산 폼의 "종목 연결(선택)"이다. 검색 칸에서 Enter를 누르면 자산을 저장하지 않고 검색한다. 결과에는 종가와 기준일이 보인다.
-  - 연결하면 포커스가 "연결 해제"로 가고, 해제하면 검색 칸으로 돌아온다.
-  - 거래가 있는 자산은 통화를 바꿀 수 없어 같은 통화의 종목만 보여 준다.
+  - `trackedUsSecurities` also returns the US tickers linked by assets with a quantity, in addition to those opened in the last 30 days.
+- `frontend/src/security-picker.tsx` (new file)
+  - The "종목 연결(선택)" ("Link a ticker (optional)") in the asset form. Pressing Enter in the search field searches without saving the asset. The results show the close and its base date.
+  - After linking, focus goes to "연결 해제" ("Unlink"), and after unlinking it returns to the search field.
+  - An asset with trades cannot change currency, so it shows only tickers of the same currency.
 - `frontend/src/assets.tsx`
-  - 주식 폼에 종목 연결을 더했다. 연결하면 통화 선택이 종목 통화로 고정되고 현재가 칸이 숨겨진다.
-  - 연결하지 않은 주식·기타 폼에는 "현재가(1개당, 선택)"와 "현재가 기준일(비우면 오늘)"이 있다.
-  - 목록 행에 평가 근거를 한 줄씩 보여 준다.
-    - "71,500원 · 11월 5일 종가 기준" (5일 넘으면 "시세 지연 · …")
+  - Added the ticker link to the stock form. Once linked, the currency choice is fixed to the ticker's currency and the current price field is hidden.
+  - The unlinked stock and other forms have "현재가(1개당, 선택)" ("Current price (per unit, optional)") and "현재가 기준일(비우면 오늘)" ("Current price base date (today if empty)").
+  - Each list row shows the basis of the valuation, one per line.
+    - "71,500원 · 11월 5일 종가 기준" (over 5 days: "시세 지연 · …")
     - "95,000,000원 · 직접 입력 · 11월 9일"
     - "거래 중단"
-    - "환율 1,400.5원 · 11월 3일 기준" (5일 넘으면 "환율 지연 · …")
+    - "환율 1,400.5원 · 11월 3일 기준" (over 5 days: "환율 지연 · …")
     - "환율 없음 · 합계에서 뺐습니다"
     - "아직 받은 종가가 없어 합계에서 뺐습니다"
     - "평가 손익 +15,000원 (+2.14%)"
     - "원가 없음 · 거래를 기록하면 손익을 보여 줍니다"
-  - 달러 자산은 원화 평가액과 달러 평가액을 함께 보여 준다.
-  - 합계 아래 안내를 "시세·환율이 없거나 평가금액이 없는 N개는 합계에서 빠졌습니다"로 바꿨다.
+  - A dollar asset shows the KRW valuation and the dollar valuation together.
+  - We changed the guidance under the total to "시세·환율이 없거나 평가금액이 없는 N개는 합계에서 빠졌습니다" ("N assets with no price or exchange rate or no valuation are left out of the total").
 - `frontend/src/asset-trades.tsx`
-  - 새 달러 거래의 환율 칸을 자산의 최신 매매기준율로 미리 채운다.
-  - "M월 D일 매매기준율을 미리 채웠습니다. 거래한 날 환율로 고칠 수 있습니다"를 칸 설명(`aria-describedby`)으로 붙인다.
-  - 사용자가 고친 값은 목록을 다시 불러와도 덮어쓰지 않는다.
-- `frontend/src/quote-format.ts`: `marketNames`와 `securityText`를 모의투자 검색(`security-search.tsx`)과 자산 화면이 함께 쓴다.
-- `docs/price-source.md`: 추적 종목과 직접 입력 구현 위치를 고쳤다.
+  - The exchange rate field of a new dollar trade is prefilled with the asset's latest basic rate.
+  - We attach "M월 D일 매매기준율을 미리 채웠습니다. 거래한 날 환율로 고칠 수 있습니다" ("The basic rate of M/D was prefilled. You can change it to the rate on the trade day") as the field description (`aria-describedby`).
+  - A value the user edited is not overwritten even when the list is reloaded.
+- `frontend/src/quote-format.ts`: `marketNames` and `securityText` are shared by the mock investing search (`security-search.tsx`) and the asset screen.
+- `docs/price-source.md`: corrected the implementation location of tracked tickers and manual entry.
 
-## 검증
+## Verification
 
-- 테스트 DB: 전용 컨테이너 `money-ledger-test-agent1`(`postgres:17-alpine`, `127.0.0.1:15491`)에 마이그레이션 001~016을 적용했다. 016은 테스트마다 두 번 실행해 다시 실행해도 안전한지 확인했다.
-- `backend/test/valuation.integration.test.ts`(DB 통합 13개)
-  - 연결 종목을 최신 종가로 평가한다. 이전 기준일에는 그때 종가를 쓰고, 6일 지나면 지연이다.
-  - 달러 보유 + 거래
-    - 2 × 110.25 × 1,400.5 = 308,810원이다.
-    - 원가는 261,000원(수수료 포함)이고 손익은 47,810원(18.32%)이다.
-    - 다 팔면 0원이다.
-  - 환율이 없으면 합계에서 빠지고 달러 값만 남는다. 오래된 환율은 쓰되 지연으로 표시한다.
-  - 직접 입력 현재가: 원화 코인과 달러 비상장 주식(소수 4자리).
-  - 연결 종목에 종가가 없으면 시세 없음이다.
-  - 거래 중단 종목은 마지막 종가로 평가한다.
-  - 연결할 때 즉시 받기
-    - 가짜 Tiingo를 한 번 부른다. 다시 저장하면 부르지 않는다.
-    - 연결한 보유 종목이 `trackedUsSecurities`에 들어가고, 수량이 없으면 빠진다.
-    - 받기에 실패해도 자산은 저장되고 기록이 남는다.
-  - 한국어 400 9가지, 너무 큰 값은 `too_large`로 처리한다.
-  - DB 외래키·CHECK.
-- 기존 DB 통합 테스트는 016을 적용하도록 고쳤다.
-  - `securities`를 지우는 시세·모의투자 테스트는 자산 테이블도 함께 지우고 다시 만든다. 자산이 종목을 참조하기 때문이다.
-  - 자산 응답 모양 테스트에는 새 필드를 더했다.
-- `frontend/src/valuation.test.tsx`(9개)
-  - 평가 근거 문구 전부: 종가 기준, 시세 지연, 직접 입력, 거래 중단, 환율·환율 지연·환율 없음, 시세 없음, 손익 부호와 %, 원가 없음, 합계 안내.
-  - 종목 연결: Enter로 검색하고 저장은 하지 않는다. 연결하면 통화가 고정되고 요청에 `securityId`가 들어간다.
-  - 연결 해제, 수정할 때 현재가 채우기, 기준일이 비면 오늘로 보낸다.
-  - 보내기 전에 거부하는 3가지.
-  - 달러 거래 환율 미리 채우기와 설명 문구.
-- 기존 화면 테스트의 가짜 서버와 요청 본문에 새 필드를 더했다.
-- `TEST_DATABASE_URL=<전용 테스트 DB> npm run check` 통과(종료 코드 0)
-  - 백엔드 266개 통과, 건너뜀 0
-  - 프론트엔드 224개 중 222개 통과, 2개 건너뜀(기존)
-  - 스킬 검사, 빌드 성공
-- 브라우저 확인(2026-11-10)
-  - 환경: API(3191, 테스트 DB, `PRICE_SOURCE=fake`), Vite(5291), headless Chrome(CDP로 뷰포트 지정). `/portfolio`를 390×844와 1440×900에서 봤다.
-  - 서버를 켜자 매일 받기가 한 번 돌아 가짜 KRX 종가와 환율을 저장했다.
-  - 넣은 자산
-    - 주식: "삼성" 검색 → 삼성전자 연결, 수량 10. "aapl" 검색 → AAPL 연결, 수량 2. 연결할 때 가짜 Tiingo에서 종가를 바로 받았다.
-    - 기타: 비트코인, 수량 0.05, 현재가 95,000,000원(기준일 비움 → 오늘).
-    - 현금: 달러 예금 100.5달러.
-  - AAPL 거래 패널의 환율 칸에는 "1385"와 "11월 10일 매매기준율을 미리 채웠습니다…"가 미리 들어가 있었다. 2주 × 200달러, 수수료 1,000원으로 매수를 기록했다.
-  - 화면 결과
-    - 삼성전자: 709,000원, "70,900원 · 11월 9일 종가 기준", "원가 없음 · …"
-    - 애플: 643,333원(2 × 232.25 × 1,385 = 643,332.5), "464.5달러", "232.25달러 · 11월 9일 종가 기준", "환율 1,385원 · 11월 10일 기준", "평가 손익 +88,333원 (+15.92%)"(원가 555,000원)
-    - 비트코인: 4,750,000원, "95,000,000원 · 직접 입력 · 11월 10일"
-    - 달러 예금: 139,193원(100.5 × 1,385 = 139,192.5), "환율 1,385원 · 11월 10일 기준"
-    - 자산 합계 6,241,526원. 빠진 자산이 없어 안내가 없다.
-  - 두 크기 모두 가로 넘침이 없다(scrollWidth = clientWidth: 390, 1425).
-  - 시세 지연·환율 지연·환율 없음·거래 중단 문구는 화면 테스트와 DB 통합 테스트로만 확인했다.
-- **실제 API 키로는 확인하지 않았다.** 키(#85)가 아직 없어 자동 테스트와 브라우저 확인은 모두 가짜 출처(`PRICE_SOURCE=fake`)로 했다.
+- Test DB: we applied migrations 001 to 016 to the dedicated container `money-ledger-test-agent1` (`postgres:17-alpine`, `127.0.0.1:15491`). We ran 016 twice in each test to confirm it is safe to run again.
+- `backend/test/valuation.integration.test.ts` (13 DB integration tests)
+  - A linked ticker is valued at the latest close. For an earlier base date it uses the close of that time, and after 6 days it is delayed.
+  - Dollar holding + trades
+    - 2 × 110.25 × 1,400.5 = 308,810 won.
+    - The cost is 261,000 won (including fees) and the profit and loss is 47,810 won (18.32%).
+    - If all is sold, it is 0 won.
+  - With no exchange rate it is left out of the total and only the dollar value remains. An old exchange rate is used but marked delayed.
+  - Manually entered current price: a KRW crypto and a dollar unlisted stock (4 decimal places).
+  - A linked ticker with no close is "no price".
+  - A halted ticker is valued at the last close.
+  - Fetching on the spot when linking
+    - It calls the fake Tiingo once. Saving again does not call it.
+    - A linked holding goes into `trackedUsSecurities`, and drops out if it has no quantity.
+    - Even if the fetch fails, the asset is saved and a record is left.
+  - 9 kinds of Korean 400, and a too-large value is handled as `too_large`.
+  - DB foreign key and CHECKs.
+- We changed the existing DB integration tests to apply 016.
+  - The price and mock investing tests that delete `securities` also delete and recreate the asset table, because assets reference tickers.
+  - We added the new fields to the asset response shape test.
+- `frontend/src/valuation.test.tsx` (9)
+  - All the valuation basis texts: based on the close, price delayed, manual entry, trading halted, exchange rate, rate delayed, no rate, no price, the sign and % of profit and loss, no cost, and the total guidance.
+  - Ticker link: search with Enter without saving. Once linked, the currency is fixed and `securityId` goes into the request.
+  - Unlinking, filling the current price when editing, and sending today when the base date is empty.
+  - 3 things rejected before sending.
+  - Prefilling the dollar trade exchange rate and its description text.
+- We added the new fields to the fake server and request bodies of the existing screen tests.
+- `TEST_DATABASE_URL=<dedicated test DB> npm run check` passed (exit code 0)
+  - Backend 266 passed, 0 skipped
+  - Frontend 222 of 224 passed, 2 skipped (existing)
+  - Skill check, build succeeded
+- Browser check (2026-11-10)
+  - Environment: API (3191, test DB, `PRICE_SOURCE=fake`), Vite (5291), headless Chrome (viewport set through CDP). We viewed `/portfolio` at 390×844 and 1440×900.
+  - When the server started, the daily fetch ran once and stored fake KRX closes and exchange rates.
+  - Assets we put in
+    - Stocks: search "삼성" ("Samsung") → linked Samsung Electronics, quantity 10. Search "aapl" → linked AAPL, quantity 2. When linking, the close was fetched right away from the fake Tiingo.
+    - Other: Bitcoin, quantity 0.05, current price 95,000,000 won (base date empty → today).
+    - Cash: a dollar deposit of 100.5 dollars.
+  - The exchange rate field of the AAPL trade panel was prefilled with "1385" and "11월 10일 매매기준율을 미리 채웠습니다…". We recorded a buy of 2 shares × 200 dollars with a fee of 1,000 won.
+  - Results on the screen
+    - Samsung Electronics: 709,000 won, "70,900원 · 11월 9일 종가 기준", "원가 없음 · …"
+    - Apple: 643,333 won (2 × 232.25 × 1,385 = 643,332.5), "464.5달러", "232.25달러 · 11월 9일 종가 기준", "환율 1,385원 · 11월 10일 기준", "평가 손익 +88,333원 (+15.92%)" (cost 555,000 won)
+    - Bitcoin: 4,750,000 won, "95,000,000원 · 직접 입력 · 11월 10일"
+    - Dollar deposit: 139,193 won (100.5 × 1,385 = 139,192.5), "환율 1,385원 · 11월 10일 기준"
+    - The asset total is 6,241,526 won. No assets are left out, so there is no guidance.
+  - There is no horizontal overflow at either size (scrollWidth = clientWidth: 390, 1425).
+  - The texts for price delayed, rate delayed, no rate, and trading halted were checked only by screen tests and DB integration tests.
+- **We did not verify with real API keys.** The keys (#85) do not exist yet, so the automated tests and the browser check all used the fake source (`PRICE_SOURCE=fake`).
 
-## 제한·후속
+## Limits and follow-up
 
-- 키를 받으면(#85) 실제 종가·환율로 평가가 맞는지 다시 확인한다.
-- 받은 종가는 수정 전 종가다. 액면분할 같은 권리 변동은 처리하지 않는다(docs/price-source.md).
-- 거래 중단 종목은 받은 종가가 계속 우선해 직접 입력으로 바꿀 수 없다. 연결을 해제하면 직접 입력할 수 있다.
-- 모의투자 보유 종목(#53)은 아직 `trackedUsSecurities`에 없다.
-- `?asOf=`는 그날의 종가, 환율, 직접 입력 현재가, 감가상각·선입금 가치를 고른다. 수량과 거래 원가는 지금 값이다. 지난 날짜의 수량은 순자산 추이(#49)에서 다룬다.
+- When we get the keys (#85), we recheck with real closes and exchange rates that the valuation is right.
+- The fetched close is the unadjusted close. Corporate actions such as stock splits are not handled (docs/price-source.md).
+- For a halted ticker the fetched close always takes priority, so it cannot be replaced by a manual entry. If you unlink it, you can enter manually.
+- Mock investing holdings (#53) are not yet in `trackedUsSecurities`.
+- `?asOf=` picks that day's close, exchange rate, manual current price, and the depreciation and prepayment value. The quantity and trade cost are current values. The quantity on a past date is handled in the net worth trend (#49).
 
-## 리뷰 기록
+## Review record
 
-### 1차: 병합을 막는 결함 없음, 고칠 점 1건과 사소한 점 3건 모두 반영
+### Round 1: no defect blocking the merge, 1 point to fix and 3 minor points all addressed
 
-- (고칠 점) 종목을 연결했지만 종가가 아직 없는 자산은 "시세 없음"이어야 하는데, 직접 넣어 둔 평가금액이 대신 합계에 들어갔다.
-  - 원화 평가금액을 가진 #45 주식에 미국 종목을 연결하면, 그 숫자가 달러로 읽혀 큰 금액이 합계에 들어갈 수 있었다.
-  - 고친 것:
-    - 평가식은 연결한 자산을 수량 × 종가로만 계산한다.
-    - API는 연결과 평가금액을 함께 받지 않는다(한국어 400). 수량 없이 연결하는 것도 400이다.
-    - 016의 CHECK도 둘을 함께 막는다.
-    - 화면은 종목을 연결하면 평가금액 칸을 숨기고 값을 보내지 않는다.
-- `asOf`보다 뒤 날짜의 직접 입력 현재가는 그 기준일에 쓰지 않는다. 수량과 원가는 지금 값이라는 점을 코드 주석과 위 "제한"에 적었다.
-- 연결할 때 즉시 받기가 예외를 던져도 저장된 자산으로 응답한다(500과 중복 저장 방지). 예외는 `price_fetch_now`/`error`로 기록한다.
-- 미리 채운 환율을 고치면 "미리 채웠습니다" 안내가 사라진다.
-- 테스트를 추가했다.
-  - DB 통합: 평가금액이 있던 자산을 연결하면 400과 시세 없음, 수량 없는 연결은 400, 기준일 뒤의 직접 입력 현재가, 즉시 받기 예외, 연결 자산의 평가금액을 막는 CHECK.
-  - 화면: 연결하면 평가금액 칸이 숨겨지고, 환율을 고치면 안내가 사라진다.
-- 자산 통합 테스트는 이전 실행이 남긴 환율을 지우고 시작한다. 로컬 브라우저 확인 뒤에 달러 자산이 환산돼 테스트가 실패했기 때문이다.
-- 반영 후 `TEST_DATABASE_URL=<전용 테스트 DB> npm run check` 통과(백엔드 266개 통과·건너뜀 0, 프론트엔드 222개 통과·2개 건너뜀(기존), 빌드 성공).
+- (To fix) For an asset linked to a ticker that has no close yet, it should be "시세 없음", but a manually entered valuation went into the total instead.
+  - If you link a US ticker to a #45 stock that has a KRW valuation, that number would be read as dollars and a large amount could go into the total.
+  - What we fixed:
+    - The valuation formula computes a linked asset only as quantity × close.
+    - The API does not accept a link and a valuation together (Korean 400). Linking without a quantity is also 400.
+    - The CHECK of 016 also blocks both together.
+    - On the screen, when you link a ticker, the valuation field is hidden and the value is not sent.
+- A manually entered current price dated after `asOf` is not used on that base date. We wrote in a code comment and in "Limits" above that the quantity and cost are current values.
+- Even if the on-the-spot fetch when linking throws an exception, we respond with the saved asset (preventing a 500 and a duplicate save). The exception is recorded as `price_fetch_now`/`error`.
+- If you edit a prefilled exchange rate, the "prefilled" guidance disappears.
+- We added tests.
+  - DB integration: linking an asset that had a valuation gives 400 and no price, linking without a quantity is 400, a manual current price after the base date, an exception in the on-the-spot fetch, and the CHECK that blocks a valuation on a linked asset.
+  - Screen: when linked, the valuation field is hidden, and editing the exchange rate removes the guidance.
+- The asset integration test starts by deleting the exchange rate left by an earlier run, because after a local browser check the dollar asset was converted and the test failed.
+- After the fixes, `TEST_DATABASE_URL=<dedicated test DB> npm run check` passed (backend 266 passed and 0 skipped, frontend 222 passed and 2 skipped (existing), build succeeded).
 
-### 2차: 1차 반영 4건 확인, 막는 결함 없음, 문서 2건 반영
+### Round 2: 4 first-round fixes confirmed, no blocking defect, 2 doc points addressed
 
-- 리뷰어가 확인한 것:
-  - 연결 자산에는 직접 입력한 값이 들어갈 경로가 없다. 거래가 있는 연결 자산, 연결 자산 수정, 종목을 고른 채 종류 바꾸기도 문제없다.
-  - 016은 다시 실행해도 안전하고, 기존 행이 새 CHECK를 어길 수 없다.
-  - 다른 곳의 회귀는 없다.
-- 문서 반영: 한국어 400 목록에 "연결하면서 평가금액을 함께 넣을 때"와 "수량 없이 종목을 연결할 때"를 더했다. CHECK 목록에 "연결한 자산의 평가금액"을 더했다.
-- 표준에 따라 3차 리뷰는 하지 않고, 최종 head의 CI 결과를 보고 병합한다.
+- What the reviewer confirmed:
+  - There is no path for a manually entered value to enter a linked asset. A linked asset with trades, editing a linked asset, and changing the kind while a ticker is chosen are also fine.
+  - 016 is safe to run again, and existing rows cannot violate the new CHECK.
+  - There is no regression elsewhere.
+- Doc fixes: we added "entering a valuation together with a link" and "linking a ticker without a quantity" to the Korean 400 list, and added "a valuation on a linked asset" to the CHECK list.
+- By the standard, we do not run a third review, and we merge after seeing the CI result of the final head.

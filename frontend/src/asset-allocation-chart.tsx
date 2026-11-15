@@ -34,7 +34,7 @@ const shortName = (name: string) =>
 
 /** The won amount, or a note when it is too large to show exactly (the table says the same). */
 const amountText = (amount: number | null) =>
-  amount === null ? '금액이 너무 커 표시 불가' : formatWon(amount);
+  amount === null ? 'Amount too large to show' : formatWon(amount);
 
 function ShareTooltip({ active, payload }: TooltipContentProps) {
   const bar = active ? (payload[0]?.payload as AllocationBar | undefined) : undefined;
@@ -49,14 +49,14 @@ function ShareTooltip({ active, payload }: TooltipContentProps) {
   );
 }
 
-/** `bars` largest first, at least one. `title` names what is spread (종류별 / 종목별). */
+/** `bars` largest first, at least one. `title` names what is spread (By type / By asset). */
 export function AssetAllocationChart({ bars, title }: { bars: AllocationBar[]; title: string }) {
   const height = bars.length * rowHeight + 32;
   const largest = bars[0];
   return (
     <div
       role="img"
-      aria-label={`${title} 자산 배분 가로 막대 차트. 가장 큰 항목은 ${largest.name} ${amountText(largest.amountKrw)}(${largest.share}%)입니다. 모든 값은 아래 표에 있습니다.`}
+      aria-label={`${title} asset allocation horizontal bar chart. The largest item is ${largest.name} ${amountText(largest.amountKrw)} (${largest.share}%). All values are in the table below.`}
       className="w-full"
       style={{ height }}
     >

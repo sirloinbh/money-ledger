@@ -17,11 +17,13 @@ import { monthLabel, type TrendMonth, trendSeries } from './trend-series';
 // (identity never by color alone); the exact values are in the table under the chart, so the chart is one image
 // for screen readers. Colors: --chart-series-1..3 (index.css) for the lines, text tokens for every label.
 
-/** Axis ticks in 만원 from 10,000 (and below -10,000), full numbers in between. */
+/** Axis ticks compact from 10,000 (and below -10,000), full numbers in between. */
 const compactWon = (value: number) =>
   Math.abs(value) >= 10_000
-    ? `${new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 }).format(value / 10_000)}만`
-    : new Intl.NumberFormat('ko-KR').format(value);
+    ? new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(
+        value,
+      )
+    : new Intl.NumberFormat('en-US').format(value);
 
 /** "2026-11" → "26.11" on the axis. */
 const shortMonth = (month: string) => `${month.slice(2, 4)}.${month.slice(5)}`;
@@ -55,7 +57,7 @@ export function TrendChart({ months }: { months: TrendMonth[] }) {
   return (
     <div
       role="img"
-      aria-label={`${monthLabel(first)}부터 ${monthLabel(last)}까지 월별 수입·지출·잔액 꺾은선 차트. 모든 값은 아래 표로 보기에 있습니다.`}
+      aria-label={`Monthly income, expense, and balance line chart from ${monthLabel(first)} to ${monthLabel(last)}. All values are in the table under the view switch.`}
       className="flex w-full flex-col gap-2"
     >
       <ul className="flex flex-wrap gap-x-4 gap-y-1 text-body-sm text-muted-foreground">

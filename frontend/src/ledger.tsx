@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { BudgetProgress } from './budget-progress';
 import { CategoryManager } from './categories';
 import { RuleManager, UncategorizedEntries } from './classification';
 import { EntryManager } from './entries';
@@ -16,13 +17,14 @@ export function LedgerPage({ health }: { health: Health }) {
   const ledgerChanged = () => setLedgerVersion((version) => version + 1);
   return (
     <Page
-      title="가계부"
-      description="수입과 지출, 고정비를 기록하고 소비 흐름을 확인합니다"
+      title="Ledger"
+      description="Record income, expenses, and fixed costs, and see how you spend"
       health={health}
     >
       <div className="flex flex-col gap-10">
         {/* Both counters only grow, so their sum changes whenever entries or category names do. */}
         <MonthlySummary version={ledgerVersion + categoriesVersion} />
+        <BudgetProgress version={ledgerVersion + categoriesVersion} />
         <MonthlyTrend version={ledgerVersion} />
         <EntryManager
           categoriesVersion={categoriesVersion}

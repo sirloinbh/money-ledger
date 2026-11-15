@@ -28,8 +28,8 @@ export type PriceLog = (event: Record<string, unknown>) => void;
 export const tiingoHourlyLimit = 50;
 export const dailyTiingoLimit = 40;
 
-const notConfigured = '시세 출처가 설정되지 않았습니다';
-const notFoundNote = 'Tiingo에 없는 종목입니다';
+const notConfigured = 'No quote source is configured';
+const notFoundNote = 'Not found at Tiingo';
 /**
  * A ticker Tiingo did not know is asked for again 7 days later (#96). The daily run starts at about the same
  * time each day but not to the millisecond, so an hour less keeps the 7th day's run from just missing it.
@@ -40,7 +40,7 @@ export const screenRetryMs = 3_600_000;
 const tickersEveryDays = 7;
 
 const messageOf = (error: unknown) =>
-  error instanceof SourceError ? error.message : '시세를 받거나 저장하지 못했습니다';
+  error instanceof SourceError ? error.message : 'Could not get or save the quote';
 
 /** Runs every source once. `complete` is false when something should be retried in an hour. */
 export async function runDailyFetch(pool: Pool, sources: PriceSources, now: Date, log: PriceLog) {
@@ -170,7 +170,8 @@ export async function fetchUsCloses(
   const state = await getState(pool, stateSources.tiingo, security.symbol);
   const dates = datesToFetch(state.checkedThrough, latest);
   if (dates.length === 0) return 'up_to_date';
-  const since = state.lastAttemptAt === null ? Infinity : now.getTime() - state.lastAttemptAt.getTime();
+  const since =
+    state.lastAttemptAt === null ? Infinity : now.getTime() - state.lastAttemptAt.getTime();
   if (state.lastError === notFoundNote && since < notFoundRetryMs) return 'known_missing';
   if (since < retryAfterMs) return state.lastError === null ? 'tried_recently' : 'failed_recently';
   if (!(await reserveCall(pool, stateSources.tiingo, limit, now))) return 'rate_limited';

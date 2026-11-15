@@ -1,4 +1,4 @@
-// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 scripts/에서
+// Managed file. Edit it in sirloinbh/project-standards scripts/
 // Scans a repository for committed secrets: tokens and keys with a recognizable shape,
 // private key blocks, and committed .env files. Read-only, and it never prints the value it found.
 // Only high-confidence patterns are checked so CI can fail on any finding; GitHub secret scanning
@@ -13,17 +13,17 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const RULES = [
-  { id: 'github-token', name: 'GitHub 토큰', pattern: /\bgh[pousr]_[A-Za-z0-9]{36,}\b/ },
-  { id: 'github-pat', name: 'GitHub fine-grained 토큰', pattern: /\bgithub_pat_[A-Za-z0-9_]{50,}/ },
-  { id: 'anthropic-key', name: 'Anthropic(Claude) API 키', pattern: /\bsk-ant-[A-Za-z0-9_-]{32,}/ },
-  { id: 'openai-key', name: 'OpenAI API 키', pattern: /\bsk-(?:proj|svcacct|admin)-[A-Za-z0-9_-]{32,}/ },
-  { id: 'aws-access-key', name: 'AWS 액세스 키 ID', pattern: /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/ },
-  { id: 'aws-secret-key', name: 'AWS 비밀 액세스 키', pattern: /aws_secret_access_key\s*[=:]\s*["']?[A-Za-z0-9/+]{40}\b/i },
-  { id: 'npm-token', name: 'npm 토큰', pattern: /\bnpm_[A-Za-z0-9]{36}\b/ },
-  { id: 'slack-token', name: 'Slack 토큰', pattern: /\bxox[abposr]-[A-Za-z0-9-]{10,}/ },
-  { id: 'google-api-key', name: 'Google API 키', pattern: /\bAIza[0-9A-Za-z_-]{35}\b/ },
-  { id: 'stripe-live-key', name: 'Stripe 운영 키', pattern: /\b[rs]k_live_[0-9A-Za-z]{24,}/ },
-  { id: 'private-key', name: '개인키', pattern: /-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP |ENCRYPTED )?PRIVATE KEY(?: BLOCK)?-----/ },
+  { id: 'github-token', name: 'GitHub token', pattern: /\bgh[pousr]_[A-Za-z0-9]{36,}\b/ },
+  { id: 'github-pat', name: 'GitHub fine-grained token', pattern: /\bgithub_pat_[A-Za-z0-9_]{50,}/ },
+  { id: 'anthropic-key', name: 'Anthropic (Claude) API key', pattern: /\bsk-ant-[A-Za-z0-9_-]{32,}/ },
+  { id: 'openai-key', name: 'OpenAI API key', pattern: /\bsk-(?:proj|svcacct|admin)-[A-Za-z0-9_-]{32,}/ },
+  { id: 'aws-access-key', name: 'AWS access key ID', pattern: /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/ },
+  { id: 'aws-secret-key', name: 'AWS secret access key', pattern: /aws_secret_access_key\s*[=:]\s*["']?[A-Za-z0-9/+]{40}\b/i },
+  { id: 'npm-token', name: 'npm token', pattern: /\bnpm_[A-Za-z0-9]{36}\b/ },
+  { id: 'slack-token', name: 'Slack token', pattern: /\bxox[abposr]-[A-Za-z0-9-]{10,}/ },
+  { id: 'google-api-key', name: 'Google API key', pattern: /\bAIza[0-9A-Za-z_-]{35}\b/ },
+  { id: 'stripe-live-key', name: 'Stripe live key', pattern: /\b[rs]k_live_[0-9A-Za-z]{24,}/ },
+  { id: 'private-key', name: 'Private key', pattern: /-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP |ENCRYPTED )?PRIVATE KEY(?: BLOCK)?-----/ },
 ];
 
 export const ALLOW_MARKER = 'secret-scan:allow';
@@ -79,10 +79,10 @@ function readText(file) {
 export function scan(root) {
   const errors = [];
   for (const file of listFiles(root)) {
-    if (isEnvFile(file)) errors.push(`${file}: .env 파일이 커밋 대상에 있습니다. 값은 서버·PC에만 두고 .env.example만 커밋하세요`);
+    if (isEnvFile(file)) errors.push(`${file}: .env file is staged for commit. Keep values on the server or PC only and commit only .env.example`);
     const text = readText(path.join(root, file));
     if (text === null) continue;
-    for (const { line, rule } of scanText(text)) errors.push(`${file}:${line}: ${rule.name}(${rule.id}) 모양의 값이 있습니다`);
+    for (const { line, rule } of scanText(text)) errors.push(`${file}:${line}: ${rule.name}(${rule.id}) has a value that looks like this`);
   }
   return errors;
 }
@@ -101,14 +101,14 @@ export function scanHistory(root) {
       file = raw.slice(4).replace(/^b\//, '');
       if (file !== '/dev/null' && isEnvFile(file) && !seen.has(`env:${file}`)) {
         seen.add(`env:${file}`);
-        errors.push(`${commit} ${file}: .env 파일이 커밋된 적이 있습니다`);
+        errors.push(`${commit} ${file}: .env file was committed in the past`);
       }
     } else if (raw.startsWith('+') && !raw.includes(ALLOW_MARKER)) {
       for (const rule of RULES) {
         const key = `${commit}:${file}:${rule.id}`;
         if (!seen.has(key) && rule.pattern.test(raw)) {
           seen.add(key);
-          errors.push(`${commit} ${file}: ${rule.name}(${rule.id}) 모양의 값이 추가된 적이 있습니다`);
+          errors.push(`${commit} ${file}: ${rule.name}(${rule.id}) a value that looks like this was added in the past`);
         }
       }
     }
@@ -125,16 +125,16 @@ if (isMain) {
     const errors = scan(root);
     if (process.argv.includes('--history')) {
       const history = scanHistory(root);
-      if (history === null) throw new Error('git 이력을 읽지 못했습니다');
+      if (history === null) throw new Error('Could not read git history');
       errors.push(...history);
     }
     for (const e of errors) console.error(`✗ ${e}`);
     if (errors.length) {
-      console.error(`\nsecret-scan: 의심 항목 ${errors.length}개. 진짜 값이면 먼저 그 키를 폐기·교체하고, 커밋에서 지운 뒤 사용자에게 알리세요.`);
-      console.error(`테스트용 가짜 값이면 그 줄에 \`${ALLOW_MARKER}\` 주석을 붙이세요.`);
+      console.error(`\nsecret-scan: ${errors.length} suspicious item(s). If the value is real, revoke or rotate the key first, remove it from the commit, then tell the user.`);
+      console.error(`If it is a fake test value, add a \`${ALLOW_MARKER}\` comment to that line.`);
       process.exit(1);
     }
-    console.log('secret-scan: 의심 항목 없음');
+    console.log('secret-scan: no suspicious items');
   } catch (error) {
     console.error(`secret-scan: ${error.message}`);
     process.exit(2);

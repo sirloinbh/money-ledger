@@ -303,7 +303,7 @@ test('asset valuation against the real database', { skip: !url }, async (t) => {
           },
         });
         assert.equal(refused.status, 400);
-        assert.match(String(refused.data.error), /평가금액을 입력하지 않습니다/);
+        assert.match(String(refused.data.error), /so do not enter a valuation/);
         const linked = await call(`${assets}/${old.id}`, {
           method: 'PUT',
           body: {
@@ -324,7 +324,7 @@ test('asset valuation against the real database', { skip: !url }, async (t) => {
           body: { name: '수량 없음', type: 'stock', currency: 'USD', securityId: ids.MSFT },
         });
         assert.equal(noQuantity.status, 400);
-        assert.equal(noQuantity.data.error, '종목을 연결하려면 수량을 입력하세요');
+        assert.equal(noQuantity.data.error, 'Enter a quantity to link a security');
       });
     },
   );
@@ -465,7 +465,7 @@ test('asset valuation against the real database', { skip: !url }, async (t) => {
     ]);
   });
 
-  await t.test('linking and hand prices are checked with Korean messages', async () => {
+  await t.test('linking and hand prices are checked with messages', async () => {
     await reset();
     await api(async (call) => {
       const post = (body: object) => call(assets, { method: 'POST', body });
@@ -473,19 +473,25 @@ test('asset valuation against the real database', { skip: !url }, async (t) => {
       const cases: [object, string][] = [
         [
           { ...base, type: 'other', securityId: ids['005930'] },
-          '종목은 주식 자산에만 연결할 수 있습니다',
+          'A security can only be linked to a stock asset',
         ],
-        [{ ...base, securityId: 999_999 }, '연결할 종목을 찾을 수 없습니다'],
-        [{ ...base, securityId: ids.AAPL }, '종목의 통화(USD)와 자산의 통화가 같아야 합니다'],
+        [{ ...base, securityId: 999_999 }, 'The security to link was not found'],
+        [
+          { ...base, securityId: ids.AAPL },
+          "The security's currency (USD) must match the asset's currency",
+        ],
         [
           { ...base, securityId: ids['005930'], manualPrice: { price: '1', pricedOn: today } },
-          '종목에 연결한 자산은 받은 종가로 평가하므로 현재가를 입력하지 않습니다',
+          'An asset linked to a security is valued at the received close, so do not enter a current price',
         ],
         [
           { ...base, manualPrice: { price: '1000.5', pricedOn: today } },
-          '원화 현재가는 원 단위 정수로 입력하세요',
+          'Enter a won current price as a whole number of won',
         ],
-        [{ ...base, manualPrice: { price: '0', pricedOn: today } }, '현재가는 0보다 커야 합니다'],
+        [
+          { ...base, manualPrice: { price: '0', pricedOn: today } },
+          'The current price must be above 0',
+        ],
         [
           {
             ...base,
@@ -493,13 +499,13 @@ test('asset valuation against the real database', { skip: !url }, async (t) => {
             valueKrw: 1,
             manualPrice: { price: '1', pricedOn: today },
           },
-          '현재가는 주식이나 기타(코인 등) 자산에만 입력할 수 있습니다',
+          'A current price can only be entered for a stock or other (crypto, etc.) asset',
         ],
         [
           { ...base, quantity: null, valueKrw: 1, manualPrice: { price: '1', pricedOn: today } },
-          '현재가를 넣으려면 수량을 입력하세요',
+          'Enter a quantity to set a current price',
         ],
-        [{ ...base, manualPrice: { price: '1' } }, '날짜'],
+        [{ ...base, manualPrice: { price: '1' } }, 'date'],
       ];
       for (const [body, message] of cases) {
         const response = await post(body);

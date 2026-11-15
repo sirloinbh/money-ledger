@@ -49,15 +49,13 @@ describe('filter helpers', () => {
       to: '',
       kind: 'expense',
       category: 'none',
-      q: ' 커피 ',
+      q: ' Coffee ',
       page: 2,
     } as const;
     expect(writeFilters(filters).toString()).toBe(
-      'from=&to=&kind=expense&category=none&q=%EC%BB%A4%ED%94%BC&page=2',
+      'from=&to=&kind=expense&category=none&q=Coffee&page=2',
     );
-    expect(apiQuery(filters, 50)).toBe(
-      'kind=expense&category=none&q=%EC%BB%A4%ED%94%BC&page=2&size=50',
-    );
+    expect(apiQuery(filters, 50)).toBe('kind=expense&category=none&q=Coffee&page=2&size=50');
   });
 
   test('values the server would refuse are dropped from the address', () => {
@@ -80,10 +78,10 @@ describe('filter helpers', () => {
   });
 
   test('a whole month is named by its month, other periods by their dates', () => {
-    expect(periodLabel({ from: '2026-11-01', to: '2026-11-30' })).toBe('2026년 11월');
+    expect(periodLabel({ from: '2026-11-01', to: '2026-11-30' })).toBe('November 2026');
     expect(periodLabel({ from: '2026-11-01', to: '2026-11-15' })).toBe('2026-11-01 ~ 2026-11-15');
-    expect(periodLabel({ from: '2026-11-01', to: '' })).toBe('2026-11-01부터');
-    expect(periodLabel({ from: '', to: '' })).toBe('전체 기간');
+    expect(periodLabel({ from: '2026-11-01', to: '' })).toBe('From 2026-11-01');
+    expect(periodLabel({ from: '', to: '' })).toBe('All time');
   });
 });
 
@@ -93,9 +91,9 @@ const entry = (id: number, date: string) => ({
   kind: 'expense',
   amount: 1000 * id,
   categoryId: 1,
-  categoryName: '식비',
+  categoryName: 'Food',
   merchant: '',
-  memo: `내역 ${id}`,
+  memo: `Entry ${id}`,
 });
 
 let listUrls: string[];
@@ -126,9 +124,9 @@ beforeEach(() => {
       if (url === '/api/ledger/categories') {
         return json({
           categories: [
-            { id: 1, kind: 'expense', name: '식비', hidden: false },
-            { id: 2, kind: 'expense', name: '여가', hidden: true },
-            { id: 3, kind: 'income', name: '급여', hidden: false },
+            { id: 1, kind: 'expense', name: 'Food', hidden: false },
+            { id: 2, kind: 'expense', name: 'Leisure', hidden: true },
+            { id: 3, kind: 'income', name: 'Salary', hidden: false },
           ],
         });
       }
@@ -147,7 +145,7 @@ afterEach(() => {
 
 function Address() {
   const location = useLocation();
-  return <output aria-label="주소">{location.search}</output>;
+  return <output aria-label="Address">{location.search}</output>;
 }
 
 const show = async (path = '/ledger') => {
@@ -157,10 +155,10 @@ const show = async (path = '/ledger') => {
       <Address />
     </MemoryRouter>,
   );
-  // The filter's category choices are loaded: more than 전체 and 미분류.
+  // The filter's category choices are loaded: more than All and Uncategorized.
   await vi.waitFor(() =>
     expect(
-      within(screen.getByLabelText('카테고리', { selector: '#filter-category' })).getAllByRole(
+      within(screen.getByLabelText('Category', { selector: '#filter-category' })).getAllByRole(
         'option',
       ).length,
     ).toBeGreaterThan(2),
@@ -168,30 +166,30 @@ const show = async (path = '/ledger') => {
   return view;
 };
 const lastList = () => listUrls.at(-1);
-const address = () => screen.getByLabelText('주소').textContent;
+const address = () => screen.getByLabelText('Address').textContent;
 
 test('the list starts on this month in Seoul', async () => {
   await show();
-  await screen.findByRole('list', { name: '내역 목록' });
+  await screen.findByRole('list', { name: 'Entry list' });
   expect(lastList()).toBe('/api/ledger/entries?from=2026-11-01&to=2026-11-30&page=1&size=50');
-  expect(screen.getByText('2026년 11월')).toBeInTheDocument();
-  expect(screen.getByText('1건')).toBeInTheDocument();
+  expect(screen.getByText('November 2026')).toBeInTheDocument();
+  expect(screen.getByText('1 entry')).toBeInTheDocument();
 });
 
 test('applied filters go to the address and the request, and survive a reload', async () => {
   const first = await show();
-  fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '2026-10-15' } });
-  fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-11-15' } });
-  fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'expense' } });
-  fireEvent.change(screen.getByLabelText('카테고리', { selector: '#filter-category' }), {
+  fireEvent.change(screen.getByLabelText('Start date'), { target: { value: '2026-10-15' } });
+  fireEvent.change(screen.getByLabelText('End date'), { target: { value: '2026-11-15' } });
+  fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'expense' } });
+  fireEvent.change(screen.getByLabelText('Category', { selector: '#filter-category' }), {
     target: { value: '1' },
   });
-  fireEvent.change(screen.getByLabelText('검색어'), { target: { value: '점심' } });
-  fireEvent.click(screen.getByRole('button', { name: '조회' }));
+  fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'Lunch' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
 
   await vi.waitFor(() =>
     expect(lastList()).toBe(
-      `/api/ledger/entries?from=2026-10-15&to=2026-11-15&kind=expense&category=1&q=${encodeURIComponent('점심')}&page=1&size=50`,
+      `/api/ledger/entries?from=2026-10-15&to=2026-11-15&kind=expense&category=1&q=${encodeURIComponent('Lunch')}&page=1&size=50`,
     ),
   );
   const saved = address();
@@ -201,9 +199,9 @@ test('applied filters go to the address and the request, and survive a reload', 
   first.unmount();
   listUrls = [];
   await show(`/ledger${saved}`);
-  expect(screen.getByLabelText('시작일')).toHaveValue('2026-10-15');
-  expect(screen.getByLabelText('검색어')).toHaveValue('점심');
-  expect(screen.getByLabelText('카테고리', { selector: '#filter-category' })).toHaveValue('1');
+  expect(screen.getByLabelText('Start date')).toHaveValue('2026-10-15');
+  expect(screen.getByLabelText('Search')).toHaveValue('Lunch');
+  expect(screen.getByLabelText('Category', { selector: '#filter-category' })).toHaveValue('1');
   expect(screen.getByText('2026-10-15 ~ 2026-11-15')).toBeInTheDocument();
   await vi.waitFor(() =>
     expect(lastList()).toContain('from=2026-10-15&to=2026-11-15&kind=expense'),
@@ -212,57 +210,57 @@ test('applied filters go to the address and the request, and survive a reload', 
 
 test('choosing a kind drops a category of the other kind and offers only its own', async () => {
   await show();
-  const category = screen.getByLabelText('카테고리', { selector: '#filter-category' });
+  const category = screen.getByLabelText('Category', { selector: '#filter-category' });
   fireEvent.change(category, { target: { value: '3' } });
-  fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'expense' } });
+  fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'expense' } });
   expect(category).toHaveValue('');
   expect(
     within(category)
       .getAllByRole('option')
       .map((option) => option.textContent),
-  ).toEqual(['전체', '미분류', '식비', '여가 (숨김)']);
+  ).toEqual(['All', 'Uncategorized', 'Food', 'Leisure (hidden)']);
 });
 
 test('a start after the end is refused before any request', async () => {
   await show();
-  await screen.findByRole('list', { name: '내역 목록' });
+  await screen.findByRole('list', { name: 'Entry list' });
   const before = listUrls.length;
-  fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '2026-11-20' } });
-  fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-11-10' } });
-  fireEvent.click(screen.getByRole('button', { name: '조회' }));
-  expect(screen.getByRole('alert')).toHaveTextContent('시작일이 종료일보다 늦습니다');
-  expect(screen.getByLabelText('시작일')).toHaveAttribute('aria-invalid', 'true');
+  fireEvent.change(screen.getByLabelText('Start date'), { target: { value: '2026-11-20' } });
+  fireEvent.change(screen.getByLabelText('End date'), { target: { value: '2026-11-10' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  expect(screen.getByRole('alert')).toHaveTextContent('Start date is after the end date');
+  expect(screen.getByLabelText('Start date')).toHaveAttribute('aria-invalid', 'true');
   expect(listUrls.length).toBe(before);
 });
 
 test('the month buttons move by whole months and keep the other filters', async () => {
   await show('/ledger?from=2026-01-01&to=2026-01-31&kind=income');
-  fireEvent.click(screen.getByRole('button', { name: '이전 달' }));
-  await screen.findByText('2025년 12월');
+  fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
+  await screen.findByText('December 2025');
   expect(lastList()).toBe(
     '/api/ledger/entries?from=2025-12-01&to=2025-12-31&kind=income&page=1&size=50',
   );
-  fireEvent.click(screen.getByRole('button', { name: '이번 달' }));
-  await screen.findByText('2026년 11월');
-  fireEvent.click(screen.getByRole('button', { name: '초기화' }));
+  fireEvent.click(screen.getByRole('button', { name: 'This month' }));
+  await screen.findByText('November 2026');
+  fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
   await vi.waitFor(() => expect(address()).toBe('?from=2026-11-01&to=2026-11-30'));
 });
 
-test('초기화 clears what was typed even when the address already holds this month', async () => {
+test('Reset clears what was typed even when the address already holds this month', async () => {
   await show();
-  await screen.findByRole('list', { name: '내역 목록' });
-  fireEvent.change(screen.getByLabelText('검색어'), { target: { value: '커피' } });
-  fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '2026-11-20' } });
-  fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-11-10' } });
-  fireEvent.click(screen.getByRole('button', { name: '조회' }));
+  await screen.findByRole('list', { name: 'Entry list' });
+  fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'Coffee' } });
+  fireEvent.change(screen.getByLabelText('Start date'), { target: { value: '2026-11-20' } });
+  fireEvent.change(screen.getByLabelText('End date'), { target: { value: '2026-11-10' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
   expect(screen.getByRole('alert')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: '초기화' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
   await vi.waitFor(() => expect(address()).toBe('?from=2026-11-01&to=2026-11-30'));
   // Again: now the address already holds the default period, so nothing in it changes.
-  fireEvent.change(screen.getByLabelText('검색어'), { target: { value: '커피' } });
-  fireEvent.click(screen.getByRole('button', { name: '초기화' }));
-  expect(screen.getByLabelText('검색어')).toHaveValue('');
-  expect(screen.getByLabelText('시작일')).toHaveValue('2026-11-01');
+  fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'Coffee' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+  expect(screen.getByLabelText('Search')).toHaveValue('');
+  expect(screen.getByLabelText('Start date')).toHaveValue('2026-11-01');
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
 
@@ -272,31 +270,34 @@ test('pages: the count, the page number and the next page', async () => {
     return json({ entries: [entry(page, '2026-11-02')], total: 120, page, pageSize: 50 });
   };
   await show();
-  expect(await screen.findByText('1 / 3쪽')).toBeInTheDocument();
-  expect(screen.getByText('120건')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '이전 쪽' })).toHaveAttribute('aria-disabled', 'true');
-  fireEvent.click(screen.getByRole('button', { name: '다음 쪽' }));
-  expect(await screen.findByText('2 / 3쪽')).toBeInTheDocument();
+  expect(await screen.findByText('Page 1 of 3')).toBeInTheDocument();
+  expect(screen.getByText('120 entries')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Previous page' })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+  expect(await screen.findByText('Page 2 of 3')).toBeInTheDocument();
   expect(lastList()).toContain('&page=2&size=50');
   expect(address()).toContain('page=2');
   // Changing a filter starts again on the first page.
-  fireEvent.click(screen.getByRole('button', { name: '조회' }));
-  expect(await screen.findByText('1 / 3쪽')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  expect(await screen.findByText('Page 1 of 3')).toBeInTheDocument();
 });
 
 test('no match and a failed load each say so; a failed load can be retried', async () => {
   answer = () => json({ entries: [], total: 0, page: 1, pageSize: 50 });
   await show();
-  expect(await screen.findByText('조건에 맞는 내역이 없습니다.')).toBeInTheDocument();
+  expect(await screen.findByText('No entries match the filters.')).toBeInTheDocument();
 
-  answer = () => json({ error: '시작일이 종료일보다 늦습니다' }, 400);
-  fireEvent.click(screen.getByRole('button', { name: '이전 달' }));
-  expect(await screen.findByText('내역을 불러오지 못했습니다.')).toBeInTheDocument();
-  expect(screen.getByRole('alert')).toHaveTextContent('시작일이 종료일보다 늦습니다');
+  answer = () => json({ error: 'Start date is after the end date' }, 400);
+  fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
+  expect(await screen.findByText('Could not load the entries.')).toBeInTheDocument();
+  expect(screen.getByRole('alert')).toHaveTextContent('Start date is after the end date');
 
   answer = () => json({ entries: [entry(4, '2026-10-02')], total: 1, page: 1, pageSize: 50 });
-  fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
-  expect(await screen.findByRole('list', { name: '내역 목록' })).toHaveTextContent('내역 4');
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+  expect(await screen.findByRole('list', { name: 'Entry list' })).toHaveTextContent('Entry 4');
 });
 
 test('an older answer that arrives last does not replace the list for the current filters', async () => {
@@ -311,16 +312,16 @@ test('an older answer that arrives last does not replace the list for the curren
     return json({ entries: [entry(11, '2026-11-02')], total: 1 });
   };
   await show();
-  await screen.findByText('내역 11');
-  fireEvent.click(screen.getByRole('button', { name: '이전 달' }));
+  await screen.findByText('Entry 11');
+  fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
   await vi.waitFor(() => expect(lastList()).toContain('from=2026-10-01'));
-  fireEvent.click(screen.getByRole('button', { name: '이번 달' }));
+  fireEvent.click(screen.getByRole('button', { name: 'This month' }));
   await vi.waitFor(() => expect(lastList()).toContain('from=2026-11-01'));
-  await screen.findByText('1건');
+  await screen.findByText('1 entry');
   finishOctober();
   await vi.waitFor(() => expect(log).toContain('GET 2026-10-01'));
-  expect(screen.getByRole('list', { name: '내역 목록' })).toHaveTextContent('내역 11');
-  expect(screen.queryByText('내역 10')).not.toBeInTheDocument();
+  expect(screen.getByRole('list', { name: 'Entry list' })).toHaveTextContent('Entry 11');
+  expect(screen.queryByText('Entry 10')).not.toBeInTheDocument();
 });
 
 test('a save that ends after the filters changed reloads the new list, after the save', async () => {
@@ -331,12 +332,12 @@ test('a save that ends after the filters changed reloads the new list, after the
         resolve(new Response(JSON.stringify({ entry: entry(9, '2026-11-03') }), { status: 201 }));
     });
   await show();
-  fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '9000' } });
-  fireEvent.click(screen.getByRole('button', { name: '기록' }));
-  fireEvent.click(screen.getByRole('button', { name: '다음 달' }));
+  fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '9000' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
   await vi.waitFor(() => expect(log).toContain('GET 2026-12-01'));
   finishSave();
-  await screen.findByText('지출 9,000원을 기록했습니다');
+  await screen.findByText('Expense ₩9,000 recorded');
   // The last load is of December and comes after the save.
   expect(log.slice(log.indexOf('POST done'))).toContain('GET 2026-12-01');
   expect(lastList()).toContain('from=2026-12-01');
@@ -355,17 +356,20 @@ test('changing the page keeps the page buttons, and focus, while the next page l
     return json({ entries: [entry(1, '2026-11-02')], total: 60 });
   };
   await show();
-  const next = await screen.findByRole('button', { name: '다음 쪽' });
+  const next = await screen.findByRole('button', { name: 'Next page' });
   next.focus();
   fireEvent.click(next);
-  expect(await screen.findByText('불러오는 중…')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '다음 쪽' })).toHaveFocus();
+  expect(await screen.findByText('Loading…')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Next page' })).toHaveFocus();
   finishPage2();
-  expect(await screen.findByText('2 / 2쪽')).toBeInTheDocument();
+  expect(await screen.findByText('Page 2 of 2')).toBeInTheDocument();
   // The last page: unavailable but still focused.
-  expect(screen.getByRole('button', { name: '다음 쪽' })).toHaveAttribute('aria-disabled', 'true');
-  expect(screen.getByRole('button', { name: '다음 쪽' })).toHaveFocus();
-  fireEvent.click(screen.getByRole('button', { name: '다음 쪽' }));
+  expect(screen.getByRole('button', { name: 'Next page' })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
+  expect(screen.getByRole('button', { name: 'Next page' })).toHaveFocus();
+  fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
   expect(address()).toContain('page=2');
 });
 
@@ -376,13 +380,13 @@ test('a page past the end goes to the last page', async () => {
   };
   await show('/ledger?from=2026-11-01&to=2026-11-30&page=2');
   await vi.waitFor(() => expect(address()).toBe('?from=2026-11-01&to=2026-11-30'));
-  expect(await screen.findByText('50건')).toBeInTheDocument();
+  expect(await screen.findByText('50 entries')).toBeInTheDocument();
 });
 
 test('a category the filter cannot offer is dropped from the address', async () => {
   await show('/ledger?from=2026-11-01&to=2026-11-30&kind=income&category=1');
   await vi.waitFor(() => expect(address()).toBe('?from=2026-11-01&to=2026-11-30&kind=income'));
-  expect(screen.getByLabelText('카테고리', { selector: '#filter-category' })).toHaveValue('');
+  expect(screen.getByLabelText('Category', { selector: '#filter-category' })).toHaveValue('');
   expect(lastList()).not.toContain('category=');
 });
 
@@ -407,38 +411,38 @@ test('a load started before a save that answers last does not hide the saved ent
     return json({ entries: [entry(9, '2026-12-01')], total: 1 });
   };
   await show();
-  fireEvent.change(screen.getByLabelText('금액(원)'), { target: { value: '9000' } });
-  fireEvent.click(screen.getByRole('button', { name: '기록' }));
-  fireEvent.click(screen.getByRole('button', { name: '다음 달' }));
+  fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '9000' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
   await vi.waitFor(() => expect(decemberLoads).toBe(1));
   finishSave();
-  await screen.findByText('내역 9');
+  await screen.findByText('Entry 9');
   finishBefore();
   await vi.waitFor(() => expect(log.filter((line) => line === 'GET 2026-12-01')).toHaveLength(2));
-  expect(screen.getByRole('list', { name: '내역 목록' })).toHaveTextContent('내역 9');
+  expect(screen.getByRole('list', { name: 'Entry list' })).toHaveTextContent('Entry 9');
 });
 
 test('a failed page load keeps the page buttons, and focus, next to the message', async () => {
   answer = (url) => {
     const page = Number(new URL(url, 'http://x').searchParams.get('page'));
     return page === 2
-      ? json({ error: '서버 오류' }, 500)
+      ? json({ error: 'Server error' }, 500)
       : json({ entries: [entry(1, '2026-11-02')], total: 60 });
   };
   await show();
-  const next = await screen.findByRole('button', { name: '다음 쪽' });
+  const next = await screen.findByRole('button', { name: 'Next page' });
   next.focus();
   fireEvent.click(next);
-  expect(await screen.findByText('내역을 불러오지 못했습니다.')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '다음 쪽' })).toHaveFocus();
-  expect(screen.queryByText('불러오는 중…')).not.toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
+  expect(await screen.findByText('Could not load the entries.')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Next page' })).toHaveFocus();
+  expect(screen.queryByText('Loading…')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
 });
 
 test('applying filters keeps the summary month (#40) in the address', async () => {
   await show('/ledger?month=2026-09');
-  fireEvent.change(screen.getByLabelText('검색어'), { target: { value: '점심' } });
-  fireEvent.click(screen.getByRole('button', { name: '조회' }));
+  fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'Lunch' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
   await vi.waitFor(() => expect(address()).toContain('q='));
   expect(new URLSearchParams(address()).get('month')).toBe('2026-09');
   expect(
@@ -462,7 +466,7 @@ function MonthButton() {
         })
       }
     >
-      요약 달 바꾸기
+      Change summary month
     </button>
   );
 }
@@ -475,14 +479,14 @@ test('changing the summary month (#40) keeps what is typed in the filter form', 
       <Address />
     </MemoryRouter>,
   );
-  await screen.findByRole('list', { name: '내역 목록' });
-  fireEvent.change(screen.getByLabelText('검색어'), { target: { value: '점심' } });
-  fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'income' } });
+  await screen.findByRole('list', { name: 'Entry list' });
+  fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'Lunch' } });
+  fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'income' } });
   const loads = listUrls.length;
-  fireEvent.click(screen.getByRole('button', { name: '요약 달 바꾸기' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Change summary month' }));
   await vi.waitFor(() => expect(address()).toContain('month=2026-09'));
-  expect(screen.getByLabelText('검색어')).toHaveValue('점심');
-  expect(screen.getByLabelText('종류')).toHaveValue('income');
+  expect(screen.getByLabelText('Search')).toHaveValue('Lunch');
+  expect(screen.getByLabelText('Kind')).toHaveValue('income');
   // The list does not reload for a key that is not a filter.
   expect(listUrls.length).toBe(loads);
 });

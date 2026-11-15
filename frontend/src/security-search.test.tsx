@@ -8,7 +8,7 @@ const samsung = {
   id: 1,
   market: 'KOSPI',
   symbol: '005930',
-  name: '삼성전자',
+  name: 'Samsung Electronics',
   kind: 'stock',
   active: true,
   currency: 'KRW',
@@ -44,7 +44,7 @@ beforeEach(() => {
       urls.push(url);
       const answer = answers[url] ?? {
         status: 404,
-        body: { error: '요청한 API를 찾을 수 없습니다' },
+        body: { error: 'The requested API was not found' },
       };
       return Promise.resolve(new Response(JSON.stringify(answer.body), { status: answer.status }));
     }),
@@ -58,54 +58,56 @@ const detailCard = () =>
   );
 
 const searchFor = (text: string) => {
-  fireEvent.change(screen.getByLabelText('종목 이름, 코드 또는 티커'), { target: { value: text } });
-  fireEvent.click(screen.getByRole('button', { name: '검색' }));
+  fireEvent.change(screen.getByLabelText('Security name, code, or ticker'), {
+    target: { value: text },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Search' }));
 };
 
 test('results show the latest close with its date; a US ticker says the close comes on opening', async () => {
-  answers['/api/prices/securities?q=%EC%82%BC%EC%84%B1'] = {
+  answers['/api/prices/securities?q=Samsung'] = {
     status: 200,
     body: { securities: [samsung, apple] },
   };
   render(<SecuritySearch />);
-  expect(screen.getByText(/미국 종목은 티커로 검색하세요/)).toBeInTheDocument();
-  searchFor(' 삼성 ');
+  expect(screen.getByText(/Search US securities by ticker/)).toBeInTheDocument();
+  searchFor(' Samsung ');
 
-  const list = await screen.findByRole('list', { name: '검색 결과' });
+  const list = await screen.findByRole('list', { name: 'Search results' });
   const [first, second] = within(list).getAllByRole('button');
-  expect(first).toHaveTextContent('삼성전자');
+  expect(first).toHaveTextContent('Samsung Electronics');
   expect(first).toHaveTextContent('005930');
-  expect(first).toHaveTextContent('유가증권');
-  expect(first).toHaveTextContent('70,600원');
-  expect(first).toHaveTextContent('11월 6일 종가 기준');
+  expect(first).toHaveTextContent('KOSPI');
+  expect(first).toHaveTextContent('₩70,600');
+  expect(first).toHaveTextContent('Nov 6 close');
   // No name yet: the ticker is the title.
   expect(second).toHaveTextContent('AAPL');
-  expect(second).toHaveTextContent('열면 시세를 받습니다');
-  expect(screen.getByRole('status')).toHaveTextContent('"삼성" 검색 결과 2개');
+  expect(second).toHaveTextContent('Open to get a quote');
+  expect(screen.getByRole('status')).toHaveTextContent('2 results for "Samsung"');
 });
 
 test('no results, a blank query and an API error read differently', async () => {
   answers['/api/prices/securities?q=zzz'] = { status: 200, body: { securities: [] } };
   answers['/api/prices/securities?q=err'] = {
     status: 500,
-    body: { error: '서버 오류가 발생했습니다' },
+    body: { error: 'A server error occurred' },
   };
   render(<SecuritySearch />);
 
   searchFor('zzz');
-  expect(await screen.findByText('"zzz" 검색 결과가 없습니다')).toHaveAttribute('role', 'status');
-  expect(screen.queryByRole('list', { name: '검색 결과' })).toBeNull();
+  expect(await screen.findByText('No results for "zzz"')).toHaveAttribute('role', 'status');
+  expect(screen.queryByRole('list', { name: 'Search results' })).toBeNull();
 
   searchFor('   ');
-  expect(await screen.findByRole('alert')).toHaveTextContent('검색어를 입력하세요');
-  expect(screen.getByLabelText('종목 이름, 코드 또는 티커')).toHaveAttribute(
+  expect(await screen.findByRole('alert')).toHaveTextContent('Enter a search term');
+  expect(screen.getByLabelText('Security name, code, or ticker')).toHaveAttribute(
     'aria-invalid',
     'true',
   );
   expect(urls).toHaveLength(1);
 
   searchFor('err');
-  expect(await screen.findByRole('alert')).toHaveTextContent('서버 오류가 발생했습니다');
+  expect(await screen.findByRole('alert')).toHaveTextContent('A server error occurred');
 });
 
 test('a Korean detail shows the close and marks a delayed one', async () => {
@@ -121,12 +123,12 @@ test('a Korean detail shows the close and marks a delayed one', async () => {
   };
   render(<SecuritySearch />);
   searchFor('005930');
-  fireEvent.click(await screen.findByRole('button', { name: /삼성전자/ }));
+  fireEvent.click(await screen.findByRole('button', { name: /Samsung Electronics/ }));
 
-  const heading = await screen.findByRole('heading', { level: 2, name: '삼성전자' });
+  const heading = await screen.findByRole('heading', { level: 2, name: 'Samsung Electronics' });
   await vi.waitFor(() => expect(heading).toHaveFocus());
-  expect(detailCard().getByText('시세 지연 · 11월 6일 종가 기준')).toBeInTheDocument();
-  expect(screen.queryByText(/환율/)).toBeNull();
+  expect(detailCard().getByText('Delayed · Nov 6 close')).toBeInTheDocument();
+  expect(screen.queryByText(/exchange rate/i)).toBeNull();
 });
 
 test('a US detail shows the close in dollars, the rate, and why a close is missing', async () => {
@@ -150,22 +152,22 @@ test('a US detail shows the close in dollars, the rate, and why a close is missi
   searchFor('AAPL');
   fireEvent.click(await screen.findByRole('button', { name: /AAPL/ }));
   expect(await screen.findByRole('heading', { level: 2, name: 'Apple Inc' })).toBeInTheDocument();
-  expect(detailCard().getByText('231.5달러')).toBeInTheDocument();
-  expect(detailCard().getByText('1,384.5원')).toBeInTheDocument();
-  expect(detailCard().getByText('환율 지연 · 11월 9일 기준')).toBeInTheDocument();
+  expect(detailCard().getByText('$231.5')).toBeInTheDocument();
+  expect(detailCard().getByText('₩1,384.5')).toBeInTheDocument();
+  expect(detailCard().getByText('Rate delayed · as of Nov 9')).toBeInTheDocument();
   // The result row picks up the name and close fetched on opening, without a new search.
-  const row = within(screen.getByRole('list', { name: '검색 결과' })).getByRole('button');
+  const row = within(screen.getByRole('list', { name: 'Search results' })).getByRole('button');
   expect(row).toHaveTextContent('Apple Inc');
-  expect(row).toHaveTextContent('231.5달러');
-  expect(row).not.toHaveTextContent('열면 시세를 받습니다');
+  expect(row).toHaveTextContent('$231.5');
+  expect(row).not.toHaveTextContent('Open to get a quote');
 });
 
 test.each([
-  ['rate_limited', '잠시 후 다시 시도하세요'],
-  ['not_configured', '시세 출처가 설정되지 않았습니다'],
-  ['fetch_failed', '시세를 받지 못했습니다. 잠시 후 다시 시도하세요'],
-  [null, '아직 받은 종가가 없습니다'],
-])('a missing close with issue %s says "시세 없음" and why', async (issue, text) => {
+  ['rate_limited', 'Try again in a moment'],
+  ['not_configured', 'No quote source is configured'],
+  ['fetch_failed', 'Could not get the quote. Try again in a moment'],
+  [null, 'No close received yet'],
+])('a missing close with issue %s says "No quote" and why', async (issue, text) => {
   answers['/api/prices/securities?q=AAPL'] = { status: 200, body: { securities: [apple] } };
   answers['/api/prices/securities/2'] = {
     status: 200,
@@ -174,12 +176,12 @@ test.each([
   render(<SecuritySearch />);
   searchFor('AAPL');
   fireEvent.click(await screen.findByRole('button', { name: /AAPL/ }));
-  expect(await screen.findByText('시세 없음')).toBeInTheDocument();
+  expect(await screen.findByText('No quote')).toBeInTheDocument();
   expect(screen.getByText(text)).toBeInTheDocument();
-  expect(screen.getByText('환율 없음')).toBeInTheDocument();
+  expect(screen.getByText('No exchange rate')).toBeInTheDocument();
 });
 
-test('a delisted or suspended security says 거래 중단 next to its last close', async () => {
+test('a delisted or suspended security says Trading halted next to its last close', async () => {
   answers['/api/prices/securities?q=005930'] = { status: 200, body: { securities: [samsung] } };
   answers['/api/prices/securities/1'] = {
     status: 200,
@@ -192,13 +194,13 @@ test('a delisted or suspended security says 거래 중단 next to its last close
   };
   render(<SecuritySearch />);
   searchFor('005930');
-  fireEvent.click(await screen.findByRole('button', { name: /삼성전자/ }));
-  await screen.findByRole('heading', { level: 2, name: '삼성전자' });
-  expect(detailCard().getByText('거래 중단')).toBeInTheDocument();
-  expect(detailCard().getByText('70,600원')).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole('button', { name: /Samsung Electronics/ }));
+  await screen.findByRole('heading', { level: 2, name: 'Samsung Electronics' });
+  expect(detailCard().getByText('Trading halted')).toBeInTheDocument();
+  expect(detailCard().getByText('₩70,600')).toBeInTheDocument();
 });
 
-test('an active security has no 거래 중단 mark', async () => {
+test('an active security has no Trading halted mark', async () => {
   answers['/api/prices/securities?q=005930'] = { status: 200, body: { securities: [samsung] } };
   answers['/api/prices/securities/1'] = {
     status: 200,
@@ -206,21 +208,21 @@ test('an active security has no 거래 중단 mark', async () => {
   };
   render(<SecuritySearch />);
   searchFor('005930');
-  fireEvent.click(await screen.findByRole('button', { name: /삼성전자/ }));
-  await screen.findByRole('heading', { level: 2, name: '삼성전자' });
-  expect(screen.queryByText('거래 중단')).toBeNull();
+  fireEvent.click(await screen.findByRole('button', { name: /Samsung Electronics/ }));
+  await screen.findByRole('heading', { level: 2, name: 'Samsung Electronics' });
+  expect(screen.queryByText('Trading halted')).toBeNull();
 });
 
 test('a detail that fails to load shows the server message', async () => {
   answers['/api/prices/securities?q=005930'] = { status: 200, body: { securities: [samsung] } };
-  answers['/api/prices/securities/1'] = { status: 404, body: { error: '종목을 찾을 수 없습니다' } };
+  answers['/api/prices/securities/1'] = { status: 404, body: { error: 'Security not found' } };
   render(<SecuritySearch />);
   searchFor('005930');
-  fireEvent.click(await screen.findByRole('button', { name: /삼성전자/ }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('종목을 찾을 수 없습니다');
+  fireEvent.click(await screen.findByRole('button', { name: /Samsung Electronics/ }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Security not found');
 });
 
 test('dates read as month and day', () => {
-  expect(formatMonthDay('2026-01-05')).toBe('1월 5일');
-  expect(formatMonthDay('2026-11-16')).toBe('11월 16일');
+  expect(formatMonthDay('2026-01-05')).toBe('Jan 5');
+  expect(formatMonthDay('2026-11-16')).toBe('Nov 16');
 });

@@ -50,7 +50,7 @@ export function MonthlyTrend({ version = 0 }: { version?: number }) {
   const from = shiftMonth(to, -(period - 1));
   const [trend, setTrend] = useState<Trend | undefined>(undefined);
   const [failed, setFailed] = useState(false);
-  // Bumped by 다시 시도 so a chart that failed to load is tried again.
+  // Bumped by Try again so a chart that failed to load is tried again.
   const [attempt, setAttempt] = useState(0);
   // Only the latest request may fill the trend.
   const latest = useRef(0);
@@ -96,9 +96,9 @@ export function MonthlyTrend({ version = 0 }: { version?: number }) {
     <section aria-labelledby="trend-title" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="trend-title" ref={title} tabIndex={-1} className="outline-none">
-          월별 추이
+          Monthly trend
         </h2>
-        <div role="group" aria-label="추이 기간" className="flex gap-1">
+        <div role="group" aria-label="Trend period" className="flex gap-1">
           {trendPeriods.map((choice) => (
             <Button
               key={choice}
@@ -108,7 +108,7 @@ export function MonthlyTrend({ version = 0 }: { version?: number }) {
               aria-pressed={choice === period}
               onClick={() => choose(choice)}
             >
-              {choice}개월
+              {choice} months
             </Button>
           ))}
         </div>
@@ -118,43 +118,43 @@ export function MonthlyTrend({ version = 0 }: { version?: number }) {
       </p>
       {failed ? (
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-body-sm text-muted-foreground">추이를 불러오지 못했습니다.</p>
+          <p className="text-body-sm text-muted-foreground">Could not load the trend.</p>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            aria-label="추이 다시 시도"
+            aria-label="Retry loading trend"
             onClick={retry}
           >
-            다시 시도
+            Try again
           </Button>
         </div>
       ) : null}
       {shown === undefined ? (
         failed ? null : (
-          <p className="text-body-sm text-muted-foreground">추이를 불러오는 중입니다</p>
+          <p className="text-body-sm text-muted-foreground">Loading the trend</p>
         )
       ) : (
         <Card aria-busy={loading || undefined} className={cn(loading && 'opacity-60')}>
           <CardHeader>
-            <CardTitle asHeading="h3">수입·지출·잔액</CardTitle>
+            <CardTitle asHeading="h3">Income, expense, and balance</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {empty ? (
-              <p className="text-body-sm text-muted-foreground">이 기간에는 내역이 없습니다.</p>
+              <p className="text-body-sm text-muted-foreground">
+                There are no entries in this period.
+              </p>
             ) : (
               <ChartBoundary key={`${from}:${to}:${attempt}`}>
                 <Suspense
-                  fallback={
-                    <p className="text-body-sm text-muted-foreground">차트를 불러오는 중입니다</p>
-                  }
+                  fallback={<p className="text-body-sm text-muted-foreground">Loading the chart</p>}
                 >
                   <chart.Chart months={shown.months} />
                 </Suspense>
               </ChartBoundary>
             )}
             <details>
-              <summary className="cursor-pointer text-body-sm font-medium">표로 보기</summary>
+              <summary className="cursor-pointer text-body-sm font-medium">View as table</summary>
               <TrendTable months={shown.months} />
             </details>
           </CardContent>
@@ -179,7 +179,7 @@ class ChartBoundary extends Component<{ children: ReactNode }, { failed: boolean
   render() {
     return this.state.failed ? (
       <p className="text-body-sm text-muted-foreground">
-        차트를 불러오지 못했습니다. 표로 보기에서 값을 확인하세요.
+        Could not load the chart. Check the values in the table under View as table.
       </p>
     ) : (
       this.props.children
@@ -187,7 +187,7 @@ class ChartBoundary extends Component<{ children: ReactNode }, { failed: boolean
   }
 }
 
-const amount = new Intl.NumberFormat('ko-KR');
+const amount = new Intl.NumberFormat('en-US');
 
 /**
  * The chart's values as text, newest month first. The unit is in the column headers and a phone gets a smaller
@@ -197,15 +197,15 @@ function TrendTable({ months }: { months: TrendMonth[] }) {
   return (
     <div className="mt-3 overflow-x-auto">
       <table className="w-full text-body-sm whitespace-nowrap tabular-nums max-sm:text-xs">
-        <caption className="sr-only">월별 수입·지출·잔액</caption>
+        <caption className="sr-only">Monthly income, expense, and balance</caption>
         <thead>
           <tr className="border-b text-left text-muted-foreground">
             <th scope="col" className="py-2 font-medium">
-              월
+              Month
             </th>
             {trendSeries.map((series) => (
               <th key={series.key} scope="col" className="py-2 pl-3 text-right font-medium">
-                {series.label}(원)
+                {series.label} (KRW)
               </th>
             ))}
           </tr>

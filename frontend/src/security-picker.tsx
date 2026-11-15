@@ -46,7 +46,7 @@ export function SecurityPicker({
   const find = async () => {
     const q = query.trim();
     if (!q) {
-      setSearch({ state: 'message', text: '검색어를 입력하세요' });
+      setSearch({ state: 'message', text: 'Enter a search term' });
       return;
     }
     const call = ++latest.current;
@@ -61,12 +61,12 @@ export function SecurityPicker({
         : data.securities;
       setSearch(
         fitting.length === 0
-          ? { state: 'message', text: '검색 결과가 없습니다' }
+          ? { state: 'message', text: 'No results' }
           : { state: 'done', securities: fitting },
       );
     } catch (cause) {
       if (call === latest.current) {
-        setSearch({ state: 'message', text: errorText(cause, '종목을 찾지 못했습니다') });
+        setSearch({ state: 'message', text: errorText(cause, 'Could not find securities') });
       }
     }
   };
@@ -80,28 +80,28 @@ export function SecurityPicker({
   if (value) {
     return (
       <div className="flex flex-col gap-2 md:col-span-2">
-        <span className="text-body-sm font-medium">연결한 종목</span>
+        <span className="text-body-sm font-medium">Linked security</span>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-body-sm break-words">
             {securityText(value)}
-            {value.active ? '' : ' · 거래 중단'}
+            {value.active ? '' : ' · Trading halted'}
           </span>
           <Button
             ref={unlink}
             type="button"
             variant="ghost"
             size="sm"
-            aria-label={`${value.name ?? value.symbol} 연결 해제`}
+            aria-label={`Unlink ${value.name ?? value.symbol}`}
             onClick={() => {
               onChange(null);
               requestAnimationFrame(() => input.current?.focus());
             }}
           >
-            연결 해제
+            Unlink
           </Button>
         </div>
         <p className="text-caption text-muted-foreground">
-          받은 종가로 평가합니다. 통화는 종목의 통화를 따릅니다.
+          Valued at the received close. The currency follows the security.
         </p>
       </div>
     );
@@ -109,36 +109,40 @@ export function SecurityPicker({
 
   return (
     <div className="flex flex-col gap-2 md:col-span-2">
-      <Label htmlFor="asset-security-query">종목 연결(선택)</Label>
+      <Label htmlFor="asset-security-query">Link a security (optional)</Label>
       <div className="flex gap-2">
         <Input
           id="asset-security-query"
           ref={input}
           autoComplete="off"
-          placeholder="이름·코드, 미국은 티커"
+          placeholder="Name or code; ticker for US"
           value={query}
           aria-describedby="asset-security-hint"
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={onKeyDown}
         />
         <Button type="button" variant="outline" onClick={() => void find()}>
-          찾기
+          Find
         </Button>
       </div>
       <p id="asset-security-hint" className="text-caption text-muted-foreground">
-        종목을 연결하면 받은 종가로 평가합니다. 연결하지 않으면 현재가를 직접 넣을 수 있습니다.
+        Linking a security values the asset at the received close. Without one you can enter the
+        current price yourself.
       </p>
       <div aria-live="polite" className="text-body-sm text-muted-foreground">
         {search.state === 'loading'
-          ? '찾는 중입니다'
+          ? 'Searching'
           : search.state === 'message'
             ? search.text
             : search.state === 'done'
-              ? `${search.securities.length}개를 찾았습니다`
+              ? `Found ${search.securities.length}`
               : ''}
       </div>
       {search.state === 'done' ? (
-        <ul aria-label="종목 검색 결과" className="flex flex-col divide-y rounded-xl border">
+        <ul
+          aria-label="Security search results"
+          className="flex flex-col divide-y rounded-xl border"
+        >
           {search.securities.map((security) => (
             <li
               key={security.id}
@@ -148,13 +152,13 @@ export function SecurityPicker({
                 {securityText(security)}
                 {security.quote
                   ? ` · ${formatClose(security.quote)} (${quoteBasis(security.quote)})`
-                  : ' · 아직 받은 종가가 없습니다'}
+                  : ' · No close received yet'}
               </span>
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                aria-label={`${security.name ?? security.symbol} 연결`}
+                aria-label={`Link ${security.name ?? security.symbol}`}
                 onClick={() => {
                   onChange({
                     id: security.id,
@@ -169,7 +173,7 @@ export function SecurityPicker({
                   requestAnimationFrame(() => unlink.current?.focus());
                 }}
               >
-                연결
+                Link
               </Button>
             </li>
           ))}

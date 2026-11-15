@@ -1,5 +1,5 @@
 -- #46 Buy and sell records of held assets, with the held quantity, moving-average cost and realized
--- profit worked out from them. Safe to re-run. Formats follow AGENTS.project.md "수량·외화·환율" (#35).
+-- profit worked out from them. Safe to re-run. Formats follow AGENTS.project.md "Quantity, foreign currency, and exchange rate" (#35).
 -- Decisions (2026-11-08):
 --   - Moving average. Fees and taxes are won amounts entered per trade: a buy's go into the cost, a sell's
 --     come off the realized profit.

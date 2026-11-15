@@ -1,105 +1,105 @@
-# #36 주식 시세 데이터 출처 정하기
+# #36 Decide the source of stock price data
 
-이슈: [#36](https://github.com/sirloinbh/money-ledger/issues/36)
+Issue: [#36](https://github.com/sirloinbh/money-ledger/issues/36)
 
-## 목적
+## Purpose
 
-현재가 갱신(#47)과 모의투자 시세·주문(#51~#53)을 구현하기 전에 다음을 정한다.
+Before implementing the current price update (#47) and the mock investing quotes and orders (#51 to #53), decide the following.
 
-- 시세와 환율을 어디서 받을지
-- 얼마나 자주 받아 저장할지
-- API 키를 어디에 보관할지
-- 시세 API가 실패하면 화면에 무엇을 보여 줄지
+- Where to get prices and exchange rates
+- How often to fetch and store them
+- Where to keep the API keys
+- What the screen shows when the price API fails
 
-## 사용자 결정 (2026-11-06)
+## User decision (2026-11-06)
 
-- 국내와 미국 주식부터 시작한다.
-- 하루 한 번 받은 종가를 쓴다.
-- 모의투자도 직전 종가로 체결한다. 문서에는 실제 동작에 맞춰 "저장돼 있는 최신 종가"로 적었다.
-- 무료 출처를 우선한다.
+- Start with Korean and US stocks.
+- Use the closing price fetched once a day.
+- Mock investing also fills at the previous close. In the doc we wrote "the latest stored closing price" to match the real behavior.
+- Prefer free sources.
 
-## 변경
+## Changes
 
-- `docs/price-source.md`를 새로 만들었다.
-  - 결정 내용과 후보 비교표(국내 4개, 미국 4개, 환율 2개)를 담았다.
-  - 받는 주기, 모의투자 체결가, API 키 보관, 장애 때 화면 규칙을 적었다.
-- 채택한 출처
-  - 국내: KRX Open API 일별매매정보
-  - 미국: Tiingo EOD 무료 Starter
-  - 환율: 한국수출입은행 현재환율 API
-  - 예비 출처는 공공데이터포털 주식시세정보, Alpha Vantage, 한국은행 ECOS다.
-- `.env.example`: `KRX_API_KEY`, `TIINGO_API_KEY`, `KOREAEXIM_API_KEY`를 값 없이 추가했다.
-- `AGENTS.project.md` "수량·외화·환율" 절에서 "#36에서 정한다"라고 적혀 있던 문장을 새 문서 링크로 바꿨다.
-- `docs/next-steps/README.md`를 갱신했다.
-  - #60은 완료로 바꿨다.
-  - #36은 결정 완료로 바꾸고, 키 발급(#85)을 사용자 단계로 추가했다.
-- 사용자가 직접 할 키 발급 단계를 [#85](https://github.com/sirloinbh/money-ledger/issues/85)(`needs-user`)로 등록하고 #79의 하위 이슈로 연결했다.
+- Created `docs/price-source.md`.
+  - It holds the decision and the candidate comparison tables (4 Korean, 4 US, and 2 exchange rate).
+  - It describes the fetch cycle, the mock investing fill price, API key storage, and the screen rules on failure.
+- Adopted sources
+  - Korea: KRX Open API daily trading data
+  - US: Tiingo EOD free Starter
+  - Exchange rate: Korea Eximbank current exchange rate API
+  - Backup sources are the Public Data Portal stock price info, Alpha Vantage, and Bank of Korea ECOS.
+- `.env.example`: added `KRX_API_KEY`, `TIINGO_API_KEY`, and `KOREAEXIM_API_KEY` without values.
+- In the "Quantity, foreign currency, and exchange rate" section of `AGENTS.project.md`, replaced the sentence that said "decided in #36" with a link to the new doc.
+- Updated `docs/next-steps/README.md`.
+  - Changed #60 to done.
+  - Changed #36 to decided and added key issuance (#85) as a user step.
+- Registered the key issuance step that the user does directly as [#85](https://github.com/sirloinbh/money-ledger/issues/85) (`needs-user`) and linked it as a sub-issue of #79.
 
-## 검증
+## Verification
 
-- 문서만 바꾼 커밋이라 앱 테스트는 추가하지 않았다.
-- 후보 정보는 2026-11-06에 웹에서 조사했다.
-  - Tiingo 한도, Alpha Vantage 한도, 공공데이터포털의 갱신 시각·약관은 제공처 페이지에서 직접 확인했다.
-  - KRX 호출 한도와 갱신 시각, 수출입은행 호출 한도와 고시 시각, Tiingo 무료 등급의 EOD 포함 여부는 2차 자료에서만 확인했다. 문서의 "확인" 열에 "2차"로 표시했다.
-- `npm run format:check`: 통과 ("All matched files use Prettier code style!").
-- `npm run standards:check`: 통과.
-- 바뀐 문서 4개의 상대 링크가 모두 실제 파일을 가리키는지 스크립트로 확인했다. 누락은 0건이다.
+- This commit only changed docs, so we did not add app tests.
+- We researched the candidate information on the web on 2026-11-06.
+  - The Tiingo limits, the Alpha Vantage limits, and the update time and terms of the Public Data Portal were confirmed directly on the providers' pages.
+  - The KRX call limit and update time, the Eximbank call limit and announcement time, and whether the Tiingo free tier includes EOD were confirmed only from secondary sources. We marked them "Secondary" in the "Confirmed" column of the doc.
+- `npm run format:check`: passed ("All matched files use Prettier code style!").
+- `npm run standards:check`: passed.
+- We checked with a script that every relative link in the 4 changed docs points at a real file. Zero are missing.
 
-## 1차 리뷰 (PR #86)
+## Round 1 review (PR #86)
 
-독립 리뷰 에이전트가 PR 전체 diff를 읽었다. 지적은 반드시 고칠 것 1건, 고치면 좋을 것 9건, 사소한 것 6건이었다. 모두 이 PR에서 반영했고, 분리한 이슈는 없다.
+An independent review agent read the whole PR diff. The comments were 1 must-fix, 9 should-fix, and 6 minor. We addressed all of them in this PR, and split off no issue.
 
-- **반드시 고칠 것: 받는 종목 범위**
-  - 문제: 시세를 "보유·관심 종목"만 받게 돼 있었다. 그러면 #51에서 처음 검색한 종목은 종가가 없어 주문할 수 없다.
-  - 반영: 국내는 시장별로 전 종목을 저장한다. 미국은 상세를 열 때 바로 받고 추적 종목에 넣는다.
-- **모의 주문 환율:** AGENTS.project.md의 "거래일 환율"과 맞췄다. 주문 시점에 저장된 최신 매매기준율을 쓰고, 환율 기준일도 기록한다.
-- **오래된 값 판정:**
-  - 환율에도 5일 지연 규칙을 넣었다.
-  - 5일은 Asia/Seoul 달력일 기준으로 정의했다.
-  - 미국 종가의 기준일은 미국 거래일이다.
-- **직접 입력 현재가:** 받은 종가가 없을 때만 쓰고, "직접 입력 · M월 D일"로 표시한다.
-- **받기 규칙:**
-  - 빈 응답(휴장일)은 실패로 보지 않는다.
-  - 요청 날짜는 마지막 기준일 다음 날부터, 최대 10일까지다.
-  - 다시 시도는 HTTP 오류와 시간 초과일 때만 한다.
-  - 종가는 수정 전 종가(Tiingo `close`)를 쓴다.
-  - 주말에도 매일 12:00에 받는다.
-- **문구와 후보:**
-  - 수출입은행 옛 도메인 문구를 "종료됐다"로 고쳤다.
-  - 환율 예비 후보로 한국은행 ECOS를 추가했다.
-  - KRX 판단 문구의 범위를 좁혔다.
-- **키 보관:**
-  - 헤더 인증을 지원하는 출처에는 키를 헤더로 보낸다고 적었다.
-  - `.env.example`에 키 이름 세 개를 값 없이 추가했다.
-- **기록:**
-  - #36에 사용자 결정을 댓글로 남겼다.
-  - 링크 검사 결과를 위 검증 절에 적었다.
+- **Must fix: the range of tickers to fetch**
+  - Problem: prices were fetched only for "held and watched tickers". Then a ticker searched for the first time in #51 has no close and cannot be ordered.
+  - Fix: for Korea, store all tickers per market. For the US, fetch on the spot when the detail is opened and add the ticker to the tracked tickers.
+- **Mock order exchange rate:** aligned with the "trading-day exchange rate" in AGENTS.project.md. Use the latest basic rate stored at order time, and also record the exchange rate base date.
+- **Stale value rule:**
+  - Added the 5-day delay rule to the exchange rate too.
+  - Defined 5 days in Asia/Seoul calendar days.
+  - The base date of a US close is the US trading day.
+- **Manually entered current price:** used only when there is no fetched close, and shown as "Manual entry · M/D" (the screen text is Korean).
+- **Fetch rules:**
+  - An empty response (a holiday) is not treated as a failure.
+  - The requested dates run from the day after the last base date, up to 10 days at most.
+  - Retry only on an HTTP error or a timeout.
+  - Use the unadjusted close (Tiingo `close`).
+  - Fetch every day at 12:00, including weekends.
+- **Wording and candidates:**
+  - Changed the wording about the old Eximbank domain to "was shut down".
+  - Added Bank of Korea ECOS as a backup candidate for the exchange rate.
+  - Narrowed the scope of the KRX verdict wording.
+- **Key storage:**
+  - Wrote that for sources that support header authentication, the key is sent in a header.
+  - Added the three key names to `.env.example` without values.
+- **Records:**
+  - Left the user decision as a comment on #36.
+  - Wrote the link check result in the verification section above.
 
-## 2차 리뷰 (PR #86)
+## Round 2 review (PR #86)
 
-독립 리뷰 에이전트가 1차 반영과 최종 전체 diff를 확인했다. 1차 지적 16건은 모두 반영된 것으로 확인됐다. 새 지적은 반드시 고칠 것 1건, 고치면 좋을 것 5건, 사소한 것 4건이었다. 모두 이 PR에서 반영했고, 분리한 이슈는 없다. 리뷰는 2회까지라 3차는 하지 않는다.
+An independent review agent checked the first-round fixes and the final whole diff. It confirmed that all 16 first-round comments were addressed. The new comments were 1 must-fix, 5 should-fix, and 4 minor. We addressed all of them in this PR, and split off no issue. The review is at most 2 rounds, so we do not run a third.
 
-- **반드시 고칠 것: 미국 종가 날짜**
-  - 문제: 미국 종가의 가장 최근 날짜를 "미국 동부의 어제"로 적었다. 그러면 종가를 매번 하루 늦게 받는다.
-  - 반영: "받는 시각의 미국 동부 날짜"로 고쳤다. 한국 12:00에는 그날 미국 장이 이미 끝나 있다.
-- **빠진 날짜 채우기:**
-  - 빈 응답을 받은 날도 "확인한 날짜"로 친다.
-  - 10일보다 앞선 날은 요청하지 않는다.
-  - 첫 실행에는 최근 10일을 요청한다.
-- **미국 종목 즉시 받기:** 추적 종목이 아닌 미국 종목을 열면 바로 받는다. 30일이 지나 추적에서 빠졌던 종목도 다시 열면 같다.
-- **Tiingo 한도:**
-  - 매일 받기는 시간당 40회까지만 쓰고 10회를 즉시 받기용으로 남긴다.
-  - 한도를 넘으면 "시세 없음 · 잠시 후 다시 시도하세요"를 보여 준다.
-- **환율이 없을 때:** 미국 주식 모의 주문을 막는다고 적었다. AGENTS.project.md의 `fx_rate` CHECK와 맞춘 것이다.
-- **연휴 문구:** "사흘 연휴"와 설·추석 문구가 서로 맞게 고쳤다.
-- **사소한 것:**
-  - 국내 행 수를 "약 3~4천 행"으로 고쳤다.
-  - 빈 문자열 키는 키가 없는 것으로 본다고 적었다.
-  - 상장폐지 종목의 직접 입력 우선 설정을 "나중에 다시 볼 것"에 남겼다.
-  - AGENTS.project.md에 모의 주문 환율 정의를 한 구절 넣었다.
+- **Must fix: the US close date**
+  - Problem: we wrote the most recent date of the US close as "yesterday in US Eastern time". Then the close is always fetched a day late.
+  - Fix: changed to "the US Eastern date at fetch time". At 12:00 Korean time, the US market has already closed that day.
+- **Filling in missed dates:**
+  - A day with an empty response also counts as a "confirmed date".
+  - Days earlier than 10 days are not requested.
+  - On the first run, request the most recent 10 days.
+- **On-the-spot fetch for US tickers:** opening a US ticker that is not tracked fetches it right away. A ticker that dropped out of tracking after 30 days is handled the same way when opened again.
+- **Tiingo limit:**
+  - The daily fetch uses at most 40 per hour and leaves 10 for on-the-spot fetches.
+  - Over the limit, show "No price. Try again shortly" (the screen text is Korean).
+- **When there is no exchange rate:** we wrote that mock orders for US stocks are blocked. This matches the `fx_rate` CHECK in AGENTS.project.md.
+- **Holiday wording:** fixed so that the "three-day holiday" and the Lunar New Year and Chuseok wording agree.
+- **Minor:**
+  - Changed the number of Korean rows to "about 3,000 to 4,000 rows".
+  - Wrote that a key that is an empty string counts as no key.
+  - Left the setting to prefer manual entry for delisted tickers in "To revisit later".
+  - Added a phrase to AGENTS.project.md defining the mock order exchange rate.
 
-## 제한·후속 작업
+## Limits and follow-up work
 
-- 2차 자료로만 확인한 값은 키를 발급받은 뒤(#85) 공식 안내로 다시 확인하고, 이 문서를 고친다.
-- 시세 저장 테이블, 받기 작업, 화면은 #47과 #51에서 구현한다.
-- 달러 현금을 따로 둘지는 #52에서 정한다.
+- Recheck the values confirmed only from secondary sources against the official guide after the keys are issued (#85), and fix this doc.
+- The price storage table, the fetch job, and the screens are implemented in #47 and #51.
+- Whether to keep dollar cash separately is decided in #52.

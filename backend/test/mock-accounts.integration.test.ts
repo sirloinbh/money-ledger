@@ -30,7 +30,7 @@ test('mock trading accounts against the real database', { skip: !url }, async (t
     await runMigration(pool, '005_mock_accounts.sql'); // re-running is safe
   };
 
-  await t.test('an account starts with 1,000만 원 unless another amount is given', async () => {
+  await t.test('an account starts with ₩10,000,000 unless another amount is given', async () => {
     await reset();
     await withApi(pool, async (call) => {
       const empty = await call('/api/mock/accounts');
@@ -54,7 +54,7 @@ test('mock trading accounts against the real database', { skip: !url }, async (t
         body: { initialCashKrw: 50_000_000 },
       });
       assert.equal(second.status, 409);
-      assert.deepEqual(second.data, { error: '이미 모의투자 계좌가 있습니다' });
+      assert.deepEqual(second.data, { error: 'A mock trading account already exists' });
 
       const state = (await call('/api/mock/accounts')).data as State;
       assert.equal(state.account?.id, account.id);
@@ -111,11 +111,11 @@ test('mock trading accounts against the real database', { skip: !url }, async (t
       });
       assert.equal(again.status, 409);
       assert.deepEqual(again.data, {
-        error: '이미 초기화된 계좌입니다. 화면을 새로 고친 뒤 다시 시도하세요',
+        error: 'This account was already reset. Refresh the page and try again',
       });
       const missing = await call('/api/mock/accounts/999999/reset', { method: 'POST', body: {} });
       assert.equal(missing.status, 404);
-      assert.deepEqual(missing.data, { error: '모의투자 계좌를 찾을 수 없습니다' });
+      assert.deepEqual(missing.data, { error: 'Mock trading account not found' });
 
       const after = (await call('/api/mock/accounts')).data as State;
       assert.equal(after.account?.id, second.id);

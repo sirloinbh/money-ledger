@@ -1,4 +1,4 @@
-// 중앙 관리 파일. 수정은 sirloinbh/project-standards의 scripts/lib/에서
+// Managed file. Edit it in sirloinbh/project-standards scripts/lib/
 // Content hashes that ignore line endings, so a Windows checkout (CRLF) hashes the same as CI (LF).
 import crypto from 'node:crypto';
 import { PROJECT_MARKER } from './render.mjs';

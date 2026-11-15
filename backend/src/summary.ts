@@ -7,7 +7,7 @@ import { monthField, won } from './month.js';
 // #40 One month of the ledger: income, expense, the balance between them and the expense by category.
 // Sums and shares are computed in SQL (numeric), never with JavaScript floats.
 
-const monthQuery = z.object({ month: monthField('월') });
+const monthQuery = z.object({ month: monthField('the month') });
 
 type Row = {
   income: string;
@@ -66,7 +66,7 @@ export function summaryRouter(pool: Pool) {
       balance: won(row.balance),
       categories: row.categories.map((category) => ({
         categoryId: category.category_id,
-        name: category.name ?? '미분류',
+        name: category.name ?? 'Uncategorized',
         hidden: category.hidden ?? false,
         amount: won(category.amount),
         // A decimal string, e.g. "35.2": shown as text, not recomputed in the browser.

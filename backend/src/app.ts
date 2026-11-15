@@ -4,12 +4,14 @@ import type { Pool } from 'pg';
 import { types } from 'pg';
 
 import { assetsRouter } from './assets.js';
+import { budgetsRouter } from './budgets.js';
 import { categoriesRouter } from './categories.js';
 import { entriesRouter } from './entries.js';
 import { mockAccountsRouter } from './mock-accounts.js';
 import { mockHoldingsRouter } from './mock-holdings.js';
 import { mockOrdersRouter } from './mock-orders.js';
 import { mockSnapshotsRouter } from './mock-snapshots.js';
+import { netWorthRouter } from './net-worth.js';
 import { type PriceLog, type PriceSources, pricesRouter } from './prices/index.js';
 import { rulesRouter } from './rules.js';
 import { errorHandler, notFound, serviceDate } from './standard/http.js';
@@ -44,7 +46,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
       limit: options.requestsPerMinute ?? 600,
       standardHeaders: 'draft-8',
       legacyHeaders: false,
-      message: { error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요' },
+      message: { error: 'Too many requests. Try again in a moment' },
     }),
   );
   app.use(express.json({ limit: '256kb' }));
@@ -52,6 +54,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
     await pool.query('SELECT 1');
     res.json({ ok: true, service: 'money-ledger', today: today() });
   });
+  app.use('/api/ledger/budgets', budgetsRouter(pool));
   app.use('/api/ledger/categories', categoriesRouter(pool));
   app.use('/api/ledger/entries', entriesRouter(pool));
   app.use('/api/ledger/rules', rulesRouter(pool));
@@ -66,6 +69,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
       log: options.priceLog ?? (() => undefined),
     }),
   );
+  app.use('/api/portfolio/net-worth', netWorthRouter(pool, { today }));
   app.use('/api/mock/accounts/:accountId/orders', mockOrdersRouter(pool, today));
   app.use('/api/mock/accounts/:accountId/holdings', mockHoldingsRouter(pool, today));
   app.use('/api/mock/accounts/:accountId/snapshots', mockSnapshotsRouter(pool));

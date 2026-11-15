@@ -58,7 +58,7 @@ test('monthly summary against the real database', { skip: !url }, async (t) => {
     await add('2026-11-01', 'expense', 30000, ids['expense/식비']);
     await add('2026-11-15', 'expense', 12000, ids['expense/식비']);
     await add('2026-11-20', 'expense', 50000, ids['expense/교통']);
-    await add('2026-11-30', 'expense', 8000, null); // 미분류, last day
+    await add('2026-11-30', 'expense', 8000, null); // Uncategorized, last day
     await add('2026-11-10', 'income', 3000000, ids['income/급여']);
     await add('2026-11-25', 'income', 50000, null);
     await add('2026-12-01', 'income', 77777, ids['income/급여']); // the month after
@@ -96,7 +96,7 @@ test('monthly summary against the real database', { skip: !url }, async (t) => {
         amount: 42000,
         share: '42.0',
       },
-      { categoryId: null, name: '미분류', hidden: false, amount: 8000, share: '8.0' },
+      { categoryId: null, name: 'Uncategorized', hidden: false, amount: 8000, share: '8.0' },
     ]);
     assert.equal(
       result.categories.reduce((sum, category) => sum + category.amount, 0),

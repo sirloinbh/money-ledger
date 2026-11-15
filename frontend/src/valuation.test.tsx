@@ -31,7 +31,13 @@ const base = {
   returnPercent: null,
 };
 
-const samsung = { id: 5930, market: 'KOSPI', symbol: '005930', name: '삼성전자', active: true };
+const samsung = {
+  id: 5930,
+  market: 'KOSPI',
+  symbol: '005930',
+  name: 'Samsung Electronics',
+  active: true,
+};
 const apple = { id: 1, market: 'NASDAQ', symbol: 'AAPL', name: 'Apple Inc', active: true };
 
 let stored: Asset[];
@@ -45,7 +51,7 @@ beforeEach(() => {
     {
       ...base,
       id: 1,
-      name: '삼성전자',
+      name: 'Samsung Electronics',
       security: samsung,
       price: {
         price: '71500.0000',
@@ -63,7 +69,7 @@ beforeEach(() => {
     {
       ...base,
       id: 2,
-      name: '애플',
+      name: 'Apple',
       currency: 'USD',
       quantity: '2.00000000',
       security: apple,
@@ -85,7 +91,7 @@ beforeEach(() => {
     {
       ...base,
       id: 3,
-      name: '비트코인',
+      name: 'Bitcoin',
       type: 'other',
       quantity: '0.05000000',
       manualPrice: { price: '95000000.0000', pricedOn: '2026-11-09' },
@@ -101,8 +107,8 @@ beforeEach(() => {
     {
       ...base,
       id: 4,
-      name: '정지종목',
-      security: { ...samsung, id: 1, symbol: '000001', name: '정지종목', active: false },
+      name: 'Halted Corp',
+      security: { ...samsung, id: 1, symbol: '000001', name: 'Halted Corp', active: false },
       price: {
         price: '5000.0000',
         currency: 'KRW',
@@ -115,7 +121,7 @@ beforeEach(() => {
     {
       ...base,
       id: 5,
-      name: '달러 예금',
+      name: 'Dollar deposit',
       type: 'cash',
       currency: 'USD',
       quantity: null,
@@ -126,7 +132,7 @@ beforeEach(() => {
     {
       ...base,
       id: 6,
-      name: '마이크로소프트',
+      name: 'Microsoft',
       currency: 'USD',
       quantity: '1.00000000',
       security: { ...apple, id: 2, symbol: 'MSFT', name: null },
@@ -178,68 +184,74 @@ beforeEach(() => {
 
 const ready = async () => {
   render(<AssetManager />);
-  await screen.findByRole('heading', { name: '주식(ETF·펀드 포함)' });
+  await screen.findByRole('heading', { name: 'Stocks (incl. ETFs and funds)' });
 };
 const row = (name: string) =>
   screen.getByText(name, { selector: 'span.font-medium' }).closest('li')!;
 
 test('a value shows its price basis, delays, rate, gain and why it is left out', async () => {
   await ready();
-  const korean = within(row('삼성전자'));
-  expect(korean.getByText('715,000원')).toBeInTheDocument();
-  expect(korean.getByText('삼성전자 · 005930 · 유가증권 · KRW · 수량 10')).toBeInTheDocument();
-  expect(korean.getByText('71,500원 · 11월 5일 종가 기준')).toBeInTheDocument();
-  expect(korean.getByText('평가 손익 +15,000원 (+2.14%)')).toBeInTheDocument();
+  const korean = within(row('Samsung Electronics'));
+  expect(korean.getByText('₩715,000')).toBeInTheDocument();
+  expect(
+    korean.getByText('Samsung Electronics · 005930 · KOSPI · KRW · quantity 10'),
+  ).toBeInTheDocument();
+  expect(korean.getByText('₩71,500 · Nov 5 close')).toBeInTheDocument();
+  expect(korean.getByText('Valuation gain/loss +₩15,000 (+2.14%)')).toBeInTheDocument();
 
-  const us = within(row('애플'));
-  expect(us.getByText('308,810원')).toBeInTheDocument();
-  expect(us.getByText('220.5달러')).toBeInTheDocument();
-  expect(us.getByText('110.25달러 · 시세 지연 · 10월 30일 종가 기준')).toBeInTheDocument();
-  expect(us.getByText('환율 1,400.5원 · 환율 지연 · 11월 3일 기준')).toBeInTheDocument();
-  expect(us.getByText('평가 손익 -11,190원 (-3.5%)')).toBeInTheDocument();
+  const us = within(row('Apple'));
+  expect(us.getByText('₩308,810')).toBeInTheDocument();
+  expect(us.getByText('$220.5')).toBeInTheDocument();
+  expect(us.getByText('$110.25 · Delayed · Oct 30 close')).toBeInTheDocument();
+  expect(us.getByText('Exchange rate ₩1,400.5 · Rate delayed · as of Nov 3')).toBeInTheDocument();
+  expect(us.getByText('Valuation gain/loss -₩11,190 (-3.5%)')).toBeInTheDocument();
 
-  const coin = within(row('비트코인'));
-  expect(coin.getByText('95,000,000원 · 직접 입력 · 11월 9일')).toBeInTheDocument();
-  expect(coin.getByText('원가 없음 · 거래를 기록하면 손익을 보여 줍니다')).toBeInTheDocument();
+  const coin = within(row('Bitcoin'));
+  expect(coin.getByText('₩95,000,000 · Entered by hand · Nov 9')).toBeInTheDocument();
+  expect(coin.getByText('No cost basis · record a trade to see gain/loss')).toBeInTheDocument();
 
-  expect(within(row('정지종목')).getByText('거래 중단')).toBeInTheDocument();
+  expect(within(row('Halted Corp')).getByText('Trading halted')).toBeInTheDocument();
 
-  const dollars = within(row('달러 예금'));
-  expect(dollars.getByText('100.5달러')).toBeInTheDocument();
-  expect(dollars.getByText('환율 없음 · 합계에서 뺐습니다')).toBeInTheDocument();
+  const dollars = within(row('Dollar deposit'));
+  expect(dollars.getByText('$100.5')).toBeInTheDocument();
+  expect(dollars.getByText('No exchange rate · left out of the totals')).toBeInTheDocument();
 
-  const missing = within(row('마이크로소프트'));
-  expect(missing.getByText('시세 없음')).toBeInTheDocument();
-  expect(missing.getByText('아직 받은 종가가 없어 합계에서 뺐습니다')).toBeInTheDocument();
+  const missing = within(row('Microsoft'));
+  expect(missing.getByText('No quote')).toBeInTheDocument();
+  expect(
+    missing.getByText('No close received yet, so it is left out of the totals'),
+  ).toBeInTheDocument();
 
-  expect(screen.getByText(/평가금액이 없는 2개는 합계에서 빠졌습니다/)).toBeInTheDocument();
+  expect(
+    screen.getByText(/2 without a quote, exchange rate, or valuation left out/),
+  ).toBeInTheDocument();
 });
 
 test('a stock is linked from the search and takes the security currency', async () => {
   await ready();
-  fireEvent.change(screen.getByLabelText('이름'), { target: { value: '애플 2' } });
-  fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'stock' } });
-  const query = screen.getByLabelText('종목 연결(선택)');
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Apple 2' } });
+  fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'stock' } });
+  const query = screen.getByLabelText('Link a security (optional)');
   fireEvent.change(query, { target: { value: 'aapl' } });
   // Enter searches; it does not save the asset.
   fireEvent.keyDown(query, { key: 'Enter' });
-  const results = await screen.findByRole('list', { name: '종목 검색 결과' });
+  const results = await screen.findByRole('list', { name: 'Security search results' });
   expect(requests.some((request) => request.method === 'POST')).toBe(false);
   expect(
-    within(results).getByText('Apple Inc · AAPL · NASDAQ · 110.25달러 (11월 6일 종가 기준)'),
+    within(results).getByText('Apple Inc · AAPL · NASDAQ · $110.25 (Nov 6 close)'),
   ).toBeInTheDocument();
-  fireEvent.click(within(results).getByRole('button', { name: 'Apple Inc 연결' }));
+  fireEvent.click(within(results).getByRole('button', { name: 'Link Apple Inc' }));
 
   expect(screen.getByText('Apple Inc · AAPL · NASDAQ')).toBeInTheDocument();
-  expect(screen.getByRole('radio', { name: '달러(USD)' })).toBeChecked();
-  expect(screen.getByRole('radio', { name: '원화(KRW)' })).toBeDisabled();
+  expect(screen.getByRole('radio', { name: 'Dollar (USD)' })).toBeChecked();
+  expect(screen.getByRole('radio', { name: 'Won (KRW)' })).toBeDisabled();
   // A linked stock is valued at the close: no hand price.
-  expect(screen.queryByLabelText(/현재가\(1개당/)).not.toBeInTheDocument();
+  expect(screen.queryByLabelText(/Current price \(per unit/)).not.toBeInTheDocument();
   // Nor a hand value: a value typed before linking would be read in the security's currency (#47 review).
-  expect(screen.queryByLabelText(/평가금액\(/)).not.toBeInTheDocument();
+  expect(screen.queryByLabelText(/Valuation \(/)).not.toBeInTheDocument();
 
-  fireEvent.change(screen.getByLabelText('수량(선택)'), { target: { value: '3' } });
-  fireEvent.click(screen.getByRole('button', { name: '추가' }));
+  fireEvent.change(screen.getByLabelText('Quantity (optional)'), { target: { value: '3' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }));
   await screen.findByRole('status');
   expect(requests.find((request) => request.method === 'POST')?.body).toMatchObject({
     type: 'stock',
@@ -252,22 +264,22 @@ test('a stock is linked from the search and takes the security currency', async 
 
 test('unlinking brings back the search and the hand price', async () => {
   await ready();
-  fireEvent.click(screen.getByRole('button', { name: '삼성전자 수정' }));
-  expect(screen.getByText('삼성전자 · 005930 · 유가증권')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: '삼성전자 연결 해제' }));
-  expect(screen.getByLabelText('종목 연결(선택)')).toBeInTheDocument();
-  expect(screen.getByLabelText('현재가(1개당, 원, 선택)')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Edit Samsung Electronics' }));
+  expect(screen.getByText('Samsung Electronics · 005930 · KOSPI')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Unlink Samsung Electronics' }));
+  expect(screen.getByLabelText('Link a security (optional)')).toBeInTheDocument();
+  expect(screen.getByLabelText('Current price (per unit, KRW, optional)')).toBeInTheDocument();
 });
 
 test('a hand price is sent with today when no date is given', async () => {
   await ready();
-  fireEvent.change(screen.getByLabelText('이름'), { target: { value: '이더리움' } });
-  fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'other' } });
-  fireEvent.change(screen.getByLabelText('수량(선택)'), { target: { value: '2' } });
-  fireEvent.change(screen.getByLabelText('현재가(1개당, 원, 선택)'), {
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Ethereum' } });
+  fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'other' } });
+  fireEvent.change(screen.getByLabelText('Quantity (optional)'), { target: { value: '2' } });
+  fireEvent.change(screen.getByLabelText('Current price (per unit, KRW, optional)'), {
     target: { value: '5,000,000' },
   });
-  fireEvent.click(screen.getByRole('button', { name: '추가' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }));
   await screen.findByRole('status');
   expect(requests.find((request) => request.method === 'POST')?.body).toMatchObject({
     type: 'other',
@@ -281,37 +293,37 @@ test.each([
   {
     label: 'a fractional won price',
     fill: { quantity: '1', price: '100.5' },
-    field: '현재가(1개당, 원, 선택)',
-    message: '현재가는 0보다 큰 원 단위 정수로 입력하세요',
+    field: 'Current price (per unit, KRW, optional)',
+    message: 'Enter a current price above 0 as a whole number of won',
   },
   {
     label: 'a price without a quantity',
     fill: { price: '100', value: '1' },
-    field: '수량(선택)',
-    message: '현재가를 넣으려면 수량을 입력하세요',
+    field: 'Quantity (optional)',
+    message: 'Enter a quantity to set a current price',
   },
   {
     label: 'a date without a price',
     fill: { quantity: '1', date: '2026-11-01' },
-    field: '현재가(1개당, 원, 선택)',
-    message: '현재가를 입력하세요',
+    field: 'Current price (per unit, KRW, optional)',
+    message: 'Enter the current price',
   },
 ])('$label is refused before sending', async ({ fill, field, message }) => {
   await ready();
-  fireEvent.change(screen.getByLabelText('이름'), { target: { value: '코인' } });
-  fireEvent.change(screen.getByLabelText('종류'), { target: { value: 'other' } });
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Coin' } });
+  fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'other' } });
   const labels = {
-    quantity: '수량(선택)',
-    price: '현재가(1개당, 원, 선택)',
-    value: '평가금액(원)',
-    date: '현재가 기준일(비우면 오늘)',
+    quantity: 'Quantity (optional)',
+    price: 'Current price (per unit, KRW, optional)',
+    value: 'Valuation (KRW)',
+    date: 'Current-price date (today if empty)',
   } as const;
   for (const [key, value] of Object.entries(fill)) {
     fireEvent.change(screen.getByLabelText(labels[key as keyof typeof labels]), {
       target: { value },
     });
   }
-  fireEvent.click(screen.getByRole('button', { name: '추가' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }));
   expect(screen.getByRole('alert')).toHaveTextContent(message);
   expect(screen.getByLabelText(field)).toHaveAttribute('aria-invalid', 'true');
   expect(requests.some((request) => request.method === 'POST')).toBe(false);
@@ -319,23 +331,23 @@ test.each([
 
 test('editing a hand-priced asset fills its price and date', async () => {
   await ready();
-  fireEvent.click(screen.getByRole('button', { name: '비트코인 수정' }));
-  expect(screen.getByLabelText('현재가(1개당, 원, 선택)')).toHaveValue('95000000');
-  expect(screen.getByLabelText('현재가 기준일(비우면 오늘)')).toHaveValue('2026-11-09');
+  fireEvent.click(screen.getByRole('button', { name: 'Edit Bitcoin' }));
+  expect(screen.getByLabelText('Current price (per unit, KRW, optional)')).toHaveValue('95000000');
+  expect(screen.getByLabelText('Current-price date (today if empty)')).toHaveValue('2026-11-09');
 });
 
 test('a new USD trade starts with the newest stored rate', async () => {
   await ready();
-  fireEvent.click(screen.getByRole('button', { name: '애플 거래 내역' }));
-  const rate = await screen.findByLabelText('환율(1달러당 원)');
+  fireEvent.click(screen.getByRole('button', { name: 'Apple trades' }));
+  const rate = await screen.findByLabelText('Exchange rate (KRW per USD)');
   expect(rate).toHaveValue('1400.5');
   expect(rate).toHaveAccessibleDescription(
-    '11월 3일 매매기준율을 미리 채웠습니다. 거래한 날 환율로 고칠 수 있습니다.',
+    'Nov 3 base rate was prefilled. You can change it to the rate on the trade date.',
   );
   // A changed rate is kept; the won trade panel has no rate at all.
   fireEvent.change(rate, { target: { value: '1390' } });
   expect(rate).toHaveValue('1390');
   // Once changed it is the user's own rate: the "filled in" note goes away.
-  expect(rate).not.toHaveAccessibleDescription(/미리 채웠습니다/);
-  expect(screen.queryByText(/매매기준율을 미리 채웠습니다/)).not.toBeInTheDocument();
+  expect(rate).not.toHaveAccessibleDescription(/base rate was prefilled/);
+  expect(screen.queryByText(/base rate was prefilled/)).not.toBeInTheDocument();
 });

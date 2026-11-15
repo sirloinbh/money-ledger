@@ -1,86 +1,86 @@
-# #41 월별 수입·지출 추이 차트
+# #41 Monthly income and expense trend chart
 
-- 이슈: https://github.com/sirloinbh/money-ledger/issues/41
-- 브랜치: `feat/41-monthly-trend`
+- Issue: https://github.com/sirloinbh/money-ledger/issues/41
+- Branch: `feat/41-monthly-trend`
 
-## 목적
+## Purpose
 
-한 달 요약(#40)만으로는 지출이 늘고 있는지 알 수 없다. 최근 여러 달의 수입·지출·잔액 변화를 한 차트로 본다.
+The one-month summary (#40) alone cannot tell whether spending is rising. See the change in income, expenses, and balance over the last several months in one chart.
 
-## 구현에서 정한 것
+## Decided during implementation
 
-- 기간: 이번 달(서울 기준)까지 6·12·24개월 중 고른다. 기본은 12개월이다. 기간은 주소 `?trend=6|24`에 남고, 12개월이면 주소에서 뺀다. 요약의 `month`, 내역 필터 값과 서로 지우지 않는다.
-- API 기간은 최대 24개월이다. 화면이 고르는 값보다 넓게 열어 두지 않았다.
-- 내역이 없는 달은 0원 행으로 채운다(SQL `generate_series`). 그래서 선이 끊기지 않는다. 기간 전체에 내역이 없으면 평평한 차트 대신 "이 기간에는 내역이 없습니다."를 보인다.
-- 달 경계: `entry_date`는 이미 서울 기준 날짜(시간대 없는 `date`)다. 달은 `to_char(entry_date, 'YYYY-MM')`로 나눠서 DB 세션 시간대와 상관없다. 화면의 "이번 달"은 `serviceToday()`(서울)로 정한다.
-- 잔액은 수입 − 지출이고 SQL `numeric`으로 계산한다. 음수 달이 있으면 0원 기준선을 그린다.
-- 차트 형태: 같은 원 단위 축 하나에 꺾은선 3개(수입·지출·잔액)를 그린다.
-  - 범례는 항상 보인다. 색 옆에 이름을 적어 색만으로 구분하지 않는다.
-  - 선은 2px이다. 12개월 이하는 점(반지름 4px, 카드 색 2px 테두리)을 찍고, 24개월은 마우스를 올린 달만 점을 보인다.
-  - 마우스를 올리면 세로선과 그 달의 세 값이 툴팁으로 나온다.
-- 색: dataviz 기준 팔레트 1~3번을 이 순서로 쓴다(`--chart-series-1..3`, `index.css`).
-  - 라이트: `#2a78d6` / `#eb6834` / `#1baf7a`. 다크: `#3987e5` / `#d95926` / `#199e70`.
-  - 검증기로 밝기·채도·색약 분리(ΔE 9.2 이상)·정상 시각 분리를 모두 통과했다.
-  - 라이트 모드의 청록(잔액)만 흰 표면 대비가 2.8:1이다. 그래서 범례와 표를 함께 둔다.
-- 표: "표로 보기"(접기)에 월·수입·지출·잔액을 최근 달부터 둔다. 단위 "(원)"은 열 제목에 적어 휴대폰에서도 네 열이 한 줄에 들어간다.
-- 화면 낭독기에는 차트를 이미지 하나("…부터 …까지 월별 수입·지출·잔액 꺾은선 차트. 모든 값은 아래 표로 보기에 있습니다.")로 알린다.
-- 차트 파일은 #40처럼 따로 불러온다(`trend-chart` 24 kB, Recharts는 #40 차트와 공유).
-  - 불러오기에 실패하면 에러 경계가 안내 문구를 보인다.
-  - 기간을 바꾸거나 "추이 다시 시도"를 누르면 다시 불러온다.
-- 월 검증은 #40과 같은 규칙을 `backend/src/month.ts`로 옮겨 함께 쓴다. 메시지에는 필드 이름이 붙는다("시작 월을 …", "끝 월을 …"). 요약 API의 메시지는 그대로다("월을 …").
+- Period: choose from 6, 12, or 24 months up to this month (Seoul time). The default is 12 months. The period stays in the address `?trend=6|24`, and 12 months is omitted from the address. It does not clear the summary's `month` or the entry filter values, and they do not clear it.
+- The API period is at most 24 months. We did not open it wider than what the screen chooses.
+- Months with no entries are filled with a row of 0 won (SQL `generate_series`), so the line does not break. If there are no entries in the whole period, we show "이 기간에는 내역이 없습니다." ("There are no entries in this period.") instead of a flat chart.
+- Month boundary: `entry_date` is already a Seoul date (a `date` without a time zone). Months are split with `to_char(entry_date, 'YYYY-MM')`, so it does not depend on the DB session time zone. "This month" on the screen is decided by `serviceToday()` (Seoul).
+- The balance is income − expense and is computed with SQL `numeric`. If there is a negative month, we draw a 0 won baseline.
+- Chart form: 3 line series (income, expense, balance) on one shared KRW axis.
+  - The legend is always shown. We write the name next to the color so that series are not told apart by color alone.
+  - Lines are 2px. For 12 months or fewer we draw dots (radius 4px, a 2px border in the card color), and for 24 months only the hovered month shows a dot.
+  - Hovering shows a vertical line and the three values of that month in a tooltip.
+- Colors: use dataviz baseline palette numbers 1 to 3 in this order (`--chart-series-1..3`, `index.css`).
+  - Light: `#2a78d6` / `#eb6834` / `#1baf7a`. Dark: `#3987e5` / `#d95926` / `#199e70`.
+  - They passed the validator for lightness, saturation, color-blind separation (ΔE 9.2 or more), and normal-vision separation.
+  - Only the teal (balance) in light mode has a contrast of 2.8:1 against the white surface. So we keep the legend and the table together.
+- Table: under "표로 보기" ("View as table", collapsible) we put month, income, expense, and balance, starting with the latest month. The unit "(원)" is written in the column title, so the four columns fit on one line even on a phone.
+- For screen readers, the chart is announced as one image ("…부터 …까지 월별 수입·지출·잔액 꺾은선 차트. 모든 값은 아래 표로 보기에 있습니다.", "Line chart of monthly income, expenses, and balance from … to …. All values are in View as table below.").
+- The chart file is loaded separately as in #40 (`trend-chart` 24 kB, with Recharts shared with the #40 chart).
+  - If loading fails, the error boundary shows a notice.
+  - Changing the period or pressing "추이 다시 시도" ("Retry trend") loads it again.
+- Month validation moved the same rules as #40 into `backend/src/month.ts` to share them. The messages carry the field name ("시작 월을 …", "Start month …", "끝 월을 …", "End month …"). The summary API's message is unchanged ("월을 …", "Month …").
 
-## 변경 내용
+## Changes
 
-- `backend/src/trend.ts`, `backend/src/app.ts`: `GET /api/ledger/trend?from=YYYY-MM&to=YYYY-MM` → `{ from, to, months: [{ month, income, expense, balance }] }`(오래된 달부터).
-  - 형식·범위(1900~2100) 오류, 시작 월이 끝 월보다 늦은 경우, 24개월을 넘는 경우는 한국어 400이다.
-- `backend/src/month.ts`, `backend/src/summary.ts`: 월 검증과 `won()`을 공용으로 옮겼다.
-- `frontend/src/monthly-trend.tsx`: "월별 추이" 구역. 기간 버튼(`aria-pressed`), 기간 표시, 차트, 표, 불러오는 중·빈 기간·실패와 다시 시도. 마지막 요청만 반영한다.
-- `frontend/src/trend-chart.tsx`: Recharts 꺾은선 차트. `frontend/src/trend-series.ts`: 계열 순서·이름·색과 기간 선택지.
-- `frontend/src/ledger.tsx`: 월별 요약 아래에 두고, 내역이 바뀌면 다시 불러온다.
-- `frontend/src/index.css`: 차트 색 토큰 2·3번.
+- `backend/src/trend.ts`, `backend/src/app.ts`: `GET /api/ledger/trend?from=YYYY-MM&to=YYYY-MM` → `{ from, to, months: [{ month, income, expense, balance }] }` (oldest month first).
+  - A format or range (1900 to 2100) error, a start month later than the end month, and a period over 24 months are Korean 400s.
+- `backend/src/month.ts`, `backend/src/summary.ts`: moved the month validation and `won()` to be shared.
+- `frontend/src/monthly-trend.tsx`: the "월별 추이" ("Monthly trend") section. Period buttons (`aria-pressed`), the period display, the chart, the table, and loading, empty period, and failure with retry. Only the last request is reflected.
+- `frontend/src/trend-chart.tsx`: the Recharts line chart. `frontend/src/trend-series.ts`: series order, names, colors, and period choices.
+- `frontend/src/ledger.tsx`: placed under the monthly summary, and reloads when entries change.
+- `frontend/src/index.css`: chart color tokens 2 and 3.
 
-## 테스트
+## Tests
 
-- `backend/test/trend.test.ts`: 잘못된 기간 9건이 DB 전에 한국어 400이다(없음, 한쪽 없음, 형식, 13월, 두 번, 1899·2101년, 순서, 25개월).
-- `backend/test/trend.integration.test.ts`: 실제 DB에서 확인한다.
-  - 기간의 모든 달이 나오고 빈 달은 0이다. 각 달이 그 달 내역을 직접 더한 값과 같다(기간 앞뒤 제외).
-  - 해를 넘는 기간, 한 달 기간, 24개월, 1900-01·2100-12.
-  - 달 경계: 1일·말일 내역이 DB 세션 시간대(서울, UTC, 로스앤젤레스, 키리티마티 +14)와 상관없이 같은 달에 들어간다.
-- `frontend/src/monthly-trend.test.tsx`: 화면을 확인한다.
-  - 서울 기준 이번 달까지 12개월. UTC로는 11월 30일이지만 서울은 12월 1일이다.
-  - 표의 빈 달 0, 기간 버튼과 주소(다른 값 유지), 주소의 기간·잘못된 기간.
-  - 내역 없는 기간, 실패 시 이전 기간 숨김과 다시 시도(초점), 버전 변경 시 다시 불러오기, 늦게 온 옛 기간 응답 무시.
-- `frontend/src/trend-chart.test.tsx`: 차트 이미지 이름과 범례 순서·색(색은 표시 막대에만, 글자는 글자색).
-- `frontend/src/app.test.tsx`: 빈 응답 목에 `months: []`를 더했다(가계부 화면이 추이를 불러오므로).
+- `backend/test/trend.test.ts`: 9 bad periods are Korean 400 before the DB (missing, one side missing, format, month 13, given twice, years 1899 and 2101, order, 25 months).
+- `backend/test/trend.integration.test.ts`: checks on a real DB.
+  - Every month of the period appears and an empty month is 0. Each month equals the direct sum of that month's entries (excluding before and after the period).
+  - A period across years, a one-month period, 24 months, and 1900-01 and 2100-12.
+  - Month boundary: entries on day 1 and the last day land in the same month regardless of the DB session time zone (Seoul, UTC, Los Angeles, and Kiritimati +14).
+- `frontend/src/monthly-trend.test.tsx`: checks the screen.
+  - 12 months up to this month in Seoul time. In UTC it is November 30, but in Seoul it is December 1.
+  - A 0 for an empty month in the table, the period buttons and the address (keeping other values), and the period and a bad period in the address.
+  - A period with no entries, hiding the previous period on failure and retry (focus), reloading on a version change, and ignoring an old period's response that arrives late.
+- `frontend/src/trend-chart.test.tsx`: the chart image name and the legend order and colors (color only on the display bar, and the text uses the text color).
+- `frontend/src/app.test.tsx`: added `months: []` to the empty response mock (the ledger screen loads the trend).
 
-## 검증
+## Verification
 
-- `TEST_DATABASE_URL=<테스트 DB> npm run check`: 통과. 백엔드 281개 통과(건너뜀 0), 프론트엔드 241개 중 239개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공.
-  - 빌드의 500 kB 경고는 이전부터 있던 것이다. 추이 차트 파일은 24 kB이다.
-  - origin/main(#47 자산 평가)을 병합했다. `backend/src/app.ts` 충돌은 두 라우터를 모두 남겨 풀었다. 테스트 DB에 015·016 마이그레이션을 적용했다. 병합 뒤 다시 통과했다: 백엔드 295개(건너뜀 0), 프론트엔드 250개 중 248개 통과·2개 건너뜀(기존).
-- 브라우저: API(3192)를 테스트 DB에 연결하고 Vite(5292)로 `/ledger`를 headless Chrome(CDP)에서 확인했다.
-  - 넣은 데이터: 2024-12~2026-11 내역. 매달 월급 3,200,000원(3월·10월 제외), 3월은 내역 없음, 10월은 수입 500,000원·지출 3,730,000원.
+- `TEST_DATABASE_URL=<test DB> npm run check`: passed. Backend 281 passed (0 skipped), frontend 239 of 241 passed and 2 skipped (existing), 4 skill tests, build succeeded.
+  - The build's 500 kB warning existed before. The trend chart file is 24 kB.
+  - We merged origin/main (#47 asset valuation). We resolved the `backend/src/app.ts` conflict by keeping both routers. We applied migrations 015 and 016 to the test DB. It passed again after the merge: backend 295 (0 skipped), frontend 248 of 250 passed and 2 skipped (existing).
+- Browser: we connected the API (3192) to the test DB and checked `/ledger` with Vite (5292) in headless Chrome (CDP).
+  - Data we put in: entries from 2024-12 to 2026-11. A salary of 3,200,000 won every month (except March and October), no entries in March, and in October income of 500,000 won and expenses of 3,730,000 won.
   - 390×844:
-    - 기본 12개월(2025년 12월 ~ 2026년 11월)에 선 3개(2px), 점 36개, 0원 기준선이 보인다. 차트는 카드 안(폭 308px)에 들어간다.
-    - 10월에 마우스를 올리면 "2026년 10월 / 수입 500,000원 / 지출 3,730,000원 / 잔액 -3,230,000원"이 나온다.
-    - 표로 보기는 13행이고, 3월은 0이다. 처음에는 금액 칸이 붙고 카드 밖으로 나가서 단위를 열 제목으로 옮겼다. 고친 뒤에는 카드 안에 들어간다.
-    - 6개월은 `?trend=6`에 점 18개, 24개월은 `?trend=24`에 점 없이 선만 보인다.
-    - 다크 모드에서 선 색이 `#3987e5`/`#d95926`/`#199e70`으로 바뀐다. 범례 글자는 글자색이다.
-    - 가로 넘침 없음(scrollWidth 390).
-  - 1440×900: 같은 결과다(차트 폭 1038px). 가로축 눈금이 고르지 않게 빠지던 것을 `equidistantPreserveStart`로 고쳤다. 라이트·다크 모두 가로 넘침이 없다.
+    - The default 12 months (December 2025 to November 2026) show 3 lines (2px), 36 dots, and the 0 won baseline. The chart fits inside the card (308px wide).
+    - Hovering over October shows "2026년 10월 / 수입 500,000원 / 지출 3,730,000원 / 잔액 -3,230,000원" ("October 2026 / Income 500,000 won / Expenses 3,730,000 won / Balance -3,230,000 won").
+    - View as table has 13 rows, and March is 0. At first the amount cells stuck together and went outside the card, so we moved the unit to the column title. After the fix it fits inside the card.
+    - 6 months shows 18 dots at `?trend=6`, and 24 months shows only lines without dots at `?trend=24`.
+    - In dark mode the line colors change to `#3987e5`/`#d95926`/`#199e70`. The legend text uses the text color.
+    - No horizontal overflow (scrollWidth 390).
+  - 1440×900: the same results (chart width 1038px). We fixed the horizontal axis ticks being dropped unevenly with `equidistantPreserveStart`. There is no horizontal overflow in light or dark.
 
-## 1차 자동 리뷰 (PR #111)
+## Round 1 automatic review (PR #111)
 
-막는 문제는 없었다. 리뷰가 확인한 것: #40 요약 API 메시지가 그대로임, 주소의 `month`·필터·`trend`가 서로 지워지지 않음, 빈 달 0, 서울 기준 달 경계, 늦은 응답 무시, 실패 시 이전 기간 숨김.
+There was no blocking problem. What the review confirmed: the #40 summary API message is unchanged, the address's `month`, filters, and `trend` do not clear each other, an empty month is 0, month boundaries in Seoul time, ignoring late responses, and hiding the previous period on failure.
 
-낮음 2건:
+2 low points:
 
-1. `backend/src/trend.ts`의 SQL 주석이 "세션 시간대와 상관없다"고 했지만, `generate_series`는 세션 시간대의 timestamp를 만든다. 같은 시간대로 `to_char`하므로 결과는 맞다(4개 시간대 테스트). → 주석을 실제 동작대로 고쳤다.
-2. 데이터는 왔는데 차트 파일만 못 불러오면 그 자리에 "다시 시도"가 없다. 기간을 바꾸면 다시 불러오고, 값은 표에 있다. #40 요약과 같은 동작이라 그대로 두었다.
+1. The SQL comment in `backend/src/trend.ts` said "it does not depend on the session time zone", but `generate_series` makes timestamps in the session time zone. It uses the same time zone for `to_char`, so the result is right (tested in 4 time zones). → We fixed the comment to the real behavior.
+2. If the data arrived but only the chart file failed to load, there is no "다시 시도" in that place. Changing the period loads it again, and the values are in the table. It is the same behavior as the #40 summary, so we left it.
 
-검증: 주석만 바뀌어 `npm run format:check`·`npm run lint`·`npm run typecheck`를 다시 돌려 통과했다.
+Verification: only a comment changed, so we reran `npm run format:check`, `npm run lint`, and `npm run typecheck`, and they passed.
 
-## CI 실패와 수정
+## CI failure and fix
 
-- 1차 리뷰 반영 커밋의 CI `verify`가 `npm run knip` 단계에서 실패했다. `backend/src/trend.ts`의 `maxTrendMonths`가 export만 되고 다른 곳에서 쓰이지 않았다. 테스트와 빌드는 통과했다.
-- → export를 뺐다. `npm run knip`은 `npm run check`에 들어 있지 않아 로컬에서 놓쳤다. 이번에는 직접 실행해 통과를 확인했고, `typecheck`와 백엔드 테스트도 통과했다.
+- The CI `verify` of the commit that addressed the first review failed at the `npm run knip` step. `maxTrendMonths` in `backend/src/trend.ts` was only exported and not used elsewhere. Tests and the build passed.
+- → We removed the export. `npm run knip` is not part of `npm run check`, so we missed it locally. This time we ran it directly and confirmed it passes, and `typecheck` and the backend tests passed too.

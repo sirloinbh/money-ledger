@@ -205,7 +205,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
           const changed = await call(path(), { method: 'POST', body: { ...order, quantity: '2' } });
           assert.deepEqual(
             [changed.status, changed.data],
-            [409, { error: '같은 주문 키로 다른 주문을 보냈습니다' }],
+            [409, { error: 'A different order was sent with the same order key' }],
           );
         },
         { today },
@@ -225,7 +225,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
         ]);
         assert.deepEqual(results.map((r) => r.status).sort(), [201, 409]);
         assert.deepEqual(results.find((r) => r.status === 409)?.data, {
-          error: '현금이 부족합니다',
+          error: 'Not enough cash',
         });
         assert.equal(await cashOf(), 294_000);
         assert.equal(await orderCount(), 1);
@@ -307,13 +307,13 @@ test('mock trading market orders against the real database', { skip: !url }, asy
           });
           assert.deepEqual(
             [tooMany.status, tooMany.data],
-            [409, { error: '보유 수량이 부족합니다' }],
+            [409, { error: 'Not enough shares held' }],
           );
           const none = await call(path(), {
             method: 'POST',
             body: await body('005930', 'sell', '1'),
           });
-          assert.deepEqual(none.data, { error: '보유 수량이 부족합니다' });
+          assert.deepEqual(none.data, { error: 'Not enough shares held' });
 
           await call(path(), { method: 'POST', body: await body('100001', 'sell', '2') });
           assert.equal(await holding('100001'), undefined);
@@ -333,23 +333,27 @@ test('mock trading market orders against the real database', { skip: !url }, asy
           const response = await call(path(), { method: 'POST', body: order });
           assert.deepEqual([response.status, response.data], [status, { error }]);
         };
-        await refuse(await body('005930', 'buy', '2'), 409, '현금이 부족합니다');
+        await refuse(await body('005930', 'buy', '2'), 409, 'Not enough cash');
         // Inactive (#97): not buyable, but a held one can be sold.
-        await refuse(await body('000660', 'buy', '1'), 409, '거래가 중단된 종목은 살 수 없습니다');
+        await refuse(
+          await body('000660', 'buy', '1'),
+          409,
+          'A security with trading halted cannot be bought',
+        );
         await refuse(
           await body('0009A0', 'buy', '1'),
           409,
-          '저장된 종가가 없어 주문할 수 없습니다',
+          'No saved close, so the order cannot be placed',
         );
         await refuse(
           await body('AAPL', 'buy', '1'),
           409,
-          '저장된 환율이 없어 미국 주식을 주문할 수 없습니다',
+          'No saved exchange rate, so a US stock cannot be ordered',
         );
         await refuse(
           { ...(await body('005930', 'buy', '1')), securityId: 999_999 },
           404,
-          '종목을 찾을 수 없습니다',
+          'Security not found',
         );
         assert.equal(await cashOf(), 100_000);
         assert.equal(await orderCount(), 0);
@@ -369,13 +373,13 @@ test('mock trading market orders against the real database', { skip: !url }, asy
         await refuse(
           await body('005930', 'buy', '1'),
           409,
-          '초기화된 계좌입니다. 화면을 새로 고친 뒤 다시 시도하세요',
+          'This account was already reset. Refresh the page and try again',
         );
         const missing = await call('/api/mock/accounts/999999/orders', {
           method: 'POST',
           body: await body('005930', 'buy', '1'),
         });
-        assert.deepEqual(missing.data, { error: '모의투자 계좌를 찾을 수 없습니다' });
+        assert.deepEqual(missing.data, { error: 'Mock trading account not found' });
       },
       { today },
     );
@@ -407,11 +411,11 @@ test('mock trading market orders against the real database', { skip: !url }, asy
           const tooMuch = (
             await call(`${path()}/preview?securityId=${ids['005930']}&side=buy&quantity=20`)
           ).data as Preview;
-          assert.deepEqual([tooMuch.problem, tooMuch.cashAfterKrw], ['현금이 부족합니다', null]);
+          assert.deepEqual([tooMuch.problem, tooMuch.cashAfterKrw], ['Not enough cash', null]);
           const sell = (
             await call(`${path()}/preview?securityId=${ids['005930']}&side=sell&quantity=1`)
           ).data as Preview;
-          assert.deepEqual([sell.heldQuantity, sell.problem], ['0', '보유 수량이 부족합니다']);
+          assert.deepEqual([sell.heldQuantity, sell.problem], ['0', 'Not enough shares held']);
           assert.equal(await orderCount(), 0);
         },
         { today },
@@ -436,7 +440,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
     await withApi(
       pool,
       async (call) => {
-        const changed = '시세가 바뀌었습니다. 주문을 다시 확인하세요';
+        const changed = 'The quote changed. Review the order again';
         // The same day's close fetched again with another value.
         const seen = await body('005930', 'buy', '1');
         await pool.query(
@@ -465,7 +469,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
   });
 
   await t.test(
-    'the same key sent for two accounts at once is a Korean 409, not a server error',
+    'the same key sent for two accounts at once is a 409, not a server error',
     async () => {
       await reset();
       // Another account's order with the same key, inserted but not committed yet: the API passes its own
@@ -492,7 +496,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
             const response = await pending;
             assert.deepEqual(
               [response.status, response.data],
-              [409, { error: '같은 주문 키로 다른 주문을 보냈습니다' }],
+              [409, { error: 'A different order was sent with the same order key' }],
             );
           },
           { today },
@@ -508,7 +512,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
   );
 
   await t.test(
-    'a buy that would take a holding cost over the 1,000조 ceiling is refused',
+    'a buy that would take a holding cost over the ₩1 quadrillion ceiling is refused',
     async () => {
       await reset();
       await pool.query('UPDATE mock_accounts SET cash_krw = 1000000000000000 WHERE id = $1', [
@@ -527,7 +531,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
           });
           assert.deepEqual(
             [response.status, response.data],
-            [409, { error: '주문 금액이 너무 큽니다' }],
+            [409, { error: 'The order amount is too large' }],
           );
         },
         { today },
@@ -721,7 +725,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
           const missing = await call('/api/mock/accounts/999999/holdings');
           assert.deepEqual(
             [missing.status, missing.data],
-            [404, { error: '모의투자 계좌를 찾을 수 없습니다' }],
+            [404, { error: 'Mock trading account not found' }],
           );
         },
         { today },
@@ -812,10 +816,10 @@ test('mock trading market orders against the real database', { skip: !url }, asy
           assert.ok(next.orders[0].id < first.orders.at(-1)!.id);
 
           for (const [query, error] of [
-            ['?from=2026-13-01', '없는 날짜입니다'],
-            ['?from=2026-11-09&to=2026-11-01', '시작일은 종료일보다 늦을 수 없습니다'],
-            ['?securityId=abc', '종목 ID가 올바르지 않습니다'],
-            ['?before=0', '이어 볼 위치가 올바르지 않습니다'],
+            ['?from=2026-13-01', 'That date does not exist'],
+            ['?from=2026-11-09&to=2026-11-01', 'The start date cannot be after the end date'],
+            ['?securityId=abc', 'The security ID is not valid'],
+            ['?before=0', 'The continuation position is not valid'],
           ]) {
             const refused = await call(`${path()}${query}`);
             assert.deepEqual([refused.status, refused.data], [400, { error }], query);
@@ -823,7 +827,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
           const missing = await call('/api/mock/accounts/999999/orders');
           assert.deepEqual(
             [missing.status, missing.data],
-            [404, { error: '모의투자 계좌를 찾을 수 없습니다' }],
+            [404, { error: 'Mock trading account not found' }],
           );
         },
         { today },
@@ -953,7 +957,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
           const missing = await call('/api/mock/accounts/999999/snapshots');
           assert.deepEqual(
             [missing.status, missing.data],
-            [404, { error: '모의투자 계좌를 찾을 수 없습니다' }],
+            [404, { error: 'Mock trading account not found' }],
           );
         },
         { today },

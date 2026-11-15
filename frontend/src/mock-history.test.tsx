@@ -5,7 +5,7 @@ import { MockHistory } from './mock-history';
 
 const order = (id: number, side: 'buy' | 'sell' = 'buy') => ({
   id,
-  security: { id: 1, symbol: '005930', name: '삼성전자' },
+  security: { id: 1, symbol: '005930', name: 'Samsung Electronics' },
   side,
   quantity: '10.00000000',
   price: '70600.0000',
@@ -30,7 +30,7 @@ const apple = {
 };
 const securities = [
   { id: 2, symbol: 'AAPL', name: 'Apple Inc' },
-  { id: 1, symbol: '005930', name: '삼성전자' },
+  { id: 1, symbol: '005930', name: 'Samsung Electronics' },
 ];
 
 let urls: string[];
@@ -50,55 +50,55 @@ beforeEach(() => {
 
 test('shows each order with the close it filled at, its rate and the cash after it', async () => {
   render(<MockHistory accountId={7} refreshKey={0} />);
-  const list = await screen.findByRole('list', { name: '거래 내역' });
+  const list = await screen.findByRole('list', { name: 'Trade history' });
   const items = within(list).getAllByRole('listitem');
   expect(items).toHaveLength(3);
-  expect(items[0]).toHaveTextContent('매도삼성전자 10주');
-  expect(items[1]).toHaveTextContent('매수Apple Inc 2주');
-  expect(items[1]).toHaveTextContent('11월 6일 종가 231.5달러 · 환율 1,384.5원(11월 6일)');
-  expect(items[1]).toHaveTextContent('체결 금액 641,024원 · 수수료 0원 · 주문 후 현금 9,294,000원');
+  expect(items[0]).toHaveTextContent('SellSamsung Electronics 10 shares');
+  expect(items[1]).toHaveTextContent('BuyApple Inc 2 shares');
+  expect(items[1]).toHaveTextContent('Nov 6 close $231.5 · rate ₩1,384.5 (Nov 6)');
+  expect(items[1]).toHaveTextContent('Fill amount ₩641,024 · fee ₩0 · cash after order ₩9,294,000');
   expect(urls).toEqual(['/api/mock/accounts/7/orders']);
-  expect(screen.queryByRole('button', { name: '더 보기' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
   // The security filter lists every traded security.
   expect(
-    within(screen.getByLabelText('종목'))
+    within(screen.getByLabelText('Security'))
       .getAllByRole('option')
       .map((option) => option.textContent),
-  ).toEqual(['전체 종목', 'Apple Inc (AAPL)', '삼성전자 (005930)']);
+  ).toEqual(['All securities', 'Apple Inc (AAPL)', 'Samsung Electronics (005930)']);
 });
 
 test('filters by period and security, and the filter can be cleared', async () => {
   render(<MockHistory accountId={7} refreshKey={0} />);
   await screen.findByRole('list');
-  fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '2026-11-01' } });
-  fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-11-09' } });
-  fireEvent.change(screen.getByLabelText('종목'), { target: { value: '2' } });
+  fireEvent.change(screen.getByLabelText('Start date'), { target: { value: '2026-11-01' } });
+  fireEvent.change(screen.getByLabelText('End date'), { target: { value: '2026-11-09' } });
+  fireEvent.change(screen.getByLabelText('Security'), { target: { value: '2' } });
   answer = () => ({ orders: [], hasMore: false, securities });
-  fireEvent.click(screen.getByRole('button', { name: '조회' }));
-  expect(await screen.findByText('조건에 맞는 거래가 없습니다.')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  expect(await screen.findByText('No trades match the filters.')).toBeInTheDocument();
   expect(urls[1]).toBe('/api/mock/accounts/7/orders?from=2026-11-01&to=2026-11-09&securityId=2');
 
   answer = () => ({ orders: [order(1)], hasMore: false, securities });
-  fireEvent.click(screen.getByRole('button', { name: '필터 지우기' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
   expect(await screen.findByRole('list')).toBeInTheDocument();
   expect(urls[2]).toBe('/api/mock/accounts/7/orders');
-  expect(screen.getByLabelText('시작일')).toHaveValue('');
+  expect(screen.getByLabelText('Start date')).toHaveValue('');
 });
 
 test('a start after the end is refused before asking the server', async () => {
   render(<MockHistory accountId={7} refreshKey={0} />);
   await screen.findByRole('list');
-  fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '2026-11-09' } });
-  fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-11-01' } });
-  fireEvent.click(screen.getByRole('button', { name: '조회' }));
+  fireEvent.change(screen.getByLabelText('Start date'), { target: { value: '2026-11-09' } });
+  fireEvent.change(screen.getByLabelText('End date'), { target: { value: '2026-11-01' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
   expect(await screen.findByRole('alert')).toHaveTextContent(
-    '시작일은 종료일보다 늦을 수 없습니다',
+    'The start date cannot be after the end date',
   );
-  expect(screen.getByLabelText('시작일')).toHaveAttribute('aria-invalid', 'true');
+  expect(screen.getByLabelText('Start date')).toHaveAttribute('aria-invalid', 'true');
   expect(urls).toHaveLength(1);
 });
 
-test('더 보기 adds the next 50 after the last one shown, with the same filter', async () => {
+test('Load more adds the next 50 after the last one shown, with the same filter', async () => {
   answer = (url) =>
     url.includes('before=')
       ? { orders: [order(1)], hasMore: false, securities }
@@ -109,13 +109,13 @@ test('더 보기 adds the next 50 after the last one shown, with the same filter
         };
   render(<MockHistory accountId={7} refreshKey={0} />);
   await screen.findByRole('list');
-  fireEvent.click(screen.getByRole('button', { name: '더 보기' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
   await vi.waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(51));
   expect(urls[1]).toBe('/api/mock/accounts/7/orders?before=11');
-  expect(screen.queryByRole('button', { name: '더 보기' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
 });
 
-test('더 보기 while a new filter is loading does not add the old list to the new one', async () => {
+test('Load more while a new filter is loading does not add the old list to the new one', async () => {
   answer = () => ({
     orders: Array.from({ length: 50 }, (_, index) => order(60 - index)),
     hasMore: true,
@@ -134,9 +134,9 @@ test('더 보기 while a new filter is loading does not add the old list to the 
       });
     }),
   );
-  fireEvent.change(screen.getByLabelText('종목'), { target: { value: '2' } });
-  fireEvent.click(screen.getByRole('button', { name: '조회' }));
-  fireEvent.click(screen.getByRole('button', { name: '더 보기' }));
+  fireEvent.change(screen.getByLabelText('Security'), { target: { value: '2' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
   expect(urls).toEqual(['/api/mock/accounts/7/orders', '/api/mock/accounts/7/orders?securityId=2']);
 
   finish(new Response(JSON.stringify({ orders: [apple], hasMore: false, securities })));
@@ -147,7 +147,7 @@ test('더 보기 while a new filter is loading does not add the old list to the 
 test('no order yet says so; a new refresh key (an order on the page) reloads', async () => {
   answer = () => ({ orders: [], hasMore: false, securities: [] });
   const { rerender } = render(<MockHistory accountId={7} refreshKey={0} />);
-  expect(await screen.findByText('아직 거래가 없습니다.')).toBeInTheDocument();
+  expect(await screen.findByText('No trades yet.')).toBeInTheDocument();
   answer = () => ({ orders: [order(1)], hasMore: false, securities });
   rerender(<MockHistory accountId={7} refreshKey={1} />);
   expect(await screen.findByRole('list')).toBeInTheDocument();

@@ -1,104 +1,104 @@
-# #38 수입·지출 내역 기록·수정·삭제
+# #38 Record, edit, and delete income and expense entries
 
-- 이슈: [#38](https://github.com/sirloinbh/money-ledger/issues/38)
-- 브랜치: `feat/38-ledger-entries`
+- Issue: [#38](https://github.com/sirloinbh/money-ledger/issues/38)
+- Branch: `feat/38-ledger-entries`
 
-## 목적
+## Purpose
 
-날짜, 종류, 금액, 카테고리, 메모로 수입과 지출을 기록하고 고치고 지울 수 있게 한다. 조회(#39)와 시각화(#40, #41)가 이 데이터를 쓴다.
+Let the user record, fix, and delete income and expenses with a date, a kind, an amount, a category, and a memo. The list view (#39) and the visualizations (#40, #41) use this data.
 
-## 결정
+## Decision
 
-- 결제 수단 입력은 넣지 않는다(2026-11-03 사용자 결정, [이슈 댓글](https://github.com/sirloinbh/money-ledger/issues/38#issuecomment-6597669973)).
+- Do not add a payment method input (user decision on 2026-11-03, [issue comment](https://github.com/sirloinbh/money-ledger/issues/38#issuecomment-6597669973)).
 
-## 변경 — 2026-11-03
+## Changes: 2026-11-03
 
-- `database/migrations/003_ledger_entries.sql`: `ledger_entries` 테이블을 추가했다.
-  - 날짜 `date`, 금액 `bigint`(0 이상), 방향 `kind`, 메모(200자 이하, 기본 빈 문자열)를 저장한다.
-  - `(category_id, kind)`가 `ledger_categories (id, kind)`를 참조하는 외래 키로, 카테고리와 내역의 종류가 DB에서도 같아야 한다. 이를 위해 `ledger_categories (id, kind)` 유일 인덱스를 추가했다.
-  - 날짜순 목록과 카테고리별 조회용 인덱스를 추가했다. 모든 문장이 `IF NOT EXISTS`라 재실행해도 안전하다.
-- `backend/src/entries.ts`: `/api/ledger/entries` API를 추가했다.
-  - `GET`: 최근 100개, 날짜·ID 내림차순, 카테고리 이름 포함. 기간·카테고리 필터와 페이지는 #39에서 한다.
-  - `POST`(201), `PUT /:id`(전체 수정), `DELETE /:id`(204).
-  - 서버 검증(한국어 400): 금액이 정수가 아니거나 0 미만, 문자열 금액, `YYYY-MM-DD`가 아닌 날짜, 없는 날짜(2월 30일), 모르는 종류, 카테고리 없음, 메모 200자 초과.
-  - 카테고리가 없거나, 종류가 다르거나, 숨긴 카테고리면 400이다. 수정할 때는 이미 가진 숨긴 카테고리를 유지할 수 있지만 다른 숨긴 카테고리로 바꿀 수는 없다. 외래 키 오류(23503)는 같은 400으로 답하는 안전장치다(1차 리뷰에서 바꾼 저장 방식은 아래 리뷰 기록 참고).
-  - pg가 문자열로 주는 `bigint` 금액은 `Number.isSafeInteger`로 확인한 뒤 숫자로 보낸다.
-- `backend/src/app.ts`: 라우터를 연결했다.
-- `backend/package.json`: 백엔드 테스트 파일을 하나씩 실행한다(`--test-concurrency=1`). 카테고리와 내역 DB 테스트가 같은 테이블을 비우므로, 병렬로 돌면 서로의 데이터를 지운다.
-- `backend/test/helpers.ts`: 본문 없는 204 응답을 빈 객체로 돌려준다.
-- `frontend/src/entries.tsx`: 가계부 화면 위쪽에 내역 입력 폼과 최근 내역 목록을 추가했다.
-  - 날짜 기본값은 `Asia/Seoul` 기준 오늘이다. 종류는 라디오 버튼, 카테고리는 기본 `<select>`다.
-  - 카테고리 목록은 고른 종류의 숨기지 않은 것만 보여 준다. 수정 중인 내역이 숨긴 카테고리를 가졌으면 그것만 `(숨김)`을 붙여 함께 보여 준다.
-  - 금액은 `12,500`처럼 쉼표를 넣어도 되고, 0 이상 정수가 아니면 보내기 전에 막는다. 서버 오류는 받은 한국어 메시지를 그대로 보여 준다.
-  - 기록 후에는 금액과 메모만 비우고 날짜와 종류는 남긴다. 같은 날 여러 건을 적기 쉽게 하기 위해서다.
-  - 삭제는 중앙 `ConfirmDialog`로 확인을 받는다.
-- `frontend/src/format.ts`: 서비스 시간대의 오늘(`serviceToday`)과 원 표시(`formatWon`).
-- `frontend/src/categories.tsx`, `ledger.tsx`: 카테고리를 바꾸면 `onChange`로 알려, 내역 폼이 카테고리 목록을 다시 불러온다.
+- `database/migrations/003_ledger_entries.sql`: added the `ledger_entries` table.
+  - It stores the date `date`, the amount `bigint` (0 or more), the direction `kind`, and the memo (at most 200 characters, default empty string).
+  - `(category_id, kind)` is a foreign key that references `ledger_categories (id, kind)`, so the kind of the category and the entry must also match in the DB. For this we added a unique index on `ledger_categories (id, kind)`.
+  - Added indexes for the date-ordered list and for lookup by category. Every statement is `IF NOT EXISTS`, so it is safe to run again.
+- `backend/src/entries.ts`: added the `/api/ledger/entries` API.
+  - `GET`: the latest 100, in descending date and ID order, with the category name. Date range and category filters and paging are done in #39.
+  - `POST` (201), `PUT /:id` (full update), `DELETE /:id` (204).
+  - Server validation (Korean 400): an amount that is not an integer or is below 0, a string amount, a date that is not `YYYY-MM-DD`, a date that does not exist (February 30), an unknown kind, no category, and a memo over 200 characters.
+  - It is a 400 if the category does not exist, has a different kind, or is hidden. When updating, an entry can keep a hidden category it already has, but cannot switch to a different hidden category. A foreign key error (23503) is answered with the same 400 as a safety net (for the save method changed in the first review, see the review record below).
+  - The `bigint` amount that pg gives as a string is checked with `Number.isSafeInteger` and then sent as a number.
+- `backend/src/app.ts`: connected the router.
+- `backend/package.json`: backend test files run one at a time (`--test-concurrency=1`). The category and entry DB tests empty the same tables, so running them in parallel would delete each other's data.
+- `backend/test/helpers.ts`: a 204 response with no body is returned as an empty object.
+- `frontend/src/entries.tsx`: added an entry input form and a list of recent entries at the top of the ledger screen.
+  - The default date is today in `Asia/Seoul`. The kind is a radio button and the category is a basic `<select>`.
+  - The category list shows only the not-hidden ones of the chosen kind. If the entry being edited has a hidden category, only that one is shown with `(숨김)` ("hidden") added.
+  - The amount may contain commas like `12,500`, and anything that is not an integer of 0 or more is blocked before sending. A server error shows the Korean message as received.
+  - After recording, only the amount and memo are cleared, and the date and kind stay, to make it easy to enter several on the same day.
+  - Deleting asks for confirmation with the central `ConfirmDialog`.
+- `frontend/src/format.ts`: today in the service time zone (`serviceToday`) and won display (`formatWon`).
+- `frontend/src/categories.tsx`, `ledger.tsx`: when a category changes it notifies through `onChange`, and the entry form reloads the category list.
 
-## 검증
+## Verification
 
-- 추가한 테스트
-  - `backend/test/entries.test.ts`(DB 없이 12개): 위 검증 오류 8가지가 DB에 닿기 전에 한국어 400으로 거부된다. 잘못된 ID는 400이다. 카테고리가 없거나, 종류가 다르거나, 숨겼으면 저장 전에 400이다.
-  - `backend/test/entries.integration.test.ts`(실제 DB 5개)
-    - 저장, 최신순 목록, 카테고리 이름, 메모 공백 제거
-    - 가장 큰 안전 정수 금액이 그대로 오간다
-    - 종류가 다른 카테고리를 서버(400)와 DB 외래 키(23503)가 모두 거부한다
-    - 수정 때 숨긴 카테고리를 유지할 수 있고, 다른 숨긴 카테고리나 새 내역에는 쓸 수 없다
-    - 삭제 후 다시 삭제·수정하면 404다
-  - `frontend/src/entries.test.tsx`(12개)
-    - 서울 기준 오늘이 기본 날짜다(UTC로는 전날인 시각에서 확인)
-    - 종류별로 숨기지 않은 카테고리만 보인다
-    - 쉼표 금액을 정수로 보내고 날짜·종류를 유지하며 목록에 표시한다
-    - 잘못된 금액 4가지와 카테고리 없음을 보내기 전에 막는다
-    - 서버 오류 메시지를 보여 주고 입력을 유지한다
-    - 수정할 때 숨긴 카테고리를 함께 보여 주고 PUT으로 저장한다. 취소하면 새 내역으로 돌아간다
-    - 삭제를 확인받은 뒤 지운다
-    - 카테고리 버전이 바뀌면 목록을 다시 불러온다
-  - `frontend/src/format.test.ts`(2개): UTC 날짜 경계의 서울 날짜, 원 표시.
-  - `frontend/src/app.test.tsx`: 가짜 API가 빈 내역 목록도 돌려주도록 바꿨다.
-- 테스트 DB: 일회용 `postgres:17-alpine` 컨테이너에 `003`을 두 번 적용해도 오류가 없었다. 종류가 다른 카테고리로 직접 넣으면 외래 키가 거부했다.
-- `TEST_DATABASE_URL=<테스트 DB> npm run check`: 통과.
-  - 백엔드 43개 통과, 건너뜀 0(DB 통합 테스트 포함).
-  - 프론트엔드 91개 중 89개 통과, 2개 건너뜀(기존 테스트).
-  - 스킬 테스트 4개 통과.
-- 브라우저: API를 테스트 DB에 연결하고 headless Chrome(CDP로 뷰포트 지정)으로 확인했다.
-  - 모바일 390×844: 금액 `8,000`, 카테고리 `교통`, 메모 `택시`를 넣고 `기록`을 누르면 `지출 8,000원을 기록했습니다`가 보인다. 날짜는 `2026-11-03`으로 남고, 목록 맨 위에 `-8,000원`이 나온다. 긴 메모는 줄바꿈되고 `scrollWidth` 390으로 넘침이 없다.
-  - PC 1440×900: 입력 폼이 두 열로 보이고 `scrollWidth` 1425(세로 스크롤 막대 15)로 넘침이 없다.
+- Tests added
+  - `backend/test/entries.test.ts` (12 without a DB): the 8 validation errors above are rejected with a Korean 400 before reaching the DB. A bad ID is 400. A missing category, a different kind, or a hidden category is a 400 before saving.
+  - `backend/test/entries.integration.test.ts` (5 on a real DB)
+    - Save, the newest-first list, the category name, and trimming the memo
+    - The largest safe integer amount goes through unchanged
+    - A category of a different kind is rejected both by the server (400) and by the DB foreign key (23503)
+    - On update a hidden category can be kept, but another hidden category or a new entry cannot use it
+    - After deleting, deleting or updating again gives 404
+  - `frontend/src/entries.test.tsx` (12)
+    - Today in Seoul is the default date (checked at a time that is the previous day in UTC)
+    - Only not-hidden categories of each kind are shown
+    - A comma amount is sent as an integer, the date and kind are kept, and it shows in the list
+    - 4 kinds of bad amount and a missing category are blocked before sending
+    - A server error message is shown and the input is kept
+    - When editing, the hidden category is shown too and saved with PUT. Canceling goes back to a new entry
+    - Deleting happens after confirmation
+    - When the category version changes, the list is reloaded
+  - `frontend/src/format.test.ts` (2): the Seoul date at the UTC date boundary, and the won display.
+  - `frontend/src/app.test.tsx`: changed the fake API to return an empty entry list too.
+- Test DB: applying `003` twice to a disposable `postgres:17-alpine` container gave no error. Inserting directly with a category of a different kind was rejected by the foreign key.
+- `TEST_DATABASE_URL=<test DB> npm run check`: passed.
+  - Backend 43 passed, 0 skipped (including the DB integration tests).
+  - Frontend 89 of 91 passed, 2 skipped (existing tests).
+  - 4 skill tests passed.
+- Browser: we connected the API to the test DB and checked with headless Chrome (viewport set through CDP).
+  - Mobile 390×844: entering amount `8,000`, category `교통` ("Transport"), and memo `택시` ("Taxi") and pressing `기록` ("Record") shows `지출 8,000원을 기록했습니다` ("Recorded an expense of 8,000 won"). The date stays at `2026-11-03`, and `-8,000원` appears at the top of the list. A long memo wraps and `scrollWidth` is 390, so there is no overflow.
+  - PC 1440×900: the input form shows in two columns and `scrollWidth` is 1425 (a 15 vertical scrollbar), so there is no overflow.
 
-## 한계
+## Limits
 
-- 목록은 최근 100개만 보인다. 기간·카테고리 필터와 페이지는 #39에서 만든다.
-- `npm run knip`은 이 PC에서 네이티브 바인딩 문제로 실행되지 않아(#37 기록 참고) CI로 확인한다.
+- The list shows only the latest 100. Date range and category filters and paging are built in #39.
+- `npm run knip` does not run on this PC because of a native binding problem (see the #37 record), so we check it with CI.
 
-## 리뷰 기록
+## Review record
 
-### 1차 — 보완점 6건 반영
+### Round 1: 6 points addressed
 
-반영(2026-11-03, 추가 커밋):
+Addressed (2026-11-03, follow-up commit):
 
-- 저장 중에 다른 행의 `수정`이나 `수정 취소`를 누르면, 저장이 끝난 뒤 방금 연 수정이 지워졌다. 저장 중에는 수정·취소·삭제를 받지 않고, 버튼 글자를 `저장 중…`으로 바꾼다. 버튼은 끄지 않아 포커스가 남는다.
-- 카테고리 이름을 바꿔도 내역 목록이 옛 이름을 보였다. 카테고리가 바뀌면 목록도 다시 불러온다.
-- 고른 카테고리를 숨기면 화면은 `고르세요`인데 값이 남아 서버가 거부했다. 더 이상 고를 수 없는 카테고리는 고르지 않은 것으로 본다.
-- `0000-01-01`이 검증을 통과해 PostgreSQL에서 500이 났다. 날짜를 1900~2100년으로 제한하고 한국어 400으로 답한다.
-- `수정`을 눌러도 포커스가 목록에 남았다. 폼의 날짜 칸으로 옮긴다. 거부된 금액·카테고리 칸에 `aria-invalid`와 메시지를 가리키는 `aria-describedby`를 단다.
-- 문서가 일어날 수 없는 외래 키 경쟁을 설명했고, 실제로 가능한 경쟁(확인과 저장 사이에 카테고리를 숨김)은 막지 못했다. 저장 문장에 같은 조건을 넣었다. `INSERT … SELECT … WHERE NOT c.hidden`, `UPDATE … FROM ledger_categories … (NOT c.hidden OR c.id = e.category_id)`로 바꾸고, 저장된 행이 없으면 다시 확인해 원인을 알려 준다(못 찾으면 409).
+- If you pressed `수정` ("Edit") or `수정 취소` ("Cancel edit") on another row while saving, the edit you had just opened was cleared after the save finished. While saving, we do not accept edit, cancel, or delete, and we change the button text to `저장 중…` ("Saving…"). We do not turn the button off, so focus stays.
+- Renaming a category still showed the old name in the entry list. When a category changes, the list is reloaded too.
+- If you hid the chosen category, the screen showed `고르세요` ("Choose") but the value stayed and the server rejected it. A category that can no longer be chosen is treated as not chosen.
+- `0000-01-01` passed validation and caused a 500 in PostgreSQL. We limited dates to the years 1900 to 2100 and answer with a Korean 400.
+- Pressing `수정` left focus on the list. We move it to the date field of the form. We add `aria-invalid` and an `aria-describedby` pointing at the message to the rejected amount and category fields.
+- The doc described a foreign key race that cannot happen, and it did not block the race that really can happen (hiding the category between the check and the save). We put the same condition into the save statement. It now uses `INSERT … SELECT … WHERE NOT c.hidden` and `UPDATE … FROM ledger_categories … (NOT c.hidden OR c.id = e.category_id)`, and if no row was saved it rechecks and tells the cause (409 if it cannot find one).
 
-추가한 테스트:
+Tests added:
 
-- `backend/test/entries.test.ts`: 0000년과 2101년 거부(2개), 확인 뒤 숨겨진 카테고리는 저장하지 않고 숨김 오류로 답함(1개).
-- `frontend/src/entries.test.tsx`: 수정 시 날짜 칸 포커스, 잘못된 칸 표시, 저장 중 수정 무시와 `저장 중…`, 카테고리 변경 시 목록 재조회와 숨긴 카테고리 선택 해제(4개).
+- `backend/test/entries.test.ts`: rejecting year 0000 and 2101 (2), and a category hidden after the check is not saved and is answered with a hidden error (1).
+- `frontend/src/entries.test.tsx`: date field focus on edit, marking the bad field, ignoring edits while saving and `저장 중…`, and reloading the list and clearing a hidden category choice when a category changes (4).
 
-보완 후 검증:
+Verification after the fixes:
 
-- `TEST_DATABASE_URL=<테스트 DB> npm run check`: 통과. 백엔드 46개 통과·건너뜀 0, 프론트엔드 95개 중 93개 통과·2개 건너뜀(기존), 스킬 4개.
-- 브라우저(CDP, 모바일 390×844): 목록 마지막 행의 `수정`을 누르면 포커스가 `entry-date`로 가고 화면 안(위에서 402px)에 보인다. 폼 제목이 `내역 수정`으로 바뀐다. `scrollWidth` 390.
+- `TEST_DATABASE_URL=<test DB> npm run check`: passed. Backend 46 passed and 0 skipped, frontend 93 of 95 passed and 2 skipped (existing), 4 skill tests.
+- Browser (CDP, mobile 390×844): pressing `수정` on the last row of the list moves focus to `entry-date`, and it is visible inside the screen (402px from the top). The form title changes to `내역 수정` ("Edit entry"). `scrollWidth` 390.
 
-### 2차 — 1차 지적 6건 반영 확인, 막는 결함 없음, 선택 사항 4건 반영
+### Round 2: 6 first-round points confirmed, no blocking defect, 4 optional points addressed
 
-- 삭제가 끝나면 지운 행에 있던 삭제 버튼이 사라져 포커스가 페이지로 빠졌다. 삭제가 된 경우에만 `수입·지출 내역` 제목으로 포커스를 옮긴다. 취소하면 그대로 삭제 버튼으로 돌아간다.
-- 저장 중에 금액·메모에 새로 친 값이 저장 완료 후 지워졌다. 보낸 값과 같을 때만 비운다.
-- 테스트 이름이 확인하지 않는 `수정 취소`까지 말했다. 이름을 `opening an edit waits`로 고쳤다.
-- PUT의 조건부 저장 실패 경로가 테스트되지 않았다. 수정 중 숨겨진 카테고리(400)와 원인을 알 수 없는 실패(409) 테스트를 추가했다.
-- 리뷰 중 프론트엔드 전체 실행에서 원인 불명의 실패가 한 번 보고됐다. `entries.test.tsx`를 8번, 프론트엔드 전체를 3번 돌렸고 모두 통과해 재현하지 못했다. CI에서 다시 나오면 따로 이슈로 만든다.
-- 검증: `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과(백엔드 48개 통과·건너뜀 0, 프론트엔드 97개 중 95개 통과·2개 건너뜀(기존), 스킬 4개). 실제 Chrome(CDP)에서 삭제 취소 후 포커스는 삭제 버튼, 삭제 후에는 `H2 수입·지출 내역`이다.
-- 표준에 따라 3차 리뷰는 하지 않는다.
+- When a delete finished, the delete button in the removed row disappeared, so focus fell to the page. Only when the delete happened, we move focus to the `수입·지출 내역` ("Income and expense entries") heading. If canceled, it goes back to the delete button as before.
+- A value newly typed into the amount or memo while saving was cleared after the save finished. We clear it only when it equals what was sent.
+- A test name mentioned `수정 취소` ("cancel edit"), which it does not check. We renamed it `opening an edit waits`.
+- The conditional save failure path of PUT was not tested. We added tests for a category hidden during the edit (400) and a failure of unknown cause (409).
+- During the review an unexplained failure was reported once in a full frontend run. We ran `entries.test.tsx` 8 times and the whole frontend 3 times, and all passed, so we could not reproduce it. If it shows up again in CI, we will open a separate issue.
+- Verification: `TEST_DATABASE_URL=<test DB> npm run check` passed (backend 48 passed and 0 skipped, frontend 95 of 97 passed and 2 skipped (existing), 4 skill tests). In a real Chrome (CDP), after canceling a delete focus is on the delete button, and after a delete it is on `H2 수입·지출 내역`.
+- By the standard, we do not run a third review.

@@ -1,31 +1,42 @@
-# #96 Tiingo에 없는 추적 종목의 반복 호출 줄이기
+# #96 Cut repeated calls for tracked tickers Tiingo does not have
 
-- 이슈: https://github.com/sirloinbh/money-ledger/issues/96
-- 브랜치: `chore/96-tiingo-not-found-skip`
+- Issue: https://github.com/sirloinbh/money-ledger/issues/96
+- Branch: `chore/96-tiingo-not-found-skip`
 
-## 목적
+## Purpose
 
-Tiingo에 없는 미국 종목이 추적 종목이 되면 매일 받기가 30일 동안 매일 404 호출을 1회씩 썼다. 종가가 하나도 없는 종목은 상세를 열 때마다 즉시 받기로 Tiingo를 불렀다. 둘 다 공용 시간당 50회 한도를 헛되이 써서 매일 받기가 `rate_limited`로 밀릴 수 있다. #51(PR #95) 리뷰에서 나온 지적이다.
+Once a US ticker Tiingo does not have became tracked, the daily fetch spent one 404 call on it every day for 30 days. A ticker with no close at all called Tiingo on every detail open. Both wasted the shared 50-calls-per-hour limit and could push the daily fetch into `rate_limited`. This came up in the #51 (PR #95) review.
 
-## 결정 (2026-11-10 사용자 확인, 이슈 댓글 기록)
+## Decisions (confirmed by the user on 2026-11-10, recorded in the issue comments)
 
-1. Tiingo 404 종목은 마지막으로 부른 뒤 7일 동안 `fetchUsCloses` 안에서 건너뛴다. 매일 받기와 상세 즉시 받기 모두 해당한다. 호출 없이 "없는 종목"으로 답하고, 매일 받기에서 건너뛴 종목은 `price_fetch_failed` 로그를 남기지 않는다.
-2. 종가가 없는 종목은 마지막 호출(`last_attempt_at`)이 1시간 안이면 상세에서 다시 부르지 않는다. 화면 문구는 직전 결과를 따른다. 빈 응답이었으면 문구가 없고, 오류였으면 "시세를 받지 못했습니다…"를 보여 준다. 매일 받기의 재시도에는 영향이 없다.
+1. A Tiingo 404 ticker is skipped inside `fetchUsCloses` for 7 days after the last call, for both the daily fetch and the detail's on-the-spot fetch. It answers "not found" without a call, and the daily fetch writes no `price_fetch_failed` log for a skipped ticker.
+2. A ticker with no close is not called again from the detail when its last call (`last_attempt_at`) was within 1 hour. The screen follows the previous result: no message after an empty answer, "Could not get the price…" after an error. The daily fetch retries are not affected.
 
-## 변경 내용
+## Changes
 
-- `backend/src/prices/store.ts`: `getState`가 `last_error`도 돌려준다.
-- `backend/src/prices/fetch.ts`: `fetchUsCloses`에 두 규칙을 더했다. 받을 날짜가 남아 있을 때만 확인하며, 둘 다 호출 한도를 쓰지 않는다.
-  - `last_error`가 "Tiingo에 없는 종목입니다"이고 마지막 호출 뒤 7일이 안 됐으면 `known_missing`을 돌려준다. 매일 받기는 시작 시각이 날마다 몇 밀리초씩 다르므로, 7일째 실행이 간발의 차로 빠지지 않게 1시간 여유를 두었다(6일 23시간).
-  - 선택 인자 `retryAfterMs` 안에 부른 적이 있으면 `tried_recently`(직전 응답이 비었음) 또는 `failed_recently`(직전이 오류)를 돌려준다. 매일 받기는 이 인자를 쓰지 않는다.
-- `backend/src/prices/router.ts`: 상세의 즉시 받기는 `retryAfterMs`를 1시간으로 준다. `known_missing`은 `not_found`, `failed_recently`는 `fetch_failed` 문구로 보여 주고, 호출하지 않았으므로 `price_fetch_now` 로그는 남기지 않는다.
-- `docs/price-source.md`: 두 규칙을 적었다.
+- `backend/src/prices/store.ts`: `getState` also returns `last_error`.
+- `backend/src/prices/fetch.ts`: `fetchUsCloses` gets both rules. They are checked only when dates are left to fetch, and neither spends the call limit.
+  - When `last_error` is the not-found note and fewer than 7 days have passed since the last call, it returns `known_missing`. The daily run starts a few milliseconds later or earlier each day, so the window is 1 hour short (6 days 23 hours) to keep the 7th day's run from just missing it.
+  - With the optional `retryAfterMs`, a call within that time returns `tried_recently` (the last answer was empty) or `failed_recently` (the last answer was an error). The daily fetch does not pass it.
+- `backend/src/prices/router.ts`: the detail's on-the-spot fetch passes `retryAfterMs` of 1 hour. `known_missing` shows as `not_found` and `failed_recently` as `fetch_failed`; since no call was made, no `price_fetch_now` log is written.
+- `docs/price-source.md`: both rules are written down.
 
-DB 구조는 바뀌지 않는다(기존 `price_fetch_state` 열만 쓴다).
+The DB structure does not change (only the existing `price_fetch_state` columns are used).
 
-## 검증
+## Verification
 
-- 테스트 DB: 전용 컨테이너 `money-ledger-test-agent3`(15493)
+### wip commit (agent3, 2026-11-10)
+
+- Test DB: dedicated container `money-ledger-test-agent3` (15493).
 - `backend/test/prices.integration.test.ts`
-  - 없는 종목: 첫날 한 번 부르고, 다음 6일은 매일 받기가 부르지 않으며 그 종목 로그도 없다. 그 사이 상세를 열면 호출 없이 `not_found`다. 7일째에 다시 한 번 부른다.
-  - 종가 없는 종목: 빈 응답 종목과 오류 종목의 상세를 열면 한 번씩 부른다. 59분 뒤 다시 열면 호출 없이 직전 결과(문구 없음, `fetch_failed`)를 보여 주고, 1시간 뒤에는 다시 부른다.
+  - Missing ticker: called once on the first day, not called by the daily fetch for the next 6 days and no log for it; opening the detail in between answers `not_found` without a call; called once again on day 7.
+  - Ticker with no close: opening the detail of an empty-answer ticker and of an error ticker calls each once. Reopening 59 minutes later shows the previous result (no message, `fetch_failed`) without a call, and 1 hour later it calls again.
+- The file alone: 22/22 passed. `tsc` and `npm run knip` passed. The full `npm run check` exited 1, cause not found then.
+
+### Merge of origin/main (2026-11-15)
+
+- Main translated the server messages and `docs/price-source.md` to English (#120, #125). Conflicts in `fetch.ts` and `docs/price-source.md` were resolved by keeping the English text: the not-found note is now `Not found at Tiingo`, and the two #96 rules were added to the English doc. The test strings were translated to match.
+- Removed the unused `calls` variable in the hourly-retry test. ESLint flagged it, which is likely why the full check failed in the wip commit.
+- `npm run check` (with `TEST_DATABASE_URL` unset): passed. Backend 189 tests: 173 passed, 16 skipped (the DB integration tests, including both #96 tests), 0 failed. Frontend 313 tests: 311 passed, 2 skipped.
+- `npm run knip`: passed.
+- Not run locally: the DB integration tests, because Docker Desktop was not running. CI runs them against PostgreSQL.

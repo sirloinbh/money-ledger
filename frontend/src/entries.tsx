@@ -161,7 +161,7 @@ export function EntryManager({
       skipReload.current = false;
       return;
     }
-    loadEntries().catch((cause: unknown) => showError(cause, '내역을 불러오지 못했습니다'));
+    loadEntries().catch((cause: unknown) => showError(cause, 'Could not load the entries'));
   }, [loadEntries, showError, categoriesVersion, entriesVersion, query]);
 
   useEffect(() => {
@@ -170,7 +170,7 @@ export function EntryManager({
         setCategories(data.categories);
         setCategoriesLoaded(true);
       })
-      .catch((cause: unknown) => showError(cause, '카테고리를 불러오지 못했습니다'));
+      .catch((cause: unknown) => showError(cause, 'Could not load the categories'));
   }, [categoriesVersion, showError]);
 
   // The entry being edited was classified elsewhere on the page (bulk classification): take over its new
@@ -185,7 +185,7 @@ export function EntryManager({
     setDraft((current) =>
       current.categoryId === before ? { ...current, categoryId: after } : current,
     );
-    showStatus('수정 중인 내역의 카테고리가 다른 곳에서 바뀌어 반영했습니다');
+    showStatus('The category of the entry being edited was changed elsewhere and has been applied');
   }, [entries, editing, showStatus]);
 
   // A page past the end (the last entry of the last page was deleted, or an old link): go to the last page.
@@ -216,7 +216,7 @@ export function EntryManager({
   );
 
   // A chosen category that is no longer offered (hidden meanwhile) must be chosen again: saving it as
-  // 미분류 without a word would drop the user's choice.
+  // Uncategorized without a word would drop the user's choice.
   // Judged only once the categories are loaded, so a slow or failed load does not flag every choice.
   const stale =
     categoriesLoaded &&
@@ -260,12 +260,12 @@ export function EntryManager({
     if (saving.current) return;
     if (amount === undefined) {
       setInvalid('amount');
-      showError('금액은 0원 이상의 정수로 입력하세요');
+      showError('Enter the amount as a whole number of won, 0 or more');
       return;
     }
     if (stale) {
       setInvalid('category');
-      showError('고른 카테고리를 쓸 수 없습니다. 카테고리를 다시 고르세요');
+      showError('The chosen category cannot be used. Choose a category again');
       return;
     }
     setInvalid(undefined);
@@ -275,7 +275,7 @@ export function EntryManager({
       date: draft.date,
       kind: draft.kind,
       amount,
-      // Empty is 미분류: the server fills it from a matching keyword rule, if any.
+      // Empty is Uncategorized: the server fills it from a matching keyword rule, if any.
       categoryId: categoryId ? Number(categoryId) : null,
       merchant: draft.merchant,
       memo: draft.memo,
@@ -291,8 +291,8 @@ export function EntryManager({
       }
       notifyChange();
       const done = editing
-        ? '내역을 수정했습니다'
-        : `${kindLabel[draft.kind]} ${formatWon(amount)}을 기록했습니다`;
+        ? 'Entry updated'
+        : `${kindLabel[draft.kind]} ${formatWon(amount)} recorded`;
       if (editing) {
         stopEdit();
       } else {
@@ -310,7 +310,7 @@ export function EntryManager({
         await loadEntries();
         showStatus(done);
       } catch {
-        showError(`${done}. 목록을 새로 불러오지 못했습니다`);
+        showError(`${done}. Could not reload the list`);
       }
     } finally {
       saving.current = false;
@@ -320,7 +320,7 @@ export function EntryManager({
 
   const remove = async (entry: Entry) => {
     if (saving.current) {
-      showError('저장 중입니다. 잠시 후 다시 시도하세요');
+      showError('Saving in progress. Try again in a moment');
       throw new Error('saving'); // keeps the dialog open
     }
     try {
@@ -334,9 +334,9 @@ export function EntryManager({
     if (editing?.id === entry.id) stopEdit();
     try {
       await loadEntries();
-      showStatus('내역을 삭제했습니다');
+      showStatus('Entry deleted');
     } catch {
-      showError('내역을 삭제했습니다. 목록을 새로 불러오지 못했습니다');
+      showError('Entry deleted. Could not reload the list');
     }
   };
 
@@ -344,21 +344,21 @@ export function EntryManager({
     <section aria-labelledby="entries-title" className="flex flex-col gap-4">
       {/* Focus lands here after a delete: the deleted row held the dialog trigger. */}
       <h2 id="entries-title" ref={sectionTitle} tabIndex={-1} className="outline-none">
-        수입·지출 내역
+        Income and expense entries
       </h2>
       <Notice id="entries-notice" notice={notice.notice} />
       <Card>
         <CardHeader>
-          <CardTitle asHeading="h3">{editing ? '내역 수정' : '새 내역'}</CardTitle>
+          <CardTitle asHeading="h3">{editing ? 'Edit entry' : 'New entry'}</CardTitle>
         </CardHeader>
         <CardContent>
           <form
-            aria-label={editing ? '내역 수정' : '새 내역'}
+            aria-label={editing ? 'Edit entry' : 'New entry'}
             onSubmit={(event) => void submit(event)}
             className="grid gap-4 md:grid-cols-2"
           >
             <fieldset className="flex flex-col gap-2 md:col-span-2">
-              <legend className="mb-2 text-body-sm font-medium">종류</legend>
+              <legend className="mb-2 text-body-sm font-medium">Kind</legend>
               <div className="flex gap-4">
                 {(['expense', 'income'] as const).map((kind) => (
                   <label key={kind} className="flex items-center gap-2 text-body-sm">
@@ -376,7 +376,7 @@ export function EntryManager({
               </div>
             </fieldset>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="entry-date">날짜</Label>
+              <Label htmlFor="entry-date">Date</Label>
               <Input
                 id="entry-date"
                 ref={dateInput}
@@ -387,12 +387,12 @@ export function EntryManager({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="entry-amount">금액(원)</Label>
+              <Label htmlFor="entry-amount">Amount (KRW)</Label>
               <Input
                 id="entry-amount"
                 inputMode="numeric"
                 autoComplete="off"
-                placeholder="예: 12500"
+                placeholder="e.g. 12500"
                 value={draft.amount}
                 aria-invalid={invalid === 'amount' || undefined}
                 aria-describedby={invalid === 'amount' ? 'entries-notice' : undefined}
@@ -403,7 +403,7 @@ export function EntryManager({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="entry-category">카테고리</Label>
+              <Label htmlFor="entry-category">Category</Label>
               <select
                 id="entry-category"
                 className={selectClass}
@@ -421,33 +421,34 @@ export function EntryManager({
               >
                 {stale ? (
                   <option value="stale" disabled>
-                    다시 고르세요
+                    Choose again
                   </option>
                 ) : null}
-                <option value="">미분류</option>
+                <option value="">Uncategorized</option>
                 {choices.map((category) => (
                   <option key={category.id} value={category.id}>
-                    {category.hidden ? `${category.name} (숨김)` : category.name}
+                    {category.hidden ? `${category.name} (hidden)` : category.name}
                   </option>
                 ))}
               </select>
               <p id="entry-category-hint" className="text-caption text-muted-foreground">
-                미분류로 두면 가맹점에 맞는 분류 규칙이 있을 때 자동으로 정해집니다.
+                If left uncategorized, a matching classification rule sets the category
+                automatically.
               </p>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="entry-merchant">가맹점</Label>
+              <Label htmlFor="entry-merchant">Merchant</Label>
               <Input
                 id="entry-merchant"
                 maxLength={50}
                 autoComplete="off"
-                placeholder="예: 스타벅스 강남점"
+                placeholder="e.g. Starbucks Gangnam"
                 value={draft.merchant}
                 onChange={(event) => change({ merchant: event.target.value })}
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="entry-memo">메모</Label>
+              <Label htmlFor="entry-memo">Note</Label>
               <Input
                 id="entry-memo"
                 maxLength={200}
@@ -458,7 +459,7 @@ export function EntryManager({
             <div className="flex gap-2 md:col-span-2">
               {/* Stays enabled while saving so focus is kept; the ref ignores a second press. */}
               <Button type="submit" aria-busy={busy || undefined}>
-                {busy ? '저장 중…' : editing ? '수정 저장' : '기록'}
+                {busy ? 'Saving…' : editing ? 'Save changes' : 'Add entry'}
               </Button>
               {editing ? (
                 <Button
@@ -468,7 +469,7 @@ export function EntryManager({
                     if (!saving.current) stopEdit();
                   }}
                 >
-                  수정 취소
+                  Cancel edit
                 </Button>
               ) : null}
             </div>
@@ -488,7 +489,7 @@ export function EntryManager({
         failed={loadFailed}
         onRetry={() =>
           void loadEntries().catch((cause: unknown) =>
-            showError(cause, '내역을 불러오지 못했습니다'),
+            showError(cause, 'Could not load the entries'),
           )
         }
         page={filters.page}
@@ -504,9 +505,9 @@ export function EntryManager({
   );
 }
 
-/** "2026-11-05 식비 12,500원": names a row in button labels and the delete dialog. */
+/** "2026-11-05 Food ₩12,500": names a row in button labels and the delete dialog. */
 const entryLabel = (entry: Entry) =>
-  `${entry.date} ${entry.categoryName ?? '미분류'} ${formatWon(entry.amount)}`;
+  `${entry.date} ${entry.categoryName ?? 'Uncategorized'} ${formatWon(entry.amount)}`;
 
 function EntryList({
   entries,
@@ -537,15 +538,15 @@ function EntryList({
   // Shown above the previous list, which stays with its page buttons so focus is not lost.
   const failure = failed ? (
     <div className="flex flex-wrap items-center gap-2">
-      <p className="text-body-sm text-muted-foreground">내역을 불러오지 못했습니다.</p>
+      <p className="text-body-sm text-muted-foreground">Could not load the entries.</p>
       <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-        다시 시도
+        Try again
       </Button>
     </div>
   ) : null;
   if (entries === undefined) {
     if (failure) return failure;
-    return <p className="text-body-sm text-muted-foreground">내역을 불러오는 중입니다</p>;
+    return <p className="text-body-sm text-muted-foreground">Loading entries</p>;
   }
   const pages = Math.max(1, Math.ceil(total / pageSize));
   // aria-disabled, not disabled: a button that becomes unavailable on the last page keeps the focus.
@@ -565,18 +566,20 @@ function EntryList({
   );
   const pager =
     pages > 1 || page > 1 ? (
-      <nav aria-label="내역 쪽" className="flex items-center justify-center gap-3">
-        {pageButton('이전 쪽', Math.min(page - 1, pages), page > 1)}
+      <nav aria-label="Entry pages" className="flex items-center justify-center gap-3">
+        {pageButton('Previous page', Math.min(page - 1, pages), page > 1)}
         <span className="text-body-sm tabular-nums">
-          {page} / {pages}쪽
+          Page {page} of {pages}
         </span>
-        {pageButton('다음 쪽', page + 1, page < pages)}
+        {pageButton('Next page', page + 1, page < pages)}
       </nav>
     ) : null;
   // After a failed load the previous list is not "loading" any more: the failure says what happened.
   const pending = loading && !failed;
   const status = failed ? null : (
-    <p className="text-body-sm text-muted-foreground">{loading ? '불러오는 중…' : `${total}건`}</p>
+    <p className="text-body-sm text-muted-foreground">
+      {loading ? 'Loading…' : `${total} ${total === 1 ? 'entry' : 'entries'}`}
+    </p>
   );
   if (entries.length === 0) {
     return (
@@ -584,7 +587,7 @@ function EntryList({
         {failure}
         {pending ? status : null}
         <p className="text-body-sm text-muted-foreground">
-          {total > 0 ? '이 쪽에는 내역이 없습니다.' : '조건에 맞는 내역이 없습니다.'}
+          {total > 0 ? 'There are no entries on this page.' : 'No entries match the filters.'}
         </p>
         {pager}
       </div>
@@ -595,7 +598,7 @@ function EntryList({
       {failure}
       {status}
       <ul
-        aria-label="내역 목록"
+        aria-label="Entry list"
         className={cn('flex flex-col divide-y rounded-xl border', loading && 'opacity-60')}
       >
         {entries.map((entry) => (
@@ -609,7 +612,7 @@ function EntryList({
                 <Badge variant={entry.kind === 'income' ? 'success' : 'secondary'}>
                   {kindLabel[entry.kind]}
                 </Badge>
-                {entry.categoryName ?? '미분류'}
+                {entry.categoryName ?? 'Uncategorized'}
               </span>
               {entry.merchant || entry.memo ? (
                 <span className="break-words">
@@ -626,14 +629,14 @@ function EntryList({
                 type="button"
                 variant="ghost"
                 size="sm"
-                aria-label={`${entryLabel(entry)} 수정`}
+                aria-label={`Edit ${entryLabel(entry)}`}
                 onClick={() => onEdit(entry)}
               >
-                수정
+                Edit
               </Button>
               <ConfirmDialog
-                title="내역을 삭제할까요?"
-                description={`${entryLabel(entry)}. 삭제하면 되돌릴 수 없습니다.`}
+                title="Delete this entry?"
+                description={`${entryLabel(entry)}. Deleting it cannot be undone.`}
                 onConfirm={() => onDelete(entry)}
                 returnFocusRef={returnFocusRef}
                 onOpenChange={(open) => {
@@ -644,9 +647,9 @@ function EntryList({
                     type="button"
                     variant="outline"
                     size="sm"
-                    aria-label={`${entryLabel(entry)} 삭제`}
+                    aria-label={`Delete ${entryLabel(entry)}`}
                   >
-                    삭제
+                    Delete
                   </Button>
                 }
               />

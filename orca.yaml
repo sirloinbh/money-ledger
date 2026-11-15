@@ -1,0 +1,8 @@
+# Managed file. Edit it in sirloinbh/project-standards templates/app/
+# Orca shares these gitignored folders from the main checkout with new worktrees.
+# Never add .next, dist, build caches, or .env here. See docs/worktree-shared-deps.md.
+worktree:
+  sharedDirectories:
+    - node_modules
+    - frontend/node_modules
+    - backend/node_modules

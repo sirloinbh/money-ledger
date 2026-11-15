@@ -1,6 +1,6 @@
-# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
+# Managed file. Edit it in sirloinbh/project-standards templates/app/deploy/
 [Unit]
-Description=가계부·자산·모의투자 daily database dump (and S3 copy when configured)
+Description=Money Ledger daily database dump (and S3 copy when configured)
 After=docker.service
 Requires=docker.service
 

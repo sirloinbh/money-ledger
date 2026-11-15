@@ -1,24 +1,24 @@
-# #28 백엔드 검증 코드를 zod 4 문법으로 옮기기
+# #28 Move the backend validation code to zod 4 syntax
 
-- 이슈: [#28](https://github.com/sirloinbh/money-ledger/issues/28)
-- 브랜치: `chore/28-zod4-syntax`
+- Issue: [#28](https://github.com/sirloinbh/money-ledger/issues/28)
+- Branch: `chore/28-zod4-syntax`
 
-## 목적
+## Purpose
 
-중앙 `sirloinbh/project-standards#386`의 1단계다. 중앙이 `zod`를 4.6.7로 올릴 때 이 앱이 깨지지 않도록 코드를 먼저 옮긴다. 보안 권고 GHSA-mrhx-c7xc-m3w5의 Dependabot 알림은 그 동기화로 닫힌다. 이 PR만으로는 닫히지 않는다.
+This is step 1 of central `sirloinbh/project-standards#386`. So that this app does not break when the central repo raises `zod` to 4.6.7, we move the code first. The Dependabot alert for security advisory GHSA-mrhx-c7xc-m3w5 is closed by that sync. It is not closed by this PR alone.
 
-## 변경 — 2026-11-01
+## Changes: 2026-11-01
 
-- `backend/src/app.ts`의 `ZodError`를 `zod/v4`에서 불러온다. 설치된 3.25.76에 이 경로가 들어 있어 설치와 잠금 파일은 바꾸지 않았다.
-- 이 앱에는 아직 zod 스키마가 없어 `z.record`, `.default()`, `z.array`를 살필 곳이 없다.
-- zod 4 스키마의 오류가 400과 그 메시지로 응답되는지 확인하는 테스트를 `backend/test/health.test.ts`에 넣었다.
+- `ZodError` in `backend/src/app.ts` is imported from `zod/v4`. The installed 3.25.76 already contains this path, so we did not change the install or the lockfile.
+- This app has no zod schemas yet, so there is nothing to check for `z.record`, `.default()`, or `z.array`.
+- We added a test to `backend/test/health.test.ts` that checks that an error from a zod 4 schema is answered with a 400 and its message.
 
-## 바뀌는 응답
+## Changed responses
 
-없다. 지금은 `ZodError`를 던지는 경로가 없다.
+None. There is currently no path that throws `ZodError`.
 
-## 검증
+## Verification
 
-- `npm run check`: 통과. 백엔드 6개 중 5개 통과, 1개 건너뜀(`TEST_DATABASE_URL`을 비워 DB 통합 테스트 제외). 프론트엔드 57개 중 55개 통과, 2개 건너뜀. 스킬 테스트 4개 통과.
-- DB 통합 테스트는 PR CI로 확인한다.
-- 4.6.7에서의 동작은 아직 확인하지 못했다. 중앙 동기화 PR의 CI로 확인한다.
+- `npm run check`: passed. Backend: 5 of 6 passed and 1 skipped (`TEST_DATABASE_URL` was left empty, so DB integration tests were excluded). Frontend: 55 of 57 passed and 2 skipped. 4 skill tests passed.
+- DB integration tests are checked by the PR CI.
+- We have not yet confirmed the behavior on 4.6.7. We check it with the CI of the central sync PR.

@@ -3,14 +3,17 @@
 import path from 'node:path';
 
 export const PROJECT_MARKER = '# --- project ---';
-export const HEADER_TEXT = '중앙 관리 파일. 수정은 sirloinbh/project-standards의';
-// Windows PowerShell 5.1 reads a BOM-less .ps1 as the system ANSI code page, so that header stays ASCII.
-export const HEADER_TEXT_ASCII = 'Managed file. Edit it in sirloinbh/project-standards';
-const ASCII_HEADER_EXT = new Set(['.ps1']);
+// The header every synced file gets. It is ASCII because Windows PowerShell 5.1 reads a BOM-less .ps1
+// as the system ANSI code page; since #455 every file uses it.
+export const HEADER_TEXT = 'Managed file. Edit it in sirloinbh/project-standards';
+// Kept as an alias for older imports.
+export const HEADER_TEXT_ASCII = HEADER_TEXT;
+// Files synced before #455 carry this Korean header. It is still recognized.
+export const LEGACY_HEADER_TEXT = '중앙 관리 파일. 수정은 sirloinbh/project-standards의';
 
 /** True when the text already carries the managed header in either form. */
 export function hasHeader(text) {
-  return text.includes(HEADER_TEXT) || text.includes(HEADER_TEXT_ASCII);
+  return text.includes(HEADER_TEXT) || text.includes(LEGACY_HEADER_TEXT);
 }
 
 // `${{ ... }}` is GitHub Actions syntax, so a `$` right before `{{` keeps it literal.
@@ -54,7 +57,7 @@ export function commentStyle(file) {
 /** Header line pointing back to the template source, e.g. templates/common/.editorconfig. */
 export function headerLine(file, source) {
   const dir = path.posix.dirname(source);
-  const text = ASCII_HEADER_EXT.has(path.posix.extname(file)) ? `${HEADER_TEXT_ASCII} ${dir}/` : `${HEADER_TEXT} ${dir}/에서`;
+  const text = `${HEADER_TEXT} ${dir}/`;
   switch (commentStyle(file)) {
     case 'hash': return `# ${text}`;
     case 'slash': return `// ${text}`;

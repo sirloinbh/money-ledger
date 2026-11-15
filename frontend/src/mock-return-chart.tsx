@@ -28,7 +28,7 @@ function ReturnTooltip({ active, payload }: TooltipContentProps) {
     <div className="rounded-md border bg-popover px-3 py-2 text-body-sm text-popover-foreground shadow-sm">
       <p className="font-medium">{formatMonthDay(point.date)}</p>
       <p className="tabular-nums">
-        {signedPercent(point.returnPct)} · 총자산 {formatWon(point.totalKrw)}
+        {signedPercent(point.returnPct)} · total assets {formatWon(point.totalKrw)}
       </p>
     </div>
   );
@@ -41,7 +41,7 @@ export function MockReturnChart({ points }: { points: ReturnPoint[] }) {
   return (
     <div
       role="img"
-      aria-label={`날짜별 수익률 꺾은선 차트. ${formatMonthDay(points[0].date)}부터 ${formatMonthDay(last.date)}까지, 마지막 수익률은 ${signedPercent(last.returnPct)}입니다. 모든 값은 아래 표에 있습니다.`}
+      aria-label={`Return by date line chart. From ${formatMonthDay(points[0].date)} to ${formatMonthDay(last.date)}, the latest return is ${signedPercent(last.returnPct)}. All values are in the table below.`}
       className="h-64 w-full"
     >
       <ResponsiveContainer width="100%" height="100%">

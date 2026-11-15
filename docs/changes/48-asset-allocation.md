@@ -1,94 +1,94 @@
-# #48 자산 배분(종류별·종목별 비중)
+# #48 Asset allocation (shares by kind and by ticker)
 
-- 이슈: https://github.com/sirloinbh/money-ledger/issues/48
-- 브랜치: `feat/48-asset-allocation`
+- Issue: https://github.com/sirloinbh/money-ledger/issues/48
+- Branch: `feat/48-asset-allocation`
 
-## 목적
+## Purpose
 
-자산 합계가 어떤 종류와 어떤 자산에 얼마나 나뉘어 있는지 자산 포트폴리오 화면에서 바로 본다.
+See directly on the asset portfolio screen how the asset total is split among which kinds and which assets.
 
-## 결정 (2026-11-10 사용자 확인, 이슈 댓글 기록)
+## Decision (confirmed by the user on 2026-11-10, recorded in an issue comment)
 
-1. 위치: 자산 포트폴리오 화면에서 합계 바로 아래에 "자산 배분" 카드를 두고, 종류별·종목별 탭으로 나눈다.
-2. 대상: 자산만 넣고 부채는 뺀다. 합계에서 빠진 자산(시세·환율 없음, 평가금액 없음, 너무 큼)은 비중에서도 빼고 "N개는 빠졌습니다"로 알린다. 0원 자산은 표에만 0.0%로 보인다.
-3. 종목별: 자산 한 건이 한 줄이다. 차트는 비중이 큰 순서로 상위 8개를 보이고 나머지는 "그 밖의 N개"로 묶는다. 표에는 전부 보인다.
-4. 차트와 비중: #40과 같은 가로 막대(Recharts, `--chart-series-1`, 차트 지연 로드)를 쓴다. 비중은 SQL `numeric`으로 소수 첫째 자리까지 계산하고, 최대 나머지 방식으로 합을 정확히 100.0%로 맞춘다.
+1. Location: on the asset portfolio screen, put an "자산 배분" ("Asset allocation") card right under the total, split into tabs by kind and by ticker.
+2. Target: only assets are included and debt is left out. Assets left out of the total (no price or exchange rate, no valuation, too large) are also left out of the shares and announced as "N개는 빠졌습니다" ("N are left out"). A 0 won asset shows only in the table as 0.0%.
+3. By ticker: one asset is one line. The chart shows the top 8 in order of share and groups the rest as "그 밖의 N개" ("N others"). The table shows all.
+4. Chart and shares: use the same horizontal bars as #40 (Recharts, `--chart-series-1`, chart lazy loading). The shares are computed to one decimal place in SQL `numeric`, and the total is made exactly 100.0% with the largest remainder method.
 
-## 구현에서 정한 것
+## Decided during implementation
 
-- 비중 계산(`backend/src/allocation.ts`):
-  - 각 비중을 0.1% 단위로 내림하고(금액 × 1000을 합계로 나눈 정수 몫, `div`/`mod`로 크기와 상관없이 정확), 100.0%까지 모자란 0.1%들은 나머지가 큰 순서로 하나씩 더한다. 나머지가 같으면 금액이 큰 쪽, 그다음 먼저 등록한 자산이 받는다.
-  - 모든 계산은 SQL `numeric`이고 결과는 문자열("33.4")로 보낸다. 금액 합이 0원이면 모두 0.0%이다.
-  - 차트의 "그 밖의 N개" 비중은 표에 나온 해당 자산들 비중의 합이라, 차트도 표와 같이 100.0%가 된다. 자산이 정확히 9개면 묶지 않고 9번째도 이름으로 보인다("그 밖의 1개"를 만들지 않음).
-  - 종류별·자산별·차트·빠진 수를 쿼리 하나로 읽는다. 평가(`assetQuery`)는 한 번만 실행된다.
-- 종목에 연결한 자산은 종목 이름으로 보인다. 종목 이름이 없으면 티커, 연결하지 않았으면 자산 이름이다.
-- 비중은 목록·합계와 같은 트랜잭션(같은 시점)에서 읽어, 합계 금액과 배분 금액 합이 늘 같다.
-- 화면:
-  - 탭은 WAI-ARIA 탭 패턴(좌우 화살표·Home·End로 이동, 선택한 탭만 Tab 키 순서에 들어감)이다.
-  - 차트는 금액이 0원보다 큰 줄만 그린다. 서버도 종목별 차트(상위 8개, "그 밖의 N개", 9개 경계)를 0원보다 큰 자산만으로 만든다. 0원 자산만 있으면 "모든 자산이 0원이라 차트에 그릴 비중이 없습니다."와 표만 보인다. 비중을 계산할 자산이 없으면 탭 없이 안내 문구만 보인다.
-  - 종류별 차트 축에는 괄호 앞 이름만 쓴다("현금(예적금 포함)" → "현금"). 좁은 축에서 두 줄로 꺾였기 때문이다. 표에는 전체 이름과 자산 수가 나온다.
-  - 표의 금액·비중 칸은 줄바꿈하지 않는다(390px에서 "원"이 다음 줄로 넘어가던 것을 브라우저 확인에서 고쳤다).
-  - 차트 파일은 #40처럼 따로 불러오고(`React.lazy`), 불러오지 못하면 "차트를 불러오지 못했습니다. 아래 표에서 값을 확인하세요."를 보이고 다음에 다시 불러온다. 막대 길이와 축은 비중(%)이다. 그래서 종류별 합처럼 원화로 정확히 보일 수 없을 만큼 큰 줄(`amountKrw: null`, 표에는 "-")도 막대로 그려진다.
+- Share computation (`backend/src/allocation.ts`):
+  - Each share is floored in units of 0.1% (the integer quotient of amount × 1000 divided by the total, exact regardless of size with `div`/`mod`), and the 0.1% steps missing to reach 100.0% are added one by one in order of the largest remainder. If the remainders are equal, the larger amount gets it, and then the asset registered first.
+  - All computation is SQL `numeric` and the result is sent as a string ("33.4"). If the total amount is 0 won, everything is 0.0%.
+  - The share of "그 밖의 N개" in the chart is the sum of the shares of those assets in the table, so the chart also adds up to 100.0% like the table. If there are exactly 9 assets, we do not group, and the 9th also shows by name (we do not create "그 밖의 1개").
+  - The by-kind, by-asset, chart, and left-out count are read in one query. The valuation (`assetQuery`) runs only once.
+- An asset linked to a ticker shows with the ticker name. If there is no ticker name, the ticker symbol, and if not linked, the asset name.
+- The shares are read in the same transaction (the same moment) as the list and totals, so the total amount and the sum of the allocation amounts are always equal.
+- Screen:
+  - The tabs follow the WAI-ARIA tabs pattern (move with the left and right arrows, Home, and End, and only the selected tab is in the Tab key order).
+  - The chart draws only lines with an amount above 0 won. The server also makes the by-ticker chart (top 8, "그 밖의 N개", the 9 boundary) only from assets above 0 won. If there are only 0 won assets, only "모든 자산이 0원이라 차트에 그릴 비중이 없습니다." ("All assets are 0 won, so there are no shares to draw in the chart.") and the table show. If there are no assets to compute shares for, only a guidance text shows, without tabs.
+  - On the by-kind chart axis we use only the name before the parenthesis ("현금(예적금 포함)", "Cash (including savings)" → "현금"), because it wrapped to two lines on a narrow axis. The table shows the full name and the number of assets.
+  - The amount and share cells of the table do not wrap (we fixed "원" wrapping to the next line at 390px in the browser check).
+  - The chart file is loaded separately as in #40 (`React.lazy`), and if it cannot be loaded, it shows "차트를 불러오지 못했습니다. 아래 표에서 값을 확인하세요." ("Could not load the chart. Check the values in the table below.") and loads again next time. The bar length and axis are the share (%). So even a line too big to show exactly in won, such as a by-kind total (`amountKrw: null`, "-" in the table), is drawn as a bar.
 
-## 변경 내용
+## Changes
 
-- `backend/src/allocation.ts`(새 파일): `readAllocation` — 종류별, 자산별, 차트(상위 8개 + 나머지), 빠진 자산 수.
-- `backend/src/assets.ts`: `GET /api/portfolio/assets` 응답에 `allocation: { excluded, byType: [{ type, amountKrw, share, count }], byAsset: [{ id, name, type, amountKrw, share }], chart: [{ key, name, amountKrw, share, count }] }`을 더했다. 차트의 나머지 줄은 `key: 'rest'`, `name: null`이다.
-- `frontend/src/asset-allocation.tsx`(새 파일): "자산 배분" 카드(탭, 차트, 표, 빠진 자산 안내).
-- `frontend/src/asset-allocation-chart.tsx`(새 파일): 가로 막대 차트.
-- `frontend/src/assets.tsx`: 합계 아래에 카드를 둔다. 자산을 바꾸면 목록과 함께 다시 불러온다.
+- `backend/src/allocation.ts` (new file): `readAllocation`: by kind, by asset, the chart (top 8 + the rest), and the number of left-out assets.
+- `backend/src/assets.ts`: we added `allocation: { excluded, byType: [{ type, amountKrw, share, count }], byAsset: [{ id, name, type, amountKrw, share }], chart: [{ key, name, amountKrw, share, count }] }` to the `GET /api/portfolio/assets` response. The rest line of the chart is `key: 'rest'`, `name: null`.
+- `frontend/src/asset-allocation.tsx` (new file): the "자산 배분" card (tabs, chart, table, and the left-out assets guidance).
+- `frontend/src/asset-allocation-chart.tsx` (new file): the horizontal bar chart.
+- `frontend/src/assets.tsx`: puts the card under the total. When assets change, it reloads together with the list.
 
-## 테스트
+## Tests
 
-- `backend/test/allocation.integration.test.ts`: 실제 DB에서
-  - 100/100/100 → 33.4/33.3/33.3, 1/2/4 → 57.1/28.6/14.3(나머지가 큰 순서), 합이 늘 1000(0.1% 단위).
-  - 부채 제외, 배분 금액 합 = `totals.assetsKrw`.
-  - 원화 값이 없는 자산 2개는 `excluded`, 0원 자산은 0.0%.
-  - 나머지가 같으면 금액이 큰 쪽이 0.1%를 받음(1/4/25 → 3.3/13.3/83.4).
-  - 합계가 10^17원을 넘어도(102개) 합이 정확히 100.0%.
-  - 11개 → 차트 9줄, 나머지 줄은 3개·6,000원이고 비중은 표의 해당 비중 합. 9개면 "그 밖의" 줄 없음. 0원 자산은 차트와 그 개수에서 빠진다(0이 아닌 8개 + 0원 2개 → 8줄, 여기에 하나 더 → 9번째는 이름으로).
-  - 연결 자산은 종목 이름(이름 없는 미국 종목은 티커).
-  - 자산 없음, 0원만 있음.
-- `frontend/src/asset-allocation.test.tsx`: 종류별 차트·표와 빠진 수, 종목별 표의 0.0%와 차트 제외, "그 밖의 N개", 화살표·Home 키, 빈 상태, 0원만 있을 때, 자산 화면에서 합계 아래·새 자산 위 위치, 원화로 보일 수 없는 줄도 막대로 그림, 탭마다 자기 패널(다른 패널은 hidden), 실제 차트의 이미지 이름과 높이.
+- `backend/test/allocation.integration.test.ts`: on a real DB
+  - 100/100/100 → 33.4/33.3/33.3, 1/2/4 → 57.1/28.6/14.3 (in order of the largest remainder), and the sum is always 1000 (in 0.1% units).
+  - Debt excluded, and the sum of allocation amounts = `totals.assetsKrw`.
+  - 2 assets without a KRW value are `excluded`, and a 0 won asset is 0.0%.
+  - If the remainders are equal, the larger amount gets the 0.1% (1/4/25 → 3.3/13.3/83.4).
+  - Even if the total exceeds 10^17 won (102 assets), the sum is exactly 100.0%.
+  - 11 assets → 9 chart lines, and the rest line is 3 assets and 6,000 won, with a share equal to the sum of the corresponding shares in the table. With 9 assets there is no "그 밖의" line. A 0 won asset drops out of the chart and its count (8 non-zero + 2 zero-won → 8 lines, and one more → the 9th by name).
+  - A linked asset uses the ticker name (the ticker symbol for a US ticker with no name).
+  - No assets, and only 0 won.
+- `frontend/src/asset-allocation.test.tsx`: the by-kind chart and table and the left-out count, the 0.0% in the by-ticker table and its exclusion from the chart, "그 밖의 N개", the arrow and Home keys, the empty state, when only 0 won exists, the position under the total and above the new asset on the asset screen, a line that cannot be shown in won is also drawn as a bar, each tab has its own panel (the other panels are hidden), and the image name and height of the real chart.
 
-## 검증
+## Verification
 
-- 테스트 DB: 전용 컨테이너 `money-ledger-test-agent1`(127.0.0.1:15491). `TEST_DATABASE_URL`은 매번 직접 지정했다.
-- `TEST_DATABASE_URL=<테스트 DB> npm run check`: 통과. 백엔드 285개 통과(건너뜀 0), 프론트엔드 249개 중 247개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공.
-  - 차트는 별도 파일(`asset-allocation-chart-*.js` 약 2 kB, Recharts는 #40과 같은 공유 파일)로 나뉜다. 빌드의 "500 kB 넘는 묶음" 경고는 이전부터 있던 것이다.
-- 브라우저: API(3191, `PRICE_SOURCE=fake`)를 테스트 DB에 연결하고 Vite(5291)를 띄워 headless Chrome(CDP)으로 `/portfolio`를 확인했다. 자산 13개(아파트, 긴 이름 연금 계좌, 통장들, 직접 입력 현재가 주식·코인, 달러 예금, 0원 통장, 수량만 넣은 주식)와 부채 1개를 넣었다.
+- Test DB: the dedicated container `money-ledger-test-agent1` (127.0.0.1:15491). We set `TEST_DATABASE_URL` directly each time.
+- `TEST_DATABASE_URL=<test DB> npm run check`: passed. Backend 285 passed (0 skipped), frontend 247 of 249 passed and 2 skipped (existing), 4 skill tests, build succeeded.
+  - The chart is split into a separate file (`asset-allocation-chart-*.js`, about 2 kB, with Recharts in the same shared file as #40). The build's "chunks larger than 500 kB" warning existed before.
+- Browser: we connected the API (3191, `PRICE_SOURCE=fake`) to the test DB, started Vite (5291), and checked `/portfolio` with headless Chrome (CDP). We put in 13 assets (an apartment, a pension account with a long name, bank accounts, stocks and crypto with a manually entered current price, a dollar deposit, a 0 won account, and a stock with only a quantity) and 1 debt.
   - 390×844:
-    - 순서는 합계 → 자산 배분 → 새 자산 → 보유 자산과 부채이다. 설명에 "시세·환율이나 평가금액이 없거나 금액이 너무 커서 계산하지 못한 1개는 빠졌습니다"가 나온다(수량만 넣은 주식).
-    - 종류별: 막대 4개(부동산 87.1%, 주식 7.2%, 현금 4.5%, 기타 1.2%), 표 합계 금액은 자산 합계 597,010,500원과 같다.
-    - 종목별: 막대 9개(상위 8개 + "그 밖의 4개" 0.4%), 표 12줄(빈 통장 0원 0.0% 포함). 막대 두께 23px, 모두 카드 안.
-    - 다크 모드에서 막대 색 `#3987e5`. 가로 넘침 없음(scrollWidth 390).
-  - 1440×900: 같은 값이고 가로 넘침이 없다. 막대에 마우스를 올리면 "살고 있는 아파트 520,000,000원 · 87.1%" 툴팁이 보인다.
+    - The order is total → asset allocation → new asset → held assets and debt. The description says "시세·환율이나 평가금액이 없거나 금액이 너무 커서 계산하지 못한 1개는 빠졌습니다" ("1 asset that could not be computed because it has no price, exchange rate, or valuation, or the amount is too large is left out") (the stock with only a quantity).
+    - By kind: 4 bars (real estate 87.1%, stocks 7.2%, cash 4.5%, other 1.2%), and the table's total amount equals the asset total 597,010,500 won.
+    - By ticker: 9 bars (top 8 + "그 밖의 4개" 0.4%), 12 table lines (including the empty account at 0 won 0.0%). The bar thickness is 23px and all are inside the card.
+    - In dark mode the bar color is `#3987e5`. No horizontal overflow (scrollWidth 390).
+  - 1440×900: the same values and no horizontal overflow. Hovering over a bar shows the tooltip "살고 있는 아파트 520,000,000원 · 87.1%" ("Apartment I live in 520,000,000 won · 87.1%").
 
-## 1차 자동 리뷰 (PR #112)
+## Round 1 automatic review (PR #112)
 
-반드시 고칠 것은 없었고, 선택 사항 7건을 모두 반영했습니다.
+There was nothing that must be fixed, and we addressed all 7 optional points.
 
-1. 비중 계산이 일반 나눗셈이었습니다. → `div`/`mod`로 몫과 나머지를 정확히 구합니다. PostgreSQL은 이 나눗셈을 약 20자리까지 유지해서, 실제로 틀리려면 합계가 약 10^20원 이상이어야 합니다. 그래서 기존 코드에서 실패하는 테스트는 만들 수 없었습니다. 대신 10^17원이 넘는 합계로 합이 100.0%인지 확인하는 테스트를 더했습니다.
-2. 종류별 합이나 "그 밖의" 합이 안전한 정수를 넘으면 그 막대가 차트에서 빠지고, 차트 이름도 틀린 항목을 가리켰습니다. → 막대 길이와 축을 비중(%)으로 바꿨습니다.
-3. 평가 쿼리가 GET 한 번에 6번 실행됐습니다. → 쿼리 하나로 합쳤습니다(평가 1번).
-4. 자산이 9개면 "그 밖의 1개"가 생겼습니다. → 9번째를 이름으로 보입니다.
-5. 빠진 이유 문구에 "금액이 너무 큼"이 없었습니다. → "시세·환율이나 평가금액이 없거나 금액이 너무 커서 계산하지 못한 N개는 빠졌습니다."로 고쳤습니다.
-6. 테스트를 더했습니다. 금액이 다른 동점, 9개 경계, 0원 자산만 있는 나머지, 큰 합계, 원화로 보일 수 없는 줄이 대상입니다. 기존 코드에서는 9개 경계 테스트가 실패했습니다.
-7. 탭 두 개가 한 패널을 가리켰습니다. → 탭마다 패널을 두고, 선택하지 않은 패널은 `hidden`입니다.
+1. The share computation was a plain division. → We get the quotient and remainder exactly with `div`/`mod`. PostgreSQL keeps this division to about 20 digits, so to really be wrong the total would have to be about 10^20 won or more. So we could not make a test that fails with the old code. Instead, we added a test with a total over 10^17 won that checks that the sum is 100.0%.
+2. If a by-kind total or the "그 밖의" total exceeded a safe integer, that bar dropped out of the chart, and the chart name also pointed at the wrong item. → We changed the bar length and axis to the share (%).
+3. The valuation query ran 6 times for one GET. → We merged them into one query (1 valuation).
+4. With 9 assets, "그 밖의 1개" appeared. → The 9th shows by name.
+5. The left-out reason text lacked "the amount is too large". → We changed it to "시세·환율이나 평가금액이 없거나 금액이 너무 커서 계산하지 못한 N개는 빠졌습니다."
+6. We added tests. They cover a tie with different amounts, the 9 boundary, the remainder when only 0 won assets exist, a large total, and a line that cannot be shown in won. With the old code the 9 boundary test failed.
+7. Two tabs pointed at one panel. → Each tab has a panel, and the unselected panels are `hidden`.
 
-검증:
+Verification:
 
-- `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과. 백엔드 289개 통과(건너뜀 0), 프론트엔드 251개 중 249개 통과·2개 건너뜀(기존), 스킬 4개, 빌드 성공.
-- 390×844와 1440×900(라이트·다크)에서 브라우저를 다시 확인했습니다. 막대 수와 비중 라벨이 같고, 축은 %이며, 가로 넘침이 없습니다.
-- origin/main(#41, #53)을 병합한 뒤 다시 확인했습니다. `npm run knip`은 통과했습니다(쓰지 않던 `chartAssets` export 제거). `npm run check`도 통과했습니다. 백엔드 308개 통과(건너뜀 0), 프론트엔드 265개 중 263개 통과·2개 건너뜀(기존).
+- `TEST_DATABASE_URL=<test DB> npm run check` passed. Backend 289 passed (0 skipped), frontend 249 of 251 passed and 2 skipped (existing), 4 skill tests, build succeeded.
+- We checked the browser again at 390×844 and 1440×900 (light and dark). The number of bars and the share labels match, the axis is %, and there is no horizontal overflow.
+- We checked again after merging origin/main (#41, #53). `npm run knip` passed (we removed the unused `chartAssets` export). `npm run check` passed too. Backend 308 passed (0 skipped), frontend 263 of 265 passed and 2 skipped (existing).
 
-## 2차 자동 리뷰 (PR #112)
+## Round 2 automatic review (PR #112)
 
-1차 수정 7건이 의도대로 들어갔고 회귀가 없음을 확인했습니다. 남은 것을 고쳤습니다.
+We confirmed that the 7 first-round fixes went in as intended with no regression. We fixed what remained.
 
-1. (꼭 고칠 것) 0원 자산이 종목별 차트의 순위와 개수에 들어갔습니다. 0이 아닌 9개와 0원 1개가 있으면 9번째 자산이 0원 자산과 함께 "그 밖의 2개"로 묶였습니다. 결정 2(0원 자산은 표에만)와 문서의 "9번째는 이름으로"에도 맞지 않았습니다. → 서버가 차트를 0원보다 큰 자산만으로 만듭니다. 0원 자산의 나머지는 0이라 모자란 0.1%를 받지 않으므로, 차트 합도 100.0%입니다. 이 동작을 고정하던 테스트는 "0원 자산은 차트와 그 개수에서 빠진다"로 바꿨습니다(0이 아닌 8개 + 0원 2개 → 8줄, 하나 더하면 9번째는 이름으로).
-2. (선택) 브라우저 확인 기록의 빠진 자산 문구가 1차 수정 이전 것이었습니다. → 지금 문구로 맞췄습니다.
+1. (Must fix) A 0 won asset entered the rank and count of the by-ticker chart. With 9 non-zero assets and 1 zero-won asset, the 9th asset was grouped with the 0 won asset into "그 밖의 2개". It also did not match decision 2 (0 won assets only in the table) or the doc's "the 9th by name". → The server makes the chart only from assets above 0 won. The remainder of a 0 won asset is 0, so it does not get a missing 0.1%, and the chart sum is also 100.0%. We changed the test that pinned this behavior to "a 0 won asset drops out of the chart and its count" (8 non-zero + 2 zero-won → 8 lines, and one more → the 9th by name).
+2. (Optional) The left-out asset text in the browser check record was from before the first-round fix. → We matched it to the current text.
 
-표준에 따라 3차 리뷰는 하지 않고, 최종 head의 CI를 보고 병합합니다.
+By the standard, we do not run a third review, and we merge after seeing the CI of the final head.
 
-검증: `npm run knip` 통과. `TEST_DATABASE_URL=<테스트 DB> npm run check` 통과. 백엔드 308개 통과(건너뜀 0), 프론트엔드 265개 중 263개 통과·2개 건너뜀(기존). 화면 배치는 바뀌지 않아 브라우저는 다시 확인하지 않았습니다.
+Verification: `npm run knip` passed. `TEST_DATABASE_URL=<test DB> npm run check` passed. Backend 308 passed (0 skipped), frontend 263 of 265 passed and 2 skipped (existing). The screen layout did not change, so we did not recheck the browser.

@@ -1,5 +1,5 @@
 #!/bin/bash
-# 중앙 관리 파일. 수정은 sirloinbh/project-standards의 templates/app/deploy/에서
+# Managed file. Edit it in sirloinbh/project-standards templates/app/deploy/
 # Daily one-line server report for money-ledger (#285), sent as the body of the healthchecks.io
 # "report" signal (deploy/notify.sh). It records what ADR-0009 asked to measure on the shared
 # server: memory, disk, this app's container memory and the deployed commit.

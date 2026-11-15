@@ -4,7 +4,6 @@ import { z } from 'zod/v4';
 
 import { inTransaction } from './db.js';
 import { date } from './entries.js';
-import { particles } from './korean.js';
 import { HttpError, parseId } from './standard/http.js';
 
 // #46 Buy and sell records of a held asset. The position (quantity, moving-average cost, realized profit)
@@ -19,54 +18,53 @@ const maxWon = 1_000_000_000_000_000;
 const tradeableTypes = ['stock', 'other'];
 
 const wonCost = (label: string) => {
-  const { topic, object } = particles(label);
   return z
-    .number({ error: `${label}${object} 숫자로 입력하세요` })
-    .int(`${label}${topic} 원 단위 정수로 입력하세요`)
-    .min(0, `${label}${topic} 0원 이상이어야 합니다`)
-    .max(maxWon, `${label}${topic} 1,000조 원 이하로 입력하세요`)
+    .number({ error: `Enter the ${label} as a number` })
+    .int(`Enter the ${label} as a whole number of won`)
+    .min(0, `The ${label} must be ₩0 or more`)
+    .max(maxWon, `Enter a ${label} of ₩1 quadrillion or less`)
     .default(0);
 };
 
 const tradeBody = z.object(
   {
-    side: z.enum(['buy', 'sell'], { error: '매수 또는 매도를 고르세요' }),
+    side: z.enum(['buy', 'sell'], { error: 'Choose buy or sell' }),
     tradedOn: date,
     // numeric(20,8)
     quantity: z
-      .string({ error: '수량은 소수 문자열로 보내세요' })
+      .string({ error: 'Send the quantity as a decimal string' })
       .regex(/^\d{1,12}(\.\d{1,8})?$/, {
-        error: '수량은 정수 12자리, 소수 8자리까지 입력하세요',
+        error: 'Enter the quantity with up to 12 integer and 8 decimal digits',
         abort: true,
       })
-      .refine((value) => /[1-9]/.test(value), '수량은 0보다 커야 합니다'),
+      .refine((value) => /[1-9]/.test(value), 'The quantity must be above 0'),
     // numeric(20,4)
     price: z
-      .string({ error: '단가는 소수 문자열로 보내세요' })
+      .string({ error: 'Send the unit price as a decimal string' })
       .regex(/^\d{1,16}(\.\d{1,4})?$/, {
-        error: '단가는 정수 16자리, 소수 4자리까지 입력하세요',
+        error: 'Enter the unit price with up to 16 integer and 4 decimal digits',
         abort: true,
       })
-      .refine((value) => /[1-9]/.test(value), '단가는 0보다 커야 합니다'),
+      .refine((value) => /[1-9]/.test(value), 'The unit price must be above 0'),
     // numeric(12,4), won per dollar
     fxRate: z
-      .string({ error: '환율은 소수 문자열로 보내세요' })
+      .string({ error: 'Send the exchange rate as a decimal string' })
       .regex(/^\d{1,8}(\.\d{1,4})?$/, {
-        error: '환율은 정수 8자리, 소수 4자리까지 입력하세요',
+        error: 'Enter the exchange rate with up to 8 integer and 4 decimal digits',
         abort: true,
       })
-      .refine((value) => /[1-9]/.test(value), '환율은 0보다 커야 합니다')
+      .refine((value) => /[1-9]/.test(value), 'The exchange rate must be above 0')
       .nullable()
       .default(null),
-    feeKrw: wonCost('수수료'),
-    taxKrw: wonCost('세금'),
+    feeKrw: wonCost('fee'),
+    taxKrw: wonCost('tax'),
     memo: z
-      .string({ error: '메모는 글자로 입력하세요' })
+      .string({ error: 'The note must be text' })
       .trim()
-      .max(100, '메모는 100자 이하로 입력하세요')
+      .max(100, 'The note must be 100 characters or fewer')
       .default(''),
   },
-  { error: '요청 본문은 JSON 객체여야 합니다' },
+  { error: 'The request body must be a JSON object' },
 );
 type TradeBody = z.infer<typeof tradeBody>;
 
@@ -146,9 +144,12 @@ async function lockTradeable(client: PoolClient, assetId: number) {
     'SELECT asset_type, currency FROM portfolio_assets WHERE id = $1 FOR UPDATE',
     [assetId],
   );
-  if (!rows[0]) throw new HttpError(404, '자산을 찾을 수 없습니다');
+  if (!rows[0]) throw new HttpError(404, 'Asset not found');
   if (!tradeableTypes.includes(rows[0].asset_type)) {
-    throw new HttpError(400, '거래는 주식과 기타(코인 등) 자산에만 기록할 수 있습니다');
+    throw new HttpError(
+      400,
+      'Trades can only be recorded for stock and other (crypto, etc.) assets',
+    );
   }
   return rows[0].currency;
 }
@@ -156,12 +157,13 @@ async function lockTradeable(client: PoolClient, assetId: number) {
 /** Checks a trade against its asset's currency and works out its won amount in numeric, or a 400. */
 async function amountFor(client: PoolClient, body: TradeBody, currency: 'KRW' | 'USD') {
   if (currency === 'KRW') {
-    if (body.fxRate !== null) throw new HttpError(400, '원화 자산의 거래에는 환율을 넣지 않습니다');
+    if (body.fxRate !== null)
+      throw new HttpError(400, 'Trades of won assets take no exchange rate');
     if (body.price.includes('.') && /[1-9]/.test(body.price.split('.')[1])) {
-      throw new HttpError(400, '원화 단가는 원 단위 정수로 입력하세요');
+      throw new HttpError(400, 'Enter a won unit price as a whole number of won');
     }
   } else if (body.fxRate === null) {
-    throw new HttpError(400, '달러 거래는 그날 환율을 입력하세요');
+    throw new HttpError(400, 'Enter the exchange rate of that day for a dollar trade');
   }
   // Compared in numeric: the product can be far beyond what a JS number holds exactly.
   const { rows } = await client.query<{ amount: string; too_big: boolean }>(
@@ -169,7 +171,7 @@ async function amountFor(client: PoolClient, body: TradeBody, currency: 'KRW' | 
      FROM (SELECT round($1::numeric * $2::numeric * coalesce($3::numeric, 1)) AS a) x`,
     [body.quantity, body.price, body.fxRate, maxWon],
   );
-  if (rows[0].too_big) throw new HttpError(400, '거래 금액이 1,000조 원을 넘습니다');
+  if (rows[0].too_big) throw new HttpError(400, 'The trade amount exceeds ₩1 quadrillion');
   return rows[0].amount;
 }
 
@@ -208,10 +210,10 @@ async function settle(client: PoolClient, assetId: number) {
   if (result.oversold_on !== null) {
     throw new HttpError(
       400,
-      `${result.oversold_on} 매도 수량이 그때 보유 수량(${trimDecimal(result.oversold_held ?? '0')})보다 많습니다`,
+      `${result.oversold_on} sell quantity is more than the quantity held then (${trimDecimal(result.oversold_held ?? '0')})`,
     );
   }
-  if (result.too_big) throw new HttpError(400, '보유 수량이나 금액이 너무 큽니다');
+  if (result.too_big) throw new HttpError(400, 'The quantity held or the amount is too large');
   // Stays trade-managed with no trades left (see migration 013); nothing held is a NULL quantity.
   await client.query(
     `UPDATE portfolio_assets
@@ -232,7 +234,7 @@ const tradeColumns = `t.id, t.side, t.traded_on, t.quantity::text, t.currency, t
 
 export function tradesRouter(pool: Pool, today: () => string) {
   const router = Router({ mergeParams: true });
-  const assetIdOf = (params: Record<string, string>) => parseId(params.id, '자산');
+  const assetIdOf = (params: Record<string, string>) => parseId(params.id, 'asset');
 
   router.get('/', async (req, res) => {
     const assetId = assetIdOf(req.params);
@@ -243,7 +245,7 @@ export function tradesRouter(pool: Pool, today: () => string) {
         'SELECT currency FROM portfolio_assets WHERE id = $1',
         [assetId],
       );
-      if (!asset.rows[0]) throw new HttpError(404, '자산을 찾을 수 없습니다');
+      if (!asset.rows[0]) throw new HttpError(404, 'Asset not found');
       const trades = await client.query<TradeRow>(
         `SELECT ${tradeColumns}
          FROM portfolio_trades t JOIN portfolio_trade_positions($1) p ON p.trade_id = t.id
@@ -262,7 +264,7 @@ export function tradesRouter(pool: Pool, today: () => string) {
   const parse = (raw: unknown) => {
     const body = tradeBody.parse(raw);
     if (body.tradedOn > today()) {
-      throw new HttpError(400, '오늘 이후 날짜의 거래는 기록할 수 없습니다');
+      throw new HttpError(400, 'Trades dated after today cannot be recorded');
     }
     return body;
   };
@@ -309,7 +311,7 @@ export function tradesRouter(pool: Pool, today: () => string) {
 
   router.put('/:tradeId', async (req, res) => {
     const assetId = assetIdOf(req.params);
-    const tradeId = parseId(req.params.tradeId, '거래');
+    const tradeId = parseId(req.params.tradeId, 'trade');
     const body = parse(req.body);
     const trade = await inTransaction(pool, async (client) => {
       const currency = await lockTradeable(client, assetId);
@@ -333,7 +335,7 @@ export function tradesRouter(pool: Pool, today: () => string) {
           body.memo,
         ],
       );
-      if (!rowCount) throw new HttpError(404, '거래를 찾을 수 없습니다');
+      if (!rowCount) throw new HttpError(404, 'Trade not found');
       await settle(client, assetId);
       return tradeResponse(client, assetId, tradeId);
     });
@@ -342,14 +344,14 @@ export function tradesRouter(pool: Pool, today: () => string) {
 
   router.delete('/:tradeId', async (req, res) => {
     const assetId = assetIdOf(req.params);
-    const tradeId = parseId(req.params.tradeId, '거래');
+    const tradeId = parseId(req.params.tradeId, 'trade');
     await inTransaction(pool, async (client) => {
       await lockTradeable(client, assetId);
       const { rowCount } = await client.query(
         'DELETE FROM portfolio_trades WHERE id = $2 AND asset_id = $1',
         [assetId, tradeId],
       );
-      if (!rowCount) throw new HttpError(404, '거래를 찾을 수 없습니다');
+      if (!rowCount) throw new HttpError(404, 'Trade not found');
       // Deleting a buy that a later sell relies on is refused too.
       await settle(client, assetId);
     });

@@ -1,55 +1,55 @@
-# #35 주식 수량·외화·환율 저장 규칙
+# #35 Storage rules for stock quantity, foreign currency, and exchange rate
 
-- 이슈: [#35](https://github.com/sirloinbh/money-ledger/issues/35)
-- 브랜치: `docs/35-quantity-currency-rules`
+- Issue: [#35](https://github.com/sirloinbh/money-ledger/issues/35)
+- Branch: `docs/35-quantity-currency-rules`
 
-## 목적
+## Purpose
 
-포트폴리오(#45)와 모의투자(#50)를 구현하기 전에 소수 수량, 외화 금액, 환율의 저장 형식과 원화 환산 방식을 정한다.
+Before implementing the portfolio (#45) and mock investing (#50), decide the storage format of fractional quantities, foreign currency amounts, and exchange rates, and how they are converted to KRW.
 
-## 변경 — 2026-11-03
+## Changes: 2026-11-03
 
-- `AGENTS.project.md` 서비스 규칙에 "수량·외화·환율" 절을 추가했다. 통화, 수량, 원화·외화 금액, 환율의 컬럼 형식과 API 값 형식, 환산 시점, 반올림 방식을 적었다.
-- 중앙 `domain.md` 반영 이슈 [project-standards#401](https://github.com/sirloinbh/project-standards/issues/401)을 등록했다.
-- `docs/next-steps/README.md`에서 #35를 확정으로 바꿨다.
+- Added a "Quantity, foreign currency, and exchange rate" section to the service rules in `AGENTS.project.md`. It describes the column formats and API value formats of currency, quantity, KRW and foreign amounts, and exchange rate, the conversion timing, and the rounding method.
+- Registered the issue [project-standards#401](https://github.com/sirloinbh/project-standards/issues/401) for reflecting this in the central `domain.md`.
+- Changed #35 to confirmed in `docs/next-steps/README.md`.
 
-## 결정
+## Decision
 
-사용자가 이슈의 추천안을 그대로 확정했다(2026-11-03, [이슈 댓글](https://github.com/sirloinbh/money-ledger/issues/35#issuecomment-6596782086)).
+The user confirmed the recommendation in the issue as it was (2026-11-03, [issue comment](https://github.com/sirloinbh/money-ledger/issues/35#issuecomment-6596782086)).
 
-- 통화는 KRW와 USD만 다룬다.
-- 수량은 `numeric(20,8)`이다.
-- 외화 금액은 원 단위 정수와 별도로 통화 코드와 `numeric(20,4)`로 저장한다.
-- 거래는 거래일 환율을 저장하고, 평가는 조회 시점 환율을 쓴다.
+- Only KRW and USD are handled.
+- Quantity is `numeric(20,8)`.
+- Foreign amounts are stored with a currency code and `numeric(20,4)`, separately from whole-won integers.
+- A trade stores the trading-day exchange rate, and valuation uses the exchange rate at query time.
 
-## 판단
+## Judgment
 
-추천안에 없던 세부 사항은 이렇게 정했다.
+We decided the details that were not in the recommendation as follows.
 
-- 환율은 `numeric(12,4)`(외화 1단위당 원)다. 원/달러 환율은 정수부 4자리, 소수 2자리 정도로 고시되므로 여유를 두었다.
-- 단가는 통화와 관계없이 한 컬럼(`numeric(20,4)`)에 두고, KRW이면 소수 부분이 0이어야 한다. 국내·해외 종목을 같은 테이블에 담기 위해서다.
-- `numeric`은 API에서 문자열로 주고받는다. pg가 `numeric`을 문자열로 돌려주고, JS `number`로 바꾸면 `numeric(20,8)`의 정밀도를 잃기 때문이다.
-- 원화 환산은 마지막에 한 번 `round(numeric)`(0.5는 0에서 먼 쪽)한다. 중간 반올림이 쌓이면 합계가 어긋나기 때문이다.
-- 모든 거래 행에 원화 거래액(`amount_krw`)을 저장하고, 환율은 USD 행에만 넣는다. 거래일 환율 기준의 원화 원가가 나중에 바뀌지 않게 하고, 통화가 섞여도 원화액끼리 바로 더할 수 있게 하기 위해서다.
-- 외화 거래 총액은 저장하지 않는다. 저장하면 반올림한 외화 총액과 원화 거래액이 1원씩 어긋날 수 있기 때문이다.
+- The exchange rate is `numeric(12,4)` (KRW per 1 unit of foreign currency). The KRW/USD rate is quoted with about 4 integer digits and 2 decimals, so we left room.
+- The unit price goes in one column (`numeric(20,4)`) regardless of currency, and for KRW the fractional part must be 0. This lets Korean and overseas tickers share the same table.
+- `numeric` is sent and received as a string in the API. pg returns `numeric` as a string, and converting to a JS `number` would lose the precision of `numeric(20,8)`.
+- KRW conversion is rounded once at the end with `round(numeric)` (0.5 away from zero). If intermediate roundings pile up, the totals drift.
+- Every trade row stores the KRW trade amount (`amount_krw`), and the exchange rate goes only in USD rows. This keeps the KRW cost basis at the trading-day rate from changing later, and lets us add KRW amounts directly even when currencies are mixed.
+- The foreign currency trade total is not stored. If it were, the rounded foreign total and the KRW trade amount could be off by 1 won.
 
-## 검증
+## Verification
 
-- 문서만 바꿨으므로 앱 테스트는 추가하지 않았다.
-- `npm run format:check`, `npm run standards:check`: 통과.
+- Only docs changed, so we did not add app tests.
+- `npm run format:check`, `npm run standards:check`: passed.
 
-## 리뷰 기록
+## Review record
 
-### 1차 — 보완점 5건, 추가 커밋으로 반영
+### Round 1: 5 points, addressed in follow-up commits
 
-- KRW 단가·금액을 정수로 묶는 CHECK가 소수 수량과 곱한 거래 금액과 충돌했다. 정수 CHECK는 단가·금액에만 두고, 거래 금액은 `amount_krw`에만 저장하도록 바꿨다.
-- 외화 금액의 반올림 방식이 없었다. 외화 거래 총액은 저장하지 않고, 원화 거래액은 `수량 × 단가 × 환율`에서 한 번만 반올림한다고 적었다.
-- KRW 행의 원화액과 환율 형식이 없었다. 모든 거래 행에 `amount_krw NOT NULL`, 환율은 KRW이면 `NULL`이라는 CHECK를 적었다.
-- "0.5는 올린다"가 음수에서 틀렸다. "0에서 먼 쪽"으로 고치고, `double precision`과 JS `Math.round`를 섞지 말라고 적었다.
-- 금액·단가 범위에 CHECK가 없었다. 단가 `> 0`, 금액 `>= 0`을 적었다.
+- The CHECK that ties KRW unit prices and amounts to integers conflicted with trade amounts multiplied by a fractional quantity. We changed it so the integer CHECK sits only on unit prices and amounts, and the trade amount is stored only in `amount_krw`.
+- There was no rounding method for foreign amounts. We wrote that the foreign trade total is not stored, and the KRW trade amount is rounded once from `quantity × unit price × exchange rate`.
+- The KRW amount and exchange rate format of KRW rows were missing. We wrote `amount_krw NOT NULL` on every trade row, and a CHECK that the exchange rate is `NULL` for KRW.
+- "0.5 rounds up" is wrong for negatives. We corrected it to "away from zero" and said not to mix `double precision` and JS `Math.round`.
+- The amount and unit price ranges had no CHECK. We wrote unit price `> 0` and amount `>= 0`.
 
-### 2차 — 1차 지적 반영 확인, 보완점 2건
+### Round 2: first-round fixes confirmed, 2 points
 
-- 외화 총액을 "화면에서" 반올림한다는 문장이 SQL에서만 반올림한다는 규칙과 어긋났다. 표시값도 SQL `round(수량 × 단가, 2)`로 만든다고 고쳤다.
-- KRW 금액이 `numeric(20,4)` 컬럼에도 들어갈 수 있어 형식이 두 가지가 됐다. 원화 금액은 언제나 `bigint`이고, `numeric(20,4)` 금액 컬럼은 USD 전용이라고 고쳤다.
-- 표준에 따라 3차 리뷰는 하지 않는다.
+- The sentence saying the foreign total is rounded "on screen" contradicted the rule that rounding happens only in SQL. We corrected it so that the display value is also made with SQL `round(quantity × unit price, 2)`.
+- A KRW amount could also go into a `numeric(20,4)` column, which made two formats. We corrected it so a KRW amount is always `bigint`, and a `numeric(20,4)` amount column is USD only.
+- By the standard, we do not run a third review.
