@@ -108,6 +108,11 @@ const toItem = (row: ItemRow) => ({
 
 const thisMonth = (today: string) => `${today.slice(0, 7)}-01`;
 
+/** How far back a new item may start. */
+const maxPastMonths = 24;
+/** "2026-11" or "2026-11-16" → a month count, so two months can be compared and subtracted. */
+const monthIndex = (value: string) => Number(value.slice(0, 4)) * 12 + Number(value.slice(5, 7));
+
 // Due months of active items, oldest first, that have no run yet. An entry is due on its day, or the month's last
 // day when the day is past the end, once that date is today or earlier.
 const dueSql = `
@@ -212,6 +217,10 @@ export function fixedCostsRouter(pool: Pool, { today }: { today: () => string })
 
   router.post('/', async (req, res) => {
     const body = createBody.parse(req.body);
+    // A typo like 2006 for 2026 would add hundreds of entries at once, which the user then has to delete one by one.
+    if (monthIndex(body.startMonth) < monthIndex(today()) - maxPastMonths) {
+      throw new HttpError(422, `The start month can be at most ${maxPastMonths} months ago`);
+    }
     const created = await pool
       .query<{ id: string }>(
         `INSERT INTO ledger_fixed_costs (name, category_id, amount, variable, day_of_month, start_month)
@@ -282,11 +291,14 @@ export function fixedCostsRouter(pool: Pool, { today }: { today: () => string })
         [id, `${month}-01`],
       );
       const entryId = run.rows[0]?.entry_id;
-      if (!entryId) throw new HttpError(404, 'There is no entry to confirm for that month');
-      await client.query(
-        'UPDATE ledger_entries SET amount = $2, updated_at = now() WHERE id = $1',
+      const missing = 'There is no entry to confirm for that month';
+      if (!entryId) throw new HttpError(404, missing);
+      // An entry changed to income in the entry list is no longer this fixed cost's expense.
+      const changed = await client.query(
+        `UPDATE ledger_entries SET amount = $2, updated_at = now() WHERE id = $1 AND kind = 'expense'`,
         [entryId, body.amount],
       );
+      if (changed.rowCount === 0) throw new HttpError(404, missing);
       await client.query(
         'UPDATE ledger_fixed_cost_runs SET confirmed = true WHERE fixed_cost_id = $1 AND month = $2::date',
         [id, `${month}-01`],

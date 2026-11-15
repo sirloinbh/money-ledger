@@ -163,6 +163,32 @@ test('fixed costs against the real database', { skip: !url }, async (t) => {
     assert.equal((await list('2026-11')).fixedCosts[0].entry, null);
   });
 
+  await t.test('an entry changed to income is not confirmed as the fixed cost', async () => {
+    await reset();
+    const gas = await create({
+      name: 'Gas',
+      amount: 30_000,
+      variable: true,
+      dayOfMonth: 5,
+      startMonth: '2026-11',
+    });
+    await generate('2026-11-15');
+    const entry = (await list('2026-11')).fixedCosts[0].entry!;
+    await pool.query(`UPDATE ledger_entries SET kind = 'income', category_id = $2 WHERE id = $1`, [
+      entry.id,
+      ids['income/급여'],
+    ]);
+    const confirm = await call(`/api/ledger/fixed-costs/${gas}/months/2026-11`, {
+      method: 'PUT',
+      body: { amount: 1 },
+    });
+    assert.equal(confirm.status, 404);
+    const { rows } = await pool.query<{ amount: string; confirmed: boolean }>(
+      `SELECT e.amount::text, r.confirmed FROM ledger_fixed_cost_runs r JOIN ledger_entries e ON e.id = r.entry_id`,
+    );
+    assert.deepEqual(rows, [{ amount: '30000', confirmed: false }]);
+  });
+
   await t.test('stopping skips months, and starting again does not fill them in', async () => {
     await reset();
     const rent = await create({
@@ -223,6 +249,14 @@ test('fixed costs against the real database', { skip: !url }, async (t) => {
     assert.equal((await post({ name: '   ' })).status, 400);
     assert.equal((await post({ amount: 1.5 })).status, 400);
     assert.equal((await post({ startMonth: '2026-13' })).status, 400);
+    // Today is 2026-11-15: 24 months back is the limit, so a typo like 2006 adds nothing.
+    const old = await post({ startMonth: '2024-10' });
+    assert.deepEqual(
+      [old.status, old.data.error],
+      [422, 'The start month can be at most 24 months ago'],
+    );
+    assert.equal((await post({ startMonth: '2024-11' })).status, 201);
+    await pool.query('TRUNCATE ledger_fixed_costs CASCADE');
     const id = await create({ name: 'Rent', amount: 1, dayOfMonth: 1, startMonth: '2026-11' });
     const empty = await call(`/api/ledger/fixed-costs/${id}`, { method: 'PATCH', body: {} });
     assert.equal(empty.status, 400);

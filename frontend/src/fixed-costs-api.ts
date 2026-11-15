@@ -8,14 +8,18 @@ let dueAdding: Promise<number> | undefined;
 
 /**
  * Adds the due fixed-cost entries when the app opens, at most once per page load. Resolves with how many were
- * added (0 on a failure: the fixed costs card shows its own errors when it loads).
+ * added; a failure resolves with 0 and is forgotten, so the next caller (another month, a reload of the card)
+ * tries again.
  */
 export function addDueOnce() {
   dueAdding ??= requestJson<{ added: number }>(`${fixedCostsPath}/generate`, {
     method: 'POST',
   }).then(
     (data) => data.added,
-    () => 0,
+    () => {
+      dueAdding = undefined;
+      return 0;
+    },
   );
   return dueAdding;
 }

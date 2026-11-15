@@ -126,19 +126,34 @@ export function FixedCostManager({
     if (saving) return false;
     setSaving(true);
     try {
-      await work();
+      try {
+        await work();
+      } catch (cause) {
+        showError(cause, 'Could not save the fixed cost');
+        return false;
+      }
+      // The change is saved now, even if what follows fails: a retry must not add the item twice.
       // Saving may make an item due (a new one, or one started again): add it now, not at the next open.
-      await requestJson(`${fixedCostsPath}/generate`, { method: 'POST' });
-      showStatus(done);
+      try {
+        await requestJson(`${fixedCostsPath}/generate`, { method: 'POST' });
+        showStatus(done);
+      } catch {
+        showError(
+          `${done}. Could not add its entries yet; they are added the next time the app opens`,
+        );
+      }
       onChange?.();
       await load();
       return true;
-    } catch (cause) {
-      showError(cause, 'Could not save the fixed cost');
-      return false;
     } finally {
       setSaving(false);
     }
+  };
+
+  // A form that closes gives the focus back to the section title, so it does not drop to the page.
+  const closeForm = () => {
+    setForm(undefined);
+    requestAnimationFrame(() => title.current?.focus());
   };
 
   const shown = data;
@@ -199,7 +214,7 @@ export function FixedCostManager({
                         categories={categories}
                         month={month}
                         saving={saving}
-                        onCancel={() => setForm(undefined)}
+                        onCancel={closeForm}
                         onSave={async (body) => {
                           const saved = await run(
                             () =>
@@ -209,7 +224,7 @@ export function FixedCostManager({
                               }),
                             `${body.name} updated. It applies to entries added from now on`,
                           );
-                          if (saved) setForm(undefined);
+                          if (saved) closeForm();
                         }}
                         onInvalid={(message) => showError(message)}
                       />
@@ -264,13 +279,13 @@ export function FixedCostManager({
                 categories={categories}
                 month={month}
                 saving={saving}
-                onCancel={() => setForm(undefined)}
+                onCancel={closeForm}
                 onSave={async (body) => {
                   const saved = await run(
                     () => requestJson(fixedCostsPath, { method: 'POST', body }),
                     `${body.name} added`,
                   );
-                  if (saved) setForm(undefined);
+                  if (saved) closeForm();
                 }}
                 onInvalid={(message) => showError(message)}
               />
@@ -621,7 +636,7 @@ function FixedCostForm({
               onChange={(event) => change({ startMonth: event.target.value })}
             />
             <p id={`${prefix}-start-hint`} className="text-caption text-muted-foreground">
-              Months from here up to today are added when you save.
+              Months from here up to today are added when you save (at most 24 months back).
             </p>
           </div>
         )}

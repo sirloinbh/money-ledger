@@ -39,3 +39,15 @@ Headless Edge driven over the DevTools protocol (the Claude in Chrome extension 
 
 - 390×844 (mobile emulation): the Rent preset filled the name and 주거; with ₩500,000, day 25 and start 2026-09, saving added 2026-09-25 and 2026-10-25 and showed "No entry this month" for November (the 25th is not due yet). The Electricity preset (variable, ₩40,000, day 10) showed "Estimate ₩40,000 on 2026-11-10 · needs the actual amount"; "Confirm amount" focused the field, and 52,340 showed "Added ₩52,340" with the status "Electricity confirmed at ₩52,340". Page width 390, no horizontal scroll.
 - 1440×900: after a reload the same two items and totals ("Fixed costs ₩52,340") showed, and the entries were still exactly the three above (no month added twice). The add form lays out in two columns.
+
+### First review (PR #144)
+
+- No blocking issues. Fixed in this PR:
+  - A start month more than 24 months back is refused (422), so a typo like 2006 for 2026 cannot add hundreds of entries at once. The form hint says so.
+  - On the screen, a save counts as done once the item's own request succeeds. If adding its entries then fails, the alert says the change was saved and the entries come at the next open; the list still reloads, so a retry cannot add the item twice.
+  - A failed add on app open is no longer remembered, so the next load tries again.
+  - Confirming only changes an entry that is still an expense; an entry changed to income in the entry list gets 404 and the run stays unconfirmed.
+  - Closing the add or edit form puts the focus on the section title instead of the page.
+- Tests: DB subtests for the start-month limit and the income case, screen tests for the failed add after a save and the focus on close.
+- Not changed: the totals count fixed-cost entries by their date, the item row by the month they were added for. If the user moves an entry to another month in the entry list, the two differ for that entry; this is expected. The extra fetch when the first open adds entries is kept (it refreshes the other cards).
+- After the fixes: `npm run check` passed (frontend 322 passed / 2 skipped; backend 173 passed / 17 DB tests skipped), `npm run knip` passed, and the fixed-cost DB tests passed 9/9 subtests on the test DB.

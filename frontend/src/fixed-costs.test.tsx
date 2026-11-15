@@ -237,3 +237,32 @@ test('stopping and editing change only the item', async () => {
     },
   ]);
 });
+
+test('a save that worked but could not add its entries still closes and reloads', async () => {
+  show();
+  await list();
+  const api = vi.mocked(fetch);
+  const answer = api.getMockImplementation()!;
+  // From here on, adding the due entries fails.
+  api.mockImplementation((url, init) =>
+    String(url).endsWith('/generate')
+      ? Promise.resolve(new Response(JSON.stringify({ error: 'boom' }), { status: 500 }))
+      : answer(url, init),
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Stop Rent' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Rent stopped. Could not add its entries yet; they are added the next time the app opens',
+  );
+  expect(await screen.findByRole('button', { name: 'Start Rent again' })).toBeInTheDocument();
+  expect(sent('PATCH')).toHaveLength(1);
+});
+
+test('closing a form puts the focus on the section title', async () => {
+  show();
+  await list();
+  fireEvent.click(screen.getByRole('button', { name: 'Add fixed cost' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  await vi.waitFor(() =>
+    expect(screen.getByRole('heading', { level: 2, name: 'Fixed costs' })).toHaveFocus(),
+  );
+});
