@@ -31,7 +31,43 @@ const invalid = [
     error: 'Choose income or expense as the kind',
   },
   { label: 'a missing body', body: undefined, error: 'The request body must be a JSON object' },
+  // #110 The summary's name for spending with no category, in any case or spacing, and its old Korean label.
+  ...['Uncategorized', ' un categorized ', 'UNCATEGORIZED', '미분류', '미 분류'].map(
+    (reserved) => ({
+      label: `the reserved name "${reserved}"`,
+      body: { kind: 'expense', name: reserved },
+      error: '"Uncategorized" is reserved for entries with no category; choose another name',
+    }),
+  ),
 ];
+
+test('a name that only contains the reserved word is allowed', async () => {
+  const row = { id: '1', kind: 'expense', name: 'Uncategorized food', hidden: false };
+  await withApi(
+    pool(async () => ({ rows: [row] })),
+    async (call) => {
+      const response = await call('/api/ledger/categories', {
+        method: 'POST',
+        body: { kind: 'expense', name: 'Uncategorized food' },
+      });
+      assert.equal(response.status, 201);
+      assert.equal((response.data as { category: { name: string } }).category.name, row.name);
+    },
+  );
+});
+
+test('renaming a category to the reserved name is a 400', async () => {
+  await withApi(noDb, async (call) => {
+    const response = await call('/api/ledger/categories/1', {
+      method: 'PATCH',
+      body: { name: 'Uncategorized' },
+    });
+    assert.equal(response.status, 400);
+    assert.deepEqual(response.data, {
+      error: '"Uncategorized" is reserved for entries with no category; choose another name',
+    });
+  });
+});
 
 for (const { label, body, error } of invalid) {
   test(`adding a category with ${label} is a 400`, async () => {
