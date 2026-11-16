@@ -75,3 +75,10 @@ The user decided these on 2026-11-16, and they are recorded on #62.
 - Not changed (nit): the overspending list is read in a statement after the totals, so in theory an entry saved in between could appear in one and not the other. That does not happen with one user opening the app.
 - Not changed (nit): a total past the safe integer range would make its report fail to load. That is the general question in #109.
 - After the fix: the report integration tests passed (8, test DB, none skipped), and the reports, app, and dashboard screen tests passed (26). tsc and eslint are clean.
+
+### Second review (PR #151)
+
+- Nothing to fix. Cases checked:
+  - In a catch-up run, an early period before the first entry is skipped and the later ones are made.
+  - History imported by CSV after the first open is not reported backwards, which fits "a first open does not fill in history".
+  - A first entry dated mid-week makes that week's report.
