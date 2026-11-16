@@ -1,8 +1,27 @@
 # Household ledger, assets, and mock investing: PostgreSQL
 
-PostgreSQL 17. The only source of the migrations is `migrations/NNN_<description>.sql`. On an empty Docker volume, all files are applied automatically in name order on the first run, and CI also applies all files in order.
+PostgreSQL 17. The only source of the migrations is `migrations/NNN_<description>.sql`.
 
-For an existing DB, apply a new migration directly from the file mounted in the container.
+## Applying migrations
+
+The shared migration runner (`backend/src/migrations.ts`, #71) applies the files in name order. Each file is recorded in the `schema_migrations` table with a checksum, so a file is applied once.
+
+- **Deploy**: `deploy/remote-deploy.sh` runs `node dist/migrate.js` after starting the DB and before starting the new version. If a migration fails, the deploy stops and the old version keeps running.
+- **Host**: `npm run db:migrate` applies the pending files to the `DATABASE_URL` in `.env`. It prints the files it applied, or "No migrations to apply."
+- **CI**: applies every file once with `psql` (checking they can run again), then runs `npm run db:migrate`.
+- **Empty Docker volume**: on the first run, Docker applies all files from `/docker-entrypoint-initdb.d` without recording them. The next `db:migrate` runs each file once more and records it. This is safe because every migration can run again.
+
+A database set up before the runner existed has no history. Its first `db:migrate` runs every file once more, keeps the data, and records them. From then on, only new files run.
+
+The runner refuses to start when:
+
+- an applied file was changed or removed
+- a new file is numbered before one already applied
+- a file name does not look like `NNN_name.sql`, or two files share a number
+
+Each file runs in its own transaction with its history row. A failing file rolls back alone and names itself; files before it stay applied.
+
+To apply one file by hand, for example while investigating, use the file mounted in the container. The runner will run it again later, which is safe.
 
 ```powershell
 docker compose exec -T db psql -U money -d money -v ON_ERROR_STOP=1 -f /docker-entrypoint-initdb.d/NNN_<description>.sql
@@ -10,4 +29,11 @@ docker compose exec -T db psql -U money -d money -v ON_ERROR_STOP=1 -f /docker-e
 
 Do not pass it through a PowerShell pipe such as `Get-Content … | docker compose exec … psql`. Windows PowerShell 5.1 sends ASCII to external programs, so Korean text is corrupted into `?`.
 
-Rules: write every migration so that it is safe to run again. Parallel branches reserve their number when they start. Preserve the meaning of existing data, and leave values you could not confirm as NULL. For Korean literals in SQL, use the `U&'\XXXX'` escape where possible.
+## Rules
+
+- Write every migration so that it is safe to run again.
+- Never edit or delete a file once it has been applied anywhere; add a new file instead. The runner checks this with the checksum.
+- Parallel branches reserve their number when they start.
+- Preserve the meaning of existing data, and leave values you could not confirm as NULL.
+- Do not put `BEGIN`/`COMMIT` in a file: the runner already wraps each file in a transaction. `DO $$ BEGIN … END $$` blocks are fine.
+- For Korean literals in SQL, use the `U&'\XXXX'` escape where possible.

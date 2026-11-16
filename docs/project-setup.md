@@ -484,8 +484,9 @@ server {
 - Preserve the meaning of existing data. For example, give a new `completed` column a default of `true` so the judgment of past records does not change.
 - How to apply:
   - Empty volume: Compose runs all files in `/docker-entrypoint-initdb.d` automatically in name order.
-  - CI: apply all files in name order with `psql -v ON_ERROR_STOP=1 -f`.
-  - **Existing DB: run the file mounted in the container directly.**
+  - CI: apply all files in name order with `psql -v ON_ERROR_STOP=1 -f`, then `npm run db:migrate`.
+  - **Existing DB and deploys (#71): the shared runner `npm run db:migrate` (deploys run `node dist/migrate.js`) applies only the files not yet recorded in `schema_migrations`.** See [database/README.md](../database/README.md).
+  - By hand, for example while investigating: run the file mounted in the container directly. The runner runs it again later, which is safe.
 
     ```powershell
     docker compose exec -T db psql -U <db> -d <db> -v ON_ERROR_STOP=1 -f /docker-entrypoint-initdb.d/NNN_<description>.sql
