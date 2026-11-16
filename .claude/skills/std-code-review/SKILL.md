@@ -1,13 +1,13 @@
 ---
 name: std-code-review
-description: Review pull requests with one shared standard: approve once a change improves code health, check design, behavior, tests, and security in a fixed order, and label every comment with Conventional Comments so the author knows what blocks merging. Use when reviewing a PR (including sync PRs and your own PR before merging) and when answering review comments, in any sirloinbh project repository. Who merges still follows the repo's AGENTS.md.
+description: Review pull requests with one shared standard: approve once a change improves code health, check design, behavior, tests, and security in a fixed order, and label every comment with Conventional Comments so the author knows what blocks merging. Use when reviewing a PR (including sync PRs and your own PR before merging) and when answering review comments, in any sirloinbh project repository. The agent reviews its own PR in a loop, files issues for big problems outside it, and merges it.
 ---
 
 <!-- Managed file. Edit it in sirloinbh/project-standards templates/common/skills/std-code-review/ -->
 
 # Reviewing pull requests
 
-How to review a PR and how to answer a review. It is based on [Google's engineering practices](https://google.github.io/eng-practices/review/) and [Conventional Comments](https://conventionalcomments.org/), adapted to these repos. Writing the PR itself follows [std-git-writing](../std-git-writing/SKILL.md). Who merges follows the repo's `AGENTS.md`.
+How to review a PR and how to answer a review. It is based on [Google's engineering practices](https://google.github.io/eng-practices/review/) and [Conventional Comments](https://conventionalcomments.org/), adapted to these repos. Writing the PR itself follows [std-git-writing](../std-git-writing/SKILL.md). The agent reviews and merges its own PRs (section 8).
 
 ## 1. The standard
 
@@ -105,7 +105,7 @@ praise: the table-driven tests make the edge cases very clear.
 
 - Respond within one working day. A first response can be "I will review this by tomorrow afternoon".
 - Review in one pass where you can, so the author gets all feedback at once.
-- A review an agent does as part of its procedure (for example a sync PR) happens before reporting the PR as ready.
+- A review an agent does as part of its procedure (for example a sync PR or its own PR, section 8) happens before reporting the PR as ready or merging it.
 
 ## 6. The decision and merging
 
@@ -115,10 +115,10 @@ praise: the table-driven tests make the edge cases very clear.
 | Comment | Questions only; no decision yet |
 | Request changes | At least one open `issue:`, `todo:`, `chore:`, or `(blocking)` comment |
 
-- **Who merges follows the repo's `AGENTS.md`**; if it says nothing, only the user merges. A review never replaces that rule: do not merge, enable auto-merge, or approve in place of merging where `AGENTS.md` does not allow it.
+- **The agent merges after the review passes** (section 8, user decision 2026-11-15, #591), in every repo. A repo's `AGENTS.md` or `AGENTS.project.md` may add stricter rules, which win. Do not enable auto-merge or a merge queue in place of the review.
 - **"Check before merging":** if it has an item that needs the user's judgment, do not merge, even when the review passes. Ask the user.
 - **Same account:** when the agent and the PR author use the same GitHub account, GitHub does not allow approving your own PR. Record the review as a PR comment (or on the issue, as `AGENTS.md` says for sync PRs) that starts with the decision, such as `Review: approve — no blocking comments`.
-- **Merge method:** these repos merge with a merge commit (`pr merge --merge`). Do not squash, so the review commits stay in history. Do not add `--delete-branch` (std-git-writing section 3).
+- **Merge method:** these repos merge with a merge commit (`pr merge --merge`). Do not squash, so the review commits stay in history. Do not add `--delete-branch` (std-git-writing section 3). Clean up locally afterwards with the std-git-writing steps.
 
 ## 7. For authors
 
@@ -128,3 +128,20 @@ praise: the table-driven tests make the edge cases very clear.
 - Push fixes as new commits during review so the reviewer can see what changed. Do not force-push.
 - When you add commits, update "Main changes", "Verification", and `Closes` in the PR body (std-git-writing section 5).
 - A disagreement that two rounds of comments do not settle goes to the user. Write the outcome back in the PR.
+
+## 8. Reviewing and merging your own PR (agent loop)
+
+User decision, 2026-11-15 (#591). It applies to every sirloinbh repo, including infra repos and app repos where merging `main` deploys to production.
+
+1. **Review in a loop.** After the PR is open, review the diff with sections 2 to 4. Do 1 or 2 rounds. Do more rounds only while blocking comments (`issue:`, `todo:`, `chore:`, `(blocking)`) remain.
+2. **Fix on the same branch.** Between rounds, push fixes as new commits (no force-push), update the PR body (section 7), and review again. Stop when no blocking comment is left.
+3. **File issues for big problems outside the PR.** If a review finds a real problem outside this PR's scope, do not grow the PR. Register a new issue with [std-backlog](../std-backlog/SKILL.md): priority, type, and area labels, and a link to the matching parent epic as a sub-issue. Mention the issue number in the review comment and the PR body. Small problems inside the diff are fixed in the PR.
+4. **Record the result.** Post a PR comment that starts with the decision, for example `Review round 1: changes needed, 2 findings`, then `Review round 2: approve, no blocking comments`.
+5. **Merge** with `pr merge --merge` once the review passes and the required checks on the final head are green. Then do the local cleanup (std-git-writing section 3).
+
+Guards that stay:
+
+- Do not merge while a check fails or is running, or when "Check before merging" has an item that needs the user's own decision. Ask the user instead.
+- No force-push, no direct push to `main`, no `--admin`, no squash, no `--delete-branch`.
+- Merging is not applying. `terraform apply`, server changes, and other real AWS or production changes still need the user's OK. If merging `main` deploys by itself, say so in the PR body.
+- A repo's `AGENTS.md` or `AGENTS.project.md` may add stricter rules, which win.

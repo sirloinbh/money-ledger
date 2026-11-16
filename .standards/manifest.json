@@ -1,5 +1,5 @@
 {
-  "centralSha": "162da42858972a7a9e321c6b7d1c3b690f112105",
+  "centralSha": "a0890cfe2de43403c6c740ec20408636a5e3b523",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -45,12 +45,12 @@
     },
     ".claude/skills/std-backlog/SKILL.md": {
       "mode": "full",
-      "sha256": "499fd6c8c14ce85031a18712acae0f09801b26550cdedbf8ff82823c6de5151c",
+      "sha256": "d78c85e0ab7e5cde745e013ab27d62b9cbcb8979012ee2dc5fc7b80f309fb6a4",
       "source": "templates/common/skills/std-backlog/SKILL.md"
     },
     ".claude/skills/std-code-review/SKILL.md": {
       "mode": "full",
-      "sha256": "d57c91e40e9e741c11bca74781472dd7948339901f903774fe71916b73c97ae6",
+      "sha256": "618268c6357b19b80b1066664e1db03971dbb1ba896be5935fb906e26201d6f1",
       "source": "templates/common/skills/std-code-review/SKILL.md"
     },
     ".claude/skills/std-communication/SKILL.md": {
@@ -65,12 +65,12 @@
     },
     ".claude/skills/std-git-writing/SKILL.md": {
       "mode": "full",
-      "sha256": "ff16ff1f1ca3f5feb224ef03fba0deb81e9770b196ee5a049580db271741efe2",
+      "sha256": "56a95a2f0835461785805780b7e053481de85c5ce302d9784e5d7f905cca9936",
       "source": "templates/common/skills/std-git-writing/SKILL.md"
     },
     ".claude/skills/std-implementation/SKILL.md": {
       "mode": "full",
-      "sha256": "0d12747dbc0ab0cc4ec6db049b6e32f119aa32eec8518cee99f9320de4123501",
+      "sha256": "7b755a96be8500b97151219b245d1a3b0b72702f6f81bbf86bdf7425530a49cd",
       "source": "templates/common/skills/std-implementation/SKILL.md"
     },
     ".claude/skills/std-session-notes/SKILL.md": {
@@ -155,7 +155,7 @@
     },
     ".prettierignore": {
       "mode": "section",
-      "sha256": "ba680d387c295fdab5181eac54b1e2b3a88e5abd3d0cf3ed149830927410623e",
+      "sha256": "ecf64bb26a140f87a75f6dc7d75704989fdb51fcf35de572df9922f7325c2c62",
       "source": "templates/app/.prettierignore.tmpl"
     },
     ".standards/blocked-packages.json": {
@@ -220,7 +220,7 @@
     },
     "AGENTS.md": {
       "mode": "full",
-      "sha256": "c3a6cd2a5b1bf3873b94d49d91edf091c2da12c475ca889b43e52225f2f0d81d",
+      "sha256": "b2f8ff1468024533cc8a4d28992ff93f0d1dbc25d00c87b095747cf787014dbd",
       "source": "templates/app/AGENTS.md.tmpl"
     },
     "backend/.npmrc": {
@@ -239,6 +239,7 @@
         "packageManager": "npm@11.19.0",
         "engines.node": "24.21.0",
         "engines.npm": "11.19.0",
+        "dependencies.@sirloinbh/auth-client": "1.0.0",
         "devDependencies.@sirloinbh/tsconfig": "1.0.0",
         "dependencies.express": "5.3.0",
         "dependencies.pg": "8.23.1",
@@ -250,6 +251,11 @@
         "devDependencies.typescript": "5.9.3"
       },
       "source": "templates/index.json"
+    },
+    "backend/src/standard/auth.ts": {
+      "mode": "full",
+      "sha256": "a33a4eefa1dbb21c24afc8c8a0caf689c6ed5439368dd1fe2bac28a7e0cb87a9",
+      "source": "templates/app/backend/src/standard/auth.ts"
     },
     "backend/src/standard/http.ts": {
       "mode": "full",
@@ -382,6 +388,7 @@
         "packageManager": "npm@11.19.0",
         "engines.node": "24.21.0",
         "engines.npm": "11.19.0",
+        "dependencies.@sirloinbh/auth-client": "1.0.0",
         "dependencies.@sirloinbh/design-tokens": "1.0.0",
         "devDependencies.@sirloinbh/tsconfig": "1.0.0",
         "dependencies.class-variance-authority": "0.7.1",
@@ -428,6 +435,16 @@
       "mode": "full",
       "sha256": "56772032764bafe2cba34a2d0468172b2804b8aeb97eab23c0cad1ba523150ea",
       "source": "templates/ui/frontend/public/theme-init.js.tmpl"
+    },
+    "frontend/src/auth-origin.test.ts": {
+      "mode": "full",
+      "sha256": "646b60431e40e709f40241396ddd0a8c28323227e7faf2fb8257f7a5349b3979",
+      "source": "templates/ui/frontend/src/auth-origin.test.ts"
+    },
+    "frontend/src/auth-origin.ts": {
+      "mode": "full",
+      "sha256": "1fb4c37122032f83f3eaa5768a7ff17e22a066556833fd420518300ff0b7d9b3",
+      "source": "templates/ui/frontend/src/auth-origin.ts"
     },
     "frontend/src/components/layout/app-shell.test.tsx": {
       "mode": "full",
@@ -669,6 +686,11 @@
       "sha256": "ae223fe47966193ebd80c94391cac51d599afb419ef0f7139585c5c091adc9a0",
       "source": "templates/ui/frontend/src/lib/utils.ts"
     },
+    "frontend/src/sign-in.tsx": {
+      "mode": "full",
+      "sha256": "5ea070c066dd7b9746e7f0b2a5ae17981d5ee2a0559a089c81bba36376904885",
+      "source": "templates/ui/frontend/src/sign-in.tsx"
+    },
     "frontend/tsconfig.json": {
       "mode": "full",
       "sha256": "0a086f123f3e30fdb63e62f26f7443200f6a71eb9848cb4a545cf68d3d36bf01",
@@ -742,12 +764,12 @@
     },
     "skills/std-backlog/SKILL.md": {
       "mode": "full",
-      "sha256": "499fd6c8c14ce85031a18712acae0f09801b26550cdedbf8ff82823c6de5151c",
+      "sha256": "d78c85e0ab7e5cde745e013ab27d62b9cbcb8979012ee2dc5fc7b80f309fb6a4",
       "source": "templates/common/skills/std-backlog/SKILL.md"
     },
     "skills/std-code-review/SKILL.md": {
       "mode": "full",
-      "sha256": "d57c91e40e9e741c11bca74781472dd7948339901f903774fe71916b73c97ae6",
+      "sha256": "618268c6357b19b80b1066664e1db03971dbb1ba896be5935fb906e26201d6f1",
       "source": "templates/common/skills/std-code-review/SKILL.md"
     },
     "skills/std-communication/SKILL.md": {
@@ -762,12 +784,12 @@
     },
     "skills/std-git-writing/SKILL.md": {
       "mode": "full",
-      "sha256": "ff16ff1f1ca3f5feb224ef03fba0deb81e9770b196ee5a049580db271741efe2",
+      "sha256": "56a95a2f0835461785805780b7e053481de85c5ce302d9784e5d7f905cca9936",
       "source": "templates/common/skills/std-git-writing/SKILL.md"
     },
     "skills/std-implementation/SKILL.md": {
       "mode": "full",
-      "sha256": "0d12747dbc0ab0cc4ec6db049b6e32f119aa32eec8518cee99f9320de4123501",
+      "sha256": "7b755a96be8500b97151219b245d1a3b0b72702f6f81bbf86bdf7425530a49cd",
       "source": "templates/common/skills/std-implementation/SKILL.md"
     },
     "skills/std-session-notes/SKILL.md": {
