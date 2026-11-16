@@ -5,7 +5,7 @@ import { z } from 'zod/v4';
 import { inTransaction } from './db.js';
 import { merchantText, ruleCategorySql } from './rules.js';
 import { HttpError, parseId } from './standard/http.js';
-import { loadHistory, suggest } from './suggestions.js';
+import { loadHistory, suggester } from './suggestions.js';
 
 // #38 Income and expense entries: whole-won amounts, a date in the service calendar, a category of the same kind.
 // #60 An entry may have a merchant and may be uncategorized (category NULL, "Uncategorized"). Saved without a
@@ -349,8 +349,9 @@ export function entriesRouter(pool: Pool) {
       ),
       loadHistory(pool),
     ]);
+    const suggestFor = suggester(history);
     const suggestions = list.rows.flatMap((entry) => {
-      const found = suggest(entry, history);
+      const found = suggestFor(entry);
       return found ? [{ entryId: Number(entry.id), ...found }] : [];
     });
     res.json({ suggestions });
@@ -371,9 +372,9 @@ export function entriesRouter(pool: Pool) {
          WHERE id = ANY($1::bigint[]) AND category_id IS NULL ORDER BY id FOR UPDATE`,
         [ids],
       );
-      const history = await loadHistory(client);
+      const suggestFor = suggester(await loadHistory(client));
       const picks = targets.rows.flatMap((entry) => {
-        const found = suggest(entry, history);
+        const found = suggestFor(entry);
         return found ? [{ id: entry.id, categoryId: found.categoryId }] : [];
       });
       if (picks.length === 0) return 0;

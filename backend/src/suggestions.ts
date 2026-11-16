@@ -36,26 +36,43 @@ export function merchantKey(merchant: string) {
 // A shorter key would make a one-letter name the prefix of half the history.
 const minKey = 2;
 
+type Keyed = HistoryRow & { lower: string; key: string };
+
 /** 0: the same merchant, 1: the same key, 2: one key starts with the other, undefined: no match. */
-function matchTier(merchant: string, key: string, row: HistoryRow, rowKey: string) {
-  if (merchant.toLowerCase() === row.merchant.toLowerCase()) return 0;
-  if (key.length < minKey || rowKey.length < minKey) return undefined;
-  if (key === rowKey) return 1;
-  if (key.startsWith(rowKey) || rowKey.startsWith(key)) return 2;
+function matchTier(lower: string, key: string, row: Keyed) {
+  if (lower === row.lower) return 0;
+  if (key.length < minKey || row.key.length < minKey) return undefined;
+  if (key === row.key) return 1;
+  if (key.startsWith(row.key) || row.key.startsWith(key)) return 2;
   return undefined;
 }
 
 /**
- * The suggestion for one entry, or null. Only the closest tier of match counts; in it the category used most
- * often wins, then the one used most recently, then the lower ID. `from` names the merchant it comes from.
+ * Suggests for many entries from one history, normalizing each past merchant once. Each suggestion, or null:
+ * only the closest tier of match counts; in it the category used most often wins, then the one used most
+ * recently, then the lower ID. `from` names the merchant it comes from.
  */
-export function suggest(entry: { kind: Kind; merchant: string }, history: HistoryRow[]) {
+export function suggester(history: HistoryRow[]) {
+  const keyed: Keyed[] = history.map((row) => ({
+    ...row,
+    lower: row.merchant.toLowerCase(),
+    key: merchantKey(row.merchant),
+  }));
+  return (entry: { kind: Kind; merchant: string }) => pick(entry, keyed);
+}
+
+/** The suggestion for one entry (see `suggester`). */
+export const suggest = (entry: { kind: Kind; merchant: string }, history: HistoryRow[]) =>
+  suggester(history)(entry);
+
+function pick(entry: { kind: Kind; merchant: string }, history: Keyed[]) {
   if (!entry.merchant) return null;
+  const lower = entry.merchant.toLowerCase();
   const key = merchantKey(entry.merchant);
-  let best: { tier: number; rows: HistoryRow[] } | undefined;
+  let best: { tier: number; rows: Keyed[] } | undefined;
   for (const row of history) {
     if (row.kind !== entry.kind) continue;
-    const tier = matchTier(entry.merchant, key, row, merchantKey(row.merchant));
+    const tier = matchTier(lower, key, row);
     if (tier === undefined || (best && tier > best.tier)) continue;
     if (!best || tier < best.tier) best = { tier, rows: [row] };
     else best.rows.push(row);

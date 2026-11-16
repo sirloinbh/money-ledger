@@ -52,3 +52,8 @@ The uncategorized list now suggests a category for an entry whose merchant was c
   - No horizontal scroll at either size.
   - At 390×844, **Use** classified one entry, and **Apply 1 suggestion** classified the other. The button then went away, and only 동네 철물점 was left.
 - `npm run check` passed: frontend 361 passed / 2 skipped; backend 193 passed / 21 DB tests skipped (no test DB in that run). `npm run knip` passed.
+
+### Review (PR #157)
+
+- Round 1, efficiency, fixed: `suggest` normalized every history merchant again for each entry (up to 200 entries x the whole history). `suggester(history)` now normalizes each past merchant once per request; both routes use it, and `suggest` stays for single use. The unit, suggestion, and classification DB tests passed again (21, run one file at a time as `npm test` does). `tsc`, `eslint`, and `knip` passed.
+- Round 1, note (not changed): dropping digits makes "GS25 역삼점" normalize to "gs", a prefix of "GS칼텍스". A gas station could then get the convenience store's category. Dropping digits is part of the matching the user chose. The suggestion names its source ("from GS25 역삼점") and is confirmed by the user, so this is left for the user to revisit.
