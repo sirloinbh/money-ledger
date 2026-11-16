@@ -14,6 +14,7 @@ import { Page } from './page';
 import { PortfolioPage } from './portfolio';
 import { ReportPage, ReportsPage } from './reports';
 import { makeReportsOnce } from './reports-api';
+import { AccountActions, SignInGate } from './sign-in';
 
 // Every page URL lives here (central docs/directory-rules.md).
 const pages = {
@@ -54,7 +55,8 @@ function useHealth() {
   return health;
 }
 
-export function App() {
+// The effects below call /api, so they live inside the sign-in gate and run once the visitor is signed in.
+function Workspace() {
   const health = useHealth();
   // #49 Opening the app saves today's net worth once (decision 2026-11-10), whichever page opens first.
   // #43 It also adds the fixed-cost entries that are due (decision 2026-11-15), and #62 then saves the reports
@@ -65,8 +67,8 @@ export function App() {
     void makeReportsOnce();
   }, []);
   return (
-    <BrowserRouter>
-      <AppShell appName="Ledger, Assets, Mock Trading" nav={nav}>
+    <>
+      <AppShell appName="Ledger, Assets, Mock Trading" nav={nav} actions={<AccountActions />}>
         <Routes>
           <Route path={pages.overview} element={<DashboardPage health={health} />} />
           <Route path={pages.ledger} element={<LedgerPage health={health} />} />
@@ -89,6 +91,16 @@ export function App() {
         </Routes>
       </AppShell>
       <Toaster />
+    </>
+  );
+}
+
+export function App() {
+  return (
+    <BrowserRouter>
+      <SignInGate>
+        <Workspace />
+      </SignInGate>
     </BrowserRouter>
   );
 }

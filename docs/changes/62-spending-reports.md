@@ -82,3 +82,11 @@ The user decided these on 2026-11-16, and they are recorded on #62.
   - In a catch-up run, an early period before the first entry is skipped and the later ones are made.
   - History imported by CSV after the first open is not reported backwards, which fits "a first open does not fill in history".
   - A first entry dated mid-week makes that week's report.
+
+### Merge with main (2026-11-16)
+
+- Main gained the central standards sync (#140) with the shared sign-in (#149). The only conflict was the imports in `frontend/src/app.tsx`; both sides were kept. The report effect now runs inside the sign-in gate like the others, and `/api/reports` is behind the app-wide `/api` auth.
+- After `npm ci --ignore-scripts` installed the new `@sirloinbh/auth-client` from the lockfile:
+  - `npm run check` passed: frontend 358 passed / 2 skipped; backend 183 passed / 19 DB tests skipped.
+  - `npm run knip` passed.
+  - The whole backend suite on the test DB passed: 377, none skipped.

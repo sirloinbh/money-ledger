@@ -26,6 +26,9 @@ services:
       KRX_API_KEY: ${KRX_API_KEY:-}
       TIINGO_API_KEY: ${TIINGO_API_KEY:-}
       KOREAEXIM_API_KEY: ${KOREAEXIM_API_KEY:-}
+      # #149: the shared sign-in (sirloinbh/shared-auth) checks each /api session on its network.
+      AUTH_INTERNAL_URL: ${AUTH_INTERNAL_URL:-http://shared-auth-api:3110}
+    networks: [default, shared-auth]
     depends_on:
       db: { condition: service_healthy }
     restart: unless-stopped
@@ -36,6 +39,10 @@ services:
     restart: unless-stopped
 volumes:
   money-ledger-data:
+# Created by the shared-auth compose project. Locally, run shared-auth first, or once: docker network create shared-auth
+networks:
+  shared-auth:
+    external: true
 # The Dockerfiles read the GitHub Packages token as a BuildKit secret, so it never lands in an image layer.
 secrets:
   npm_token:

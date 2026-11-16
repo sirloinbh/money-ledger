@@ -52,6 +52,9 @@ frontend/src/lib/api.ts
 frontend/src/lib/api.test.ts
 frontend/src/lib/use-notice.ts
 frontend/src/health.ts
+frontend/src/sign-in.tsx
+frontend/src/auth-origin.ts
+frontend/src/auth-origin.test.ts
 frontend/src/components/layout/
 frontend/public/theme-init.js
 playwright.config.ts

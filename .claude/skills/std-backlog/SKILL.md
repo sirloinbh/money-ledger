@@ -1,6 +1,6 @@
 ---
 name: std-backlog
-description: Register requirements as small GitHub issue cards with priority and characteristic labels, link each one as a sub-issue under a per-area parent (epic) issue, and choose the next issue to implement after the previous PR is merged. Use when the user gives one or more requirements to register or plan, when a requirement is added mid-work, and when deciding what to start next. Applies to every sirloinbh project repository. Leave all PR merging to the user.
+description: Register requirements as small GitHub issue cards with priority and characteristic labels, link each one as a sub-issue under a per-area parent (epic) issue, and choose the next issue to implement after the previous PR is merged. Use when the user gives one or more requirements to register or plan, when a requirement is added mid-work, and when deciding what to start next. Applies to every sirloinbh project repository. The agent merges its own PR after the review loop in std-code-review.
 ---
 
 <!-- Managed file. Edit it in sirloinbh/project-standards templates/common/skills/std-backlog/ -->
@@ -78,7 +78,7 @@ Titles and bodies follow the issue rules of [std-git-writing](../std-git-writing
 
 ## 5. Choosing the next task
 
-The repo's `AGENTS.md` decides who merges PRs. If it says nothing, only the user merges. In repos where the user merges, wait after opening the PR until it is merged. In repos where the agent merges, merge under those conditions and choose the next task right away. Choose the next task in this order.
+The agent merges its own PRs in every repo after the review loop (std-code-review section 8, user decision 2026-11-15, #591). Review, merge, and do the local cleanup, then choose the next task right away. Wait only when a PR's "Check before merging" has an item for the user. Choose the next task in this order.
 
 1. Check that the previous PR is merged (`pr view <number> --json state,mergedAt`). If not, do not start the next issue, unless the user asked for parallel work.
 2. Check for requirements the user added mid-work.
@@ -94,7 +94,9 @@ The repo's `AGENTS.md` decides who merges PRs. If it says nothing, only the user
 4. Tell the user in one line which issue you chose and why (priority, prerequisite status), then start with the implementation skill's procedure.
 5. If there are no candidates, report what each remaining issue is blocked on and stop.
 
-In repos whose `AGENTS.md` does not allow it, do not merge PRs, enable auto-merge, or approve in place of merging.
+Do not enable auto-merge or a merge queue in place of the review loop. A repo's `AGENTS.md` or `AGENTS.project.md` may add stricter rules, which win.
+
+A big problem found during a review that is outside the PR's scope is registered as a new issue with sections 2 to 4 and 6 (labels, priority, parent epic link). Do not grow the PR.
 
 ## 6. Parent and sub-issues (grouping by area)
 
