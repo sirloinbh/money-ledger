@@ -22,3 +22,8 @@ The prices and data policies were read from the providers' pages on 2026-11-16; 
 
 - Docs only. Prettier formatted the changed files, and the relative links were checked by hand: `../changes/…` from `docs/next-steps/`, and the anchor `#if-ai-is-added-later`.
 - `npm run check` passed (frontend 358 / 2 skipped; backend 188 / 20 DB tests skipped, none relevant to a docs change).
+
+### Review (PR #155)
+
+- nit, fixed: the 300-a-month volume is an assumption; the doc now says so.
+- Checked: the decision text matches the #83 comment, #154 is linked under #90, and every unchecked claim is listed under Sources.

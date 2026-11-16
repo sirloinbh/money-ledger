@@ -11,7 +11,7 @@
 
 ## Comparison
 
-Volume: about 300 classifications a month, roughly 45k input and 3k output tokens. With the category list in each prompt, real use may be 2–3 times that, which is still under $0.05 a month.
+Volume (assumed, not measured): about 300 classifications a month, roughly 45k input and 3k output tokens. With the category list in each prompt, real use may be 2–3 times that, which is still under $0.05 a month.
 
 | Option                                        | Cost a month                                 | Used for training                     | Retention                                                                       | Notes                                                                                                                                    |
 | --------------------------------------------- | -------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
