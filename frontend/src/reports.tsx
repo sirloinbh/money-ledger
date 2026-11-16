@@ -81,7 +81,10 @@ export function ReportsPage({ health }: { health: Health }) {
           Loading reports
         </p>
       ) : data.reports.length === 0 ? (
-        <Muted>No reports yet. The first one is saved when this week ends on Saturday.</Muted>
+        <Muted>
+          No reports yet. A report is saved once a week (Sunday to Saturday) or month with entries
+          has ended.
+        </Muted>
       ) : (
         <ul aria-label="Reports" className="flex flex-col gap-2">
           {data.reports.map((report) => (

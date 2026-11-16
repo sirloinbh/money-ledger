@@ -16,7 +16,8 @@ type Period = 'week' | 'month';
 
 /**
  * How far back missed periods are made when the app was not opened for a while. With no report at all, only the
- * latest finished period is made, so a first open does not fill in history.
+ * latest finished period is made, so a first open does not fill in history. A period that ended before the first
+ * entry is skipped.
  */
 const catchUp: Record<Period, number> = { week: 8, month: 12 };
 const step: Record<Period, string> = { week: '7 days', month: '1 month' };
@@ -102,6 +103,13 @@ async function makeReport(client: PoolClient, period: Period, start: string) {
     [start],
   );
   const { end, previous_start: previousStart } = rows[0];
+  // A period before the ledger's first entry is not a report anyone needs: a new user would be told about weeks
+  // and months of ₩0 from before they started.
+  const started = await client.query(
+    'SELECT 1 FROM ledger_entries WHERE entry_date <= $1::date LIMIT 1',
+    [end],
+  );
+  if (started.rowCount === 0) return null;
   const content = (
     await client.query<Omit<Stored, 'overspending'>>(contentSql, [start, end, previousStart])
   ).rows[0];

@@ -122,7 +122,7 @@ test('with no reports yet, the list says when the first one comes', async () => 
   show('/reports');
   expect(
     await screen.findByText(
-      'No reports yet. The first one is saved when this week ends on Saturday.',
+      'No reports yet. A report is saved once a week (Sunday to Saturday) or month with entries has ended.',
     ),
   ).toBeInTheDocument();
 });

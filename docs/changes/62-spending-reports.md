@@ -37,7 +37,7 @@ The user decided these on 2026-11-16, and they are recorded on #62.
 
 ## Choices made here
 
-- **Which periods are made:** with no report at all, only the latest finished week and month are made, so a first open does not fill in history. After that, missed periods are filled in on the next open, up to 8 weeks and 12 months back.
+- **Which periods are made:** with no report at all, only the latest finished week and month are made, so a first open does not fill in history. After that, missed periods are filled in on the next open, up to 8 weeks and 12 months back. A period that ended before the first ledger entry gets no report (first review).
 - **Timing:** a report is saved at the first open after its period ends. Spending entered after that, such as last Saturday's coffee added on Sunday, is not in it. This follows the snapshot decision. The ledger and the monthly summary always show current numbers.
 - **What a period contains:** income is not counted, but uncategorized spending is, as one "Uncategorized" row. Category names in a report are kept as they were when it was saved.
 
@@ -68,3 +68,10 @@ The user decided these on 2026-11-16, and they are recorded on #62.
   - A first run added the data after the app had opened, so its reports were saved with ₩0. That is the snapshot working as decided, which is why the data was added first.
 - Whole backend suite on the test DB: 374 passed, none skipped.
 - `npm run check` passed: frontend 356 passed / 2 skipped; backend 181 passed / 19 DB tests skipped (no test DB in that run). `npm run knip` passed.
+
+### First review (PR #151)
+
+- Fixed (should-fix): periods before the first ledger entry got reports, so a new user would be told about a ₩0 week and month from before they started. A period that ends before the first entry is now skipped. A new test covers no entries (nothing is made), a first entry mid-week (that week only, not the month before), and later catch-up. The empty Reports page now says "A report is saved once a week (Sunday to Saturday) or month with entries has ended."
+- Not changed (nit): the overspending list is read in a statement after the totals, so in theory an entry saved in between could appear in one and not the other. That does not happen with one user opening the app.
+- Not changed (nit): a total past the safe integer range would make its report fail to load. That is the general question in #109.
+- After the fix: the report integration tests passed (8, test DB, none skipped), and the reports, app, and dashboard screen tests passed (26). tsc and eslint are clean.

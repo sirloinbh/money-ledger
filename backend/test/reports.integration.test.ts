@@ -40,7 +40,8 @@ test('spending reports against the real database', { skip: !url }, async (t) => 
   t.after(() => pool.end());
 
   let ids: Record<string, number> = {};
-  const reset = async () => {
+  /** `history`: an income entry long before every period, so each period counts as after the first entry. */
+  const reset = async ({ history = true } = {}) => {
     await pool.query('TRUNCATE ledger_categories RESTART IDENTITY CASCADE');
     await pool.query('DROP TABLE IF EXISTS spending_reports');
     await runMigration(pool, '002_ledger_categories.sql');
@@ -51,6 +52,11 @@ test('spending reports against the real database', { skip: !url }, async (t) => 
       'SELECT id, kind, name FROM ledger_categories',
     );
     ids = Object.fromEntries(rows.map((row) => [`${row.kind}/${row.name}`, Number(row.id)]));
+    if (history) {
+      await pool.query(
+        "INSERT INTO ledger_entries (entry_date, kind, amount) VALUES ('2026-01-05', 'income', 1)",
+      );
+    }
   };
   const spend = (date: string, category: string | null, amount: number, kind = 'expense') =>
     pool.query(
@@ -202,6 +208,27 @@ test('spending reports against the real database', { skip: !url }, async (t) => 
       );
     },
   );
+
+  await t.test('periods that ended before the first entry get no report', async () => {
+    await reset({ history: false });
+    assert.deepEqual(await generate('2026-11-16'), []);
+    // The first entry, on Tuesday 11-10: the week of 11-08 gets a report, October does not.
+    await spend('2026-11-10', 'expense/식비', 3000);
+    assert.deepEqual(
+      (await generate('2026-11-16')).map((item) => [item.period, item.startDate]),
+      [['week', '2026-11-08']],
+    );
+    // A month later, November is made, and the weeks since, from where the reports left off.
+    const later = await generate('2026-12-01');
+    assert.deepEqual(
+      later.map((item) => [item.period, item.startDate]),
+      [
+        ['week', '2026-11-15'],
+        ['week', '2026-11-22'],
+        ['month', '2026-11-01'],
+      ],
+    );
+  });
 
   await t.test('opening a report marks it seen; reading it does not', async () => {
     await reset();

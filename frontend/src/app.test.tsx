@@ -148,7 +148,7 @@ test('the main menu opens the Reports page (#62)', async () => {
   expect(await screen.findByRole('heading', { level: 1, name: 'Reports' })).toBeInTheDocument();
   expect(
     await screen.findByText(
-      'No reports yet. The first one is saved when this week ends on Saturday.',
+      'No reports yet. A report is saved once a week (Sunday to Saturday) or month with entries has ended.',
     ),
   ).toBeInTheDocument();
 });
