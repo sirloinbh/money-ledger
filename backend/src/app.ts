@@ -1,3 +1,4 @@
+import { meHandler } from '@sirloinbh/auth-client';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import type { Pool } from 'pg';
@@ -32,6 +33,8 @@ type AppOptions = {
   // Price sources for immediate fetches (#51). None by default: tests and a server without keys fetch nothing.
   prices?: PriceSources;
   priceLog?: PriceLog;
+  // The shared sign-in session check (#149). None by default: tests and local development run open.
+  auth?: express.RequestHandler;
 };
 
 export function createApp(pool: Pool, options: AppOptions = {}) {
@@ -51,6 +54,10 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
       message: { error: 'Too many requests. Try again in a moment' },
     }),
   );
+  // #149: the shared sign-in guards every /api route except /api/health, before any route registers.
+  // After the rate limit, so a flood of unsigned requests does not reach the auth service.
+  if (options.auth) app.use('/api', options.auth);
+  app.get('/api/me', meHandler);
   // Mounted before the app-wide JSON parser: an import of up to 2,000 rows has its own, larger limit (#44).
   app.use('/api/ledger/entries/csv', entryCsvRouter(pool, { today }));
   app.use(express.json({ limit: '256kb' }));
