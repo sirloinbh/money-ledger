@@ -1,0 +1,244 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
+import { Pool } from 'pg';
+
+import { serviceDate } from '../src/app.js';
+import { runMigration, withApi } from './helpers.js';
+
+const url = process.env.TEST_DATABASE_URL;
+
+type Created = { id: number; period: string; startDate: string; endDate: string };
+type ListItem = Created & { madeOn: string; seen: boolean; total: number };
+type Report = ListItem & {
+  previousTotal: number;
+  change: number;
+  topCategories: {
+    categoryId: number | null;
+    name: string;
+    hidden: boolean;
+    amount: number;
+    share: string;
+  }[];
+  overspending:
+    | {
+        categoryId: number;
+        name: string;
+        hidden: boolean;
+        spent: number;
+        budget: number;
+        over: number;
+        percent: string;
+        status: string;
+      }[]
+    | null;
+};
+
+// Requires a dedicated test DB with database/migrations applied. Skipped (not passed) without it.
+test('spending reports against the real database', { skip: !url }, async (t) => {
+  const pool = new Pool({ connectionString: url });
+  t.after(() => pool.end());
+
+  let ids: Record<string, number> = {};
+  const reset = async () => {
+    await pool.query('TRUNCATE ledger_categories RESTART IDENTITY CASCADE');
+    await pool.query('DROP TABLE IF EXISTS spending_reports');
+    await runMigration(pool, '002_ledger_categories.sql');
+    await runMigration(pool, '017_ledger_budgets.sql');
+    await runMigration(pool, '021_spending_reports.sql');
+    await runMigration(pool, '021_spending_reports.sql'); // re-running is safe
+    const { rows } = await pool.query<{ id: string; kind: string; name: string }>(
+      'SELECT id, kind, name FROM ledger_categories',
+    );
+    ids = Object.fromEntries(rows.map((row) => [`${row.kind}/${row.name}`, Number(row.id)]));
+  };
+  const spend = (date: string, category: string | null, amount: number, kind = 'expense') =>
+    pool.query(
+      'INSERT INTO ledger_entries (entry_date, kind, amount, category_id) VALUES ($1, $2, $3, $4)',
+      [date, kind, amount, category === null ? null : ids[category]],
+    );
+  const call = async (today: string, path: string, method = 'GET') => {
+    let result: { status: number; data: unknown } | undefined;
+    await withApi(
+      pool,
+      async (api) => {
+        result = await api(path, { method });
+      },
+      { today: () => today },
+    );
+    return result!;
+  };
+  const generate = async (today: string) => {
+    const response = await call(today, '/api/reports/generate', 'POST');
+    assert.equal(response.status, 200, JSON.stringify(response.data));
+    return (response.data as { created: Created[] }).created;
+  };
+  const list = async () =>
+    ((await call('2026-11-16', '/api/reports')).data as { reports: ListItem[] }).reports;
+  const report = async (id: number) =>
+    ((await call('2026-11-16', `/api/reports/${id}`)).data as { report: Report }).report;
+
+  await t.test(
+    'the latest finished week (Sunday to Saturday) and month, with totals, change, top 3 and overspending',
+    async () => {
+      await reset();
+      // The week of Sun 11-08 to Sat 11-14.
+      await spend('2026-11-07', 'expense/식비', 10000); // the Saturday before: the previous week
+      await spend('2026-11-08', 'expense/식비', 30000); // Sunday: first day
+      await spend('2026-11-14', 'expense/교통', 20000); // Saturday: last day
+      await spend('2026-11-15', 'expense/식비', 99999); // the next Sunday: not in it
+      await spend('2026-11-10', null, 5000); // uncategorized is a row of its own
+      await spend('2026-11-09', 'expense/주거', 1000);
+      await spend('2026-11-11', 'expense/통신', 500); // 4th: not in the top 3
+      await spend('2026-11-12', 'income/급여', 3000000, 'income'); // income: not spending
+      // October, with budgets: food exactly at its budget, transport over, housing within.
+      await pool.query(
+        `INSERT INTO ledger_budgets (category_id, month, amount)
+         VALUES ($1, '2026-10-01', 40000), ($2, '2026-10-01', 50000), ($3, '2026-10-01', 100000)`,
+        [ids['expense/식비'], ids['expense/교통'], ids['expense/주거']],
+      );
+      await spend('2026-10-31', 'expense/식비', 40000);
+      await spend('2026-10-01', 'expense/교통', 70000);
+
+      // Monday 11-16 in Seoul.
+      const created = await generate('2026-11-16');
+      assert.deepEqual(
+        created.map((item) => [item.period, item.startDate, item.endDate]),
+        [
+          ['week', '2026-11-08', '2026-11-14'],
+          ['month', '2026-10-01', '2026-10-31'],
+        ],
+      );
+
+      const week = await report(created[0].id);
+      assert.deepEqual(
+        [week.total, week.previousTotal, week.change, week.seen, week.overspending],
+        [56500, 10000, 46500, false, null],
+      );
+      assert.deepEqual(
+        week.topCategories.map((item) => [item.name, item.amount, item.share]),
+        [
+          ['식비', 30000, '53.1'],
+          ['교통', 20000, '35.4'],
+          ['Uncategorized', 5000, '8.8'],
+        ],
+      );
+      assert.equal(week.topCategories[2].categoryId, null);
+
+      const month = await report(created[1].id);
+      assert.deepEqual([month.total, month.previousTotal, month.change], [110000, 0, 110000]);
+      assert.deepEqual(
+        month.overspending?.map((item) => [
+          item.name,
+          item.spent,
+          item.budget,
+          item.over,
+          item.percent,
+          item.status,
+        ]),
+        [
+          ['식비', 40000, 40000, 0, '100.0', 'reached'],
+          ['교통', 70000, 50000, 20000, '140.0', 'over'],
+        ],
+      );
+    },
+  );
+
+  await t.test('the week ends at midnight on Saturday in Seoul, not in UTC', async () => {
+    await reset();
+    // 14:59:59 UTC is 23:59:59 on Saturday 11-14 in Seoul: that week is not finished, so the latest is 11-01.
+    const saturday = serviceDate(new Date('2026-11-14T14:59:59Z'));
+    assert.equal(saturday, '2026-11-14');
+    assert.deepEqual(
+      (await generate(saturday))
+        .filter((item) => item.period === 'week')
+        .map((item) => item.startDate),
+      ['2026-11-01'],
+    );
+    // One second later it is Sunday 11-15 in Seoul (still Saturday in UTC): the week of 11-08 has finished.
+    const sunday = serviceDate(new Date('2026-11-14T15:00:00Z'));
+    assert.equal(sunday, '2026-11-15');
+    assert.deepEqual(
+      (await generate(sunday)).map((item) => [item.period, item.startDate]),
+      [['week', '2026-11-08']],
+    );
+    // The 1st of a month: the month before has just finished.
+    assert.deepEqual(
+      (await generate('2026-12-01'))
+        .filter((item) => item.period === 'month')
+        .map((item) => item.startDate),
+      ['2026-11-01'],
+    );
+  });
+
+  await t.test('a period is made once, and later edits leave its report as it was', async () => {
+    await reset();
+    await spend('2026-11-09', 'expense/식비', 30000);
+    // Two opens at the same time.
+    const [first, second] = await Promise.all([generate('2026-11-16'), generate('2026-11-16')]);
+    assert.equal(first.length + second.length, 2);
+    assert.deepEqual(await generate('2026-11-16'), []);
+    const rows = await pool.query('SELECT period, start_date FROM spending_reports');
+    assert.equal(rows.rowCount, 2);
+
+    const weekId = [...first, ...second].find((item) => item.period === 'week')!.id;
+    await spend('2026-11-10', 'expense/식비', 1000);
+    assert.equal((await report(weekId)).total, 30000);
+  });
+
+  await t.test(
+    'a first open makes only the latest periods; later ones catch up to 8 weeks and 12 months',
+    async () => {
+      await reset();
+      assert.equal((await generate('2026-11-16')).length, 2);
+      // Monday 2027-03-01, after 15 weeks without opening the app.
+      const created = await generate('2027-03-01');
+      const weeks = created.filter((item) => item.period === 'week').map((item) => item.startDate);
+      assert.equal(weeks.length, 8);
+      assert.deepEqual([weeks[0], weeks.at(-1)], ['2027-01-03', '2027-02-21']);
+      assert.deepEqual(
+        created.filter((item) => item.period === 'month').map((item) => item.startDate),
+        ['2026-11-01', '2026-12-01', '2027-01-01', '2027-02-01'],
+      );
+    },
+  );
+
+  await t.test('opening a report marks it seen; reading it does not', async () => {
+    await reset();
+    const [week] = await generate('2026-11-16');
+    await report(week.id);
+    assert.deepEqual(
+      (await list()).map((item) => [item.period, item.seen]),
+      [
+        ['week', false],
+        ['month', false],
+      ],
+    );
+    const seen = await call('2026-11-16', `/api/reports/${week.id}/seen`, 'PUT');
+    assert.deepEqual(seen.data, { report: { id: week.id, seen: true } });
+    assert.deepEqual(
+      (await list()).map((item) => item.seen),
+      [true, false],
+    );
+    const missing = await call('2026-11-16', '/api/reports/999999');
+    assert.deepEqual([missing.status, missing.data], [404, { error: 'Report not found' }]);
+    const missingSeen = await call('2026-11-16', '/api/reports/999999/seen', 'PUT');
+    assert.equal(missingSeen.status, 404);
+  });
+
+  await t.test('the DB keeps weeks on Sunday and months on the 1st', async () => {
+    await reset();
+    await assert.rejects(
+      pool.query(
+        "INSERT INTO spending_reports (period, start_date, end_date, content) VALUES ('week', '2026-11-09', '2026-11-15', '{}')",
+      ),
+      /spending_reports_week_check/,
+    );
+    await assert.rejects(
+      pool.query(
+        "INSERT INTO spending_reports (period, start_date, end_date, content) VALUES ('month', '2026-11-02', '2026-11-30', '{}')",
+      ),
+      /spending_reports_month_check/,
+    );
+  });
+});

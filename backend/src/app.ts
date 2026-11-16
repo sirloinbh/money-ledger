@@ -15,6 +15,7 @@ import { mockOrdersRouter } from './mock-orders.js';
 import { mockSnapshotsRouter } from './mock-snapshots.js';
 import { netWorthRouter } from './net-worth.js';
 import { type PriceLog, type PriceSources, pricesRouter } from './prices/index.js';
+import { reportsRouter } from './reports.js';
 import { rulesRouter } from './rules.js';
 import { errorHandler, notFound, serviceDate } from './standard/http.js';
 import { summaryRouter } from './summary.js';
@@ -64,6 +65,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   app.use('/api/ledger/fixed-costs', fixedCostsRouter(pool, { today }));
   app.use('/api/ledger/rules', rulesRouter(pool));
   app.use('/api/ledger/summary', summaryRouter(pool));
+  app.use('/api/reports', reportsRouter(pool, { today }));
   app.use('/api/ledger/trend', trendRouter(pool));
   app.use(
     '/api/portfolio/assets',

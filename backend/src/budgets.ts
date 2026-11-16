@@ -27,7 +27,7 @@ const saveBody = z.object(
   objectBody,
 );
 
-type Row = {
+export type BudgetRow = {
   category_id: string;
   name: string;
   hidden: boolean;
@@ -43,7 +43,7 @@ type Row = {
 // Expense categories in their usual order. A hidden category is listed only when it has spending or a budget
 // this month. The budget is the category's latest row up to this month, unless that row is 0 (no budget).
 // Uncategorized spending has no category to budget, so it is not here (the monthly summary shows it).
-const listSql = `
+export const budgetListSql = `
   WITH spent AS (
     SELECT category_id, sum(amount) AS spent FROM ledger_entries
     WHERE kind = 'expense' AND category_id IS NOT NULL
@@ -81,7 +81,7 @@ export function budgetsRouter(pool: Pool) {
 
   router.get('/', async (req, res) => {
     const { month } = monthQuery.parse(req.query);
-    const { rows } = await pool.query<Row>(listSql, [`${month}-01`]);
+    const { rows } = await pool.query<BudgetRow>(budgetListSql, [`${month}-01`]);
     res.json({
       month,
       budgets: rows.map((row) => ({

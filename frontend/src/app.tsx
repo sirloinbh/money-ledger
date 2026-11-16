@@ -1,4 +1,4 @@
-import { ChartPie, LayoutDashboard, Settings2, TrendingUp, Wallet } from 'lucide-react';
+import { ChartPie, FileText, LayoutDashboard, Settings2, TrendingUp, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 
@@ -12,6 +12,8 @@ import { MockTradingPage } from './mock-trading';
 import { saveTodayOnce } from './net-worth';
 import { Page } from './page';
 import { PortfolioPage } from './portfolio';
+import { ReportPage, ReportsPage } from './reports';
+import { makeReportsOnce } from './reports-api';
 
 // Every page URL lives here (central docs/directory-rules.md).
 const pages = {
@@ -19,6 +21,7 @@ const pages = {
   ledger: '/ledger',
   portfolio: '/portfolio',
   mockTrading: '/mock-trading',
+  reports: '/reports',
   settings: '/settings',
 } as const;
 
@@ -28,6 +31,7 @@ const nav: NavItem[] = [
   { to: pages.ledger, label: 'Ledger', icon: Wallet },
   { to: pages.portfolio, label: 'Asset portfolio', icon: ChartPie },
   { to: pages.mockTrading, label: 'Mock trading', icon: TrendingUp },
+  { to: pages.reports, label: 'Reports', icon: FileText },
   { to: pages.settings, label: 'Settings', icon: Settings2 },
 ];
 
@@ -53,10 +57,12 @@ function useHealth() {
 export function App() {
   const health = useHealth();
   // #49 Opening the app saves today's net worth once (decision 2026-11-10), whichever page opens first.
-  // #43 It also adds the fixed-cost entries that are due (decision 2026-11-15).
+  // #43 It also adds the fixed-cost entries that are due (decision 2026-11-15), and #62 then saves the reports
+  // of the weeks and months that have finished (decision 2026-11-16).
   useEffect(() => {
     void saveTodayOnce();
     void addDueOnce();
+    void makeReportsOnce();
   }, []);
   return (
     <BrowserRouter>
@@ -66,6 +72,8 @@ export function App() {
           <Route path={pages.ledger} element={<LedgerPage health={health} />} />
           <Route path={pages.portfolio} element={<PortfolioPage health={health} />} />
           <Route path={pages.mockTrading} element={<MockTradingPage health={health} />} />
+          <Route path={pages.reports} element={<ReportsPage health={health} />} />
+          <Route path={`${pages.reports}/:id`} element={<ReportPage health={health} />} />
           <Route
             path={pages.settings}
             element={
