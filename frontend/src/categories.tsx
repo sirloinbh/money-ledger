@@ -1,4 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import type { z } from 'zod/v4';
 
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
@@ -6,12 +7,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './com
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
+import { categoryKind, categoryName } from './contract';
 import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 
 // #37 Income and expense categories. A category is hidden, never deleted, so entries keep it.
 
-type CategoryKind = 'income' | 'expense';
+type CategoryKind = z.infer<typeof categoryKind>;
+
+// #75 The server's own rules (shared/contract.ts): the field stops at the same length, and a name the server
+// would refuse is refused here with the same message, before anything is sent.
+const nameMax = categoryName.maxLength ?? undefined;
+const checkedName = (value: string) => {
+  const parsed = categoryName.safeParse(value);
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+  return parsed.data;
+};
 type Category = { id: number; kind: CategoryKind; name: string; hidden: boolean };
 
 const categoriesPath = '/api/ledger/categories';
@@ -115,7 +126,8 @@ function KindCard({
     const trimmed = name.trim();
     if (!trimmed) return;
     const added = await save(
-      () => requestJson(categoriesPath, { method: 'POST', body: { kind, name: trimmed } }),
+      () =>
+        requestJson(categoriesPath, { method: 'POST', body: { kind, name: checkedName(name) } }),
       `${trimmed} category added`,
     );
     if (added) setName('');
@@ -136,7 +148,7 @@ function KindCard({
             <Input
               id={inputId}
               value={name}
-              maxLength={30}
+              maxLength={nameMax}
               placeholder="e.g. Pets"
               onChange={(event) => setName(event.target.value)}
             />
@@ -184,7 +196,7 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
     setRenaming(true);
     try {
       const renamed = await save(
-        () => requestJson(path, { method: 'PATCH', body: { name: trimmed } }),
+        () => requestJson(path, { method: 'PATCH', body: { name: checkedName(name) } }),
         `Category renamed to ${trimmed}`,
       );
       if (renamed) setEditing(false);
@@ -217,7 +229,7 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
             <Input
               id={inputId}
               value={name}
-              maxLength={30}
+              maxLength={nameMax}
               ref={nameInput}
               className="min-w-0 flex-1"
               onChange={(event) => setName(event.target.value)}

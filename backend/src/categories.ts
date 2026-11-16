@@ -2,25 +2,14 @@ import { Router } from 'express';
 import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
+import { categoryKind, categoryName } from './contract.js';
 import { HttpError, parseId } from './standard/http.js';
 
 // #37 Income and expense categories. Categories are hidden instead of deleted, so entries keep them.
 
-const reservedNames = new Set(['uncategorized', '미분류']);
-
-const kind = z.enum(['income', 'expense'], { error: 'Choose income or expense as the kind' });
-const name = z
-  .string({ error: 'Enter a category name' })
-  .trim()
-  // NFC: Hangul pasted in decomposed form (macOS) must match the composed name for the duplicate check.
-  .normalize('NFC')
-  .min(1, 'Enter a category name')
-  .max(30, 'Enter a category name of 30 characters or fewer')
-  // #110 The monthly summary names spending with no category "Uncategorized" (formerly "미분류"), so a category
-  // of that name would show as a second row nobody can tell apart. Case and spaces do not make it different.
-  .refine((value) => !reservedNames.has(value.replace(/\s+/g, '').toLowerCase()), {
-    error: '"Uncategorized" is reserved for entries with no category; choose another name',
-  });
+// #75 The kind and name rules are shared with the screen (shared/contract.ts).
+const kind = categoryKind;
+const name = categoryName;
 
 const objectBody = { error: 'The request body must be a JSON object' };
 const createBody = z.object({ kind, name }, objectBody);
