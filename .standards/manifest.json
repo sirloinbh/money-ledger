@@ -1,5 +1,5 @@
 {
-  "centralSha": "a0890cfe2de43403c6c740ec20408636a5e3b523",
+  "centralSha": "fed37ba151aa56f71a19eaf3f2f80b007ffdde2d",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -130,7 +130,7 @@
     },
     ".github/workflows/ci.yml": {
       "mode": "full",
-      "sha256": "ac38fd431ba9b9284ff37a1d694282bc1de57486af790cea20b2ab82deb2fb3c",
+      "sha256": "afd5de689bec5c265e828df82357be7844d356e518b3334aa07bfaa20a1ee5a3",
       "source": "templates/app/.github/workflows/ci.yml.tmpl"
     },
     ".gitignore": {
@@ -812,7 +812,8 @@
     "@sirloinbh/eslint-config": "1.1.0",
     "@sirloinbh/prettier-config": "1.0.0",
     "@sirloinbh/tsconfig": "1.0.0",
-    "@sirloinbh/design-tokens": "1.0.0"
+    "@sirloinbh/design-tokens": "1.0.0",
+    "@sirloinbh/auth-client": "1.0.0"
   },
   "registry": {
     "ports": {
