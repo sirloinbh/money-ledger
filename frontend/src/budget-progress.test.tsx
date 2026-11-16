@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { BudgetProgress } from './budget-progress';
 
-const base = { hidden: false, remaining: null, over: null, percent: null };
+const base = { hidden: false, remaining: null, over: null, percent: null, status: 'unset' };
 const november = {
   month: '2026-11',
   budgets: [
@@ -18,6 +18,7 @@ const november = {
       remaining: 0,
       over: 37500,
       percent: '112.5',
+      status: 'over',
     },
     {
       ...base,
@@ -29,6 +30,7 @@ const november = {
       remaining: 79000,
       over: 0,
       percent: '1.3',
+      status: 'within',
     },
     { ...base, categoryId: 4, name: 'Phone', spent: 12000, budget: null, budgetMonth: null },
     {
@@ -128,6 +130,62 @@ test('the summary month: over, under and unset budgets, each said in words', asy
   expect(phone).toHaveTextContent('Spent ₩12,000 · set a budget to see progress');
   expect(phone.querySelector('[aria-hidden="true"] > div')).toBeNull();
   expect(row('Leisure')).toHaveTextContent('Leisure (hidden)');
+});
+
+test('the spending review lists what reached or passed its budget, with the reason (#61)', async () => {
+  const reached = {
+    ...base,
+    categoryId: 2,
+    name: 'Transport',
+    spent: 50000,
+    budget: 50000,
+    budgetMonth: '2026-11',
+    remaining: 0,
+    over: 0,
+    percent: '100.0',
+    status: 'reached',
+  };
+  answer = () =>
+    json({ ...november, budgets: [november.budgets[0], reached, ...november.budgets.slice(1)] });
+  show();
+  const review = within(
+    (await screen.findByRole('heading', { name: 'Spending review' })).closest(
+      '[data-slot="card"]',
+    ) as HTMLElement,
+  );
+  expect(
+    review.getByText('2 categories reached their budget in November 2026.'),
+  ).toBeInTheDocument();
+  const items = within(review.getByRole('list', { name: 'Overspending' })).getAllByRole('listitem');
+  expect(items.map((item) => item.textContent)).toEqual([
+    'Food: spent ₩337,500 of a ₩300,000 budget, ₩37,500 more (112.5%)',
+    'Transport: spent ₩50,000, all of the ₩50,000 budget (100.0%)',
+  ]);
+  // Below the budget or without one: not in the review.
+  expect(review.queryByText(/Housing|Phone/)).toBeNull();
+
+  // Exactly the budget is overspending on its row too: the warning color, an icon, and the words.
+  const transport = row('Transport');
+  const note = within(transport).getByText('Budget reached (100.0%)');
+  expect(note).toHaveClass('text-destructive');
+  expect(note.querySelector('svg')).not.toBeNull();
+  expect(transport.querySelector('[aria-hidden="true"] > div')).toHaveClass('bg-destructive');
+});
+
+test('the spending review says when nothing reached its budget, or when no budget is set', async () => {
+  answer = () => json({ ...november, budgets: november.budgets.slice(1) });
+  const { unmount } = show();
+  expect(
+    await screen.findByText('No category has reached its budget in November 2026.'),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole('list', { name: 'Overspending' })).toBeNull();
+  unmount();
+
+  answer = () => json({ ...november, budgets: november.budgets.slice(2) });
+  show();
+  expect(
+    await screen.findByText('Set a budget for a category below to review its spending.'),
+  ).toBeInTheDocument();
 });
 
 test('the month in the address, and another month reloads and closes an open form', async () => {
