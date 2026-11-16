@@ -1,5 +1,5 @@
 {
-  "centralSha": "fed37ba151aa56f71a19eaf3f2f80b007ffdde2d",
+  "centralSha": "ef519a027a81e433b3ccb701683cf17492cba689",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -155,7 +155,7 @@
     },
     ".prettierignore": {
       "mode": "section",
-      "sha256": "ecf64bb26a140f87a75f6dc7d75704989fdb51fcf35de572df9922f7325c2c62",
+      "sha256": "a74ca50d14fb8575d9c4270e2d0a98d31d08724df8d4315f562f6ace7d8e1ba3",
       "source": "templates/app/.prettierignore.tmpl"
     },
     ".standards/blocked-packages.json": {
@@ -686,9 +686,19 @@
       "sha256": "ae223fe47966193ebd80c94391cac51d599afb419ef0f7139585c5c091adc9a0",
       "source": "templates/ui/frontend/src/lib/utils.ts"
     },
+    "frontend/src/session-watch.test.ts": {
+      "mode": "full",
+      "sha256": "1e3694637d3796306e286fa46792e25d229134816121312022f740f699850b58",
+      "source": "templates/ui/frontend/src/session-watch.test.ts"
+    },
+    "frontend/src/session-watch.ts": {
+      "mode": "full",
+      "sha256": "7df800670aa484cca1daf4e74093af33128a88b5c7a5a4c2e74f948784202404",
+      "source": "templates/ui/frontend/src/session-watch.ts"
+    },
     "frontend/src/sign-in.tsx": {
       "mode": "full",
-      "sha256": "5ea070c066dd7b9746e7f0b2a5ae17981d5ee2a0559a089c81bba36376904885",
+      "sha256": "8e83f7fed04a4b0e9e5f3d9c683520b14c4cfcadb8e0a0ed6d03c6e3214c8a8c",
       "source": "templates/ui/frontend/src/sign-in.tsx"
     },
     "frontend/tsconfig.json": {
