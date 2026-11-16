@@ -48,3 +48,7 @@ The user decided this on 2026-11-16, and it is recorded on #61. Earlier decision
 - Fixed: a hidden category in the review now carries "(hidden)" like its row (shared `shownName`), and the test checks it.
 - Not changed (nit): 1 won under a large budget shows "₩1 left (100.0%)", because the percentage rounds to one decimal (#42). The words and color say it is within the budget.
 - After the fix: `budget-progress.test.tsx` 17 passed; eslint and tsc clean.
+
+### Second review (PR #150)
+
+- Nothing to fix: the name helper is shared by the row and the review, and nothing else changed.
