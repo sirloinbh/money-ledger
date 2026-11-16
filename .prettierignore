@@ -55,6 +55,8 @@ frontend/src/health.ts
 frontend/src/sign-in.tsx
 frontend/src/auth-origin.ts
 frontend/src/auth-origin.test.ts
+frontend/src/session-watch.ts
+frontend/src/session-watch.test.ts
 frontend/src/components/layout/
 frontend/public/theme-init.js
 playwright.config.ts

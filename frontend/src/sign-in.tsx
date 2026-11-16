@@ -6,6 +6,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { authOrigin } from './auth-origin';
 import { Button } from './components/ui/button';
 import { Spinner } from './components/ui/spinner';
+import { watchSession } from './session-watch';
 
 // The shared sign-in (sirloinbh/shared-auth, ADR-0015, #550, #551). The API answers 401
 // without a session; the screen sends a signed-out visitor to auth.<domain> and back.
@@ -23,6 +24,17 @@ function Gate({ origin, children }: { origin: string; children: React.ReactNode 
   useEffect(() => {
     if (state.status === 'signed-out')
       window.location.assign(signInUrl(origin, window.location.href));
+  }, [origin, state.status]);
+  // #596: once signed in, a 401 from the app's API means the session ended during use; back to sign-in.
+  useEffect(() => {
+    if (state.status !== 'signed-in') return;
+    const original = window.fetch;
+    window.fetch = watchSession(original, window.location.origin, () =>
+      window.location.assign(signInUrl(origin, window.location.href)),
+    );
+    return () => {
+      window.fetch = original;
+    };
   }, [origin, state.status]);
   if (state.status === 'signed-in')
     return <SignedInUser.Provider value={state.user}>{children}</SignedInUser.Provider>;
