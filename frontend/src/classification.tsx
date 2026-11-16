@@ -24,6 +24,8 @@ type Entry = {
   merchant: string;
   memo: string;
 };
+/** #154 A category from how the same merchant was classified before; `from` is that merchant. */
+type Suggestion = { entryId: number; categoryId: number; categoryName: string; from: string };
 type Rule = {
   id: number;
   keyword: string;
@@ -92,6 +94,7 @@ export function UncategorizedEntries({
   onChange?: () => void;
 }) {
   const [entries, setEntries] = useState<Entry[] | undefined>(undefined);
+  const [suggestions, setSuggestions] = useState<Map<number, Suggestion>>(new Map());
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [categoryId, setCategoryId] = useState('');
   const [remember, setRemember] = useState(true);
@@ -104,8 +107,15 @@ export function UncategorizedEntries({
   const categories = useCategories(categoriesVersion, showError);
 
   const load = useCallback(async () => {
-    const data = await requestJson<{ entries: Entry[] }>('/api/ledger/entries?uncategorized=true');
+    const [data, suggested] = await Promise.all([
+      requestJson<{ entries: Entry[] }>('/api/ledger/entries?uncategorized=true'),
+      // Suggestions only help: without them the list and the form still work.
+      requestJson<{ suggestions: Suggestion[] }>('/api/ledger/entries/suggestions').catch(() => ({
+        suggestions: [],
+      })),
+    ]);
     setEntries(data.entries);
+    setSuggestions(new Map(suggested.suggestions.map((item) => [item.entryId, item])));
     // Entries classified elsewhere drop out of the selection.
     setSelected(
       (current) => new Set(data.entries.filter((e) => current.has(e.id)).map((e) => e.id)),
@@ -222,6 +232,35 @@ export function UncategorizedEntries({
     }
   };
 
+  // #154 Classifies entries by their suggestion (worked out again by the server); no rule is saved.
+  const applySuggestions = async (entryIds: number[]) => {
+    if (saving.current || entryIds.length === 0) return;
+    saving.current = true;
+    setBusy(true);
+    try {
+      let result: { classified: number; skipped: number };
+      try {
+        result = await requestJson('/api/ledger/entries/apply-suggestions', {
+          method: 'POST',
+          body: { entryIds },
+        });
+      } catch (cause) {
+        showError(cause);
+        return;
+      }
+      if (result.classified > 0) notifyChange();
+      const parts = [
+        `${result.classified} ${result.classified === 1 ? 'entry' : 'entries'} classified by suggestion`,
+      ];
+      if (result.skipped > 0) parts.push(`${result.skipped} skipped (changed meanwhile)`);
+      await reloadAfter(parts.join('. '));
+    } finally {
+      saving.current = false;
+      setBusy(false);
+    }
+  };
+
+  const suggested = entries?.filter((entry) => suggestions.has(entry.id)) ?? [];
   const allSelected = !!entries && entries.length > 0 && selected.size === entries.length;
 
   return (
@@ -257,30 +296,53 @@ export function UncategorizedEntries({
             aria-label="Uncategorized entries"
             className="flex flex-col divide-y rounded-xl border"
           >
-            {entries.map((entry) => (
-              <li key={entry.id}>
-                <label className="flex flex-wrap items-center gap-3 px-4 py-3">
-                  <input
-                    type="checkbox"
-                    className={checkboxClass}
-                    checked={selected.has(entry.id)}
-                    onChange={() => toggle(entry.id)}
-                  />
-                  <span className="flex min-w-0 flex-1 flex-col gap-1">
-                    <span className="flex items-center gap-2 text-body-sm text-muted-foreground">
-                      {entry.date}
-                      <Badge variant={entry.kind === 'income' ? 'success' : 'secondary'}>
-                        {kindLabel[entry.kind]}
-                      </Badge>
+            {entries.map((entry) => {
+              const suggestion = suggestions.get(entry.id);
+              return (
+                <li key={entry.id} className="flex flex-col gap-2 px-4 py-3">
+                  <label className="flex flex-wrap items-center gap-3">
+                    <input
+                      type="checkbox"
+                      className={checkboxClass}
+                      checked={selected.has(entry.id)}
+                      onChange={() => toggle(entry.id)}
+                    />
+                    <span className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="flex items-center gap-2 text-body-sm text-muted-foreground">
+                        {entry.date}
+                        <Badge variant={entry.kind === 'income' ? 'success' : 'secondary'}>
+                          {kindLabel[entry.kind]}
+                        </Badge>
+                      </span>
+                      <span className="break-words">
+                        {[entry.merchant || 'No merchant', entry.memo].filter(Boolean).join(' · ')}
+                      </span>
                     </span>
-                    <span className="break-words">
-                      {[entry.merchant || 'No merchant', entry.memo].filter(Boolean).join(' · ')}
-                    </span>
-                  </span>
-                  <span className="font-medium tabular-nums">{formatWon(entry.amount)}</span>
-                </label>
-              </li>
-            ))}
+                    <span className="font-medium tabular-nums">{formatWon(entry.amount)}</span>
+                  </label>
+                  {suggestion && (
+                    <div className="flex flex-wrap items-center gap-2 pl-7 text-body-sm">
+                      <span className="min-w-0 break-words text-muted-foreground">
+                        Suggested:{' '}
+                        <span className="font-medium text-foreground">
+                          {suggestion.categoryName}
+                        </span>{' '}
+                        (from {suggestion.from})
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        aria-label={`Use ${suggestion.categoryName} for ${entry.merchant}, ${formatWon(entry.amount)} on ${entry.date}`}
+                        onClick={() => void applySuggestions([entry.id])}
+                      >
+                        Use
+                      </Button>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
           <div className="grid gap-4 md:grid-cols-2 md:items-end">
             <div className="flex flex-col gap-2">
@@ -318,6 +380,15 @@ export function UncategorizedEntries({
             <Button type="button" variant="outline" onClick={() => void applyRules()}>
               Reclassify with rules
             </Button>
+            {suggested.length > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void applySuggestions(suggested.map((entry) => entry.id))}
+              >
+                {`Apply ${suggested.length} ${suggested.length === 1 ? 'suggestion' : 'suggestions'}`}
+              </Button>
+            )}
           </div>
         </form>
       )}

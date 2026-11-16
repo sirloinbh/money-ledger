@@ -5,6 +5,7 @@ import { z } from 'zod/v4';
 import { inTransaction } from './db.js';
 import { merchantText, ruleCategorySql } from './rules.js';
 import { HttpError, parseId } from './standard/http.js';
+import { loadHistory, suggest } from './suggestions.js';
 
 // #38 Income and expense entries: whole-won amounts, a date in the service calendar, a category of the same kind.
 // #60 An entry may have a merchant and may be uncategorized (category NULL, "Uncategorized"). Saved without a
@@ -117,20 +118,18 @@ export function listFilter(query: ListQuery) {
 }
 
 const maxClassify = 200;
+const entryIds = z
+  .array(
+    z.number({ error: 'The entry ID is not valid' }).int().positive('The entry ID is not valid'),
+    {
+      error: 'Select the entries to classify',
+    },
+  )
+  .min(1, 'Select the entries to classify')
+  .max(maxClassify, `You can classify at most ${maxClassify} entries at a time`);
 const classifyBody = z.object(
   {
-    entryIds: z
-      .array(
-        z
-          .number({ error: 'The entry ID is not valid' })
-          .int()
-          .positive('The entry ID is not valid'),
-        {
-          error: 'Select the entries to classify',
-        },
-      )
-      .min(1, 'Select the entries to classify')
-      .max(maxClassify, `You can classify at most ${maxClassify} entries at a time`),
+    entryIds,
     categoryId,
     // Also save each merchant of the classified entries as a rule for this category.
     remember: z.boolean({ error: 'The save-as-rule flag is not valid' }).default(false),
@@ -339,6 +338,61 @@ export function entriesRouter(pool: Pool) {
       return { classified, skipped: ids.length - classified, rulesAdded, rulesUpdated };
     });
     res.json(result);
+  });
+
+  // #154 A suggestion for each entry of the uncategorized list whose merchant was classified before.
+  router.get('/suggestions', async (_req, res) => {
+    const [list, history] = await Promise.all([
+      pool.query<{ id: string; kind: 'income' | 'expense'; merchant: string }>(
+        `SELECT id, kind, merchant FROM ledger_entries WHERE category_id IS NULL
+         ORDER BY entry_date DESC, id DESC LIMIT ${maxClassify}`,
+      ),
+      loadHistory(pool),
+    ]);
+    const suggestions = list.rows.flatMap((entry) => {
+      const found = suggest(entry, history);
+      return found ? [{ entryId: Number(entry.id), ...found }] : [];
+    });
+    res.json({ suggestions });
+  });
+
+  // #154 Classifies the chosen entries by their suggestion, worked out again here; entries without one, or
+  // classified meanwhile, are skipped. No rule is saved.
+  router.post('/apply-suggestions', async (req, res) => {
+    const ids = [...new Set(z.object({ entryIds }, objectBody).parse(req.body).entryIds)];
+    const result = await inTransaction(pool, async (client) => {
+      // Locked in id order, like /classify, so the merchant and kind cannot change before the update.
+      const targets = await client.query<{
+        id: string;
+        kind: 'income' | 'expense';
+        merchant: string;
+      }>(
+        `SELECT id, kind, merchant FROM ledger_entries
+         WHERE id = ANY($1::bigint[]) AND category_id IS NULL ORDER BY id FOR UPDATE`,
+        [ids],
+      );
+      const history = await loadHistory(client);
+      const picks = targets.rows.flatMap((entry) => {
+        const found = suggest(entry, history);
+        return found ? [{ id: entry.id, categoryId: found.categoryId }] : [];
+      });
+      if (picks.length === 0) return 0;
+      // FOR SHARE: a category cannot be hidden or change kind until this commits.
+      const { rowCount } = await client.query(
+        `WITH pick AS (
+           SELECT p.id, p.category_id FROM unnest($1::bigint[], $2::bigint[]) AS p(id, category_id)
+         ), shown AS (
+           SELECT c.id, c.kind FROM ledger_categories c
+           WHERE c.id IN (SELECT category_id FROM pick) AND NOT c.hidden FOR SHARE
+         )
+         UPDATE ledger_entries e SET category_id = pick.category_id, updated_at = now()
+         FROM pick JOIN shown ON shown.id = pick.category_id
+         WHERE e.id = pick.id AND e.kind = shown.kind AND e.category_id IS NULL`,
+        [picks.map((pick) => pick.id), picks.map((pick) => pick.categoryId)],
+      );
+      return rowCount ?? 0;
+    });
+    res.json({ classified: result, skipped: ids.length - result });
   });
 
   // Applies the current rules to uncategorized entries only; categorized entries are never touched.

@@ -18,6 +18,7 @@ const health = (body: object, status = 200) =>
                 months: [],
                 snapshots: [],
                 budgets: [],
+                suggestions: [],
                 fixedCosts: [],
                 added: 0,
                 assets: [],

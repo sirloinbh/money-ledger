@@ -6,7 +6,7 @@
 
 **History first, AI later.**
 
-- Build now: suggest a category from the user's own past classifications of the same or a similar merchant. Nothing leaves the machine. Follow-up: #154.
+- Build now: suggest a category from the user's own past classifications of the same or a similar merchant. Nothing leaves the machine. Built in #154 ([record](changes/154-merchant-suggestions.md)).
 - Hosted AI is not built now. It may be revisited later as an optional, off-by-default fallback, under the limits in [If AI is added later](#if-ai-is-added-later).
 
 ## Comparison
