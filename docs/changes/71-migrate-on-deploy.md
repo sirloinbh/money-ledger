@@ -43,3 +43,11 @@ The deploy script `deploy/remote-deploy.sh` is a central managed file. It runs `
 - The root `npm run db:migrate`, run the way CI runs it against the test DB, recorded all files.
 - Whole backend suite on the test DB: 388 passed, none skipped.
 - `npm run check` passed: frontend 358 passed / 2 skipped; backend 188 passed / 20 DB tests skipped (no test DB in that run). `npm run knip` and `npm run standards:check` passed.
+
+### Review (PR #153)
+
+- No blocking findings.
+- In a deploy the runner runs inside the api image with the migrations mounted at `/database/migrations`, and `set -euo pipefail` stops on its exit code before `docker compose up -d`.
+- The runner takes a session-level advisory lock, so a host run and a deploy take turns.
+- Other integration tests drop and recreate tables in the shared test DB but never touch `schema_migrations`, so CI's recorded history does not affect them.
+- Not changed (note): the integration test needs a test DB user that can create databases. Both CI's user and the local container's user are the Postgres superuser. This is noted in the test.
