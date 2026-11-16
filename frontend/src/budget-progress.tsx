@@ -17,6 +17,8 @@ import { monthLabel } from './trend-series';
 // #42 Each expense category's budget for the summary's month and how much of it is spent. A month without its
 // own budget carries on from the latest earlier one (decided 2026-11-10); saving here sets this month and the
 // months after it that have none of their own. 0 or an empty field means no budget ("Not set").
+// #61 The budget is also the overspending line (decided 2026-11-16): spending equal to it already counts. The
+// server says which (`status`), and the spending review lists the categories that reached or passed it.
 
 type Budget = {
   categoryId: number;
@@ -30,6 +32,8 @@ type Budget = {
   over: number | null;
   /** Spent as a percentage of the budget with one decimal, from the server: "112.5". */
   percent: string | null;
+  /** From the server: reached (exactly the budget) and over are overspending. */
+  status: 'unset' | 'within' | 'reached' | 'over';
 };
 type Budgets = { month: string; budgets: Budget[] };
 
@@ -186,81 +190,86 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
           <p className="text-body-sm text-muted-foreground">Loading budgets</p>
         )
       ) : (
-        <Card aria-busy={loading || undefined} className={cn(loading && 'opacity-60')}>
-          <CardHeader>
-            <CardTitle asHeading="h3">Budget usage</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {shown.budgets.length === 0 ? (
-              <p className="text-body-sm text-muted-foreground">There are no expense categories.</p>
-            ) : (
-              <ul className="flex flex-col divide-y">
-                {shown.budgets.map((budget) => (
-                  <li
-                    key={budget.categoryId}
-                    className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0"
-                  >
-                    <BudgetRow
-                      budget={budget}
-                      // The rows are of shown.month; while another month loads they are not editable, so an
-                      // old amount is never saved into the new month.
-                      month={shown.month}
-                      disabled={loading}
-                      onEdit={() => startEdit(budget)}
-                      editRef={(button) => {
-                        if (button) editButtons.current.set(budget.categoryId, button);
-                        else editButtons.current.delete(budget.categoryId);
-                      }}
-                    />
-                    {editing === budget.categoryId ? (
-                      <form
-                        className="flex flex-col gap-2"
-                        onSubmit={(event) => void save(event, budget)}
-                      >
-                        <Label htmlFor={`budget-${budget.categoryId}`}>
-                          {budget.name} budget (KRW)
-                        </Label>
-                        <div className="flex flex-wrap gap-2">
-                          <Input
-                            id={`budget-${budget.categoryId}`}
-                            inputMode="numeric"
-                            autoComplete="off"
-                            placeholder="e.g. 300000"
-                            className="w-40"
-                            value={draft}
-                            aria-invalid={invalid || undefined}
-                            aria-describedby={`budget-${budget.categoryId}-hint${invalid ? ' budget-notice' : ''}`}
-                            onChange={(event) => {
-                              setInvalid(false);
-                              setDraft(event.target.value);
-                            }}
-                          />
-                          <Button type="submit" size="sm" disabled={saving}>
-                            Save
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => stopEdit(budget.categoryId)}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                        <p
-                          id={`budget-${budget.categoryId}-hint`}
-                          className="text-body-sm text-muted-foreground"
+        <>
+          <SpendingReview budgets={shown.budgets} month={shown.month} loading={loading} />
+          <Card aria-busy={loading || undefined} className={cn(loading && 'opacity-60')}>
+            <CardHeader>
+              <CardTitle asHeading="h3">Budget usage</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {shown.budgets.length === 0 ? (
+                <p className="text-body-sm text-muted-foreground">
+                  There are no expense categories.
+                </p>
+              ) : (
+                <ul className="flex flex-col divide-y">
+                  {shown.budgets.map((budget) => (
+                    <li
+                      key={budget.categoryId}
+                      className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0"
+                    >
+                      <BudgetRow
+                        budget={budget}
+                        // The rows are of shown.month; while another month loads they are not editable, so an
+                        // old amount is never saved into the new month.
+                        month={shown.month}
+                        disabled={loading}
+                        onEdit={() => startEdit(budget)}
+                        editRef={(button) => {
+                          if (button) editButtons.current.set(budget.categoryId, button);
+                          else editButtons.current.delete(budget.categoryId);
+                        }}
+                      />
+                      {editing === budget.categoryId ? (
+                        <form
+                          className="flex flex-col gap-2"
+                          onSubmit={(event) => void save(event, budget)}
                         >
-                          Applies from {monthLabel(month)}. Leave empty or 0 for not set.
-                        </p>
-                      </form>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+                          <Label htmlFor={`budget-${budget.categoryId}`}>
+                            {budget.name} budget (KRW)
+                          </Label>
+                          <div className="flex flex-wrap gap-2">
+                            <Input
+                              id={`budget-${budget.categoryId}`}
+                              inputMode="numeric"
+                              autoComplete="off"
+                              placeholder="e.g. 300000"
+                              className="w-40"
+                              value={draft}
+                              aria-invalid={invalid || undefined}
+                              aria-describedby={`budget-${budget.categoryId}-hint${invalid ? ' budget-notice' : ''}`}
+                              onChange={(event) => {
+                                setInvalid(false);
+                                setDraft(event.target.value);
+                              }}
+                            />
+                            <Button type="submit" size="sm" disabled={saving}>
+                              Save
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => stopEdit(budget.categoryId)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                          <p
+                            id={`budget-${budget.categoryId}-hint`}
+                            className="text-body-sm text-muted-foreground"
+                          >
+                            Applies from {monthLabel(month)}. Leave empty or 0 for not set.
+                          </p>
+                        </form>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </>
       )}
     </section>
   );
@@ -279,8 +288,9 @@ function BudgetRow({
   onEdit: () => void;
   editRef: (button: HTMLButtonElement | null) => void;
 }) {
-  const name = budget.hidden ? `${budget.name} (hidden)` : budget.name;
-  const over = (budget.over ?? 0) > 0;
+  const name = shownName(budget);
+  const over = budget.status === 'over';
+  const flagged = overspent(budget);
   return (
     <>
       <div className="flex items-center justify-between gap-2">
@@ -318,18 +328,20 @@ function BudgetRow({
           {/* The bar repeats the text next to it, so it is hidden from screen readers. */}
           <div aria-hidden className="h-2 w-full overflow-hidden rounded-full bg-muted">
             <div
-              className={cn('h-full rounded-full', over && 'bg-destructive')}
+              className={cn('h-full rounded-full', flagged && 'bg-destructive')}
               style={{
                 width: `${Math.min(Number(budget.percent), 100)}%`,
-                background: over ? undefined : 'var(--chart-series-1)',
+                background: flagged ? undefined : 'var(--chart-series-1)',
               }}
             />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-x-2 text-body-sm">
-            {over ? (
+            {flagged ? (
               <p className="flex items-center gap-1 font-medium text-destructive">
                 <CircleAlert aria-hidden className="size-4" />
-                {formatWon(budget.over ?? 0)} over ({budget.percent}%)
+                {over
+                  ? `${formatWon(budget.over ?? 0)} over (${budget.percent}%)`
+                  : `Budget reached (${budget.percent}%)`}
               </p>
             ) : (
               <p className="text-muted-foreground tabular-nums">
@@ -345,5 +357,63 @@ function BudgetRow({
         </>
       )}
     </>
+  );
+}
+
+const shownName = (budget: Budget) => (budget.hidden ? `${budget.name} (hidden)` : budget.name);
+const overspent = (budget: Budget) => budget.status === 'reached' || budget.status === 'over';
+
+/** #61 The categories that reached or passed their budget this month, each with the reason in words. */
+function SpendingReview({
+  budgets,
+  month,
+  loading,
+}: {
+  budgets: Budget[];
+  month: string;
+  loading: boolean;
+}) {
+  const flagged = budgets.filter(overspent);
+  const anySet = budgets.some((budget) => budget.status !== 'unset');
+  return (
+    <Card aria-busy={loading || undefined} className={cn(loading && 'opacity-60')}>
+      <CardHeader>
+        <CardTitle asHeading="h3">Spending review</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {flagged.length > 0 ? (
+          <>
+            <p className="text-body-sm">
+              {flagged.length === 1
+                ? `1 category reached its budget in ${monthLabel(month)}.`
+                : `${flagged.length} categories reached their budget in ${monthLabel(month)}.`}
+            </p>
+            <ul aria-label="Overspending" className="flex flex-col gap-2">
+              {flagged.map((budget) => (
+                <li key={budget.categoryId} className="flex items-start gap-2 text-body-sm">
+                  <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-destructive" />
+                  <p className="min-w-0 break-words">
+                    <span className="font-medium">{shownName(budget)}</span>
+                    {': '}
+                    {budget.status === 'over'
+                      ? `spent ${formatWon(budget.spent)} of a ${formatWon(budget.budget ?? 0)} budget, ${formatWon(budget.over ?? 0)} more (${budget.percent}%)`
+                      : `spent ${formatWon(budget.spent)}, all of the ${formatWon(budget.budget ?? 0)} budget (${budget.percent}%)`}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="text-body-sm text-muted-foreground">
+            {anySet
+              ? `No category has reached its budget in ${monthLabel(month)}.`
+              : 'Set a budget for a category below to review its spending.'}
+          </p>
+        )}
+        <p className="text-caption text-muted-foreground">
+          Spending equal to the budget counts as overspending. Fixed costs are included.
+        </p>
+      </CardContent>
+    </Card>
   );
 }

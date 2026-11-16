@@ -17,6 +17,7 @@ type Budget = {
   remaining: number | null;
   over: number | null;
   percent: string | null;
+  status: string;
 };
 
 // Requires a dedicated test DB with database/migrations applied. Skipped (not passed) without it.
@@ -95,16 +96,27 @@ test('monthly budgets against the real database', { skip: !url }, async (t) => {
       remaining: 0,
       over: 37500,
       percent: '112.5',
+      status: 'over',
     });
-    // Exactly the budget: neither rest nor excess.
+    // Exactly the budget: neither rest nor excess, but already overspending (#61).
     assert.deepEqual(
-      [budgets['교통'].remaining, budgets['교통'].over, budgets['교통'].percent],
-      [0, 0, '100.0'],
+      [
+        budgets['교통'].remaining,
+        budgets['교통'].over,
+        budgets['교통'].percent,
+        budgets['교통'].status,
+      ],
+      [0, 0, '100.0', 'reached'],
     );
     // Rounding to one decimal: 1000 / 80000 = 1.25 → 1.3 (half away from zero).
     assert.deepEqual(
-      [budgets['주거'].remaining, budgets['주거'].over, budgets['주거'].percent],
-      [79000, 0, '1.3'],
+      [
+        budgets['주거'].remaining,
+        budgets['주거'].over,
+        budgets['주거'].percent,
+        budgets['주거'].status,
+      ],
+      [79000, 0, '1.3', 'within'],
     );
     // No budget: Not set, with the spending still shown.
     assert.deepEqual(budgets['통신'], {
@@ -117,6 +129,7 @@ test('monthly budgets against the real database', { skip: !url }, async (t) => {
       remaining: null,
       over: null,
       percent: null,
+      status: 'unset',
     });
     // Expense categories only, in their usual order.
     assert.deepEqual(Object.keys(budgets), [
@@ -130,6 +143,47 @@ test('monthly budgets against the real database', { skip: !url }, async (t) => {
       '기타',
     ]);
   });
+
+  await t.test(
+    'overspending starts at the budget, 1 won below is not, and fixed costs count (#61)',
+    async () => {
+      await reset();
+      const food = ids['expense/식비'];
+      const telecom = ids['expense/통신'];
+      await save(food, '2026-11', 50000);
+      await save(telecom, '2026-11', 50000);
+      await spend('2026-11-10', food, 49999);
+      // The phone bill is a fixed cost: its entry is added by the fixed cost run, like when the app opens.
+      await withApi(
+        pool,
+        async (api) => {
+          const created = await api('/api/ledger/fixed-costs', {
+            method: 'POST',
+            body: {
+              name: 'Phone',
+              categoryId: telecom,
+              amount: 50000,
+              variable: false,
+              dayOfMonth: 25,
+              startMonth: '2026-11',
+            },
+          });
+          assert.equal(created.status, 201, JSON.stringify(created.data));
+          const run = await api('/api/ledger/fixed-costs/generate', { method: 'POST' });
+          assert.deepEqual(run.data, { added: 1 });
+        },
+        { today: () => '2026-11-25' },
+      );
+
+      let budgets = await list('2026-11');
+      assert.deepEqual([budgets['식비'].status, budgets['식비'].remaining], ['within', 1]);
+      assert.deepEqual([budgets['통신'].spent, budgets['통신'].status], [50000, 'reached']);
+      // 1 won more and food reaches its budget too.
+      await spend('2026-11-11', food, 1);
+      budgets = await list('2026-11');
+      assert.equal(budgets['식비'].status, 'reached');
+    },
+  );
 
   await t.test(
     'a month without its own budget carries on from the latest earlier one',

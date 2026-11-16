@@ -8,6 +8,8 @@ import { HttpError, parseId } from './standard/http.js';
 // #42 Monthly budgets of expense categories and how much of each is spent. A month uses its own budget row or
 // else the latest earlier one (nothing is copied); an amount of 0 means no budget. Sums, the rest, the excess
 // and the percentage are computed in SQL (numeric), never with JavaScript floats.
+// #61 The budget is also the overspending line (decided 2026-11-16): spending equal to it already counts, so a
+// category is `reached` at exactly the budget and `over` above it.
 
 const monthQuery = z.object({ month: monthField('the month') });
 
@@ -35,6 +37,7 @@ type Row = {
   remaining: string | null;
   over: string | null;
   percent: string | null;
+  status: 'unset' | 'within' | 'reached' | 'over';
 };
 
 // Expense categories in their usual order. A hidden category is listed only when it has spending or a budget
@@ -66,7 +69,9 @@ const listSql = `
          -- greatest() skips NULL, so a category without a budget is NULL here on purpose, not 0.
          CASE WHEN budget IS NOT NULL THEN greatest(budget - spent, 0) END::text AS remaining,
          CASE WHEN budget IS NOT NULL THEN greatest(spent - budget, 0) END::text AS over,
-         round(spent * 100.0 / budget, 1)::text AS percent
+         round(spent * 100.0 / budget, 1)::text AS percent,
+         CASE WHEN budget IS NULL THEN 'unset' WHEN spent > budget THEN 'over'
+              WHEN spent = budget THEN 'reached' ELSE 'within' END AS status
   FROM rows
   WHERE NOT hidden OR spent > 0 OR budget IS NOT NULL
   ORDER BY id`;
@@ -92,6 +97,8 @@ export function budgetsRouter(pool: Pool) {
         over: row.over === null ? null : won(row.over),
         // A decimal string with one digit, e.g. "112.5": shown as text, not recomputed in the browser.
         percent: row.percent,
+        // unset (no budget), within (below it), reached (exactly it) or over: reached and over are overspending.
+        status: row.status,
       })),
     });
   });
