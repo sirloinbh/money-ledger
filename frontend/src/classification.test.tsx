@@ -26,6 +26,9 @@ let entries: Entry[];
 let rules: Rule[];
 let requests: { method: string; url: string; body: unknown }[];
 let failNext: { status: number; error: string } | undefined;
+// #154 Entry ID to the suggested category; `suggestionsFail` makes loading them fail.
+let suggested: Map<number, number>;
+let suggestionsFail: boolean;
 
 const json = (body: unknown, status = 200) =>
   Promise.resolve(
@@ -82,6 +85,27 @@ function fakeApi() {
         }
         return json({ classified });
       }
+      if (url === '/api/ledger/entries/suggestions') {
+        if (suggestionsFail) return json({ error: 'down' }, 500);
+        return json({
+          suggestions: entries
+            .filter((entry) => entry.categoryId === null && suggested.has(entry.id))
+            .map((entry) => ({
+              entryId: entry.id,
+              categoryId: suggested.get(entry.id)!,
+              categoryName: nameOf(suggested.get(entry.id)!),
+              from: `${entry.merchant} (earlier)`,
+            })),
+        });
+      }
+      if (url === '/api/ledger/entries/apply-suggestions') {
+        const ids = body!.entryIds as number[];
+        const hit = entries.filter(
+          (entry) => ids.includes(entry.id) && entry.categoryId === null && suggested.has(entry.id),
+        );
+        hit.forEach((entry) => (entry.categoryId = suggested.get(entry.id)!));
+        return json({ classified: hit.length, skipped: ids.length - hit.length });
+      }
       if (url === '/api/ledger/rules' && method === 'GET') {
         return json({
           rules: rules.map((rule) => ({
@@ -132,6 +156,8 @@ beforeEach(() => {
   rules = [];
   requests = [];
   failNext = undefined;
+  suggested = new Map();
+  suggestionsFail = false;
   fakeApi();
 });
 
@@ -334,6 +360,7 @@ test('updated and skipped counts are reported in words', async () => {
     if (path === '/api/ledger/entries/classify' && init?.method === 'POST') {
       return json({ classified: 1, skipped: 1, rulesAdded: 0, rulesUpdated: 1 });
     }
+    if (path === '/api/ledger/entries/suggestions') return json({ suggestions: [] });
     return json({ entries: [entry(1, 'Kimbap Place'), entry(2, 'Kimbap Place')] });
   });
   render(<UncategorizedEntries />);
@@ -366,4 +393,59 @@ test('the rules reload when categories change, so names and hidden marks are cur
   const before = loads();
   rerender(<RuleManager categoriesVersion={1} />);
   await vi.waitFor(() => expect(loads()).toBe(before + 1));
+});
+
+test('a suggestion is shown on its entry and used alone, without a rule', async () => {
+  suggested = new Map([
+    [1, 1],
+    [2, 1],
+  ]);
+  const onChange = vi.fn();
+  render(<UncategorizedEntries onChange={onChange} />);
+  await screen.findByRole('heading', { name: 'Uncategorized entries (4)' });
+  expect(row('₩1,000')).toHaveTextContent('Suggested: Food (from Kimbap Place (earlier))');
+  expect(row('₩3,000')).not.toHaveTextContent('Suggested');
+  // The checkbox keeps its own name: the suggestion sits outside its label.
+  expect(within(row('₩1,000')).getByRole('checkbox')).not.toHaveAccessibleName(/Suggested/);
+
+  fireEvent.click(
+    within(row('₩1,000')).getByRole('button', {
+      name: 'Use Food for Kimbap Place, ₩1,000 on 2026-11-05',
+    }),
+  );
+  expect(await screen.findByRole('status')).toHaveTextContent('1 entry classified by suggestion');
+  expect(posts()).toEqual([
+    { method: 'POST', url: '/api/ledger/entries/apply-suggestions', body: { entryIds: [1] } },
+  ]);
+  expect(onChange).toHaveBeenCalled();
+  expect(screen.getByRole('heading', { name: 'Uncategorized entries (3)' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Apply 1 suggestion' })).toBeInTheDocument();
+});
+
+test('every shown suggestion is applied at once and skips are reported', async () => {
+  suggested = new Map([
+    [1, 1],
+    [2, 2],
+  ]);
+  render(<UncategorizedEntries />);
+  await screen.findByRole('heading', { name: 'Uncategorized entries (4)' });
+  // Classified elsewhere after the list loaded: the server skips it.
+  entries[1].categoryId = 2;
+  fireEvent.click(screen.getByRole('button', { name: 'Apply 2 suggestions' }));
+  expect(await screen.findByRole('status')).toHaveTextContent(
+    '1 entry classified by suggestion. 1 skipped (changed meanwhile)',
+  );
+  expect(posts()[0].body).toEqual({ entryIds: [1, 2] });
+  expect(screen.queryByRole('button', { name: /^Apply \d+ suggestion/ })).not.toBeInTheDocument();
+});
+
+test('without suggestions, or when they fail to load, the list still works', async () => {
+  suggestionsFail = true;
+  render(<UncategorizedEntries />);
+  expect(
+    await screen.findByRole('heading', { name: 'Uncategorized entries (4)' }),
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/Suggested/)).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /^Apply \d+ suggestion/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
