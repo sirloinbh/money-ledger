@@ -8,11 +8,13 @@ import type { Health } from './health';
 import { requestJson } from './lib/api';
 import { netWorthPath, saveTodayOnce, type Snapshot } from './net-worth';
 import { Page } from './page';
+import { makeReportsOnce, periodLabel, type ReportItem, reportsPath } from './reports-api';
 import { monthLabel } from './trend-series';
 
 // #55 The first screen: this month's ledger, the latest net worth, and the mock account at a glance. Each card
 // asks the same API as its own page, so the values match it, and loads on its own, so one failure leaves the
 // others shown. Mock money is shown apart from real assets and is not part of the net worth.
+// #62 New spending reports are announced above the cards until they are opened.
 
 type Summary = { income: number; expense: number; balance: number };
 type NetWorth = { snapshots: Snapshot[] };
@@ -57,6 +59,9 @@ const signedWon = (amount: number) =>
 // The loaders do not change, so each card loads once (and again on retry).
 // Waits for today's save when the app opens, like the net worth card on the portfolio page.
 const loadNetWorth = () => saveTodayOnce().then(() => requestJson<NetWorth>(netWorthPath));
+// Waits for this open's reports to be made, so a period that just finished is announced.
+const loadReports = () =>
+  makeReportsOnce().then(() => requestJson<{ reports: ReportItem[] }>(reportsPath));
 const loadMock = async (): Promise<MockState> => {
   const { account } = await requestJson<MockAccount>('/api/mock/accounts');
   if (!account) return { open: false };
@@ -71,12 +76,40 @@ export function DashboardPage({ health }: { health: Health }) {
       description="This month's income and spending, your net worth, and mock trading at a glance"
       health={health}
     >
+      <NewReports />
       <div className="grid gap-4 lg:grid-cols-3">
         <LedgerCard />
         <NetWorthCard />
         <MockCard />
       </div>
     </Page>
+  );
+}
+
+/** Reports not opened yet, as links; nothing at all while loading, on failure, or when there are none. */
+function NewReports() {
+  const { data } = useCardData(loadReports);
+  const fresh = data?.reports.filter((report) => !report.seen) ?? [];
+  if (fresh.length === 0) return null;
+  return (
+    <section
+      aria-labelledby="new-reports-title"
+      className="flex flex-col gap-2 rounded-xl border bg-card px-4 py-3"
+    >
+      <h2 id="new-reports-title" className="text-body font-semibold">
+        {fresh.length === 1 ? 'New spending report' : 'New spending reports'}
+      </h2>
+      <ul className="flex flex-col gap-1">
+        {fresh.map((report) => (
+          <li key={report.id} className="text-body-sm">
+            <Link to={`/reports/${report.id}`} className="underline underline-offset-4">
+              {periodLabel(report)}
+            </Link>
+            <span className="text-muted-foreground"> · spent {formatWon(report.total)}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

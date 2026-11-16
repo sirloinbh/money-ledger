@@ -24,6 +24,8 @@ const health = (body: object, status = 200) =>
                 totals: { assetsKrw: 0, debtsKrw: 0, netKrw: 0, uncounted: 0, fixed: 0, other: 0 },
                 account: null,
                 closedAccounts: [],
+                reports: [],
+                created: [],
               }),
             ),
       ),
@@ -134,4 +136,19 @@ test('opening the app adds the due fixed-cost entries once (#43)', async () => {
   render(<FreshApp />);
   await screen.findByRole('heading', { level: 2, name: 'Fixed costs' });
   expect(adds()).toHaveLength(1);
+});
+
+test('the main menu opens the Reports page (#62)', async () => {
+  health({ today: '2026-10-26' });
+  window.history.replaceState(null, '', '/');
+  render(<App />);
+  const menu = screen.getByRole('navigation', { name: 'Main menu' });
+  fireEvent.click(within(menu).getByRole('link', { name: 'Reports' }));
+  expect(window.location.pathname).toBe('/reports');
+  expect(await screen.findByRole('heading', { level: 1, name: 'Reports' })).toBeInTheDocument();
+  expect(
+    await screen.findByText(
+      'No reports yet. A report is saved once a week (Sunday to Saturday) or month with entries has ended.',
+    ),
+  ).toBeInTheDocument();
 });

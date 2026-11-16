@@ -33,6 +33,9 @@ const normal = (): Record<string, Answer> => ({
   'GET /api/portfolio/net-worth': () => json({ today: '2026-11-16', snapshots }),
   'GET /api/mock/accounts': () => json({ account: { id: 7 }, closedAccounts: [] }),
   'GET /api/mock/accounts/7/holdings': () => json(holdings),
+  'POST /api/ledger/fixed-costs/generate': () => json({ added: 0 }),
+  'POST /api/reports/generate': () => json({ created: [] }),
+  'GET /api/reports': () => json({ reports: [] }),
 });
 
 beforeEach(() => {
@@ -142,4 +145,46 @@ test('mock values: a loss is signed, values without a price show -, and a failed
   expect(await within(mock).findByText('-₩250,000')).toBeInTheDocument();
   expect(value(mock, 'Total assets')).toBe('-');
   expect(value(mock, 'Return')).toBe('-2.5%');
+});
+
+test('new spending reports are announced with links until they are opened (#62)', async () => {
+  const report = (
+    id: number,
+    period: string,
+    startDate: string,
+    endDate: string,
+    seen: boolean,
+  ) => ({
+    id,
+    period,
+    startDate,
+    endDate,
+    madeOn: '2026-11-16',
+    seen,
+    total: 56500,
+  });
+  answers['GET /api/reports'] = () =>
+    json({
+      reports: [
+        report(3, 'week', '2026-11-08', '2026-11-14', false),
+        report(2, 'month', '2026-10-01', '2026-10-31', false),
+        report(1, 'week', '2026-11-01', '2026-11-07', true),
+      ],
+    });
+  show();
+  const notice = (await screen.findByRole('heading', { name: 'New spending reports' })).closest(
+    'section',
+  ) as HTMLElement;
+  const links = within(notice).getAllByRole('link');
+  expect(links.map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
+    ['Week of Nov 8 – Nov 14, 2026', '/reports/3'],
+    ['October 2026', '/reports/2'],
+  ]);
+  expect(notice).toHaveTextContent('· spent ₩56,500');
+});
+
+test('no notice when every report was opened', async () => {
+  show();
+  expect(await within(card('This month')).findByText('₩3,000,000')).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: /New spending report/ })).toBeNull();
 });
