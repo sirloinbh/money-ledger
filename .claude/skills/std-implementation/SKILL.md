@@ -1,6 +1,6 @@
 ---
 name: std-implementation
-description: Follow the issue, numbered branch, implementation with docs, tests, and PR workflow for changes to a sirloinbh project repository. Use for code, configuration, documentation, and skill edits; exclude read-only questions and recommendations. Merge only as the repository's AGENTS.md allows.
+description: Follow the issue, numbered branch, implementation with docs, tests, and PR workflow for changes to a sirloinbh project repository. Use for code, configuration, documentation, and skill edits; exclude read-only questions and recommendations. After the PR is created, review it yourself, then merge it once checks pass.
 ---
 
 <!-- Managed file. Edit it in sirloinbh/project-standards templates/common/skills/std-implementation/ -->
@@ -20,7 +20,7 @@ Skills used together:
 Do not stop to ask the user to choose when a sensible default exists. Pick the default, continue, and record the choice so the user can reverse it later. Several worktrees often run at once, and every question stalls one of them.
 
 - Proceed without asking when there is a conventional default, the code or existing docs settle the choice, or the choice is easy to reverse (naming, file placement, wording, ordering, which of two equivalent approaches).
-- Ask first only for decisions that are truly the user's: irreversible actions, costly actions, actions that become public, actions that conflict with the requirements, merges into production (app repo `main`), steps the issue marks as user-only (`[Manual]`, `needs-user`), package installs outside pre-approved scope, and anything the issue marks as "user confirmation". Keep working on the other parts of the task while waiting.
+- Ask first only for decisions that are truly the user's: irreversible actions, costly actions, actions that become public, actions that conflict with the requirements, `terraform apply` and other real AWS or production changes (merging a PR is not applying it), steps the issue marks as user-only (`[Manual]`, `needs-user`), package installs outside pre-approved scope, and anything the issue marks as "user confirmation". Keep working on the other parts of the task while waiting.
 - Write each choice made without asking in the PR "Check before merging" section as a line such as "Chose X over Y because Z. Say so if you want Y." Add the same line to the `docs/changes/` record.
 - If an item in "Check before merging" needs the user's answer before merging, say so in the PR and do not merge.
 
@@ -59,10 +59,18 @@ Do not stop to ask the user to choose when a sensible default exists. Pick the d
 - Write the PR title and body with the std-git-writing PR template. Pass the body as a UTF-8 file.
 - Check the GitHub Actions results and resolve related failures. Report checks that are still running as running.
 
-## 5. Merge
+## 5. Review and merge
 
-- Who merges follows the project `AGENTS.md`. If it is not specified, **only the user merges.**
-- Repos where the user merges: hand over the issue URL, branch, PR URL, verification results, and remaining work, and leave the PR open. Do not use auto-merge, add it to a merge queue, call the merge API, or integrate into main directly. Do not approve your own PR in place of user review. Do not read a general "continue" as permission to merge.
+User decision, 2026-11-15 (#591): in every repo, the agent reviews its own PR and merges it. This includes infra repos and app repos where merging `main` deploys to production.
+
+1. **Review your own PR** with [std-code-review](../std-code-review/SKILL.md) section 8. Do 1 or 2 rounds, and more only while blocking findings remain. Fix findings with new commits on the same branch between rounds.
+2. **File issues for big problems outside the PR's scope** instead of growing the PR (std-code-review section 8, std-backlog).
+3. **Merge** with `pr merge --merge` after the review passes and the required checks on the final head are green. Do not use `--delete-branch`, squash, `--admin`, or force-push, and never push to `main` directly.
+4. **Clean up locally** with the std-git-writing steps (`git switch main`, `git pull --ff-only`, `git branch --delete <branch>`, `git fetch --prune origin`).
+
+- Do not merge, and ask the user, when the PR's "Check before merging" has an item that needs the user's own decision, or when a check is failing or still running.
+- Merging is not applying. `terraform apply`, server changes, and other real AWS or production changes still need the user's OK. If merging `main` deploys by itself, say so in the PR body.
+- A repo's `AGENTS.md` or `AGENTS.project.md` may add stricter rules for that repo; those win.
 - Let the issue close when the PR is merged.
 
 ## Authentication and failure handling

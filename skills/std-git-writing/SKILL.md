@@ -120,7 +120,7 @@ Write the sections of the PR template (`.github/pull_request_template.md` at the
 | Impact | Effect on deployment, other repos, and local setup (.env etc.). "None" if nothing |
 | `Closes #number` | One line per issue to close. At the end of the body, just before the co-author note |
 
-- Who merges follows the repo's `AGENTS.md` (the user only, if it says nothing). Even in repos where the agent merges, do not merge and ask instead when "Check before merging" has an item that needs the user's judgment.
+- The agent merges its own PR after the review loop (std-code-review section 8, user decision 2026-11-15, #591), in every repo. Do not merge and ask instead when "Check before merging" has an item that needs the user's judgment.
 - Reviewing a PR and answering review comments follow [std-code-review](../std-code-review/SKILL.md).
 - When you add commits to a PR, update "Main changes" and `Closes` in the body too.
 
