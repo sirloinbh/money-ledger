@@ -254,3 +254,29 @@ test('a second submit while saving sends nothing', async () => {
   expect(await screen.findByRole('status')).toHaveTextContent('Pets category added');
   expect(requests.filter((request) => request.method === 'POST')).toHaveLength(1);
 });
+
+test('a name the server would refuse is refused here with its message, before sending (#75)', async () => {
+  render(<CategoryManager />);
+  await list('Expense category');
+  const field = screen.getByLabelText('New expense category');
+  // The same limit as the server's schema (shared/contract.ts).
+  expect(field).toHaveAttribute('maxLength', '30');
+  fireEvent.change(field, { target: { value: ' Un categorized ' } });
+  fireEvent.click(screen.getAllByRole('button', { name: 'Add' })[0]);
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    '"Uncategorized" is reserved for entries with no category; choose another name',
+  );
+  expect(field).toHaveValue(' Un categorized ');
+  expect(requests.filter((request) => request.method !== 'GET')).toEqual([]);
+});
+
+test('a rename to a reserved name is refused before sending and stays in the form (#75)', async () => {
+  render(<CategoryManager />);
+  await list('Expense category');
+  fireEvent.click(screen.getByRole('button', { name: 'Rename Food' }));
+  fireEvent.change(screen.getByLabelText('Food new name'), { target: { value: '미분류' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('"Uncategorized" is reserved');
+  expect(screen.getByLabelText('Food new name')).toHaveValue('미분류');
+  expect(requests.filter((request) => request.method !== 'GET')).toEqual([]);
+});
