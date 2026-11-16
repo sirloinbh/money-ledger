@@ -42,3 +42,9 @@ The user decided this on 2026-11-16, and it is recorded on #61. Earlier decision
   - The rows showed "Budget reached (100.0%)", "₩11,000 over (122.0%)", and "₩1 left (100.0%)".
   - At 390×844 and 1440×900 the page width was 390 and 1425, so there was no horizontal scroll.
 - `npm run check` passed: frontend 348 passed / 2 skipped; backend 180 passed / 18 DB tests skipped (no test DB in that run). `npm run knip` passed.
+
+### Review (PR #150)
+
+- Fixed: a hidden category in the review now carries "(hidden)" like its row (shared `shownName`), and the test checks it.
+- Not changed (nit): 1 won under a large budget shows "₩1 left (100.0%)", because the percentage rounds to one decimal (#42). The words and color say it is within the budget.
+- After the fix: `budget-progress.test.tsx` 17 passed; eslint and tsc clean.

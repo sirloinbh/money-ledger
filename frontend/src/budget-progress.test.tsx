@@ -137,6 +137,8 @@ test('the spending review lists what reached or passed its budget, with the reas
     ...base,
     categoryId: 2,
     name: 'Transport',
+    // Hidden, but with spending this month: still reviewed, marked like its row.
+    hidden: true,
     spent: 50000,
     budget: 50000,
     budgetMonth: '2026-11',
@@ -159,7 +161,7 @@ test('the spending review lists what reached or passed its budget, with the reas
   const items = within(review.getByRole('list', { name: 'Overspending' })).getAllByRole('listitem');
   expect(items.map((item) => item.textContent)).toEqual([
     'Food: spent ₩337,500 of a ₩300,000 budget, ₩37,500 more (112.5%)',
-    'Transport: spent ₩50,000, all of the ₩50,000 budget (100.0%)',
+    'Transport (hidden): spent ₩50,000, all of the ₩50,000 budget (100.0%)',
   ]);
   // Below the budget or without one: not in the review.
   expect(review.queryByText(/Housing|Phone/)).toBeNull();

@@ -288,7 +288,7 @@ function BudgetRow({
   onEdit: () => void;
   editRef: (button: HTMLButtonElement | null) => void;
 }) {
-  const name = budget.hidden ? `${budget.name} (hidden)` : budget.name;
+  const name = shownName(budget);
   const over = budget.status === 'over';
   const flagged = overspent(budget);
   return (
@@ -360,6 +360,7 @@ function BudgetRow({
   );
 }
 
+const shownName = (budget: Budget) => (budget.hidden ? `${budget.name} (hidden)` : budget.name);
 const overspent = (budget: Budget) => budget.status === 'reached' || budget.status === 'over';
 
 /** #61 The categories that reached or passed their budget this month, each with the reason in words. */
@@ -392,7 +393,7 @@ function SpendingReview({
                 <li key={budget.categoryId} className="flex items-start gap-2 text-body-sm">
                   <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-destructive" />
                   <p className="min-w-0 break-words">
-                    <span className="font-medium">{budget.name}</span>
+                    <span className="font-medium">{shownName(budget)}</span>
                     {': '}
                     {budget.status === 'over'
                       ? `spent ${formatWon(budget.spent)} of a ${formatWon(budget.budget ?? 0)} budget, ${formatWon(budget.over ?? 0)} more (${budget.percent}%)`
