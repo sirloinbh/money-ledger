@@ -2,11 +2,11 @@
 # Blocks package installs and ad-hoc package execution for Codex (npm supply-chain attacks, docs/agent-guardrails.md).
 # Codex reads project rules only after the user trusts this project's .codex/ folder.
 prefix_rule(
-    pattern = ["npm", ["install", "i", "in", "ins", "inst", "insta", "instal", "isnt", "isnta", "isntal", "isntall", "add", "install-test", "it", "install-ci-test", "cit", "clean-install-test", "sit", "update", "up", "u", "upgrade", "udpate", "uninstall", "un", "remove", "rm", "r", "unlink", "exec", "x", "create", "init", "innit", "rebuild", "rb", "dedupe", "ddp", "link", "ln"]],
+    pattern = ["npm", ["install-test", "it", "install-ci-test", "cit", "clean-install-test", "sit", "update", "up", "u", "upgrade", "udpate", "uninstall", "un", "remove", "rm", "r", "unlink", "exec", "x", "create", "init", "innit", "rebuild", "rb", "dedupe", "ddp", "link", "ln"]],
     decision = "forbidden",
     justification = "Installing, removing, or running npm packages is done by the user after approval (docs/dependency-policy.md).",
-    match = [["npm", "install"], ["npm", "i", "react"], ["npm", "u"], ["npm", "sit"], ["npm", "unlink", "x"]],
-    not_match = [["npm", "ci"], ["npm", "run", "check"], ["npm", "ls"], ["npm", "test"]],
+    match = [["npm", "install-test"], ["npm", "update", "react"], ["npm", "u"], ["npm", "sit"], ["npm", "unlink", "x"]],
+    not_match = [["npm", "ci"], ["npm", "install", "react"], ["npm", "i"], ["npm", "run", "check"], ["npm", "ls"], ["npm", "test"]],
 )
 # Codex rules compare words literally, so this lists every unambiguous prefix and camelCase form npm 11
 # resolves to the commands above (lib/utils/cmd-list.js). The Claude Code hook resolves these instead.

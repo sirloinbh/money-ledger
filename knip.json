@@ -6,5 +6,7 @@
     "backend/src/standard/**",
     "frontend/public/**",
     "frontend/src/components/ui/**"
-  ]
+  ],
+  "ignoreBinaries": ["tsc", "tsx"],
+  "ignoreDependencies": ["@lhci/cli"]
 }
