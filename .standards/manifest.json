@@ -1,5 +1,5 @@
 {
-  "centralSha": "71970fbfc3b70cbd4fe281523d5bb0f88ff9e08b",
+  "centralSha": "1901a22201d9260771707565f0a9e48c58ac4548",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -130,7 +130,7 @@
     },
     ".github/workflows/ci.yml": {
       "mode": "full",
-      "sha256": "afd5de689bec5c265e828df82357be7844d356e518b3334aa07bfaa20a1ee5a3",
+      "sha256": "9f7a1a7adfad142c7a7a5ad1687908e2fc250642a957b51c6927c511dacbd0b8",
       "source": "templates/app/.github/workflows/ci.yml.tmpl"
     },
     ".gitignore": {
@@ -741,6 +741,11 @@
       "sha256": "d2bbbdec2d8561e99fae53f7465aa288df780f25a662a730a4243eef10d307ca",
       "source": "templates/app/knip.json"
     },
+    "lighthouserc.json": {
+      "mode": "full",
+      "sha256": "82a4bc06ef0dc1d9de27a6284edf0f898920d4e81d09afcb519e547b32970946",
+      "source": "templates/lighthouse/lighthouserc.json"
+    },
     "orca.yaml": {
       "mode": "full",
       "sha256": "6db0e665d7298a7079bc6c58a291742684085f91a351ae59e34ec1511cb801bf",
@@ -771,6 +776,11 @@
         "devDependencies.typescript-eslint": "8.71.2"
       },
       "source": "templates/index.json"
+    },
+    "playwright.config.ts": {
+      "mode": "full",
+      "sha256": "c07cc833bb98fee85196dcd517484bb2416f0835678afaedefec7f0c29dc5a1f",
+      "source": "templates/e2e/playwright.config.ts.tmpl"
     },
     "prettier.config.mjs": {
       "mode": "full",
