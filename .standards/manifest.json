@@ -1,5 +1,5 @@
 {
-  "centralSha": "9f05ff31ce4c4151dfe85a0ffd38195fe8ecdee4",
+  "centralSha": "df3463d73812b9bd8b02386b7a9b6a0e836b2f6e",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -266,6 +266,11 @@
       "mode": "full",
       "sha256": "d77a5499049593f8e06cb2d6ecba7706769fd82f46fecd52989ccaaedf6c5c32",
       "source": "templates/app/backend/src/standard/http.ts"
+    },
+    "backend/src/standard/jobs.ts": {
+      "mode": "full",
+      "sha256": "5761d1a287d56f0f18c7e5655824818228213ffd25057313289dd3d47d4e3026",
+      "source": "templates/jobs/backend/src/standard/jobs.ts"
     },
     "backend/src/standard/tools.ts": {
       "mode": "full",
