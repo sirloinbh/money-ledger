@@ -1,5 +1,5 @@
 {
-  "centralSha": "ef519a027a81e433b3ccb701683cf17492cba689",
+  "centralSha": "1d20cf11e897809cbead42177bae51189e92db2b",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -379,7 +379,7 @@
     },
     "frontend/nginx.conf": {
       "mode": "full",
-      "sha256": "4443d59616dcab85a920ee5eee516871f18af8781711d5cd9aca981558fbc662",
+      "sha256": "161394c1bffe8c6762b97106aad50e2329d434f41b7f09b08375993a8888f05b",
       "source": "templates/app/frontend/nginx.conf.tmpl"
     },
     "frontend/package.json": {
