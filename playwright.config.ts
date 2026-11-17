@@ -1,3 +1,4 @@
+// Managed file. Edit it in sirloinbh/project-standards templates/e2e/
 import { defineConfig } from '@playwright/test';
 
 // Browser checks need a dedicated, migrated test database (never the personal DB).
