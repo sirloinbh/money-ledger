@@ -28,7 +28,7 @@
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
     "@eslint/js": "10.0.1",
-    "@lhci/cli": "0.16.0",
+    "@lhci/cli": "0.16.1",
     "@playwright/test": "1.63.0",
     "@sirloinbh/eslint-config": "1.1.0",
     "@sirloinbh/prettier-config": "1.0.0",
