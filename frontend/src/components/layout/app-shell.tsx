@@ -8,6 +8,7 @@ import { DARK_ONLY } from '../../lib/theme-config';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
+import { AppSwitcher } from './app-switcher';
 import { ThemeToggle } from './theme-toggle';
 
 // The common app frame (docs/layout.md): top bar, main menu (LNB), content and footer.
@@ -89,6 +90,7 @@ function AppShell({
           </Link>
           <div className="ml-auto flex items-center gap-1">
             {actions}
+            <AppSwitcher />
             {/* A dark-only app (ADR-0011) has no mode to choose. */}
             {!DARK_ONLY && <ThemeToggle />}
           </div>

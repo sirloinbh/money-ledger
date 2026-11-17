@@ -54,6 +54,13 @@ COUNT_SQL="select table_schema || '.' || table_name || '|' ||
   from information_schema.tables
   where table_schema not in ('pg_catalog', 'information_schema') and table_type = 'BASE TABLE'
   order by 1"
+# Audit log retention (#553, docs/audit-log.md): rows older than 365 days (AUDIT_RETENTION_DAYS in
+# backend/src/standard/audit.ts), once they are in tonight's dump. Nothing happens before the app has the table.
+PRUNE_SQL="do \$\$ begin
+  if to_regclass('public.audit_log') is not null then
+    delete from audit_log where at < now() - make_interval(days => 365);
+  end if;
+end \$\$"
 
 # Uploads one file with SigV4 signing built into curl, so the server needs no AWS CLI.
 # The key pair goes to curl on standard input and never appears in the process list or the log.
@@ -96,6 +103,10 @@ dump() {
     rm -f "$dir/$name.counts"
   fi
   find "$dir" -maxdepth 1 \( -name "$db-*.sql.gz" -o -name "$db-*.counts" \) -mtime +14 -delete
+  # Only the nightly dump prunes; a failed prune is retried the next night and does not fail the backup.
+  if [ -z "$label" ] && ! docker compose exec -T db sh -c 'psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$0"' "$PRUNE_SQL"; then
+    echo "audit_log retention delete failed" >&2
+  fi
   echo "dumped $file ($(du -h "$file" | cut -f1))"
   signal_message="$(basename "$file") $(du -h "$file" | cut -f1)"
   # Exit 3: the local dump is fine but the S3 copy failed. The timer shows it as failed;
