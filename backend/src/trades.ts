@@ -26,7 +26,7 @@ const wonCost = (label: string) => {
     .default(0);
 };
 
-const tradeBody = z.object(
+export const tradeBody = z.object(
   {
     side: z.enum(['buy', 'sell'], { error: 'Choose buy or sell' }),
     tradedOn: date,

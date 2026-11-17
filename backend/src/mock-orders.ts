@@ -28,7 +28,7 @@ const securityField = z
   .string({ error: 'Choose a security' })
   .regex(/^[1-9]\d{0,14}$/, 'The security ID is not valid');
 
-const orderBody = z.object(
+export const orderBody = z.object(
   {
     securityId: z
       .number({ error: 'Choose a security' })
@@ -55,7 +55,7 @@ const orderBody = z.object(
   { error: 'The request body must be a JSON object' },
 );
 
-const previewQuery = z.object({
+export const previewQuery = z.object({
   securityId: securityField,
   side: sideField,
   quantity: quantityField,
@@ -64,7 +64,7 @@ const previewQuery = z.object({
 // #54 Order history of an account, newest first, a page at a time. Dates are order days in the service time
 // zone (KST). `before` is the id of the last order already shown.
 const historyPage = 50;
-const historyQuery = z
+export const historyQuery = z
   .object({
     from: date.optional(),
     to: date.optional(),

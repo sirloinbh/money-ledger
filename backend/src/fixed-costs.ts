@@ -36,11 +36,11 @@ const dayOfMonth = z
   .max(31, 'Enter a day between 1 and 31');
 const variable = z.boolean({ error: 'variable must be true or false' });
 
-const createBody = z.object(
+export const createBody = z.object(
   { name, categoryId, amount, variable, dayOfMonth, startMonth: monthField('the start month') },
   objectBody,
 );
-const updateBody = z
+export const updateBody = z
   .object(
     {
       name: name.optional(),
@@ -55,8 +55,8 @@ const updateBody = z
   .refine((body) => Object.values(body).some((value) => value !== undefined), {
     error: 'Nothing to change',
   });
-const confirmBody = z.object({ amount }, objectBody);
-const monthQuery = z.object({ month: monthField('the month') });
+export const confirmBody = z.object({ amount }, objectBody);
+export const monthQuery = z.object({ month: monthField('the month') });
 
 type ItemRow = {
   id: string;

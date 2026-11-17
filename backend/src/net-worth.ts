@@ -20,7 +20,7 @@ type Row = {
   uncounted: number;
 };
 
-const listQuery = z.object({ from: date.optional() });
+export const listQuery = z.object({ from: date.optional() });
 
 const columns = 'snapshot_date, assets_krw::text, debts_krw::text, net_krw::text, uncounted';
 

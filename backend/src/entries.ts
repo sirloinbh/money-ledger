@@ -40,7 +40,7 @@ const categoryId = z
 
 const objectBody = { error: 'The request body must be a JSON object' };
 
-const entryBody = z.object(
+export const entryBody = z.object(
   {
     date,
     kind: z.enum(['income', 'expense'], { error: 'Choose income or expense as the kind' }),
@@ -127,7 +127,8 @@ const entryIds = z
   )
   .min(1, 'Select the entries to classify')
   .max(maxClassify, `You can classify at most ${maxClassify} entries at a time`);
-const classifyBody = z.object(
+export const applySuggestionsBody = z.object({ entryIds }, objectBody);
+export const classifyBody = z.object(
   {
     entryIds,
     categoryId,
@@ -360,7 +361,7 @@ export function entriesRouter(pool: Pool) {
   // #154 Classifies the chosen entries by their suggestion, worked out again here; entries without one, or
   // classified meanwhile, are skipped. No rule is saved.
   router.post('/apply-suggestions', async (req, res) => {
-    const ids = [...new Set(z.object({ entryIds }, objectBody).parse(req.body).entryIds)];
+    const ids = [...new Set(applySuggestionsBody.parse(req.body).entryIds)];
     const result = await inTransaction(pool, async (client) => {
       // Locked in id order, like /classify, so the merchant and kind cannot change before the update.
       const targets = await client.query<{

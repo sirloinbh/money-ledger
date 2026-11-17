@@ -89,7 +89,7 @@ const manualPrice = z.object(
   { error: 'Send the manual current price as an object' },
 );
 
-const usageBody = z.object(
+export const usageBody = z.object(
   {
     usedOn: date,
     amountKrw: z
@@ -109,7 +109,7 @@ const usageBody = z.object(
 // #46 Types that can have buy and sell records (decision 2026-11-08); #47 also the ones a hand price fits.
 const tradeableTypes: readonly string[] = ['stock', 'other'];
 
-const assetBody = z
+export const assetBody = z
   .object(
     {
       name: z
@@ -241,7 +241,7 @@ const assetBody = z
     }
   });
 
-const listQuery = z.object({ asOf: date.optional() });
+export const listQuery = z.object({ asOf: date.optional() });
 
 /**
  * A plain asset needs a quantity or a value. Checked outside the schema because an asset whose quantity

@@ -16,7 +16,7 @@ const monthCount = (from: string, to: string) =>
   Number(from.slice(5)) +
   1;
 
-const trendQuery = z
+export const trendQuery = z
   .object({ from: monthField('the start month'), to: monthField('the end month') })
   .refine(({ from, to }) => from <= to, { error: 'The start month is after the end month' })
   .refine(({ from, to }) => monthCount(from, to) <= maxTrendMonths, {

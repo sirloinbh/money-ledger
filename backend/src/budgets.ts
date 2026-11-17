@@ -11,10 +11,10 @@ import { HttpError, parseId } from './standard/http.js';
 // #61 The budget is also the overspending line (decided 2026-11-16): spending equal to it already counts, so a
 // category is `reached` at exactly the budget and `over` above it.
 
-const monthQuery = z.object({ month: monthField('the month') });
+export const monthQuery = z.object({ month: monthField('the month') });
 
 const objectBody = { error: 'The request body must be a JSON object' };
-const saveBody = z.object(
+export const saveBody = z.object(
   {
     month: monthField('the month'),
     amount: z

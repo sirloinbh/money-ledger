@@ -12,7 +12,7 @@ import { HttpError, parseId } from './standard/http.js';
 const defaultInitialCashKrw = 10_000_000;
 const shownClosedAccounts = 20;
 
-const accountBody = z.object(
+export const accountBody = z.object(
   {
     initialCashKrw: z
       .number({ error: 'Enter the starting amount as a number' })
