@@ -66,12 +66,18 @@ health() {
   done
   return 1
 }
-# Docker drops a replaced container's logs, so its error lines of the last 24 hours go to a file
-# that deploy/report.sh counts with the live logs and then empties (ADR-0021). Nothing here may
-# fail a deploy: no running api container, or any docker error, is skipped quietly.
+# Docker drops a replaced container's logs, so its error lines since the last report (.report-last-sent,
+# written by deploy/report.sh; 24 hours when missing) go to a file that deploy/report.sh counts with the
+# live logs and then empties (ADR-0021, #644). Nothing here may fail a deploy: no running api container,
+# or any docker error, is skipped quietly.
 save_api_errors() {
+  local since=24h last_sent
+  if [ -f .report-last-sent ]; then
+    last_sent=$(tr -d '\r\n' < .report-last-sent 2> /dev/null || true)
+    case "$last_sent" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z) since=$last_sent ;; esac
+  fi
   [ -n "$(IMAGE_TAG="${IMAGE_TAG:-none}" docker compose ps -q api 2> /dev/null)" ] || return 0
-  IMAGE_TAG="${IMAGE_TAG:-none}" docker compose logs --no-log-prefix --since 24h api 2> /dev/null |
+  IMAGE_TAG="${IMAGE_TAG:-none}" docker compose logs --no-log-prefix --since "$since" api 2> /dev/null |
     { grep -F '"level":"error"' || true; } >> .errors-before-deploy.log 2> /dev/null || true
   return 0
 }
