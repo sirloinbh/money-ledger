@@ -66,10 +66,20 @@ health() {
   done
   return 1
 }
+# Docker drops a replaced container's logs, so its error lines of the last 24 hours go to a file
+# that deploy/report.sh counts with the live logs and then empties (ADR-0021). Nothing here may
+# fail a deploy: no running api container, or any docker error, is skipped quietly.
+save_api_errors() {
+  [ -n "$(IMAGE_TAG="${IMAGE_TAG:-none}" docker compose ps -q api 2> /dev/null)" ] || return 0
+  IMAGE_TAG="${IMAGE_TAG:-none}" docker compose logs --no-log-prefix --since 24h api 2> /dev/null |
+    { grep -F '"level":"error"' || true; } >> .errors-before-deploy.log 2> /dev/null || true
+  return 0
+}
 start() {
   # Check out the commit that matches the images so compose.yaml and migrations agree.
   git checkout --quiet --detach "$1"
   load_ssm_env
+  save_api_errors
   IMAGE_TAG="$1" docker compose up -d --wait db
   IMAGE_TAG="$1" docker compose up -d
 }
@@ -94,6 +104,7 @@ case "${1:-}" in
     IMAGE_TAG="$tag" docker compose up -d --wait db
     IMAGE_TAG="$tag" docker compose run --rm --no-deps \
       -v "$PWD/database/migrations:/database/migrations:ro" api node dist/migrate.js
+    save_api_errors
     IMAGE_TAG="$tag" docker compose up -d
     if ! health; then
       echo "health check failed for $tag" >&2
