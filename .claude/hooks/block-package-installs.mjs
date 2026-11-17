@@ -32,8 +32,9 @@ const NPM_ALIASES = {
   udpate: 'update', rum: 'run', sit: 'install-ci-test', urn: 'run', ogr: 'org', 'add-user': 'adduser',
 };
 // npm commands that install, remove, or run packages (`audit` only with `fix`). `ci` installs exactly what
-// the lockfile pins, so it stays allowed unless an option turns install scripts on (#375).
-const NPM_BLOCKED = new Set(['install', 'install-test', 'install-ci-test', 'update', 'uninstall', 'exec', 'init', 'rebuild', 'dedupe', 'link']);
+// the lockfile pins (#375), and `install` (with its aliases) adds or changes packages (#629, user decision
+// 2026-11-18). Both stay allowed unless an option turns install scripts on.
+const NPM_BLOCKED = new Set(['install-test', 'install-ci-test', 'update', 'uninstall', 'exec', 'init', 'rebuild', 'dedupe', 'link']);
 // Other package managers and runners are not used in these repositories: every call is blocked.
 const RUNNERS = new Set(['npx', 'pnpm', 'pnpx', 'yarn', 'yarnpkg', 'bun', 'bunx', 'corepack']);
 // npm options whose value is the next word, e.g. `npm -w app install`.
@@ -230,7 +231,7 @@ function checkNpm(args, viaXargs) {
     // A word that is not a command is the value of an option such as `--prefix dir`.
     if (!command) continue;
     if (command === 'audit') return args.slice(i + 1).includes('fix') ? 'npm audit fix' : null;
-    if (command === 'ci') return turnsScriptsOn(args) ? WITH_SCRIPTS : LOCKFILE_INSTALL;
+    if (command === 'ci' || command === 'install') return turnsScriptsOn(args) ? WITH_SCRIPTS : LOCKFILE_INSTALL;
     return NPM_BLOCKED.has(command) ? `npm ${command}` : null;
   }
   // `xargs npm` takes the subcommand from its input, so the hook cannot see it.
@@ -408,8 +409,8 @@ export async function main() {
   const found = findInstall(command);
   if (!found) process.exit(0);
   process.stderr.write(
-    `Blocked because this is a package install, remove, or run command (${found}). Agents run only npm ci, which installs from the lock file. ` +
-      'If an install is needed, ask the user. Details: docs/agent-guardrails.md (sirloinbh/project-standards)\n',
+    `Blocked because this is a package install, remove, or run command (${found}). Agents may run npm ci and npm install (with install scripts off), not update, uninstall, exec, or npx. ` +
+      'If this is needed, ask the user. Details: docs/agent-guardrails.md (sirloinbh/project-standards)\n',
   );
   process.exit(2);
 }
