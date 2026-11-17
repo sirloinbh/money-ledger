@@ -6,18 +6,20 @@ import { type PriceLog, runDailyFetch } from './fetch.js';
 import type { PriceSources } from './sources.js';
 import { getState, markAttempt, markChecked, stateSources } from './store.js';
 
-// Runs the daily fetch at 12:00 Asia/Seoul, every day including weekends (docs/price-source.md). When a source
-// fails it tries again once an hour until 18:00. A server that was off at 12:00 fetches once when it starts.
+// The daily fetch is due from 12:00 Asia/Seoul, every day including weekends (docs/price-source.md). The pg-boss
+// queue in ./jobs.ts calls runIfDue hourly from 12:00 to 18:00 and once at start. When a source fails, the next hourly
+// call tries again. A server that was off at 12:00 fetches once when it starts (ADR-0018, #556).
 
 const firstHour = 12;
 const lastRetryHour = 18;
-// Session advisory lock: two servers on one DB never run the fetch at the same time.
-const jobLock = 510001;
 
 /** Called after each run of the daily fetch, with the run's time (#54: the mock account's daily value). */
 export type AfterFetch = (now: Date) => Promise<void>;
 
-/** Runs the daily fetch if it is due at `now` and no other server is running it. Returns whether it ran. */
+/**
+ * Runs the daily fetch if it is due at `now`. Returns whether it ran. Safe to call twice: the state table says
+ * "done today" and "tried this hour". Two servers never run it together because the queue is a `singleton` (jobs.ts).
+ */
 export async function runIfDue(
   pool: Pool,
   sources: PriceSources,
@@ -28,69 +30,23 @@ export async function runIfDue(
   const today = serviceDate(now);
   const hour = seoulHour(now);
   if (hour < firstHour) return false;
-  const lock = await pool.connect();
-  let locked = false;
-  try {
-    locked = (
-      await lock.query<{ locked: boolean }>('SELECT pg_try_advisory_lock($1) AS locked', [jobLock])
-    ).rows[0].locked;
-    if (!locked) return false;
-    // Read after taking the lock, so a run another server just finished is seen.
-    const state = await getState(pool, stateSources.job, 'all');
-    if (state.checkedThrough === today) return false;
-    const last = state.lastAttemptAt;
-    if (last && serviceDate(last) === today) {
-      if (hour > lastRetryHour) return false; // retries end at 18:00; the next try is tomorrow at 12:00
-      if (seoulHour(last) === hour) return false; // once an hour
-    }
-    await markAttempt(pool, stateSources.job, 'all', now);
-    const { complete } = await runDailyFetch(pool, sources, now, log);
-    if (complete) await markChecked(pool, stateSources.job, 'all', today, now);
-    log({ event: 'price_fetch_run', today, complete });
-    // A failure here is logged on its own and does not count as a failed fetch.
-    await afterFetch?.(now).catch((error: unknown) =>
-      log({
-        event: 'price_after_fetch_error',
-        message: error instanceof Error ? error.message : String(error),
-      }),
-    );
-    return true;
-  } finally {
-    // A connection that could not unlock is dropped, so ending its session frees the lock for other servers.
-    let broken = false;
-    if (locked) {
-      await lock.query('SELECT pg_advisory_unlock($1)', [jobLock]).catch(() => {
-        broken = true;
-      });
-    }
-    lock.release(broken);
+  const state = await getState(pool, stateSources.job, 'all');
+  if (state.checkedThrough === today) return false;
+  const last = state.lastAttemptAt;
+  if (last && serviceDate(last) === today) {
+    if (hour > lastRetryHour) return false; // retries end at 18:00; the next try is tomorrow at 12:00
+    if (seoulHour(last) === hour) return false; // once an hour
   }
-}
-
-/** Checks every minute whether the fetch is due. Returns a function that stops the timer. */
-export function startPriceJobs(
-  pool: Pool,
-  sources: PriceSources,
-  log: PriceLog,
-  afterFetch?: AfterFetch,
-) {
-  let running = false;
-  const tick = async () => {
-    if (running) return;
-    running = true;
-    try {
-      await runIfDue(pool, sources, new Date(), log, afterFetch);
-    } catch (error) {
-      log({
-        event: 'price_job_error',
-        message: error instanceof Error ? error.message : String(error),
-      });
-    } finally {
-      running = false;
-    }
-  };
-  void tick();
-  const timer = setInterval(() => void tick(), 60_000);
-  timer.unref();
-  return () => clearInterval(timer);
+  await markAttempt(pool, stateSources.job, 'all', now);
+  const { complete } = await runDailyFetch(pool, sources, now, log);
+  if (complete) await markChecked(pool, stateSources.job, 'all', today, now);
+  log({ event: 'price_fetch_run', today, complete });
+  // A failure here is logged on its own and does not count as a failed fetch.
+  await afterFetch?.(now).catch((error: unknown) =>
+    log({
+      event: 'price_after_fetch_error',
+      message: error instanceof Error ? error.message : String(error),
+    }),
+  );
+  return true;
 }

@@ -6,8 +6,8 @@ import type { PriceSources } from './sources.js';
 import { tiingoSource } from './tiingo.js';
 
 export { type PriceLog } from './fetch.js';
+export { PRICE_QUEUE, priceQueue } from './jobs.js';
 export { pricesRouter } from './router.js';
-export { startPriceJobs } from './scheduler.js';
 export type { PriceSources } from './sources.js';
 
 /** Writes one JSON line per price event, like the request error log. Never holds keys or URLs. */

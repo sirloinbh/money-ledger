@@ -36,6 +36,8 @@ type AppOptions = {
   priceLog?: PriceLog;
   // The shared sign-in session check (#149). None by default: tests and local development run open.
   auth?: express.RequestHandler;
+  // Read-only background job status (ADR-0018). Mounted after `auth`, so it needs the shared sign-in.
+  jobsStatus?: express.RequestHandler;
 };
 
 export function createApp(pool: Pool, options: AppOptions = {}) {
@@ -59,6 +61,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   // After the rate limit, so a flood of unsigned requests does not reach the auth service.
   if (options.auth) app.use('/api', options.auth);
   app.get('/api/me', meHandler);
+  if (options.jobsStatus) app.get('/api/jobs/status', options.jobsStatus);
   // Mounted before the app-wide JSON parser: an import of up to 2,000 rows has its own, larger limit (#44).
   app.use('/api/ledger/entries/csv', entryCsvRouter(pool, { today }));
   app.use(express.json({ limit: '256kb' }));

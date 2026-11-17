@@ -5,6 +5,7 @@ import { Pool } from 'pg';
 
 import { fakeSources } from '../src/prices/fake.js';
 import { dailyTiingoLimit, runDailyFetch, tiingoHourlyLimit } from '../src/prices/fetch.js';
+import { priceQueue } from '../src/prices/jobs.js';
 import { runIfDue } from '../src/prices/scheduler.js';
 import { type PriceSources, SourceError } from '../src/prices/sources.js';
 import { saveKrxDay, trackedUsLimit } from '../src/prices/store.js';
@@ -882,18 +883,39 @@ test('shared price store against the real database', { skip: !url }, async (t) =
     });
   });
 
-  await t.test('only one server runs the daily fetch at a time', async () => {
-    await reset();
-    const other = await pool.connect();
-    try {
-      await other.query('SELECT pg_advisory_lock($1)', [510001]);
-      assert.equal(await runIfDue(pool, counted().sources, noon, quiet), false);
-      await other.query('SELECT pg_advisory_unlock($1)', [510001]);
-      assert.equal(await runIfDue(pool, counted().sources, noon, quiet), true);
-    } finally {
-      other.release();
-    }
-  });
+  await t.test(
+    'the price queue is a singleton, hourly 12:00-18:00, and its handler runs the due check once',
+    async () => {
+      await reset();
+      const { sources, calls } = counted();
+      let clock = noon;
+      const runs: string[] = [];
+      const queue = priceQueue(
+        pool,
+        sources,
+        quiet,
+        (now) => {
+          runs.push(now.toISOString());
+          return Promise.resolve();
+        },
+        () => clock,
+      );
+      assert.equal(queue.name, 'daily-prices');
+      assert.equal(queue.policy, 'singleton'); // one run at a time, also across servers
+      assert.equal(queue.schedule, '0 12-18 * * *');
+      const info = { id: 'job-1', queue: queue.name, attempt: 1, requestId: null };
+      clock = at('2026-11-09T02:00:00Z'); // 11:00: not due, e.g. the start-up job before 12:00
+      await queue.handler({}, info);
+      assert.equal(calls.fx.length, 0);
+      clock = noon;
+      await queue.handler({}, info);
+      assert.ok(calls.fx.length > 0);
+      const fetched = calls.fx.length;
+      await queue.handler({}, info); // a duplicate job (start-up job plus the cron) does nothing
+      assert.equal(calls.fx.length, fetched);
+      assert.deepEqual(runs, [noon.toISOString()]); // the after-fetch step ran once
+    },
+  );
 
   await t.test(
     'a Korean security missing from 10 market days in a row becomes inactive (#97)',
