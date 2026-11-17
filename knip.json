@@ -5,7 +5,10 @@
     ".claude/**",
     "backend/src/standard/**",
     "frontend/public/**",
-    "frontend/src/components/ui/**"
+    "frontend/src/components/ui/**",
+    "shared/contract.ts",
+    "backend/src/contract.ts",
+    "frontend/src/contract.ts"
   ],
   "ignoreBinaries": ["tsc", "tsx"],
   "ignoreDependencies": ["@lhci/cli"]
