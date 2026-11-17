@@ -1,10 +1,14 @@
 // Managed file. Edit it in sirloinbh/project-standards templates/app/backend/src/standard/
 // Shared HTTP helpers for the API (#309): one error shape, JSON 404 for unknown /api paths, id parsing and the
-// service date. It imports only types, so it runs in every app whatever zod or Express version it uses.
+// service date, and a request ID with one JSON log line per request (#552). Besides node:crypto it imports only types,
+// so it runs in every app whatever zod or Express version it uses.
 //
+//   app.use(requestLog);         // first, so every later log line and error carries the request ID
 //   app.use('/api', notFound);   // after every feature route
 //   app.use(appErrors);          // optional: the app's own errors first, calling next(err) for the rest
 //   app.use(errorHandler);       // last
+import { randomUUID } from 'node:crypto';
+
 import type { NextFunction, Request, Response } from 'express';
 
 export type ApiError = { error: string };
@@ -33,6 +37,44 @@ export function parseId(value: unknown, label: string): number {
     throw new HttpError(400, `Invalid ${label} ID`);
   }
   return Number(value);
+}
+
+// An incoming X-Request-Id (nginx sets one, docs/logging.md) is kept only if it looks like an ID, so a client
+// cannot write arbitrary text into the logs.
+export const REQUEST_ID_PATTERN = /^[\w.-]{1,128}$/;
+
+/** The request's ID, set by requestLog; undefined before it runs. */
+export function requestIdOf(res: Response): string | undefined {
+  const id: unknown = res.locals.requestId;
+  return typeof id === 'string' ? id : undefined;
+}
+
+/**
+ * Keeps a valid incoming X-Request-Id or creates one, returns it in the X-Request-Id response header, and
+ * logs one JSON line when the response ends: time, level, requestId, method, path (no query), status, ms.
+ */
+export function requestLog(req: Request, res: Response, next: NextFunction) {
+  const incoming = req.get('x-request-id');
+  const requestId = incoming && REQUEST_ID_PATTERN.test(incoming) ? incoming : randomUUID();
+  const started = performance.now();
+  res.locals.requestId = requestId;
+  res.setHeader('X-Request-Id', requestId);
+  // 'close' also fires when the client aborts, where 'finish' would not.
+  res.on('close', () => {
+    const status = res.statusCode;
+    const line = JSON.stringify({
+      time: new Date().toISOString(),
+      level: status >= 500 ? 'error' : status >= 400 ? 'warn' : 'info',
+      requestId,
+      method: req.method,
+      path: req.originalUrl.split('?')[0],
+      status,
+      ms: Math.round(performance.now() - started),
+    });
+    if (status >= 500) console.error(line);
+    else console.log(line);
+  });
+  next();
 }
 
 export const serviceTimeZone = 'Asia/Seoul';
@@ -112,7 +154,10 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
   // The internal message goes to the log only; the response never exposes it.
   console.error(
     JSON.stringify({
+      time: new Date().toISOString(),
+      level: 'error',
       event: 'request_error',
+      requestId: requestIdOf(res),
       message: err instanceof Error ? err.message : String(err),
     }),
   );

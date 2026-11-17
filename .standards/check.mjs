@@ -88,11 +88,13 @@ export function checkApi(sources) {
   const at = (source, index) => `${source.file}:${source.text.slice(0, index).split('\n').length}`;
   if (!sources.some((s) => /\bapp\.get\(\s*['"`]\/api\/health['"`]/.test(s.text))) warnings.push('backend/src: GET /api/health is missing. Every app has a health check API that verifies the DB connection.');
   if (!/\bapp\.use\(\s*(errorHandler\b|\(\s*err\b)/.test(app.text)) warnings.push('backend/src/app.ts: the error middleware (app.use(errorHandler)) is missing, so errors are not returned as { error }.');
+  if (!/\bapp\.use\(\s*requestLog\b/.test(app.text)) warnings.push('backend/src/app.ts: app.use(requestLog) is missing, so requests get no request ID or JSON log line (docs/logging.md).');
   if (!/\bapp\.use\(\s*['"`]\/api['"`]\s*,/.test(app.text)) warnings.push("backend/src/app.ts: app.use('/api', notFound), which answers unknown /api paths with 404 { error }, is missing.");
   for (const source of sources) {
     for (const m of source.text.matchAll(/\bapp\.(get|post|put|patch|delete|use)\(\s*['"]([^'"]+)['"]/g)) {
       const route = m[2];
-      if (!/^\/api(\/|$)/.test(route)) {
+      // /internal/tools is the AI tool endpoint for shared-ai (ADR-0017); nginx forwards only /api.
+      if (!/^\/(api|internal)(\/|$)/.test(route)) {
         warnings.push(`${at(source, m.index)}: API route ${route} must start with /api.`);
         continue;
       }

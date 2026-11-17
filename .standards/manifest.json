@@ -1,5 +1,5 @@
 {
-  "centralSha": "1d20cf11e897809cbead42177bae51189e92db2b",
+  "centralSha": "35cf9c97e8e34a1f206c2f95be8c9cb4b81bd14a",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -155,7 +155,7 @@
     },
     ".prettierignore": {
       "mode": "section",
-      "sha256": "a74ca50d14fb8575d9c4270e2d0a98d31d08724df8d4315f562f6ace7d8e1ba3",
+      "sha256": "6cb0d6342fd5cf73f509f93d8679326542e62412f7b05e302c3d4cd700900121",
       "source": "templates/app/.prettierignore.tmpl"
     },
     ".standards/blocked-packages.json": {
@@ -165,7 +165,7 @@
     },
     ".standards/check.mjs": {
       "mode": "full",
-      "sha256": "94ad732bfdb58d7abb249b3c70d4675f7e71d34192a47e670990569fb39e7f35",
+      "sha256": "ea51c44c412ef5cf2ec0272719287371f4a81472fe4ab32da7ca5d32bfabc208",
       "source": "scripts/standards-check.mjs"
     },
     ".standards/ioc-scan.mjs": {
@@ -252,6 +252,11 @@
       },
       "source": "templates/index.json"
     },
+    "backend/src/standard/audit.ts": {
+      "mode": "full",
+      "sha256": "bed036e2af8d35dcdc1f32c05a9d74fed4dd08b2bf6012a8e28c50ad71d36ae6",
+      "source": "templates/app/backend/src/standard/audit.ts"
+    },
     "backend/src/standard/auth.ts": {
       "mode": "full",
       "sha256": "a33a4eefa1dbb21c24afc8c8a0caf689c6ed5439368dd1fe2bac28a7e0cb87a9",
@@ -259,8 +264,13 @@
     },
     "backend/src/standard/http.ts": {
       "mode": "full",
-      "sha256": "cc0f535a9570b1fdd8f272b00f26eebfcbd0ecd3a17e0dcb8c8bbbeed9056b76",
+      "sha256": "d77a5499049593f8e06cb2d6ecba7706769fd82f46fecd52989ccaaedf6c5c32",
       "source": "templates/app/backend/src/standard/http.ts"
+    },
+    "backend/src/standard/tools.ts": {
+      "mode": "full",
+      "sha256": "1f18074ebd5a47d065a32b97985cecf3d5a97c3bb8758332569bffdf0e3c663f",
+      "source": "templates/app/backend/src/standard/tools.ts"
     },
     "backend/tsconfig.json": {
       "mode": "full",
@@ -294,7 +304,7 @@
     },
     "deploy/backup.sh": {
       "mode": "full",
-      "sha256": "cbef190da07165ea179dbe77a25817b08e4286dcb14bc16b54215f91fa32d5f3",
+      "sha256": "9b96e90907825aef0d0db7ba66380c902ad30cb5210c7670e69c9b26455b8d31",
       "source": "templates/app/deploy/backup.sh.tmpl"
     },
     "deploy/backup.timer": {
@@ -379,7 +389,7 @@
     },
     "frontend/nginx.conf": {
       "mode": "full",
-      "sha256": "161394c1bffe8c6762b97106aad50e2329d434f41b7f09b08375993a8888f05b",
+      "sha256": "df50ba0b6b0d48ece7faa7c65cc65601cf53144773e388e04927b572e25351c9",
       "source": "templates/app/frontend/nginx.conf.tmpl"
     },
     "frontend/package.json": {
@@ -453,8 +463,18 @@
     },
     "frontend/src/components/layout/app-shell.tsx": {
       "mode": "full",
-      "sha256": "b620e29bd8a91e20c4a13fd469dbc011099535797be7889593b52b9988bf0659",
+      "sha256": "14fdfc9f4485c3144dff5de8410fef3e386808ef0df84c1b6b14ff7685232fe8",
       "source": "templates/ui/frontend/src/components/layout/app-shell.tsx"
+    },
+    "frontend/src/components/layout/app-switcher.test.tsx": {
+      "mode": "full",
+      "sha256": "a01330c09a14b1fcf9ec1287fa14938048c6ae72be779c8e21785f0426250c6a",
+      "source": "templates/ui/frontend/src/components/layout/app-switcher.test.tsx"
+    },
+    "frontend/src/components/layout/app-switcher.tsx": {
+      "mode": "full",
+      "sha256": "823918c2d33b6b8bf7c88104fd7f4bf8239d762e154a7409da36e564310675ef",
+      "source": "templates/ui/frontend/src/components/layout/app-switcher.tsx"
     },
     "frontend/src/components/layout/theme-toggle.tsx": {
       "mode": "full",
@@ -655,6 +675,11 @@
       "mode": "full",
       "sha256": "51fbb66f7a56ef041081e43a2ddd352bfc6dcf989847a74a9f821d1d86ba518f",
       "source": "templates/ui/frontend/src/lib/api.ts"
+    },
+    "frontend/src/lib/apps.ts": {
+      "mode": "full",
+      "sha256": "fb6473e83e30be2e47e7167d50283fda470ed9f1ae0f1dd4276a3eace2e8d0a2",
+      "source": "templates/ui/frontend/src/lib/apps.ts.tmpl"
     },
     "frontend/src/lib/theme-config.ts": {
       "mode": "full",

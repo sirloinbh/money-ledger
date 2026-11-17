@@ -48,6 +48,7 @@ frontend/src/lib/utils.test.ts
 frontend/src/lib/theme.ts
 frontend/src/lib/theme.test.ts
 frontend/src/lib/theme-config.ts
+frontend/src/lib/apps.ts
 frontend/src/lib/api.ts
 frontend/src/lib/api.test.ts
 frontend/src/lib/use-notice.ts
