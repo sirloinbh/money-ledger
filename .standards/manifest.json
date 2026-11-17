@@ -1,5 +1,5 @@
 {
-  "centralSha": "1901a22201d9260771707565f0a9e48c58ac4548",
+  "centralSha": "74a105e99e677d4609f99dc4873ed79a2cd204df",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -738,7 +738,7 @@
     },
     "knip.json": {
       "mode": "full",
-      "sha256": "d2bbbdec2d8561e99fae53f7465aa288df780f25a662a730a4243eef10d307ca",
+      "sha256": "98d012da1b99df680e21a39d1c4ea63cdebaffdf2ca1d7183aa554e2c019a93c",
       "source": "templates/app/knip.json"
     },
     "lighthouserc.json": {
