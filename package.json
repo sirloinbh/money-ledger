@@ -20,6 +20,7 @@
     "lint": "eslint . --max-warnings 0",
     "contract:sync": "node scripts/contract.mjs sync",
     "contract:check": "node scripts/contract.mjs && node --test scripts/test/contract.test.mjs",
+    "openapi": "npm run openapi -w backend",
     "typecheck": "npm run typecheck --workspaces && tsc -p e2e/tsconfig.json",
     "standards:check": "node .standards/check.mjs",
     "lockfiles:sync": "node .standards/lockfiles.mjs --write",

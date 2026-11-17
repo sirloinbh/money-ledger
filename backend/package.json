@@ -9,6 +9,7 @@
     "build": "tsc",
     "test": "tsx --test --test-concurrency=1 test/*.test.ts",
     "typecheck": "tsc -p tsconfig.check.json",
+    "openapi": "tsx src/openapi-cli.ts",
     "db:migrate": "tsx --env-file-if-exists=../.env src/migrate.ts"
   },
   "dependencies": {

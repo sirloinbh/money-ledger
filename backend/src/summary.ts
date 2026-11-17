@@ -7,7 +7,7 @@ import { monthField, won } from './month.js';
 // #40 One month of the ledger: income, expense, the balance between them and the expense by category.
 // Sums and shares are computed in SQL (numeric), never with JavaScript floats.
 
-const monthQuery = z.object({ month: monthField('the month') });
+export const monthQuery = z.object({ month: monthField('the month') });
 
 type Row = {
   income: string;

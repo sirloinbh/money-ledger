@@ -23,7 +23,7 @@ import { trackedDays, trackedUsLimit, trackOpened } from './store.js';
 const staleAfterDays = 5;
 const searchLimit = 20;
 
-const searchQuery = z.object({
+export const searchQuery = z.object({
   q: z
     .string({ error: 'Enter a search term' })
     .trim()

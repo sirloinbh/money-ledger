@@ -34,7 +34,7 @@ const rowInput = z.object({
   merchant: z.string().default(''),
   memo: z.string().default(''),
 });
-const importBody = z.object(
+export const importBody = z.object(
   {
     rows: z
       .array(rowInput, { error: 'Send the rows to import' })

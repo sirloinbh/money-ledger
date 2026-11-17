@@ -12,8 +12,8 @@ const kind = categoryKind;
 const name = categoryName;
 
 const objectBody = { error: 'The request body must be a JSON object' };
-const createBody = z.object({ kind, name }, objectBody);
-const updateBody = z
+export const createBody = z.object({ kind, name }, objectBody);
+export const updateBody = z
   .object(
     {
       name: name.optional(),
@@ -24,7 +24,7 @@ const updateBody = z
   .refine((body) => body.name !== undefined || body.hidden !== undefined, {
     error: 'Send a new name or a hidden flag',
   });
-const listQuery = z.object({
+export const listQuery = z.object({
   kind: kind.optional(),
   // `visible=true` leaves out hidden categories: the list for a new entry.
   visible: z.enum(['true'], { error: 'visible can only be true' }).optional(),

@@ -27,7 +27,7 @@ export const merchantText = (subject: string) =>
     .normalize('NFC')
     .max(50, `${subject} must be 50 characters or fewer`);
 
-const ruleBody = z.object(
+export const ruleBody = z.object(
   {
     keyword: merchantText('The keyword').min(1, 'Enter a keyword'),
     categoryId: z

@@ -63,3 +63,4 @@ frontend/public/theme-init.js
 playwright.config.ts
 frontend/vitest.config.ts
 # --- project ---
+docs/openapi.json
