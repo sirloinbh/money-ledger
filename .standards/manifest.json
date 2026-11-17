@@ -1,5 +1,5 @@
 {
-  "centralSha": "35cf9c97e8e34a1f206c2f95be8c9cb4b81bd14a",
+  "centralSha": "71970fbfc3b70cbd4fe281523d5bb0f88ff9e08b",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -10,7 +10,7 @@
     },
     ".claude/hooks/block-package-installs.mjs": {
       "mode": "full",
-      "sha256": "ca5a2591b9e84553b7b325321b5300e30cb2aa3403575edf003aecce4433fdd8",
+      "sha256": "56de5f100cf31c4acf790c7277912779af129786596333dc206bbf1a134f756f",
       "source": "templates/common/.claude/hooks/block-package-installs.mjs"
     },
     ".claude/hooks/pc-setup-notice.mjs": {
@@ -40,7 +40,7 @@
     },
     ".claude/settings.json": {
       "mode": "full",
-      "sha256": "7babc0f79219971126c67980940c1e02ab6ccc794a69e93aadd19b3dc95ea976",
+      "sha256": "e67554ab7dd656ab57a1690d5a0ef18df592c96c562f482f92beb78045286003",
       "source": "templates/common/.claude/settings.json.tmpl"
     },
     ".claude/skills/std-backlog/SKILL.md": {
@@ -100,7 +100,7 @@
     },
     ".codex/rules/package-installs.rules": {
       "mode": "full",
-      "sha256": "a5700cbb8d7bc53e289102f760da94f2f49a19fbc5432ac88793c846cbe94122",
+      "sha256": "54e445ed8f356607b51e18b3b3d44520aa3e8aa19f6099a96f7ae26dd179a381",
       "source": "templates/common/.codex/rules/package-installs.rules"
     },
     ".editorconfig": {
@@ -738,7 +738,7 @@
     },
     "knip.json": {
       "mode": "full",
-      "sha256": "2daa22b9f4d1fae152acda1d84c7aabb6559ff5c44a2281a6c4f43dbb6f9e5d4",
+      "sha256": "d2bbbdec2d8561e99fae53f7465aa288df780f25a662a730a4243eef10d307ca",
       "source": "templates/app/knip.json"
     },
     "orca.yaml": {
