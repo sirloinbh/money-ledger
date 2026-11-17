@@ -11,5 +11,5 @@
     "frontend/src/contract.ts"
   ],
   "ignoreBinaries": ["tsc", "tsx"],
-  "ignoreDependencies": ["@lhci/cli"]
+  "ignoreDependencies": ["@lhci/cli", "zod"]
 }

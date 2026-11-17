@@ -27,7 +27,7 @@ Answering questions, giving recommendations, and read-only investigation do not 
 - Do not overwrite user changes. Stage only the files you need, by name.
 - **Install or remove npm packages only after the user reconfirms, and prefer `--ignore-scripts`.** `npm ci` (installs from the lockfile), `npm run <script>`, `npm ls`, and `npm view` are allowed.
 - Do GitHub remote work with the `scripts/gh-project.ps1` wrapper for the personal account `sirloinbh`. Do not make remote changes with the default work account `gh`.
-- The `frontend`, `backend`, and `database` sub-repositories are subtree targets for deployment. During everyday PR work, do not push directly to a sub-repository or to `main`. Use `scripts/push-repositories.ps1` only for a separate sync request. AWS infrastructure is managed in the shared repo `sirloinbh/shared-aws-infrastructure`.
+- The `frontend`, `backend`, and `database` sub-repositories are subtree targets for deployment. During everyday PR work, do not push directly to a sub-repository or to `main`. Use `scripts/push-repositories.ps1` only for a separate sync request; it pushes only to the sub-repositories and never to the umbrella `main`, which changes only through PRs. AWS infrastructure is managed in the shared repo `sirloinbh/shared-aws-infrastructure`.
 
 ## Centrally managed files
 
