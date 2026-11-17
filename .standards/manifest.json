@@ -1,5 +1,5 @@
 {
-  "centralSha": "df3463d73812b9bd8b02386b7a9b6a0e836b2f6e",
+  "centralSha": "d974c93bf39765824b671009f2b2d2cec202e6ee",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -344,7 +344,7 @@
     },
     "deploy/remote-deploy.sh": {
       "mode": "full",
-      "sha256": "a0b99a77e9e6f9045c23535fe1b9038e3c72cc75076f0c3db23f0e0c3012fb25",
+      "sha256": "322c85f695e7bd68263c0cb4551186d073751db0a8039081408d6180b5740d5c",
       "source": "templates/app/deploy/remote-deploy.sh.tmpl"
     },
     "deploy/report.service": {
@@ -354,7 +354,7 @@
     },
     "deploy/report.sh": {
       "mode": "full",
-      "sha256": "a704bd365101061f3ec461507d3adaf918ef4ac0df66e0be8a810ca20a2f829d",
+      "sha256": "a75ae397cfeb39554b095149f1b6260a2c033d999b4e7e7dbbe281e441a19882",
       "source": "templates/app/deploy/report.sh.tmpl"
     },
     "deploy/report.timer": {
