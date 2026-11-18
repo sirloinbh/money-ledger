@@ -88,7 +88,13 @@ export function checkApi(sources) {
   const at = (source, index) => `${source.file}:${source.text.slice(0, index).split('\n').length}`;
   if (!sources.some((s) => /\bapp\.get\(\s*['"`]\/api\/health['"`]/.test(s.text))) warnings.push('backend/src: GET /api/health is missing. Every app has a health check API that verifies the DB connection.');
   if (!/\bapp\.use\(\s*(errorHandler\b|\(\s*err\b)/.test(app.text)) warnings.push('backend/src/app.ts: the error middleware (app.use(errorHandler)) is missing, so errors are not returned as { error }.');
-  if (!/\bapp\.use\(\s*requestLog\b/.test(app.text)) warnings.push('backend/src/app.ts: app.use(requestLog) is missing, so requests get no request ID or JSON log line (docs/logging.md).');
+  const logAt = app.text.search(/\bapp\.use\(\s*requestLog\b/);
+  if (logAt < 0) warnings.push('backend/src/app.ts: app.use(requestLog) is missing, so requests get no request ID or JSON log line (docs/logging.md).');
+  else {
+    // Routes mounted before requestLog get no request ID. The health check may come first (study-log), so it is not counted.
+    const early = [...app.text.slice(0, logAt).matchAll(/\bapp\.(?:post|put|patch|delete|use)\(\s*['"`]\/(?:api|internal)(?:\/|['"`])/g)];
+    if (early.length > 0) warnings.push(`${at(app, early[0].index)}: app.use(requestLog) must be mounted before the routes, or they get no request ID or JSON log line (docs/logging.md).`);
+  }
   if (!/\bapp\.use\(\s*['"`]\/api['"`]\s*,/.test(app.text)) warnings.push("backend/src/app.ts: app.use('/api', notFound), which answers unknown /api paths with 404 { error }, is missing.");
   for (const source of sources) {
     for (const m of source.text.matchAll(/\bapp\.(get|post|put|patch|delete|use)\(\s*['"]([^'"]+)['"]/g)) {
