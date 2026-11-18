@@ -58,6 +58,13 @@ load_ssm_env() {
   done <<< "$list"
 }
 
+# The private network shared-ai (ADR-0017) is external in compose.yaml, and the shared-ai service
+# may not be deployed yet, so it is created here when compose.yaml uses it and it is missing.
+ensure_networks() {
+  grep -qE '^[[:space:]]+shared-ai:' compose.yaml 2> /dev/null || return 0
+  docker network inspect shared-ai > /dev/null 2>&1 || docker network create shared-ai > /dev/null
+}
+
 health() {
   for _ in $(seq 1 30); do
     # Connection resets while containers start are expected; only the final result matters.
@@ -86,6 +93,7 @@ start() {
   git checkout --quiet --detach "$1"
   load_ssm_env
   save_api_errors
+  ensure_networks
   IMAGE_TAG="$1" docker compose up -d --wait db
   IMAGE_TAG="$1" docker compose up -d
 }
@@ -107,6 +115,7 @@ case "${1:-}" in
     echo "deploy $tag (previous: ${current:-none})"
     IMAGE_TAG="$tag" docker compose build
     if [ -n "$current" ]; then backup; fi
+    ensure_networks
     IMAGE_TAG="$tag" docker compose up -d --wait db
     IMAGE_TAG="$tag" docker compose run --rm --no-deps \
       -v "$PWD/database/migrations:/database/migrations:ro" api node dist/migrate.js
