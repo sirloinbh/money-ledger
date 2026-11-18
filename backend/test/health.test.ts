@@ -4,8 +4,8 @@ import { test } from 'node:test';
 import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
-import { serviceDate } from '../src/app.js';
-import { withApi } from './helpers.js';
+import { createApp, serviceDate } from '../src/app.js';
+import { listen, withApi } from './helpers.js';
 
 const pool = (query: () => Promise<unknown>) => ({ query }) as unknown as Pool;
 
@@ -65,4 +65,27 @@ test('unknown API paths return an English 404 JSON body', async () => {
 test('service date follows Asia/Seoul across the UTC day boundary', () => {
   assert.equal(serviceDate(new Date('2026-10-18T14:59:59Z')), '2026-10-18');
   assert.equal(serviceDate(new Date('2026-10-18T15:00:00Z')), '2026-10-19');
+});
+
+test('every response has an X-Request-Id, and a valid incoming one is kept (#175)', async (t) => {
+  const logged = t.mock.method(console, 'log', () => {});
+  const { server, port } = await listen(createApp(pool(async () => ({ rows: [] }))));
+  t.after(() => server.close());
+  const url = `http://127.0.0.1:${port}/api/health`;
+
+  const made = await fetch(url);
+  assert.match(made.headers.get('x-request-id') ?? '', /^[\w.-]{1,128}$/);
+
+  const kept = await fetch(url, { headers: { 'x-request-id': 'req-from-nginx-1' } });
+  assert.equal(kept.headers.get('x-request-id'), 'req-from-nginx-1');
+
+  // A 404 carries one too, and the request log line has the same ID.
+  const missing = await fetch(`http://127.0.0.1:${port}/api/does-not-exist`);
+  assert.equal(missing.status, 404);
+  assert.ok(missing.headers.get('x-request-id'));
+  assert.ok(
+    logged.mock.calls.some((c) =>
+      String(c.arguments[0]).includes('"requestId":"req-from-nginx-1"'),
+    ),
+  );
 });
