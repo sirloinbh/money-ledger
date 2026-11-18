@@ -18,7 +18,7 @@ import { netWorthRouter } from './net-worth.js';
 import { type PriceLog, type PriceSources, pricesRouter } from './prices/index.js';
 import { reportsRouter } from './reports.js';
 import { rulesRouter } from './rules.js';
-import { errorHandler, notFound, serviceDate } from './standard/http.js';
+import { errorHandler, notFound, requestLog, serviceDate } from './standard/http.js';
 import { summaryRouter } from './summary.js';
 import { trendRouter } from './trend.js';
 
@@ -45,6 +45,8 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   const now = options.now ?? (() => new Date());
   const app = express();
   app.disable('x-powered-by');
+  // project-standards#658: a request ID and one JSON log line for every request, first so a 429 has them too.
+  app.use(requestLog);
   // Same level as the /api/ limit in frontend/nginx.conf (10 r/s), for requests that skip nginx.
   // Per client IP. CodeQL js/missing-rate-limiting recognizes this middleware (#70).
   app.use(
