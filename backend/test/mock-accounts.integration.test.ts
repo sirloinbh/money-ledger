@@ -148,9 +148,13 @@ test('mock trading accounts against the real database', { skip: !url }, async (t
         'INSERT INTO mock_accounts (initial_cash_krw, cash_krw) VALUES (10000000, 10000000) RETURNING id',
       )
     ).rows[0].id;
-    // Make the INSERT of the new account fail after the UPDATE has closed the old one.
+    // Make the INSERT of the new account fail after the UPDATE has closed the old one. A trigger error is
+    // not a constraint code, so the managed error handler answers 500 (a CHECK violation would be a 400).
     await pool.query(
-      'ALTER TABLE mock_accounts ADD CONSTRAINT test_block_new CHECK (initial_cash_krw <> 20000000)',
+      `CREATE OR REPLACE FUNCTION test_block_new() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'blocked by the test'; END $$`,
+    );
+    await pool.query(
+      'CREATE TRIGGER test_block_new BEFORE INSERT ON mock_accounts FOR EACH ROW WHEN (NEW.initial_cash_krw = 20000000) EXECUTE FUNCTION test_block_new()',
     );
     await withApi(pool, async (call) => {
       const failed = await call(`/api/mock/accounts/${first}/reset`, {
