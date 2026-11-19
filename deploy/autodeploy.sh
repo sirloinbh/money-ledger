@@ -32,22 +32,39 @@ if [ "${1:-}" = ci-state ]; then
 fi
 
 cd "$app"
+# The journal line for each run. The timer fires every 2 minutes, so a line is written when the decision changes and at
+# most once an hour while it stays the same: "waiting for CI", "up to date" and "busy" are then visible without filling
+# the journal (#808). .autodeploy-log holds "<epoch seconds> <last line>".
+say() {
+  local now last_at last_msg
+  now=$(date +%s)
+  last_at=$(cut -d' ' -f1 .autodeploy-log 2> /dev/null || true)
+  last_msg=$(cut -d' ' -f2- .autodeploy-log 2> /dev/null || true)
+  case "$last_at" in '' | *[!0-9]*) last_at=0 ;; esac
+  if [ "$last_msg" != "$1" ] || [ $((now - last_at)) -ge 3600 ]; then
+    echo "$1"
+    echo "$now $1" > .autodeploy-log
+  fi
+}
 # healthchecks.io signal on every run that decides something (#284). A run that only finds the
 # lock busy sends nothing; the check's grace time covers it.
 signal() { if [ -f deploy/notify.sh ]; then bash deploy/notify.sh ping deploy "$@" || true; fi; }
 # One lock for every app on the server (ADR-0009): builds share 2 GB of memory, so only
 # one app builds or deploys at a time. A busy lock means "try again on the next run".
 exec 9> /run/lock/apps-deploy.lock
-flock -n 9 || exit 0
+flock -n 9 || { say "another deploy holds the lock; trying again on the next run"; exit 0; }
 
+# FETCH_HEAD is the tip that was just fetched, whether or not the origin/main tracking ref was updated.
 git fetch --quiet origin main
-full=$(git rev-parse origin/main)
+full=$(git rev-parse FETCH_HEAD)
 sha=${full:0:12}
 if [ "$sha" = "$(cat .deployed 2>/dev/null || true)" ]; then
+  say "up to date at $sha"
   signal ok "up to date at $sha"
   exit 0
 fi
 if [ "$sha" = "$(cat .autodeploy-failed 2>/dev/null || true)" ]; then
+  say "$sha failed before; waiting for a new commit on main"
   signal fail "$sha failed before; waiting for a new commit on main"
   exit 0
 fi
@@ -56,7 +73,7 @@ state=$(curl -fsS -H 'Accept: application/vnd.github+json' \
   "https://api.github.com/repos/$repo/actions/runs?head_sha=$full&per_page=100" | ci_state)
 case "$state" in
   pending)
-    echo "waiting for CI of $sha"
+    say "waiting for CI of $sha (deployed: $(cat .deployed 2> /dev/null || echo none))"
     signal ok "waiting for CI of $sha"
     exit 0
     ;;

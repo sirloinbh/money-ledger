@@ -1,5 +1,5 @@
 {
-  "centralSha": "7425a45fda829c10c418983d914321148357bd1f",
+  "centralSha": "018b16251d584eccd1e8f39e6ac31de4136961bd",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -130,7 +130,7 @@
     },
     ".github/workflows/ci.yml": {
       "mode": "full",
-      "sha256": "f7eed833d57fc21b3dbcfdb4aa0d697c191db2418d9bfdb102c433e2254f054a",
+      "sha256": "291b5bfd5ff2622ab00095ea49c56b4cc03046c3eef8a524d8683bfaa2942c82",
       "source": "templates/app/.github/workflows/ci.yml.tmpl"
     },
     ".gitignore": {
@@ -355,7 +355,7 @@
     },
     "deploy/autodeploy.sh": {
       "mode": "full",
-      "sha256": "1cdd7629a341da30d7aa28723ae3d17f8eb8a9e61f78762bba2b57fec400561f",
+      "sha256": "32995f343c71dc40c30f458fe27e8934f54d096eed56d058206bbde6b9c074bd",
       "source": "templates/deploy/deploy/autodeploy.sh.tmpl"
     },
     "deploy/autodeploy.timer": {
@@ -866,7 +866,7 @@
     },
     "frontend/src/health.ts": {
       "mode": "full",
-      "sha256": "883b0f670b801155fc7e47802ca3864d3b67f53dc4aa46a3444aa786c8912892",
+      "sha256": "2b9dcf54a0b6baa6a2dd896ccd55af04b51cf7c6a3585cff14bc53c8eb4a755a",
       "source": "templates/ui/frontend/src/health.ts"
     },
     "frontend/src/lib/api.test.ts": {

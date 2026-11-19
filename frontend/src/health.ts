@@ -15,7 +15,7 @@ export function healthText(health: Health) {
 }
 
 /** Milliseconds between checks while the server is down. */
-export const HEALTH_RETRY_MS = 10_000;
+const HEALTH_RETRY_MS = 10_000;
 
 /**
  * Checks GET /api/health once on mount, then again every `retryMs` while it fails (and when the browser
