@@ -4,7 +4,7 @@ PostgreSQL 17. The only source of the migrations is `migrations/NNN_<description
 
 ## Applying migrations
 
-The shared migration runner (`backend/src/migrations.ts`, #71) applies the files in name order. Each file is recorded in the `schema_migrations` table with a checksum, so a file is applied once.
+The shared migration runner (`backend/src/standard/migrations.ts`, #71) applies the files in name order. Each file is recorded in the `schema_migrations` table with a checksum, so a file is applied once.
 
 - **Deploy**: `deploy/remote-deploy.sh` runs `node dist/migrate.js` after starting the DB and before starting the new version. If a migration fails, the deploy stops and the old version keeps running.
 - **Host**: `npm run db:migrate` applies the pending files to the `DATABASE_URL` in `.env`. It prints the files it applied, or "No migrations to apply."

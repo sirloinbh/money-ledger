@@ -4,7 +4,17 @@ import { fileURLToPath } from 'node:url';
 
 import { Client } from 'pg';
 
-import { checksum, migrate, readMigrations } from '../src/migrations.js';
+import {
+  checksum,
+  migrate as runMigrate,
+  type Migration,
+  readMigrations,
+} from '../src/standard/migrations.js';
+
+// The runner takes the app's advisory lock key; tests use their own.
+const lockKey = 581_900;
+const migrate = (db: Parameters<typeof runMigrate>[0], files: Migration[]) =>
+  runMigrate(db, files, lockKey);
 
 const url = process.env.TEST_DATABASE_URL;
 const dir = fileURLToPath(new URL('../../database/migrations/', import.meta.url));
