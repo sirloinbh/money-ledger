@@ -3,6 +3,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 
 import { formatMonthDay } from './quote-format';
 import { SecuritySearch } from './security-search';
+import { findLive, getLive } from './test/live';
 
 const samsung = {
   id: 1,
@@ -85,7 +86,7 @@ test('results show the latest close with its date; a US ticker says the close co
   // No name yet: the ticker is the title.
   expect(second).toHaveTextContent('AAPL');
   expect(second).toHaveTextContent('Open to get a quote');
-  expect(screen.getByRole('status')).toHaveTextContent('2 results for "Samsung"');
+  expect(getLive('status')).toHaveTextContent('2 results for "Samsung"');
 });
 
 test('no results, a blank query and an API error read differently', async () => {
@@ -101,7 +102,7 @@ test('no results, a blank query and an API error read differently', async () => 
   expect(screen.queryByRole('list', { name: 'Search results' })).toBeNull();
 
   searchFor('   ');
-  expect(await screen.findByRole('alert')).toHaveTextContent('Enter a search term');
+  expect(await findLive('alert')).toHaveTextContent('Enter a search term');
   expect(screen.getByLabelText('Security name, code, or ticker')).toHaveAttribute(
     'aria-invalid',
     'true',
@@ -109,7 +110,7 @@ test('no results, a blank query and an API error read differently', async () => 
   expect(urls).toHaveLength(1);
 
   searchFor('err');
-  expect(await screen.findByRole('alert')).toHaveTextContent('A server error occurred');
+  expect(await findLive('alert')).toHaveTextContent('A server error occurred');
 });
 
 test('a Korean detail shows the close and marks a delayed one', async () => {
@@ -257,7 +258,7 @@ test('a detail that fails to load shows the server message', async () => {
   render(<SecuritySearch />);
   searchFor('005930');
   fireEvent.click(await screen.findByRole('button', { name: /Samsung Electronics/ }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Security not found');
+  expect(await findLive('alert')).toHaveTextContent('Security not found');
 });
 
 test('dates read as month and day', () => {

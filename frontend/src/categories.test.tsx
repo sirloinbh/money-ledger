@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { CategoryManager } from './categories';
+import { findLive } from './test/live';
 
 type Category = { id: number; kind: 'income' | 'expense'; name: string; hidden: boolean };
 
@@ -75,7 +76,7 @@ test('adding a category sends the trimmed name and shows it in its list', async 
   await list('Expense category');
   fireEvent.change(screen.getByLabelText('New expense category'), { target: { value: '  Pets ' } });
   fireEvent.click(screen.getAllByRole('button', { name: 'Add' })[0]);
-  expect(await screen.findByRole('status')).toHaveTextContent('Pets category added');
+  expect(await findLive('status')).toHaveTextContent('Pets category added');
   expect(requests).toContainEqual({
     method: 'POST',
     url: '/api/ledger/categories',
@@ -92,7 +93,7 @@ test('a duplicate name shows the server message and keeps the input', async () =
   await list('Expense category');
   fireEvent.change(screen.getByLabelText('New expense category'), { target: { value: 'Food' } });
   fireEvent.click(screen.getAllByRole('button', { name: 'Add' })[0]);
-  expect(await screen.findByRole('alert')).toHaveTextContent(
+  expect(await findLive('alert')).toHaveTextContent(
     'A category with this name already exists for this kind',
   );
   expect(screen.getByLabelText('New expense category')).toHaveValue('Food');
@@ -109,7 +110,7 @@ test('hiding and showing again change the category through the API', async () =>
   render(<CategoryManager />);
   await list('Expense category');
   fireEvent.click(screen.getByRole('button', { name: 'Hide Food' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('Food category hidden');
+  expect(await findLive('status')).toHaveTextContent('Food category hidden');
   expect(requests).toContainEqual({
     method: 'PATCH',
     url: '/api/ledger/categories/1',
@@ -136,7 +137,7 @@ test('renaming saves the new name and cancelling keeps the old one', async () =>
   fireEvent.click(screen.getByRole('button', { name: 'Rename Food' }));
   fireEvent.change(screen.getByLabelText('Food new name'), { target: { value: 'Dining out' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('Category renamed to Dining out');
+  expect(await findLive('status')).toHaveTextContent('Category renamed to Dining out');
   expect(screen.getByRole('button', { name: 'Hide Dining out' })).toBeInTheDocument();
 });
 
@@ -186,7 +187,7 @@ test('cancel and Escape wait while the rename saves, and a refused name stays in
   expect(cancel).toHaveFocus();
 
   release();
-  expect(await screen.findByRole('alert')).toHaveTextContent(
+  expect(await findLive('alert')).toHaveTextContent(
     'A category with this name already exists for this kind',
   );
   expect(screen.getByLabelText('Food new name')).toHaveValue('Transport');
@@ -204,7 +205,7 @@ test('a failure to load is reported as an alert', async () => {
     vi.fn(() => Promise.reject(new TypeError('offline'))),
   );
   render(<CategoryManager />);
-  expect(await screen.findByRole('alert')).toHaveTextContent('Cannot reach the server');
+  expect(await findLive('alert')).toHaveTextContent('Cannot reach the server');
   expect(screen.queryByText('Loading categories')).not.toBeInTheDocument();
 });
 
@@ -237,7 +238,7 @@ test('a change that saved but could not reload says both and still clears the in
   );
   fireEvent.change(screen.getByLabelText('New expense category'), { target: { value: 'Pets' } });
   fireEvent.click(screen.getAllByRole('button', { name: 'Add' })[0]);
-  expect(await screen.findByRole('alert')).toHaveTextContent(
+  expect(await findLive('alert')).toHaveTextContent(
     'Pets category added. Could not reload the list',
   );
   expect(screen.getByLabelText('New expense category')).toHaveValue('');
@@ -251,7 +252,7 @@ test('a second submit while saving sends nothing', async () => {
   fireEvent.submit(form);
   fireEvent.submit(form);
   expect(screen.getAllByRole('button', { name: 'Add' })[0]).toBeEnabled();
-  expect(await screen.findByRole('status')).toHaveTextContent('Pets category added');
+  expect(await findLive('status')).toHaveTextContent('Pets category added');
   expect(requests.filter((request) => request.method === 'POST')).toHaveLength(1);
 });
 
@@ -263,7 +264,7 @@ test('a name the server would refuse is refused here with its message, before se
   expect(field).toHaveAttribute('maxLength', '30');
   fireEvent.change(field, { target: { value: ' Un categorized ' } });
   fireEvent.click(screen.getAllByRole('button', { name: 'Add' })[0]);
-  expect(await screen.findByRole('alert')).toHaveTextContent(
+  expect(await findLive('alert')).toHaveTextContent(
     '"Uncategorized" is reserved for entries with no category; choose another name',
   );
   expect(field).toHaveValue(' Un categorized ');
@@ -276,7 +277,7 @@ test('a rename to a reserved name is refused before sending and stays in the for
   fireEvent.click(screen.getByRole('button', { name: 'Rename Food' }));
   fireEvent.change(screen.getByLabelText('Food new name'), { target: { value: '미분류' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('"Uncategorized" is reserved');
+  expect(await findLive('alert')).toHaveTextContent('"Uncategorized" is reserved');
   expect(screen.getByLabelText('Food new name')).toHaveValue('미분류');
   expect(requests.filter((request) => request.method !== 'GET')).toEqual([]);
 });

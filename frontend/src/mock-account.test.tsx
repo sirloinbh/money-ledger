@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { MockAccount } from './mock-account';
+import { findLive } from './test/live';
 
 type Account = {
   id: number;
@@ -155,7 +156,7 @@ test.each([
   const amount = await screen.findByLabelText('Starting amount (KRW)');
   fireEvent.change(amount, { target: { value } });
   fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent(message);
+  expect(await findLive('alert')).toHaveTextContent(message);
   expect(amount).toHaveAttribute('aria-invalid', 'true');
   expect(posts()).toEqual([]);
 });
@@ -168,9 +169,7 @@ test('a 409 from another tab shows the error and the account the server has', as
   const submit = screen.getByRole('button', { name: 'Create account' });
   submit.focus();
   fireEvent.click(submit);
-  expect(await screen.findByRole('alert')).toHaveTextContent(
-    'A mock trading account already exists',
-  );
+  expect(await findLive('alert')).toHaveTextContent('A mock trading account already exists');
   const title = await screen.findByRole('heading', { level: 2, name: 'Mock trading account' });
   // The create button went away with the form; focus is not left on the page body.
   await vi.waitFor(() => expect(title).toHaveFocus());
@@ -184,7 +183,7 @@ test('an account that is gone (404) closes the dialog and focuses the create for
   failNext = { status: 404, error: 'Mock trading account not found' };
   open = null;
   fireEvent.click(within(dialog).getByRole('button', { name: 'Reset' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Mock trading account not found');
+  expect(await findLive('alert')).toHaveTextContent('Mock trading account not found');
   const amount = await screen.findByLabelText('Starting amount (KRW)');
   await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   await vi.waitFor(() => expect(amount).toHaveFocus());
@@ -233,9 +232,7 @@ test('an invalid reset amount is refused without opening the dialog', async () =
   const amount = await screen.findByLabelText('New starting amount (KRW)');
   fireEvent.change(amount, { target: { value: '0' } });
   fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent(
-    'The starting amount must be at least ₩10,000',
-  );
+  expect(await findLive('alert')).toHaveTextContent('The starting amount must be at least ₩10,000');
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(amount).toHaveAttribute('aria-invalid', 'true');
 });
@@ -251,7 +248,7 @@ test('an account already reset elsewhere closes the dialog and shows the new acc
   };
   open = { ...account(2, 20_000_000), cashKrw: 20_000_000 };
   fireEvent.click(within(dialog).getByRole('button', { name: 'Reset' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('This account was already reset');
+  expect(await findLive('alert')).toHaveTextContent('This account was already reset');
   await vi.waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   expect(screen.getByText('Cash balance').parentElement!).toHaveTextContent('₩20,000,000');
   expect(posts()).toHaveLength(1);
@@ -263,7 +260,7 @@ test('a failed load is shown as an error instead of the form', async () => {
     vi.fn(() => json({ error: 'A server error occurred' }, 500)),
   );
   render(<MockAccount />);
-  expect(await screen.findByRole('alert')).toHaveTextContent('A server error occurred');
+  expect(await findLive('alert')).toHaveTextContent('A server error occurred');
   expect(screen.queryByRole('button', { name: 'Create account' })).not.toBeInTheDocument();
 });
 

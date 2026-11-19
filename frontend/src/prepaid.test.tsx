@@ -3,6 +3,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 
 import { AssetManager } from './assets';
 import { serviceToday } from './format';
+import { findLive, getLive } from './test/live';
 
 // #64 Prepaid assets on the asset screen, against a fake server that keeps the same rules.
 
@@ -162,7 +163,7 @@ test('a stored-value prepaid asset is sent with its amount and optional expiry',
   expect(screen.queryByLabelText('Valuation (KRW)')).not.toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Amount loaded (KRW)'), { target: { value: '300,000' } });
   fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('Salon added');
+  expect(await findLive('status')).toHaveTextContent('Salon added');
   expect(requests.find((request) => request.method === 'POST')?.body).toEqual({
     name: 'Salon',
     type: 'prepaid',
@@ -191,15 +192,13 @@ test('a period pass needs a start and an expiry no earlier than the start', asyn
   fireEvent.change(screen.getByLabelText('Start date'), { target: { value: '2026-03-01' } });
   fireEvent.change(expiry(), { target: { value: '2026-02-28' } });
   fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-  expect(screen.getByRole('alert')).toHaveTextContent(
-    'The expiry date must be on or after the start date',
-  );
+  expect(getLive('alert')).toHaveTextContent('The expiry date must be on or after the start date');
   expect(expiry()).toHaveAttribute('aria-invalid', 'true');
   expect(requests.some((request) => request.method === 'POST')).toBe(false);
 
   fireEvent.change(expiry(), { target: { value: '2026-05-31' } });
   fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-  await screen.findByRole('status');
+  await findLive('status');
   expect(requests.find((request) => request.method === 'POST')?.body).toMatchObject({
     prepaid: { kind: 'period', amountKrw: 270000, startsOn: '2026-03-01', expiresOn: '2026-05-31' },
   });
@@ -226,7 +225,7 @@ test('uses lower a stored value, a use above the balance shows the server messag
   });
   fireEvent.change(within(panel).getByLabelText('Note'), { target: { value: 'Haircut' } });
   fireEvent.click(within(panel).getByRole('button', { name: 'Add usage' }));
-  expect(await within(panel).findByRole('status')).toHaveTextContent('₩50,000 use recorded');
+  expect(await findLive('status', panel)).toHaveTextContent('₩50,000 use recorded');
   expect(requests).toContainEqual({
     method: 'POST',
     url: '/api/portfolio/assets/6/usages',
@@ -243,7 +242,7 @@ test('uses lower a stored value, a use above the balance shows the server messag
     target: { value: '250001' },
   });
   fireEvent.click(within(panel).getByRole('button', { name: 'Add usage' }));
-  expect(await within(panel).findByRole('alert')).toHaveTextContent(
+  expect(await findLive('alert', panel)).toHaveTextContent(
     'Cannot use more than the balance (remaining ₩250,000)',
   );
   expect(within(panel).getByLabelText('Amount used (KRW)')).toHaveAttribute('aria-invalid', 'true');
@@ -291,7 +290,7 @@ test('a date refused by the server marks the date field, and a date that does no
   );
   fireEvent.change(date, { target: { value: '2026-02-01' } });
   fireEvent.click(within(panel).getByRole('button', { name: 'Add usage' }));
-  expect(await within(panel).findByRole('alert')).toHaveTextContent('The expiry date (2026-01-31)');
+  expect(await findLive('alert', panel)).toHaveTextContent('The expiry date (2026-01-31)');
   expect(date).toHaveAttribute('aria-invalid', 'true');
   expect(within(panel).getByLabelText('Amount used (KRW)')).not.toHaveAttribute('aria-invalid');
 
@@ -300,15 +299,11 @@ test('a date refused by the server marks the date field, and a date that does no
   const form = within(panel).getByRole('form', { name: 'Salon membership add usage' });
   fireEvent.change(date, { target: { value: '2026-02-30' } });
   fireEvent.submit(form);
-  expect(within(panel).getByRole('alert')).toHaveTextContent(
-    'Enter the date of use between 1900 and 2100',
-  );
+  expect(getLive('alert', panel)).toHaveTextContent('Enter the date of use between 1900 and 2100');
   fireEvent.change(date, { target: { value: '2099-01-01' } });
   expect(date).toHaveAttribute('max', serviceToday());
   fireEvent.submit(form);
-  expect(within(panel).getByRole('alert')).toHaveTextContent(
-    'Usage dated after today cannot be recorded',
-  );
+  expect(getLive('alert', panel)).toHaveTextContent('Usage dated after today cannot be recorded');
   expect(requests.filter((request) => request.method === 'POST')).toHaveLength(posts);
 });
 
@@ -322,7 +317,7 @@ test('a refusal that is not about the date or the balance marks no field', async
   });
   vi.mocked(fetch).mockImplementationOnce(() => json({ error: 'Asset not found' }, 404));
   fireEvent.click(within(panel).getByRole('button', { name: 'Add usage' }));
-  expect(await within(panel).findByRole('alert')).toHaveTextContent('Asset not found');
+  expect(await findLive('alert', panel)).toHaveTextContent('Asset not found');
   expect(within(panel).getByLabelText('Amount used (KRW)')).not.toHaveAttribute('aria-invalid');
   expect(within(panel).getByLabelText('Date used')).not.toHaveAttribute('aria-invalid');
 });
@@ -334,7 +329,7 @@ test('a use of 0 won is refused before sending', async () => {
   const panel = screen.getByRole('region', { name: 'Salon membership usage records' });
   fireEvent.change(within(panel).getByLabelText('Amount used (KRW)'), { target: { value: '0' } });
   fireEvent.click(within(panel).getByRole('button', { name: 'Add usage' }));
-  expect(within(panel).getByRole('alert')).toHaveTextContent(
+  expect(getLive('alert', panel)).toHaveTextContent(
     'Enter the amount used as a whole number of won, at least ₩1',
   );
   expect(requests.some((request) => request.method === 'POST')).toBe(false);

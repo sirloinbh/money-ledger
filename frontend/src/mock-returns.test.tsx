@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { MockReturns } from './mock-returns';
+import { findLive } from './test/live';
 
 // The chart itself is checked in mock-return-chart.test.tsx; here it only reports the days it was given.
 vi.mock('./mock-return-chart', () => ({
@@ -105,5 +106,5 @@ test('no saved value in the period says so; a failed load shows the reason', asy
     ),
   );
   render(<MockReturns accountId={7} refreshKey={0} />);
-  expect(await screen.findByRole('alert')).toHaveTextContent('A server error occurred');
+  expect(await findLive('alert')).toHaveTextContent('A server error occurred');
 });

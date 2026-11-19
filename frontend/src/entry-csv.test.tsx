@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { EntryCsv } from './entry-csv';
+import { findLive, getLive } from './test/live';
 
 type Sent = { url: string; body: { rows: { line: number }[]; skipDuplicates?: boolean } };
 let sent: Sent[];
@@ -99,7 +100,7 @@ test('a statement is mapped, checked, and imported with duplicates skipped', asy
 
   answers[importPath] = () => json({ imported: 1, skipped: 1 });
   fireEvent.click(screen.getByRole('button', { name: 'Import 1 entries' }));
-  expect(await screen.findByRole('status')).toHaveTextContent(
+  expect(await findLive('status')).toHaveTextContent(
     'Imported 1 entries and skipped 1 likely duplicates',
   );
   expect(sent[1].body.skipDuplicates).toBe(true);
@@ -115,7 +116,7 @@ test('keeping the duplicates imports them too', async () => {
   fireEvent.click(screen.getByRole('checkbox', { name: 'Skip these rows' }));
   answers[importPath] = () => json({ imported: 2, skipped: 0 });
   fireEvent.click(screen.getByRole('button', { name: 'Import 2 entries' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('Imported 2 entries');
+  expect(await findLive('status')).toHaveTextContent('Imported 2 entries');
   expect(sent[1].body.skipDuplicates).toBe(false);
 });
 
@@ -149,9 +150,7 @@ test('a file without a date or amount column cannot be checked', async () => {
   show();
   await choose('when,how much\n2026-11-01,1\n');
   fireEvent.click(screen.getByRole('button', { name: 'Check the rows' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent(
-    'Choose the column for Date and Amount',
-  );
+  expect(await findLive('alert')).toHaveTextContent('Choose the column for Date and Amount');
   expect(sent).toHaveLength(0);
 });
 
@@ -161,7 +160,7 @@ test('a file that is not UTF-8, empty, or too long is refused before sending', a
     fireEvent.change(screen.getByLabelText('CSV file to import'), {
       target: { files: [new File([text], 'x.csv')] },
     });
-    await vi.waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(message));
+    await vi.waitFor(() => expect(getLive('alert')).toHaveTextContent(message));
   };
   await refuse(`date${String.fromCharCode(0xfffd)}\n1\n`, 'This file is not UTF-8');
   await refuse('date,amount\n', 'The file has no rows under its header');
@@ -180,7 +179,7 @@ test('a refused import says nothing was saved and asks for a new check', async (
   answers[importPath] = () =>
     json({ error: '1 row(s) cannot be imported. Nothing was saved', problems: [] }, 422);
   fireEvent.click(screen.getByRole('button', { name: 'Import 2 entries' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Nothing was saved');
+  expect(await findLive('alert')).toHaveTextContent('Nothing was saved');
   expect(screen.queryByRole('button', { name: 'Import 2 entries' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Check the rows' })).toBeInTheDocument();
   expect(onImported).not.toHaveBeenCalled();
@@ -208,7 +207,7 @@ test('the import sends the rows that were checked', async () => {
   await checked({ rows: 2, valid: 2, problems: [], duplicates: [] });
   answers[importPath] = () => json({ imported: 2, skipped: 0 });
   fireEvent.click(screen.getByRole('button', { name: 'Import 2 entries' }));
-  await screen.findByRole('status');
+  await findLive('status');
   expect(sent[1].body.rows).toEqual(sent[0].body.rows);
   expect(sent[1].body.rows.map((row) => row.line)).toEqual([2, 3]);
 });

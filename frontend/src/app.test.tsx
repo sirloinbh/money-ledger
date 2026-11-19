@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { expect, test, vi } from 'vitest';
 
 import { App } from './app';
+import { findLive } from './test/live';
 
 // /api/health answers with `body`; every list (categories, entries, assets, trend months, budgets, fixed costs) is empty and there is no mock account.
 const health = (body: object, status = 200) =>
@@ -43,7 +44,7 @@ test('shows the server date from /api/health on the overview', async () => {
 test('reports a server error as an alert', async () => {
   health({ error: 'Cannot connect to the database' }, 503);
   render(<App />);
-  expect(await screen.findByRole('alert')).toHaveTextContent('Cannot connect to the database');
+  expect(await findLive('alert')).toHaveTextContent('Cannot connect to the database');
 });
 
 test('each page has its own address and is marked in the main menu', async () => {
@@ -89,7 +90,7 @@ test('an area page reports a server error as an alert', async () => {
   health({ error: 'Cannot connect to the database' }, 503);
   window.history.replaceState(null, '', '/ledger');
   render(<App />);
-  expect(await screen.findByRole('alert')).toHaveTextContent('Cannot connect to the database');
+  expect(await findLive('alert')).toHaveTextContent('Cannot connect to the database');
 });
 
 test('an unknown address falls back to the overview', async () => {
