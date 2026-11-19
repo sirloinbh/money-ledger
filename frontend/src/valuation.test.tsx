@@ -3,6 +3,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 
 import { AssetManager } from './assets';
 import { serviceToday } from './format';
+import { findLive, getLive } from './test/live';
 
 // #47 Current prices on the asset screen against a fake server. The server works out every value; the fake
 // returns fixed ones so the screen's wording (price basis, delays, rate, gain) and its requests can be checked.
@@ -252,7 +253,7 @@ test('a stock is linked from the search and takes the security currency', async 
 
   fireEvent.change(screen.getByLabelText('Quantity (optional)'), { target: { value: '3' } });
   fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-  await screen.findByRole('status');
+  await findLive('status');
   expect(requests.find((request) => request.method === 'POST')?.body).toMatchObject({
     type: 'stock',
     currency: 'USD',
@@ -280,7 +281,7 @@ test('a hand price is sent with today when no date is given', async () => {
     target: { value: '5,000,000' },
   });
   fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-  await screen.findByRole('status');
+  await findLive('status');
   expect(requests.find((request) => request.method === 'POST')?.body).toMatchObject({
     type: 'other',
     quantity: '2',
@@ -324,7 +325,7 @@ test.each([
     });
   }
   fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-  expect(screen.getByRole('alert')).toHaveTextContent(message);
+  expect(getLive('alert')).toHaveTextContent(message);
   expect(screen.getByLabelText(field)).toHaveAttribute('aria-invalid', 'true');
   expect(requests.some((request) => request.method === 'POST')).toBe(false);
 });

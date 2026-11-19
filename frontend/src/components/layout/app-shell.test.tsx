@@ -67,3 +67,10 @@ test.runIf(DARK_ONLY)('a dark-only app has no mode menu', () => {
   renderAt('/');
   expect(screen.queryByRole('button', { name: /Theme/ })).toBeNull();
 });
+
+test('the sidebar and the content height include the top safe-area inset the header adds (#686)', () => {
+  renderAt('/');
+  const sidebar = document.querySelector('aside');
+  expect(sidebar).toHaveClass('top-[calc(3.5rem+env(safe-area-inset-top))]', 'h-[calc(100dvh-3.5rem-env(safe-area-inset-top))]');
+  expect(screen.getByRole('main').parentElement).toHaveClass('min-h-[calc(100dvh-3.5rem-env(safe-area-inset-top))]');
+});

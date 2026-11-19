@@ -13,7 +13,7 @@ For requests to add, change, or refactor features, or to change settings, docs, 
 2. Create a work branch that contains the issue number: `<type>/<issue-number>-<slug>`.
 3. Write the implementation or fix together with the relevant tests, and include a `docs/changes/<issue-number>-<slug>.md` change record in each commit.
 4. Run `npm run check` before committing and before creating or updating a PR. Record the results in the docs and the PR.
-5. Review and merge your own PR as std-code-review section 8 says: review it 1 or 2 times (more only while blocking findings remain), fix findings on the same branch, register a new issue for any big problem outside the PR, then merge with `pr merge --merge` once CI is green (user decision, 2026-11-15, #591). This applies even though merging to main is a production deploy. If "Check before merging" has an item for the user, do not merge; ask. No force-push and no direct push to main. [AGENTS.project.md](AGENTS.project.md) may add stricter rules, and it wins. PRs opened by an agent worker (project-standards `tools/agents`) follow `autoMerge` in this repo's `.agents.json` (auto-merge if the file is missing; per-repo values are in project-standards `docs/tools.md`).
+5. Review and merge your own PR as std-code-review section 8 says: review it 1 or 2 times (more only while blocking findings remain), fix findings on the same branch, register a new issue for any big problem outside the PR, then merge with `pr merge --merge` once CI is green (user decision, 2026-11-15, #591). This applies even though merging to main is a production deploy. If "Check before merging" has an item for the user, do not merge; ask. No force-push and no direct push to main. [AGENTS.project.md](AGENTS.project.md) may add stricter rules, and it wins.
 
 Answering questions, giving recommendations, and read-only investigation do not create an issue or a branch. For rules the requirements do not set (aggregation method, policy, scope), confirm with the user along with a recommendation, and record the answer in an issue comment.
 
@@ -27,7 +27,7 @@ Answering questions, giving recommendations, and read-only investigation do not 
 - Do not overwrite user changes. Stage only the files you need, by name.
 - **Install or remove npm packages only after the user reconfirms, and prefer `--ignore-scripts`.** `npm ci` (installs from the lockfile), `npm run <script>`, `npm ls`, and `npm view` are allowed.
 - Do GitHub remote work with the `scripts/gh-project.ps1` wrapper for the personal account `sirloinbh`. Do not make remote changes with the default work account `gh`.
-- The `frontend`, `backend`, and `database` sub-repositories are subtree targets for deployment. During everyday PR work, do not push directly to a sub-repository or to `main`. Use `scripts/push-repositories.ps1` only for a separate sync request; it pushes only to the sub-repositories and never to the umbrella `main`, which changes only through PRs. AWS infrastructure is managed in the shared repo `sirloinbh/shared-aws-infrastructure`.
+- This repository is the only source and the only deploy repository (ADR-0022): do not push directly to `main`; it changes only through PRs. AWS infrastructure is managed in the shared repo `sirloinbh/shared-aws-infrastructure`.
 
 ## Centrally managed files
 

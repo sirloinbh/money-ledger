@@ -9,27 +9,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// npm's command list and aliases (npm 11, lib/utils/cmd-list.js). npm also accepts any
-// unambiguous prefix and camelCase names, so `npm upd` and `npm installTest` resolve too.
-const NPM_COMMANDS = [
-  'access', 'adduser', 'approve-scripts', 'audit', 'bugs', 'cache', 'ci', 'completion', 'config', 'dedupe',
-  'deny-scripts', 'deprecate', 'diff', 'dist-tag', 'docs', 'doctor', 'edit', 'exec', 'explain', 'explore',
-  'find-dupes', 'fund', 'get', 'help', 'help-search', 'init', 'install', 'install-ci-test', 'install-scripts',
-  'install-test', 'link', 'll', 'login', 'logout', 'ls', 'org', 'outdated', 'owner', 'pack', 'ping', 'pkg',
-  'prefix', 'profile', 'prune', 'publish', 'query', 'rebuild', 'repo', 'restart', 'root', 'run', 'sbom',
-  'search', 'set', 'shrinkwrap', 'stage', 'star', 'stars', 'start', 'stop', 'team', 'test', 'token', 'trust',
-  'undeprecate', 'uninstall', 'unpublish', 'unstar', 'update', 'version', 'view', 'whoami',
-];
-const NPM_ALIASES = {
-  author: 'owner', home: 'docs', issues: 'bugs', info: 'view', show: 'view', find: 'search', add: 'install',
-  unlink: 'uninstall', remove: 'uninstall', rm: 'uninstall', r: 'uninstall', un: 'uninstall', rb: 'rebuild',
-  list: 'ls', ln: 'link', create: 'init', i: 'install', it: 'install-test', cit: 'install-ci-test', u: 'update',
-  up: 'update', c: 'config', s: 'search', se: 'search', tst: 'test', t: 'test', ddp: 'dedupe', v: 'view',
-  'run-script': 'run', 'clean-install': 'ci', 'clean-install-test': 'install-ci-test', x: 'exec', why: 'explain',
-  la: 'll', verison: 'version', ic: 'ci', innit: 'init', in: 'install', ins: 'install', inst: 'install',
-  insta: 'install', instal: 'install', isnt: 'install', isnta: 'install', isntal: 'install', isntall: 'install',
-  'install-clean': 'ci', 'isntall-clean': 'ci', hlep: 'help', 'dist-tags': 'dist-tag', upgrade: 'update',
-  udpate: 'update', rum: 'run', sit: 'install-ci-test', urn: 'run', ogr: 'org', 'add-user': 'adduser',
+// The npm commands this hook acts on, with their aliases (npm 11). Matching is exact: abbreviations such as `npm upd`,
+// camelCase names, and typo aliases are not resolved, because the hook only guards against mistakes (#703).
+const NPM_COMMANDS = {
+  install: 'install', i: 'install', add: 'install', in: 'install', ins: 'install', inst: 'install', insta: 'install', instal: 'install',
+  ci: 'ci', 'clean-install': 'ci', ic: 'ci', 'install-clean': 'ci',
+  'install-test': 'install-test', it: 'install-test', 'install-ci-test': 'install-ci-test', cit: 'install-ci-test', 'clean-install-test': 'install-ci-test', sit: 'install-ci-test',
+  update: 'update', up: 'update', upgrade: 'update', u: 'update',
+  uninstall: 'uninstall', un: 'uninstall', remove: 'uninstall', rm: 'uninstall', r: 'uninstall', unlink: 'uninstall',
+  exec: 'exec', x: 'exec', init: 'init', create: 'init', innit: 'init', rebuild: 'rebuild', rb: 'rebuild',
+  dedupe: 'dedupe', ddp: 'dedupe', link: 'link', ln: 'link', audit: 'audit',
 };
 // npm commands that install, remove, or run packages (`audit` only with `fix`). `ci` installs exactly what
 // the lockfile pins (#375), and `install` (with its aliases) adds or changes packages (#629, user decision
@@ -43,15 +32,9 @@ const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh', 'mksh', 'ash', 'fish
 const POWERSHELLS = new Set(['pwsh', 'powershell', 'powershell_ise']);
 const MAX_DEPTH = 6;
 
-/** Resolves an npm command word the way npm does, or returns undefined. */
+/** The npm command a word names, or undefined when it is not one this hook acts on. */
 export function npmCommand(word) {
-  let name = word;
-  if (/[A-Z]/.test(name)) name = name.replace(/([A-Z])/g, (m) => '-' + m.toLowerCase());
-  if (NPM_COMMANDS.includes(name)) return name;
-  if (NPM_ALIASES[name]) return NPM_ALIASES[name];
-  const names = [...NPM_COMMANDS, ...Object.keys(NPM_ALIASES)].filter((n) => n.startsWith(name));
-  if (!name || names.length !== 1) return undefined;
-  return NPM_ALIASES[names[0]] ?? names[0];
+  return Object.hasOwn(NPM_COMMANDS, word) ? NPM_COMMANDS[word] : undefined;
 }
 
 /**
@@ -214,7 +197,6 @@ function turnsScriptsOn(args) {
 }
 
 function checkNpm(args, viaXargs) {
-  let positional = 0;
   // `--` before the command only ends the options: `npm -- install` still installs (#381).
   let optionsEnded = false;
   for (let i = 0; i < args.length; i++) {
@@ -226,16 +208,15 @@ function checkNpm(args, viaXargs) {
       if (NPM_VALUE_OPTIONS.has(args[i])) i++;
       continue;
     }
-    positional++;
     const command = npmCommand(args[i]);
-    // A word that is not a command is the value of an option such as `--prefix dir`.
-    if (!command) continue;
+    // The first word that is not an option decides. A word the hook does not act on (`run`, `test`, `ls`) allows the call.
+    if (!command) return null;
     if (command === 'audit') return args.slice(i + 1).includes('fix') ? 'npm audit fix' : null;
     if (command === 'ci' || command === 'install') return turnsScriptsOn(args) ? WITH_SCRIPTS : LOCKFILE_INSTALL;
     return NPM_BLOCKED.has(command) ? `npm ${command}` : null;
   }
   // `xargs npm` takes the subcommand from its input, so the hook cannot see it.
-  return viaXargs && positional === 0 ? 'xargs npm' : null;
+  return viaXargs ? 'xargs npm' : null;
 }
 
 function powershellCommand(args) {

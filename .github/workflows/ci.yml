@@ -2,15 +2,20 @@
 # Calls the central shared CI (reusable-app-ci) pinned to the central commit that was synced. Values come from the central registry and versions.json.
 name: ci
 
-on: [push, pull_request]
+# One run per commit: a pull request is tested through pull_request only; push runs on main (#699).
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 permissions:
   contents: read
-  packages: read
+  # write is the most the image-push job of the reusable workflow may use; every other job gets read (ADR-0023, #754).
+  packages: write
 
 jobs:
   ci:
-    uses: sirloinbh/project-standards/.github/workflows/reusable-app-ci.yml@7d2c18482250b4bda7f196e6d8174fe99ea26a47
+    uses: sirloinbh/project-standards/.github/workflows/reusable-app-ci.yml@7b6b68bfa411dbee6b533c532bbdb45d66865996
     with:
       node-version: '24.21.0'
       npm-version: '11.19.0'
@@ -20,3 +25,5 @@ jobs:
       e2e-visual: false
       playwright-image: 'mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27'
       knip-strict: true
+      push-images: false
+      image-prefix: 'ghcr.io/sirloinbh/money'

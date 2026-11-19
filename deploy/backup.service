@@ -1,4 +1,4 @@
-# Managed file. Edit it in sirloinbh/project-standards templates/app/deploy/
+# Managed file. Edit it in sirloinbh/project-standards templates/deploy/deploy/
 [Unit]
 Description=Money Ledger daily database dump (and S3 copy when configured)
 After=docker.service

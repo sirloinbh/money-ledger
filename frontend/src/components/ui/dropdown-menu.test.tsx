@@ -27,7 +27,10 @@ test('the keyboard opens the menu and Enter picks an item', () => {
   fireEvent.keyDown(trigger, { key: 'Enter' });
   expect(screen.getByRole('menu')).toBeInTheDocument();
   expect(screen.getByRole('menuitem', { name: 'Delete' })).toHaveAttribute('data-variant', 'destructive');
-  fireEvent.click(screen.getByRole('menuitem', { name: 'Edit' }));
+  // Arrow keys move to the item and Enter picks it; no pointer events.
+  fireEvent.keyDown(screen.getByRole('menu'), { key: 'ArrowDown' });
+  expect(screen.getByRole('menuitem', { name: 'Edit' })).toHaveFocus();
+  fireEvent.keyDown(screen.getByRole('menuitem', { name: 'Edit' }), { key: 'Enter' });
   expect(onEdit).toHaveBeenCalledOnce();
   expect(screen.queryByRole('menu')).toBeNull();
 });

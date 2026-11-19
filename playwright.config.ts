@@ -37,7 +37,9 @@ export default defineConfig({
     {
       command: 'npx --no-install tsx backend/src/server.ts',
       url: `http://127.0.0.1:${apiPort}/api/health`,
-      env: { DATABASE_URL: database, PORT: String(apiPort), TZ: 'Asia/Seoul' },
+      // The e2e API runs without the shared sign-in. The mode is explicit (#667): without AUTH_INTERNAL_URL
+      // the server refuses to start unless AUTH_DISABLED=1 (or NODE_ENV=development|test) says it is local.
+      env: { DATABASE_URL: database, PORT: String(apiPort), TZ: 'Asia/Seoul', AUTH_DISABLED: '1' },
       reuseExistingServer: false,
       timeout: 60_000,
     },

@@ -11,6 +11,7 @@ import {
   shiftMonth,
   writeFilters,
 } from './entry-filters-state';
+import { getLive, queryLive } from './test/live';
 
 describe('filter helpers', () => {
   test('a month runs from its first to its last day, leap years included', () => {
@@ -228,7 +229,7 @@ test('a start after the end is refused before any request', async () => {
   fireEvent.change(screen.getByLabelText('Start date'), { target: { value: '2026-11-20' } });
   fireEvent.change(screen.getByLabelText('End date'), { target: { value: '2026-11-10' } });
   fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
-  expect(screen.getByRole('alert')).toHaveTextContent('Start date is after the end date');
+  expect(getLive('alert')).toHaveTextContent('Start date is after the end date');
   expect(screen.getByLabelText('Start date')).toHaveAttribute('aria-invalid', 'true');
   expect(listUrls.length).toBe(before);
 });
@@ -253,7 +254,7 @@ test('Reset clears what was typed even when the address already holds this month
   fireEvent.change(screen.getByLabelText('Start date'), { target: { value: '2026-11-20' } });
   fireEvent.change(screen.getByLabelText('End date'), { target: { value: '2026-11-10' } });
   fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
-  expect(screen.getByRole('alert')).toBeInTheDocument();
+  expect(getLive('alert')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
   await vi.waitFor(() => expect(address()).toBe('?from=2026-11-01&to=2026-11-30'));
   // Again: now the address already holds the default period, so nothing in it changes.
@@ -261,7 +262,7 @@ test('Reset clears what was typed even when the address already holds this month
   fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
   expect(screen.getByLabelText('Search')).toHaveValue('');
   expect(screen.getByLabelText('Start date')).toHaveValue('2026-11-01');
-  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(queryLive('alert')).toBeNull();
 });
 
 test('pages: the count, the page number and the next page', async () => {
@@ -293,7 +294,7 @@ test('no match and a failed load each say so; a failed load can be retried', asy
   answer = () => json({ error: 'Start date is after the end date' }, 400);
   fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
   expect(await screen.findByText('Could not load the entries.')).toBeInTheDocument();
-  expect(screen.getByRole('alert')).toHaveTextContent('Start date is after the end date');
+  expect(getLive('alert')).toHaveTextContent('Start date is after the end date');
 
   answer = () => json({ entries: [entry(4, '2026-10-02')], total: 1, page: 1, pageSize: 50 });
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }));

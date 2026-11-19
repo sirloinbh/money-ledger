@@ -107,3 +107,17 @@ test('filterComboboxGroups caps the total, drops empty groups, and hides the exa
   expect(filterComboboxGroups(GROUPS, 'Squat')).toEqual([]);
   expect(filterComboboxGroups(GROUPS, 'dead lift')).toEqual([{ label: 'Frequently used', options: ['Deadlift'] }]);
 });
+
+test('Enter never picks an option that vanished when the list shrank under the highlight', () => {
+  const onValueChange = vi.fn();
+  const { rerender } = render(<Combobox value="" onValueChange={onValueChange} options={['Bench press', 'Squat', 'Deadlift']} listLabel="Suggestions" aria-label="Exercise" />);
+  const input = screen.getByRole('combobox', { name: 'Exercise' });
+  fireEvent.keyDown(input, { key: 'ArrowDown' });
+  fireEvent.keyDown(input, { key: 'ArrowDown' });
+  fireEvent.keyDown(input, { key: 'ArrowDown' });
+  expect(input).toHaveAttribute('aria-activedescendant', expect.stringMatching(/-2$/));
+  rerender(<Combobox value="" onValueChange={onValueChange} options={['Bench press']} listLabel="Suggestions" aria-label="Exercise" />);
+  expect(input).not.toHaveAttribute('aria-activedescendant');
+  fireEvent.keyDown(input, { key: 'Enter' });
+  expect(onValueChange).not.toHaveBeenCalled();
+});

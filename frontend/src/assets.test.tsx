@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { AssetManager } from './assets';
+import { findLive, getLive } from './test/live';
 
 type Asset = {
   id: number;
@@ -154,7 +155,7 @@ test('a won asset is added with its value as a whole number', async () => {
   fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'real_estate' } });
   fireEvent.change(screen.getByLabelText('Valuation (KRW)'), { target: { value: '300,000,000' } });
   fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('Apartment added');
+  expect(await findLive('status')).toHaveTextContent('Apartment added');
   expect(requests).toContainEqual({
     method: 'POST',
     url: '/api/portfolio/assets',
@@ -182,7 +183,7 @@ test('a USD asset with a quantity sends decimal strings', async () => {
   fireEvent.change(screen.getByLabelText('Quantity (optional)'), { target: { value: '0.25' } });
   fireEvent.change(screen.getByLabelText('Valuation (USD)'), { target: { value: '1,234.56' } });
   fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-  await screen.findByRole('status');
+  await findLive('status');
   expect(requests.find((request) => request.method === 'POST')?.body).toMatchObject({
     currency: 'USD',
     quantity: '0.25',
@@ -235,7 +236,7 @@ test.each([
     fireEvent.change(screen.getByLabelText(labels[key]), { target: { value } });
   }
   fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-  expect(screen.getByRole('alert')).toHaveTextContent(message);
+  expect(getLive('alert')).toHaveTextContent(message);
   expect(screen.getByLabelText(field)).toHaveAttribute('aria-invalid', 'true');
   expect(requests.some((request) => request.method === 'POST')).toBe(false);
 });
@@ -255,7 +256,7 @@ test('editing fills the form, moves focus to it, and saves with PUT', async () =
   expect(screen.getByRole('radio', { name: 'Dollar (USD)' })).toBeChecked();
   fireEvent.change(screen.getByLabelText('Valuation (USD)'), { target: { value: '300' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('Apple updated');
+  expect(await findLive('status')).toHaveTextContent('Apple updated');
   expect(requests).toContainEqual({
     method: 'PUT',
     url: '/api/portfolio/assets/3',
@@ -294,7 +295,7 @@ test('a server refusal shows its message', async () => {
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Cash' } });
   fireEvent.change(screen.getByLabelText('Valuation (KRW)'), { target: { value: '1' } });
   fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent(
+  expect(await findLive('alert')).toHaveTextContent(
     'Enter the valuation of a dollar asset in dollars',
   );
   expect(screen.getByLabelText('Name')).toHaveValue('Cash');
@@ -325,7 +326,7 @@ test('a depreciating asset is entered as a purchase price, date and useful life'
   fireEvent.change(screen.getByLabelText('Default useful life'), { target: { value: '60' } });
   expect(screen.getByLabelText('Useful life (months)')).toHaveValue('60');
   fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('Laptop added');
+  expect(await findLive('status')).toHaveTextContent('Laptop added');
   expect(requests).toContainEqual({
     method: 'POST',
     url: '/api/portfolio/assets',
@@ -411,7 +412,7 @@ test.each([
       fireEvent.change(screen.getByLabelText(labels[key]), { target: { value } });
     }
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-    expect(screen.getByRole('alert')).toHaveTextContent(message);
+    expect(getLive('alert')).toHaveTextContent(message);
     expect(screen.getByLabelText(field)).toHaveAttribute('aria-invalid', 'true');
     expect(requests.some((request) => request.method === 'POST')).toBe(false);
   },
@@ -432,9 +433,7 @@ test('a purchase date outside 1900–2100 is not sent', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Add' }));
   // Our own check covers a submit that skips the browser's (the same range as the server).
   fireEvent.submit(screen.getByRole('form', { name: 'New asset' }));
-  expect(screen.getByRole('alert')).toHaveTextContent(
-    'Enter a purchase date between 1900 and 2100',
-  );
+  expect(getLive('alert')).toHaveTextContent('Enter a purchase date between 1900 and 2100');
   expect(date).toHaveAttribute('aria-invalid', 'true');
   expect(requests.some((request) => request.method === 'POST')).toBe(false);
 });

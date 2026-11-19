@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { MockOrder } from './mock-order';
+import { findLive } from './test/live';
 
 const krwPreview = {
   security: { id: 1, symbol: '005930', name: 'Samsung Electronics', currency: 'KRW' },
@@ -124,7 +125,7 @@ test('a US sale shows the rate and a delayed close, and sends side sell', async 
 test('a bad quantity, no account and a refused preview never reach the order', async () => {
   render(<MockOrder securityId={1} title="Samsung Electronics" onOrdered={() => undefined} />);
   orderFor('1.5');
-  expect(await screen.findByRole('alert')).toHaveTextContent(
+  expect(await findLive('alert')).toHaveTextContent(
     'Enter the quantity as a whole number of shares',
   );
   expect(screen.getByLabelText('Quantity (shares)')).toHaveAttribute('aria-invalid', 'true');

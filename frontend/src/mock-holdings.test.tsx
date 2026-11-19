@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { MockHoldings } from './mock-holdings';
+import { findLive } from './test/live';
 
 const samsung = {
   security: {
@@ -132,7 +133,7 @@ test('a new refresh key or account reloads; a failure shows the reason', async (
 
   answer = { status: 500, body: { error: 'A server error occurred' } };
   rerender(<MockHoldings accountId={9} refreshKey={1} onOrdered={() => undefined} />);
-  expect(await screen.findByRole('alert')).toHaveTextContent('A server error occurred');
+  expect(await findLive('alert')).toHaveTextContent('A server error occurred');
   // Values of the earlier account are not shown for the new one.
   expect(screen.queryByRole('list')).toBeNull();
 });

@@ -2,6 +2,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, expect, test, vi } from 'vitest';
 
+import { findLive } from './test/live';
+
 type Item = {
   id: number;
   name: string;
@@ -145,7 +147,7 @@ test('an estimate is confirmed with the actual amount', async () => {
   expect(actual).toHaveValue('52000');
   fireEvent.change(actual, { target: { value: '61,230' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('Electricity confirmed at ₩61,230');
+  expect(await findLive('status')).toHaveTextContent('Electricity confirmed at ₩61,230');
   expect(sent('PUT')).toEqual([
     { method: 'PUT', url: '/api/ledger/fixed-costs/2/months/2026-11', body: { amount: 61_230 } },
   ]);
@@ -171,7 +173,7 @@ test('a preset fills the form and the new item is sent with this month as the st
   });
   fireEvent.change(within(form).getByLabelText('Day of the month'), { target: { value: '25' } });
   fireEvent.click(within(form).getByRole('button', { name: 'Add' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('Phone added');
+  expect(await findLive('status')).toHaveTextContent('Phone added');
   expect(sent('POST').filter((request) => !request.url.endsWith('/generate'))).toEqual([
     {
       method: 'POST',
@@ -205,7 +207,7 @@ test('a day outside 1 to 31 is refused before sending', async () => {
   const day = within(form).getByLabelText('Day of the month');
   fireEvent.change(day, { target: { value: '32' } });
   fireEvent.click(within(form).getByRole('button', { name: 'Add' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Enter a day between 1 and 31');
+  expect(await findLive('alert')).toHaveTextContent('Enter a day between 1 and 31');
   expect(day).toHaveAttribute('aria-invalid', 'true');
   expect(day).toHaveFocus();
   expect(sent('POST').filter((request) => !request.url.endsWith('/generate'))).toEqual([]);
@@ -215,7 +217,7 @@ test('stopping and editing change only the item', async () => {
   show();
   await list();
   fireEvent.click(screen.getByRole('button', { name: 'Stop Rent' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('Rent stopped');
+  expect(await findLive('status')).toHaveTextContent('Rent stopped');
   expect(await screen.findByRole('button', { name: 'Start Rent again' })).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole('button', { name: 'Edit Electricity' }));
@@ -225,7 +227,7 @@ test('stopping and editing change only the item', async () => {
     target: { value: '45000' },
   });
   fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
-  expect(await screen.findByRole('status')).toHaveTextContent(
+  expect(await findLive('status')).toHaveTextContent(
     'Electricity updated. It applies to entries added from now on',
   );
   expect(sent('PATCH')).toEqual([
@@ -250,7 +252,7 @@ test('a save that worked but could not add its entries still closes and reloads'
       : answer(url, init),
   );
   fireEvent.click(screen.getByRole('button', { name: 'Stop Rent' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent(
+  expect(await findLive('alert')).toHaveTextContent(
     'Rent stopped. Could not add its entries yet; they are added the next time the app opens',
   );
   expect(await screen.findByRole('button', { name: 'Start Rent again' })).toBeInTheDocument();

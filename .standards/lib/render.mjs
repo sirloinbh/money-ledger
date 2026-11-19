@@ -39,7 +39,7 @@ export function renderText(text, vars, file = '(template)') {
   return out;
 }
 
-const HASH_STYLE = new Set(['.editorconfig', '.gitattributes', '.gitignore', '.prettierignore', '.npmrc', '.env.example', 'Dockerfile']);
+const HASH_STYLE = new Set(['.editorconfig', '.gitattributes', '.gitignore', '.prettierignore', '.npmrc', '.env.example', '.dockerignore', 'Dockerfile']);
 const HASH_EXT = new Set(['.yml', '.yaml', '.sh', '.ps1', '.conf', '.toml', '.service', '.timer']);
 const SLASH_EXT = new Set(['.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx']);
 

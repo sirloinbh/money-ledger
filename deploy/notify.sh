@@ -1,5 +1,5 @@
 #!/bin/bash
-# Managed file. Edit it in sirloinbh/project-standards templates/app/deploy/
+# Managed file. Edit it in sirloinbh/project-standards templates/deploy/deploy/
 # Signals for healthchecks.io (#284). The firewall only lets allowed IPs in, so nothing outside
 # can probe the server; the server sends signals out instead, and a missing signal raises the
 # alert, also when the whole server is down.

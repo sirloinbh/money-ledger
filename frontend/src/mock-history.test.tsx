@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { MockHistory } from './mock-history';
+import { findLive } from './test/live';
 
 const order = (id: number, side: 'buy' | 'sell' = 'buy') => ({
   id,
@@ -91,9 +92,7 @@ test('a start after the end is refused before asking the server', async () => {
   fireEvent.change(screen.getByLabelText('Start date'), { target: { value: '2026-11-09' } });
   fireEvent.change(screen.getByLabelText('End date'), { target: { value: '2026-11-01' } });
   fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent(
-    'The start date cannot be after the end date',
-  );
+  expect(await findLive('alert')).toHaveTextContent('The start date cannot be after the end date');
   expect(screen.getByLabelText('Start date')).toHaveAttribute('aria-invalid', 'true');
   expect(urls).toHaveLength(1);
 });

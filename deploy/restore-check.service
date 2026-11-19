@@ -1,4 +1,4 @@
-# Managed file. Edit it in sirloinbh/project-standards templates/app/deploy/
+# Managed file. Edit it in sirloinbh/project-standards templates/deploy/deploy/
 [Unit]
 Description=Money Ledger weekly restore check of the newest database dump
 After=docker.service

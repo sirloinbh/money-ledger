@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { AssetManager } from './assets';
+import { findLive, getLive } from './test/live';
 
 // #46 Trades on the asset screen against a fake server. The position numbers come from the server; the
 // fake returns fixed ones so the screen's display and requests can be checked.
@@ -210,7 +211,7 @@ test('a buy is sent with decimal strings and won costs', async () => {
   });
   fireEvent.change(within(panel).getByLabelText('Fee (KRW)'), { target: { value: '100' } });
   fireEvent.click(within(panel).getByRole('button', { name: 'Add trade' }));
-  expect(await within(panel).findByRole('status')).toHaveTextContent('2026-01-02 Buy recorded');
+  expect(await findLive('status', panel)).toHaveTextContent('2026-01-02 Buy recorded');
   expect(requests).toContainEqual({
     method: 'POST',
     url: '/api/portfolio/assets/2/trades',
@@ -236,7 +237,7 @@ test('a USD trade needs the rate of the day', async () => {
     target: { value: '100.5' },
   });
   fireEvent.click(within(panel).getByRole('button', { name: 'Add trade' }));
-  expect(within(panel).getByRole('alert')).toHaveTextContent(
+  expect(getLive('alert', panel)).toHaveTextContent(
     "Enter that day's exchange rate (won per dollar) with up to 4 decimal places",
   );
   expect(within(panel).getByLabelText('Exchange rate (KRW per USD)')).toHaveAttribute(
@@ -249,7 +250,7 @@ test('a USD trade needs the rate of the day', async () => {
     target: { value: '1,300' },
   });
   fireEvent.click(within(panel).getByRole('button', { name: 'Add trade' }));
-  await within(panel).findByRole('status');
+  await findLive('status', panel);
   expect(requests.find((request) => request.method === 'POST')?.body).toMatchObject({
     price: '100.5',
     fxRate: '1300',
@@ -264,7 +265,7 @@ test('a sell above what is held shows the server message', async () => {
   fireEvent.change(within(panel).getByLabelText('Quantity'), { target: { value: '100' } });
   fireEvent.change(within(panel).getByLabelText('Unit price (KRW)'), { target: { value: '1500' } });
   fireEvent.click(within(panel).getByRole('button', { name: 'Add trade' }));
-  expect(await within(panel).findByRole('alert')).toHaveTextContent(
+  expect(await findLive('alert', panel)).toHaveTextContent(
     '2026-01-10 sell quantity is more than the quantity held then (15)',
   );
 });
@@ -277,15 +278,13 @@ test('a won price with decimals and a future date are refused before sending', a
     target: { value: '1000.5' },
   });
   fireEvent.click(within(panel).getByRole('button', { name: 'Add trade' }));
-  expect(within(panel).getByRole('alert')).toHaveTextContent(
+  expect(getLive('alert', panel)).toHaveTextContent(
     'Enter a unit price above 0 as a whole number of won',
   );
   fireEvent.change(within(panel).getByLabelText('Unit price (KRW)'), { target: { value: '1000' } });
   fireEvent.change(within(panel).getByLabelText('Trade date'), { target: { value: '2099-01-01' } });
   fireEvent.submit(within(panel).getByRole('form', { name: 'Samsung Electronics Add trade' }));
-  expect(within(panel).getByRole('alert')).toHaveTextContent(
-    'Trades dated after today cannot be recorded',
-  );
+  expect(getLive('alert', panel)).toHaveTextContent('Trades dated after today cannot be recorded');
   expect(requests.some((request) => request.method === 'POST')).toBe(false);
 });
 
@@ -299,7 +298,7 @@ test('a trade can be edited and, after confirming, deleted', async () => {
   expect(within(panel).getByLabelText('Tax (KRW)')).toHaveValue('15');
   fireEvent.change(within(panel).getByLabelText('Quantity'), { target: { value: '4' } });
   fireEvent.click(within(panel).getByRole('button', { name: 'Save changes' }));
-  expect(await within(panel).findByRole('status')).toHaveTextContent('2026-01-10 Sell updated');
+  expect(await findLive('status', panel)).toHaveTextContent('2026-01-10 Sell updated');
   expect(requests).toContainEqual(
     expect.objectContaining({ method: 'PUT', url: '/api/portfolio/assets/2/trades/7' }),
   );
@@ -358,7 +357,7 @@ test('the open edit form follows a first trade and locks the quantity', async ()
   const add = within(panel).getByRole('button', { name: 'Add trade' });
   add.focus();
   fireEvent.click(add);
-  await within(panel).findByRole('status');
+  await findLive('status', panel);
   const quantity = await screen.findByLabelText('Quantity (trade total)');
   expect(quantity).toHaveValue('2');
   expect(quantity).toHaveAttribute('readonly');

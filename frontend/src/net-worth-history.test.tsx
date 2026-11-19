@@ -11,6 +11,7 @@ import {
   wonAxisLabel,
 } from './net-worth';
 import { NetWorthHistory } from './net-worth-history';
+import { findLive } from './test/live';
 
 // #49 The "Net worth trend" card against a fake server. The real chart is checked in net-worth-chart.test.tsx and in a
 // real browser (docs/changes/49-*.md); here it only reports what it was given.
@@ -124,9 +125,7 @@ test('"Save current values" saves again, says what was saved and reads the list 
   await screen.findByTestId('chart');
   const before = gets().length;
   fireEvent.click(screen.getByRole('button', { name: 'Save current values' }));
-  expect(await screen.findByRole('status')).toHaveTextContent(
-    /Saved the net worth of ₩13,000,000 for /,
-  );
+  expect(await findLive('status')).toHaveTextContent(/Saved the net worth of ₩13,000,000 for /);
   await vi.waitFor(() => expect(gets().length).toBe(before + 1));
   expect(await screen.findByTestId('chart')).toHaveTextContent(`${today}=13000000`);
 });
@@ -136,7 +135,7 @@ test('a refused save shows the server message', async () => {
   await screen.findByTestId('chart');
   saveError = 'The totals are too large to save the net worth';
   fireEvent.click(screen.getByRole('button', { name: 'Save current values' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent(saveError);
+  expect(await findLive('alert')).toHaveTextContent(saveError);
 });
 
 test('a failed list can be tried again', async () => {

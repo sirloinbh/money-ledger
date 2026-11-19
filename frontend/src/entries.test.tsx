@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { EntryManager } from './entries';
+import { findLive, getLive } from './test/live';
 
 // The list filters live in the address, so the manager renders inside a router.
 const Router = ({ children }: { children: ReactNode }) => (
@@ -126,7 +127,7 @@ test('recording sends whole won, keeps the date and kind, and lists the entry', 
   fireEvent.change(screen.getByLabelText('Note'), { target: { value: 'Lunch' } });
   fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
 
-  expect(await screen.findByRole('status')).toHaveTextContent('Expense ₩12,500 recorded');
+  expect(await findLive('status')).toHaveTextContent('Expense ₩12,500 recorded');
   expect(requests).toContainEqual({
     method: 'POST',
     url: '/api/ledger/entries',
@@ -156,7 +157,7 @@ test.each(['-1', '1.5', 'abc', ''])('the amount "%s" is refused before sending',
     target: { value: '1' },
   });
   fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
-  expect(screen.getByRole('alert')).toHaveTextContent(
+  expect(getLive('alert')).toHaveTextContent(
     'Enter the amount as a whole number of won, 0 or more',
   );
   expect(requests.some((request) => request.method === 'POST')).toBe(false);
@@ -168,7 +169,7 @@ test('an entry without a category is sent as Uncategorized with its merchant', a
   fireEvent.change(screen.getByLabelText('Merchant'), { target: { value: 'Starbucks Gangnam' } });
   fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
 
-  expect(await screen.findByRole('status')).toHaveTextContent('Expense ₩1,000 recorded');
+  expect(await findLive('status')).toHaveTextContent('Expense ₩1,000 recorded');
   expect(requests).toContainEqual({
     method: 'POST',
     url: '/api/ledger/entries',
@@ -197,7 +198,7 @@ test('a server refusal shows its message and keeps the input', async () => {
     target: { value: '1' },
   });
   fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('That date does not exist');
+  expect(await findLive('alert')).toHaveTextContent('That date does not exist');
   expect(screen.getByLabelText('Amount (KRW)')).toHaveValue('1000');
 });
 
@@ -212,7 +213,7 @@ test('editing fills the form, keeps the hidden category it has, and saves with P
 
   fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '7000' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('Entry updated');
+  expect(await findLive('status')).toHaveTextContent('Entry updated');
   expect(requests).toContainEqual({
     method: 'PUT',
     url: '/api/ledger/entries/1',
@@ -250,7 +251,7 @@ test('deleting asks first, then removes the entry', async () => {
     url: '/api/ledger/entries/1',
     body: undefined,
   });
-  expect(screen.getByRole('status')).toHaveTextContent('Entry deleted');
+  expect(getLive('status')).toHaveTextContent('Entry deleted');
 });
 
 test('a new categories version reloads the category choices', async () => {
@@ -306,7 +307,7 @@ test('while a save runs, opening an edit waits and the button says so', async ()
   expect(screen.getByRole('heading', { name: 'New entry' })).toBeInTheDocument();
 
   finish();
-  expect(await screen.findByRole('status')).toHaveTextContent('Expense ₩1,000 recorded');
+  expect(await findLive('status')).toHaveTextContent('Expense ₩1,000 recorded');
   expect(screen.getByRole('button', { name: 'Add entry' })).toBeInTheDocument();
 });
 
@@ -332,7 +333,7 @@ test('a category change reloads the list, and a chosen category hidden meanwhile
 
     fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '1000' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    expect(getLive('alert')).toHaveTextContent(
       'The chosen category cannot be used. Choose a category again',
     );
     expect(screen.getByLabelText('Category', { selector: '#entry-category' })).toHaveAttribute(
@@ -346,7 +347,7 @@ test('a category change reloads the list, and a chosen category hidden meanwhile
       target: { value: '' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
-    await screen.findByRole('status');
+    await findLive('status');
     expect(requests.find((request) => request.method === 'POST')?.body).toMatchObject({
       categoryId: null,
     });
@@ -389,7 +390,7 @@ test('what is typed while a save runs is kept', async () => {
   await screen.findByRole('button', { name: 'Saving…' });
   fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '2000' } });
   finish();
-  expect(await screen.findByRole('status')).toHaveTextContent('Expense ₩1,000 recorded');
+  expect(await findLive('status')).toHaveTextContent('Expense ₩1,000 recorded');
   expect(screen.getByLabelText('Amount (KRW)')).toHaveValue('2000');
 });
 
@@ -411,7 +412,7 @@ test('editing an uncategorized entry keeps Uncategorized and its merchant', asyn
   expect(screen.getByLabelText('Category', { selector: '#entry-category' })).toHaveValue('');
   expect(screen.getByLabelText('Merchant')).toHaveValue('Neighborhood bakery');
   fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('Entry updated');
+  expect(await findLive('status')).toHaveTextContent('Entry updated');
   expect(requests.find((request) => request.method === 'PUT')?.body).toEqual({
     date: '2026-11-02',
     kind: 'expense',
@@ -448,7 +449,7 @@ test('an entry classified elsewhere while being edited keeps that category when 
   await vi.waitFor(() =>
     expect(screen.getByLabelText('Category', { selector: '#entry-category' })).toHaveValue('1'),
   );
-  expect(screen.getByRole('status')).toHaveTextContent(
+  expect(getLive('status')).toHaveTextContent(
     'The category of the entry being edited was changed elsewhere and has been applied',
   );
   expect(screen.getByLabelText('Note')).toHaveValue('Breakfast');

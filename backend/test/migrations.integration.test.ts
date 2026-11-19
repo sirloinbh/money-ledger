@@ -4,7 +4,17 @@ import { fileURLToPath } from 'node:url';
 
 import { Client } from 'pg';
 
-import { checksum, migrate, readMigrations } from '../src/migrations.js';
+import {
+  checksum,
+  migrate as runMigrate,
+  type Migration,
+  readMigrations,
+} from '../src/standard/migrations.js';
+
+// The runner takes the app's advisory lock key; tests use their own.
+const lockKey = 581_900;
+const migrate = (db: Parameters<typeof runMigrate>[0], files: Migration[]) =>
+  runMigrate(db, files, lockKey);
 
 const url = process.env.TEST_DATABASE_URL;
 const dir = fileURLToPath(new URL('../../database/migrations/', import.meta.url));
@@ -122,7 +132,7 @@ test('migrations apply to an empty database and can run again', { skip: !url }, 
       sql: 'CREATE TABLE migrate_partial (id int); SELECT no_such_column FROM migrate_partial',
       checksum: checksum('bad'),
     };
-    await assert.rejects(migrate(client, [...files, good, bad]), /Failed to apply 901_bad\.sql/);
+    await assert.rejects(migrate(client, [...files, good, bad]), /901_bad\.sql failed to apply/);
     const found = await tables();
     assert.ok(found.includes('migrate_good'), 'the earlier file stays');
     assert.ok(!found.includes('migrate_partial'), 'the failed file left nothing');

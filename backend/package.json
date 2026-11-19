@@ -15,7 +15,7 @@
   "dependencies": {
     "@sirloinbh/auth-client": "1.0.0",
     "express": "5.3.0",
-    "express-rate-limit": "8.7.1",
+    "express-rate-limit": "8.7.2",
     "pg": "8.23.1",
     "pg-boss": "12.38.0",
     "zod": "4.6.7"

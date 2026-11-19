@@ -12,6 +12,7 @@ import { createPublicKey, type KeyObject, verify } from 'node:crypto';
 import type { Express, NextFunction, Request, Response } from 'express';
 
 import { type AuditDb, type AuditEntry, writeAudit } from './audit.js';
+import { type TxClient, withTransaction } from './db.js';
 
 type StandardResult<T> = { value: T; issues?: undefined } | { issues: readonly { message: string }[] };
 /** The Standard Schema interface (standardschema.dev) with its optional JSON Schema part, which Zod 4 implements. */
@@ -62,7 +63,7 @@ export function defineTool<S extends ToolInput, D extends AuditDb = AuditDb>(too
 }
 
 /** A pg Pool: `query` for read tools and audit rows, `connect` for a write tool's transaction. */
-export type ToolPool<D extends AuditDb = AuditDb> = D & { connect: () => Promise<D & { release: () => void }> };
+export type ToolPool<D extends AuditDb = AuditDb> = D & { connect: () => Promise<D & TxClient> };
 
 // shared-ai signs a token for one call; a token valid for longer than this is rejected.
 export const MAX_TOKEN_SECONDS = 300;
@@ -201,25 +202,22 @@ export function registerToolRoutes<D extends AuditDb>(
         res.json({ result: outcome.result });
         return;
       }
-      const client = await options.pool.connect();
       let outcome: ToolOutcome;
       try {
-        await client.query('BEGIN');
-        outcome = await tool.run(checked.value, { db: client, caller: who });
-        await writeAudit(client, {
-          ...audit,
-          entityId: outcome.entityId ?? null,
-          before: outcome.before,
-          after: outcome.after,
+        outcome = await withTransaction(options.pool, async (client) => {
+          const done = await tool.run(checked.value, { db: client, caller: who });
+          await writeAudit(client, {
+            ...audit,
+            entityId: done.entityId ?? null,
+            before: done.before,
+            after: done.after,
+          });
+          return done;
         });
-        await client.query('COMMIT');
       } catch (err) {
-        await client.query('ROLLBACK');
         // The change rolled back with its row; this row records the failed attempt.
         await writeAudit(options.pool, { ...audit, result: 'error' });
         throw err;
-      } finally {
-        client.release();
       }
       res.json({ result: outcome.result });
     } catch (err) {

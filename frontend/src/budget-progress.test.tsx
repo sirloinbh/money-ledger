@@ -3,6 +3,7 @@ import { MemoryRouter, useNavigate } from 'react-router';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { BudgetProgress } from './budget-progress';
+import { findLive, getLive } from './test/live';
 
 const base = { hidden: false, remaining: null, over: null, percent: null, status: 'unset' };
 const november = {
@@ -254,7 +255,7 @@ test('a budget that is not a whole number is refused before any request', async 
   for (const value of ['12.5', '-100', '1k', '1,00']) {
     fireEvent.change(input, { target: { value } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    expect(screen.getByRole('alert')).toHaveTextContent(
+    expect(getLive('alert')).toHaveTextContent(
       'Enter the budget as a whole number of won, 0 or more',
     );
     expect(input).toHaveAttribute('aria-invalid', 'true');
@@ -269,7 +270,7 @@ test('a failed save says why and keeps the form with what was typed', async () =
   fireEvent.click(await screen.findByRole('button', { name: 'Edit Food budget' }));
   fireEvent.change(screen.getByLabelText('Food budget (KRW)'), { target: { value: '1000' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Expense category not found');
+  expect(await findLive('alert')).toHaveTextContent('Expense category not found');
   expect(screen.getByLabelText('Food budget (KRW)')).toHaveValue('1000');
 });
 
@@ -435,7 +436,7 @@ test('an error about a form goes away with the form when the month changes', asy
   fireEvent.click(await screen.findByRole('button', { name: 'Edit Food budget' }));
   fireEvent.change(screen.getByLabelText('Food budget (KRW)'), { target: { value: 'abc' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-  expect(screen.getByRole('alert')).toHaveTextContent(
+  expect(getLive('alert')).toHaveTextContent(
     'Enter the budget as a whole number of won, 0 or more',
   );
   fireEvent.click(screen.getByRole('button', { name: 'Go to 2026-10' }));
