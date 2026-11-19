@@ -4,24 +4,45 @@
 
 export type RequestErrorKind = 'network' | 'timeout' | 'abort' | 'http' | 'body';
 
+/** One invalid field of a 400 validation answer: its path in the input (`items.0.name`) and the message. */
+export type FieldError = { path: string; message: string };
+
 /**
  * A failed request. `status` is the HTTP status (undefined when the server could not be reached).
  * `kind` tells the failure apart: `network` (unreachable), `timeout`, `abort` (the caller's signal),
- * `http` (non-2xx answer) and `body` (a 2xx answer whose body is not JSON).
+ * `http` (non-2xx answer) and `body` (a 2xx answer whose body is not JSON). `fields` holds the per-field
+ * messages of a 400 validation answer (empty otherwise), so a form can place each error by its path.
  */
 export class RequestError extends Error {
   readonly status: number | undefined;
   readonly kind: RequestErrorKind;
+  readonly fields: readonly FieldError[];
 
-  constructor(message: string, status?: number, kind: RequestErrorKind = 'http') {
+  constructor(
+    message: string,
+    status?: number,
+    kind: RequestErrorKind = 'http',
+    fields: readonly FieldError[] = [],
+  ) {
     super(message);
     this.name = 'RequestError';
     this.status = status;
     this.kind = kind;
+    this.fields = fields;
   }
 }
 
 export const DEFAULT_TIMEOUT_MS = 30_000;
+
+// The `fields` of an error body, keeping only well-formed entries (an older server sends none).
+function fieldErrors(data: unknown): FieldError[] {
+  const fields = (data as { fields?: unknown } | null)?.fields;
+  if (!Array.isArray(fields)) return [];
+  return fields.flatMap((item: unknown) => {
+    const { path, message } = (item ?? {}) as { path?: unknown; message?: unknown };
+    return typeof path === 'string' && typeof message === 'string' ? [{ path, message }] : [];
+  });
+}
 
 export type RequestOptions = {
   method?: string;
@@ -96,6 +117,7 @@ async function send<T>(path: string, init: RequestInit, options: RequestOptions)
         typeof message === 'string' && message ? message : 'Could not process the request',
         response.status,
         'http',
+        readable ? fieldErrors(data) : [],
       );
     }
     if (!readable) {

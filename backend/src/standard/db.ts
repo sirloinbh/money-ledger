@@ -58,3 +58,22 @@ export async function withTransaction<T, C extends TxClient>(
     client.release(destroy);
   }
 }
+
+/** The part of pg's `types` that setInt8Parser uses. The app passes its own: `import { types } from 'pg'`. */
+export type PgTypes = { setTypeParser: (oid: number, parser: (text: string) => unknown) => void };
+
+/** pg's type id of int8 (BIGINT), which pg returns as a string by default. */
+export const INT8_OID = 20;
+
+/**
+ * Sets the one int8 parser every app uses (ADR-0025, docs/conventions/pg-ids-and-rows.md): a BIGINT becomes a JS
+ * number, and a value outside the safe integer range throws instead of being rounded silently. Call it once at
+ * startup, before the first query. numeric (type 1700) stays a string.
+ */
+export function setInt8Parser(types: PgTypes): void {
+  types.setTypeParser(INT8_OID, (text) => {
+    const value = Number(text);
+    if (!Number.isSafeInteger(value)) throw new Error(`int8 value ${text} is outside the safe integer range`);
+    return value;
+  });
+}

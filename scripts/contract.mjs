@@ -1,3 +1,4 @@
+// Managed file. Edit it in sirloinbh/project-standards templates/app/scripts/
 // Copies the shared input contract (source of truth: shared/contract.ts) into the
 // backend and frontend so each area still builds alone (Docker contexts, subtree repos).
 // `node scripts/contract.mjs sync` writes the copies; without arguments it only checks.

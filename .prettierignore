@@ -64,5 +64,19 @@ frontend/src/components/layout/
 frontend/public/theme-init.js
 playwright.config.ts
 frontend/vitest.config.ts
+scripts/contract.mjs
+scripts/test/contract.test.mjs
+scripts/test/claude-skills.test.mjs
+backend/tsconfig.check.json
+frontend/tsconfig.build.json
+e2e/tsconfig.json
+frontend/src/vite-env.d.ts
+frontend/vite.config.ts
+frontend/src/main.tsx
+frontend/src/service-worker.ts
+frontend/src/service-worker.test.tsx
+frontend/src/test/standard-setup.ts
+backend/test/standard/
+backend/test/standard-api.test.ts
 # --- project ---
 docs/openapi.json

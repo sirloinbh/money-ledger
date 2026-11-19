@@ -38,6 +38,34 @@ test('a JSON body is sent with its content type and the reply body comes back', 
   });
 });
 
+test('a 400 validation answer exposes its fields; a plain error has none (#674)', async () => {
+  vi.stubGlobal(
+    'fetch',
+    reply(400, {
+      error: 'Enter a name, Enter a number',
+      fields: [
+        { path: 'name', message: 'Enter a name' },
+        { path: 'items.0.count', message: 'Enter a number' },
+        { path: 3, message: 'dropped: path is not a string' },
+        'dropped',
+      ],
+    }),
+  );
+  const error = await requestJson('/api/items', { method: 'POST', body: {} }).catch((e: unknown) => e);
+  expect(error).toBeInstanceOf(RequestError);
+  expect(error).toMatchObject({
+    message: 'Enter a name, Enter a number',
+    status: 400,
+    fields: [
+      { path: 'name', message: 'Enter a name' },
+      { path: 'items.0.count', message: 'Enter a number' },
+    ],
+  });
+  vi.stubGlobal('fetch', reply(404, { error: 'Not found' }));
+  const plain = await requestJson('/api/items/9').catch((e: unknown) => e);
+  expect((plain as RequestError).fields).toEqual([]);
+});
+
 test('204 No Content resolves with undefined', async () => {
   vi.stubGlobal('fetch', reply(204));
   await expect(requestJson('/api/items/1', { method: 'DELETE' })).resolves.toBeUndefined();

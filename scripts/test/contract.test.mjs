@@ -1,3 +1,4 @@
+// Managed file. Edit it in sirloinbh/project-standards templates/app/scripts/test/
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';

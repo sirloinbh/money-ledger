@@ -197,7 +197,6 @@ function turnsScriptsOn(args) {
 }
 
 function checkNpm(args, viaXargs) {
-  let positional = 0;
   // `--` before the command only ends the options: `npm -- install` still installs (#381).
   let optionsEnded = false;
   for (let i = 0; i < args.length; i++) {
@@ -209,7 +208,6 @@ function checkNpm(args, viaXargs) {
       if (NPM_VALUE_OPTIONS.has(args[i])) i++;
       continue;
     }
-    positional++;
     const command = npmCommand(args[i]);
     // The first word that is not an option decides. A word the hook does not act on (`run`, `test`, `ls`) allows the call.
     if (!command) return null;
@@ -218,7 +216,7 @@ function checkNpm(args, viaXargs) {
     return NPM_BLOCKED.has(command) ? `npm ${command}` : null;
   }
   // `xargs npm` takes the subcommand from its input, so the hook cannot see it.
-  return viaXargs && positional === 0 ? 'xargs npm' : null;
+  return viaXargs ? 'xargs npm' : null;
 }
 
 function powershellCommand(args) {

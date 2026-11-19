@@ -1,6 +1,8 @@
 // Managed file. Edit it in sirloinbh/project-standards templates/app/backend/src/standard/
-// The audit log (#553): one audit_log row for each change a user or an AI tool makes, so the owner can see what
-// happened and undo it. The table is the app's migration NNN_audit_log.sql (docs/audit-log.md); this file writes it.
+// The audit log (#553, ADR-0024): one audit_log row for each call an AI tool makes (read, create, update, delete,
+// denied, or error), so the owner can see what a non-human client did. `defineTool` writes those rows; a route may
+// write one too, but it does not have to and nothing reads the rows back except the owner's psql query. The table is
+// the app's migration NNN_audit_log.sql (docs/audit-log.md); this file writes it.
 // It imports only types, so it runs in every app whatever pg or Express version it uses.
 //
 //   await writeAudit(client, { ...auditContext(req, res), action: 'create', entity: 'workout', entityId: row.id, after: row });

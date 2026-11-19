@@ -1,5 +1,5 @@
 {
-  "centralSha": "1f552a1158b87a732594623682985003aa5c98ef",
+  "centralSha": "487b45b4a39ffb2de9acd2b6d279a02c488fdc43",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -10,7 +10,7 @@
     },
     ".claude/hooks/block-package-installs.mjs": {
       "mode": "full",
-      "sha256": "19f89a86a72201b874a7d0c5ee450dd7da86b7e2b983e666cb0db2a291a59878",
+      "sha256": "10a3bdaa5597bde0580451adf8515b9e3997714b6fc2e82419f24ee28a5bfc19",
       "source": "templates/common/.claude/hooks/block-package-installs.mjs"
     },
     ".claude/hooks/pc-setup-notice.mjs": {
@@ -155,7 +155,7 @@
     },
     ".prettierignore": {
       "mode": "section",
-      "sha256": "82679038e133f6e84dde1cb2880daf3f4f2e65e4044d9af32d06499cea615f80",
+      "sha256": "9e7b574f64d43be09d6ae51cd2dc429320d65bc9ed99957b2f4a466a4f549f43",
       "source": "templates/app/.prettierignore.tmpl"
     },
     ".standards/blocked-packages.json": {
@@ -195,7 +195,7 @@
     },
     ".standards/lib/render.mjs": {
       "mode": "full",
-      "sha256": "8b832e4746f8b731d087642551f837190dd20172a1f7789c153efae55d699817",
+      "sha256": "109f91dba8789a498bd342610e3ebda04662a74b420694efbf2beab8bdbd058d",
       "source": "scripts/lib/render.mjs"
     },
     ".standards/lockfiles.mjs": {
@@ -222,6 +222,16 @@
       "mode": "full",
       "sha256": "be643ff8477cde0aedabfbe87ec14ac2dce84694e57de7c031cb5debcac26d1f",
       "source": "templates/app/AGENTS.md.tmpl"
+    },
+    "backend/.dockerignore": {
+      "mode": "full",
+      "sha256": "bad2cc05949a6d212fc7a38e2b0a304aeb6ffedfa728e4b1199eb781de4c7be8",
+      "source": "templates/app/backend/.dockerignore.tmpl"
+    },
+    "backend/.gitignore": {
+      "mode": "full",
+      "sha256": "d9dcf9ef3f41ee7bddbeefce9660e3ae5e88322ba2c3a5bc8fa80d42425aaf9f",
+      "source": "templates/app/backend/.gitignore.tmpl"
     },
     "backend/.npmrc": {
       "mode": "full",
@@ -255,7 +265,7 @@
     },
     "backend/src/standard/audit.ts": {
       "mode": "full",
-      "sha256": "1b15cbbf35c654c1192a36d9c7ec7ed8ed78c8bea3f211b325fdaa35096f51f4",
+      "sha256": "2a2323841a38845c268b53939875d4072c8819500caf501ce0adfdb059266a21",
       "source": "templates/app/backend/src/standard/audit.ts"
     },
     "backend/src/standard/auth.ts": {
@@ -265,12 +275,12 @@
     },
     "backend/src/standard/db.ts": {
       "mode": "full",
-      "sha256": "fbb95d767ed1371f38904b7160ea7c8db7f38e7bda6fd1f5e4bd58fef2ee1fe0",
+      "sha256": "859eaaa70e1f2a704d910423e0e56bd47da7a03bf5e69bab873f414282276369",
       "source": "templates/app/backend/src/standard/db.ts"
     },
     "backend/src/standard/http.ts": {
       "mode": "full",
-      "sha256": "c1d0cbc14f1dadf8b3947b332181d6df01ac0b977e4eb254f7b4ee366adaad4b",
+      "sha256": "f4b01e75daffc707192667595dd2d34c1826a0492eab5cf0ef811f7da281684a",
       "source": "templates/app/backend/src/standard/http.ts"
     },
     "backend/src/standard/jobs.ts": {
@@ -308,6 +318,21 @@
       "sha256": "7b2ebefc1580e6bc5dcd43d1f726bbe5130f2b9117db95f012b74a0277ee021b",
       "source": "templates/app/backend/src/standard/tools.ts"
     },
+    "backend/test/standard-api.test.ts": {
+      "mode": "full",
+      "sha256": "b88ce1260d7cadea93a03d64460e383e5d6a999ace73f519409109cb88abe2e6",
+      "source": "templates/app/backend/test/standard-api.test.ts"
+    },
+    "backend/test/standard/api.ts": {
+      "mode": "full",
+      "sha256": "012f5a71dfe953afec372042ccc373164031dc17ba56c13bacee399cc54cafd1",
+      "source": "templates/app/backend/test/standard/api.ts"
+    },
+    "backend/tsconfig.check.json": {
+      "mode": "full",
+      "sha256": "bc68841d3138ad9c387d9cf3383febf12410c12fa9b32cb3c9b2ac0581b8bccc",
+      "source": "templates/app/backend/tsconfig.check.json.tmpl"
+    },
     "backend/tsconfig.json": {
       "mode": "full",
       "sha256": "2804b496db891a1a8e72bbbe12fcc44e9e7e302ad80c77057fa2308583291e2d",
@@ -317,6 +342,11 @@
       "mode": "full",
       "sha256": "f58119c1d325853e1e827b2e2d05c2ea35f27799e58168843de02baa2b7e17dc",
       "source": "templates/app/CLAUDE.md.tmpl"
+    },
+    "database/.gitignore": {
+      "mode": "full",
+      "sha256": "99afcbeb6966f191b76c08729989378d2ca28392ded4cc0b652f824f131ba007",
+      "source": "templates/app/database/.gitignore.tmpl"
     },
     "deploy/autodeploy.service": {
       "mode": "full",
@@ -408,10 +438,25 @@
       "sha256": "85e985e0bf8c8789421c443f76e0ceaffb31e7cfa202f6857d05fb59203732ef",
       "source": "templates/deploy/deploy/ssm-get.sh.tmpl"
     },
+    "e2e/tsconfig.json": {
+      "mode": "full",
+      "sha256": "273b7832384daec465b5cf44897d9a68fe13c4cdb4f696b8e5f1ec733b015f34",
+      "source": "templates/e2e/e2e/tsconfig.json.tmpl"
+    },
     "eslint.config.mjs": {
       "mode": "full",
       "sha256": "b4e8ead364c3b893956dab4f7f7af1c863fbe0ea518fd41e2e248a4d748805c6",
       "source": "templates/app/eslint.config.mjs.tmpl"
+    },
+    "frontend/.dockerignore": {
+      "mode": "full",
+      "sha256": "68718c38bd47a948819fbd48a09ef0c4ca7fc1f09691540f20f4293e184ee1be",
+      "source": "templates/app/frontend/.dockerignore.tmpl"
+    },
+    "frontend/.gitignore": {
+      "mode": "full",
+      "sha256": "a30f14819f4cdff31693497b98ff4f444654e453312c1ae8d6d3f64b7ec1937e",
+      "source": "templates/app/frontend/.gitignore.tmpl"
     },
     "frontend/.npmrc": {
       "mode": "full",
@@ -455,6 +500,7 @@
         "devDependencies.@testing-library/react": "16.3.3",
         "devDependencies.@types/react": "19.3.0",
         "devDependencies.@types/react-dom": "19.3.0",
+        "devDependencies.@vitejs/plugin-react": "5.2.0",
         "devDependencies.jsdom": "30.1.2",
         "devDependencies.tailwindcss": "4.3.3",
         "devDependencies.typescript": "5.9.3",
@@ -825,12 +871,12 @@
     },
     "frontend/src/lib/api.test.ts": {
       "mode": "full",
-      "sha256": "55e16f55540e675579946111be81d1a823f23123971436dddcdc58ee97548671",
+      "sha256": "4723075f5c81a75dc425d37ae9f2b15de0f086f1f9a0d3e14ec7b3d90fb59b1b",
       "source": "templates/ui/frontend/src/lib/api.test.ts"
     },
     "frontend/src/lib/api.ts": {
       "mode": "full",
-      "sha256": "77be0657c5144b745d97af7049df41de713a3eebece5bf529448144cba2d59bc",
+      "sha256": "7adda482b7879e446ece1b541f7334416f8974d8202f83086fe2c733a55a6c94",
       "source": "templates/ui/frontend/src/lib/api.ts"
     },
     "frontend/src/lib/apps.ts": {
@@ -873,6 +919,21 @@
       "sha256": "ae223fe47966193ebd80c94391cac51d599afb419ef0f7139585c5c091adc9a0",
       "source": "templates/ui/frontend/src/lib/utils.ts"
     },
+    "frontend/src/main.tsx": {
+      "mode": "full",
+      "sha256": "18e75af9c06aef0c8e67e319853f90016ee90a53880bcae405a67fbb42f80743",
+      "source": "templates/app/frontend/src/main.tsx"
+    },
+    "frontend/src/service-worker.test.tsx": {
+      "mode": "full",
+      "sha256": "001906baa70c65f2bec7fb2b32882894817fd7f751e7a683cc4b0fd0452582b4",
+      "source": "templates/ui/frontend/src/service-worker.test.tsx"
+    },
+    "frontend/src/service-worker.ts": {
+      "mode": "full",
+      "sha256": "e3fc536bbf740b5cf2f85c2e44c47a4736d2de00843c1544c55cc80e37a8874d",
+      "source": "templates/ui/frontend/src/service-worker.ts"
+    },
     "frontend/src/session-watch.test.ts": {
       "mode": "full",
       "sha256": "9b17d9b111948084165138f81b7dd314e95e216075e3d86523d11315333eca8f",
@@ -888,10 +949,30 @@
       "sha256": "3e1b2f7cc17dd1932df480e3a8b81f940044009c55e94e261e92cec88b36a7d5",
       "source": "templates/ui/frontend/src/sign-in.tsx"
     },
+    "frontend/src/test/standard-setup.ts": {
+      "mode": "full",
+      "sha256": "f8df725828e16e4f6247482e680f2f7469cf4575fc04e1f8d451e135f24d6b95",
+      "source": "templates/vitest/frontend/src/test/standard-setup.ts"
+    },
+    "frontend/src/vite-env.d.ts": {
+      "mode": "full",
+      "sha256": "90ca04005dccfa1b956b02677772dc81f410b8f7e40ccb5ae9c4dac21d3861af",
+      "source": "templates/app/frontend/src/vite-env.d.ts"
+    },
+    "frontend/tsconfig.build.json": {
+      "mode": "full",
+      "sha256": "1af2de89e604fb4fb648b447774a0d8ca3e95b863a3d26082a95700859bf936b",
+      "source": "templates/app/frontend/tsconfig.build.json.tmpl"
+    },
     "frontend/tsconfig.json": {
       "mode": "full",
       "sha256": "0a086f123f3e30fdb63e62f26f7443200f6a71eb9848cb4a545cf68d3d36bf01",
       "source": "templates/app/frontend/tsconfig.json.tmpl"
+    },
+    "frontend/vite.config.ts": {
+      "mode": "full",
+      "sha256": "7b24da531a98b25616ca950e04d3b858265bf28eae511df2a80c0e931a22a168",
+      "source": "templates/app/frontend/vite.config.ts.tmpl"
     },
     "frontend/vitest.config.ts": {
       "mode": "full",
@@ -963,10 +1044,25 @@
       "sha256": "76b1ede5f552f83b47df6be4128fbc3c08d5982a717601c0411e12295cd70fd2",
       "source": "templates/app/scripts/claude-skills.mjs"
     },
+    "scripts/contract.mjs": {
+      "mode": "full",
+      "sha256": "25e2aeb748ceaa41f3400883b1a9d57b359551e6dfc22c2c3d293652808f1a2e",
+      "source": "templates/app/scripts/contract.mjs"
+    },
     "scripts/gh-project.ps1": {
       "mode": "full",
       "sha256": "29a8537620ae2cab61a6a684db5efd0b98be1b5e36eca533a30e58c28197c267",
       "source": "templates/app/scripts/gh-project.ps1"
+    },
+    "scripts/test/claude-skills.test.mjs": {
+      "mode": "full",
+      "sha256": "fa731e47522f27f95ca05f923cff78113399d012965dc3ccf0917906fc868253",
+      "source": "templates/app/scripts/test/claude-skills.test.mjs"
+    },
+    "scripts/test/contract.test.mjs": {
+      "mode": "full",
+      "sha256": "feee6ed4f69ee23aed8c5d954ae49d73f1a9d9b78e1656111ec32d26abb8be19",
+      "source": "templates/app/scripts/test/contract.test.mjs"
     },
     "skills/std-backlog/SKILL.md": {
       "mode": "full",
