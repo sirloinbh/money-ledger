@@ -13,7 +13,7 @@ import { HttpError, parseId } from './standard/http.js';
 // - Inactive securities (#97) keep their last stored close, and the screen marks them.
 
 type Row = {
-  security_id: string | null;
+  security_id: number | null;
   symbol: string;
   name: string | null;
   currency: 'KRW' | 'USD';
@@ -114,7 +114,7 @@ export async function accountValue(db: Pool | PoolClient, accountId: number, tod
       .filter((row) => row.security_id !== null)
       .map((row) => ({
         security: {
-          id: Number(row.security_id),
+          id: row.security_id,
           symbol: row.symbol,
           name: row.name,
           currency: row.currency,

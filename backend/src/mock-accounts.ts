@@ -25,7 +25,7 @@ export const accountBody = z.object(
 );
 
 type Row = {
-  id: string;
+  id: number;
   initial_cash_krw: string;
   cash_krw: string;
   created_at: Date;
@@ -35,7 +35,7 @@ type Row = {
 const columns = 'id, initial_cash_krw, cash_krw, created_at, closed_at';
 
 const toAccount = (row: Row) => ({
-  id: Number(row.id),
+  id: row.id,
   // Both are bigint within the CHECK ranges of 005, so they are exact as JSON numbers.
   initialCashKrw: Number(row.initial_cash_krw),
   cashKrw: Number(row.cash_krw),

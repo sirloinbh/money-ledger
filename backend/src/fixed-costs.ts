@@ -59,34 +59,34 @@ export const confirmBody = z.object({ amount }, objectBody);
 export const monthQuery = z.object({ month: monthField('the month') });
 
 type ItemRow = {
-  id: string;
+  id: number;
   name: string;
-  category_id: string;
+  category_id: number;
   category_name: string;
   amount: string;
   variable: boolean;
   day_of_month: number;
   start_month: string;
   active: boolean;
-  entry_id: string | null;
+  entry_id: number | null;
   entry_date: string | null;
   entry_amount: string | null;
   confirmed: boolean | null;
 };
 
 const itemSql = `
-  SELECT f.id::text, f.name, f.category_id::text, c.name AS category_name, f.amount::text, f.variable,
+  SELECT f.id, f.name, f.category_id, c.name AS category_name, f.amount::text, f.variable,
          f.day_of_month, to_char(f.start_month, 'YYYY-MM') AS start_month, f.active,
-         r.entry_id::text, e.entry_date, e.amount::text AS entry_amount, r.confirmed
+         r.entry_id, e.entry_date, e.amount::text AS entry_amount, r.confirmed
   FROM ledger_fixed_costs f
   JOIN ledger_categories c ON c.id = f.category_id
   LEFT JOIN ledger_fixed_cost_runs r ON r.fixed_cost_id = f.id AND r.month = $1::date
   LEFT JOIN ledger_entries e ON e.id = r.entry_id`;
 
 const toItem = (row: ItemRow) => ({
-  id: Number(row.id),
+  id: row.id,
   name: row.name,
-  categoryId: Number(row.category_id),
+  categoryId: row.category_id,
   categoryName: row.category_name,
   amount: Number(row.amount),
   variable: row.variable,
@@ -98,7 +98,7 @@ const toItem = (row: ItemRow) => ({
     row.entry_id === null
       ? null
       : {
-          id: Number(row.entry_id),
+          id: row.entry_id,
           date: row.entry_date!,
           amount: Number(row.entry_amount),
           // true while a variable amount is still the estimate.
@@ -127,7 +127,7 @@ const dueSql = `
     ) AS m
     WHERE f.active
   )
-  SELECT id::text, name, category_id::text, amount::text, variable, month, entry_date
+  SELECT id, name, category_id, amount::text, variable, month, entry_date
   FROM months
   WHERE entry_date <= $1::date
     AND NOT EXISTS (
@@ -136,9 +136,9 @@ const dueSql = `
   ORDER BY month, id`;
 
 type DueRow = {
-  id: string;
+  id: number;
   name: string;
-  category_id: string;
+  category_id: number;
   amount: string;
   variable: boolean;
   month: string;
@@ -166,9 +166,9 @@ async function addDueEntries(client: PoolClient, today: string) {
           [due.id, due.month],
         )
       : undefined;
-    const entry = await client.query<{ id: string }>(
+    const entry = await client.query<{ id: number }>(
       `INSERT INTO ledger_entries (entry_date, kind, amount, category_id, memo)
-       VALUES ($1, 'expense', $2, $3, $4) RETURNING id::text`,
+       VALUES ($1, 'expense', $2, $3, $4) RETURNING id`,
       [due.entry_date, estimate?.rows[0]?.amount ?? due.amount, due.category_id, due.name],
     );
     await client.query(
@@ -222,9 +222,9 @@ export function fixedCostsRouter(pool: Pool, { today }: { today: () => string })
       throw new HttpError(422, `The start month can be at most ${maxPastMonths} months ago`);
     }
     const created = await pool
-      .query<{ id: string }>(
+      .query<{ id: number }>(
         `INSERT INTO ledger_fixed_costs (name, category_id, amount, variable, day_of_month, start_month)
-         VALUES ($1, $2, $3, $4, $5, $6::date) RETURNING id::text`,
+         VALUES ($1, $2, $3, $4, $5, $6::date) RETURNING id`,
         [
           body.name,
           body.categoryId,
@@ -235,7 +235,7 @@ export function fixedCostsRouter(pool: Pool, { today }: { today: () => string })
         ],
       )
       .catch(refuseCategory);
-    res.status(201).json({ fixedCost: { id: Number(created.rows[0].id), ...body, active: true } });
+    res.status(201).json({ fixedCost: { id: created.rows[0].id, ...body, active: true } });
   });
 
   router.patch('/:id', async (req, res) => {
@@ -285,8 +285,8 @@ export function fixedCostsRouter(pool: Pool, { today }: { today: () => string })
     const { month } = monthQuery.parse({ month: req.params.month });
     const body = confirmBody.parse(req.body);
     const entry = await inTransaction(pool, async (client) => {
-      const run = await client.query<{ entry_id: string | null }>(
-        `SELECT entry_id::text FROM ledger_fixed_cost_runs
+      const run = await client.query<{ entry_id: number | null }>(
+        `SELECT entry_id FROM ledger_fixed_cost_runs
          WHERE fixed_cost_id = $1 AND month = $2::date FOR UPDATE`,
         [id, `${month}-01`],
       );
@@ -303,7 +303,7 @@ export function fixedCostsRouter(pool: Pool, { today }: { today: () => string })
         'UPDATE ledger_fixed_cost_runs SET confirmed = true WHERE fixed_cost_id = $1 AND month = $2::date',
         [id, `${month}-01`],
       );
-      return { id: Number(entryId), amount: body.amount, estimated: false };
+      return { id: entryId, amount: body.amount, estimated: false };
     });
     res.json({ entry });
   });

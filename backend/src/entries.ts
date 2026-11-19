@@ -139,11 +139,11 @@ export const classifyBody = z.object(
 );
 
 type Row = {
-  id: string;
+  id: number;
   entry_date: string;
   kind: 'income' | 'expense';
   amount: string;
-  category_id: string | null;
+  category_id: number | null;
   category_name: string | null;
   merchant: string;
   memo: string;
@@ -161,11 +161,11 @@ function won(value: string) {
 }
 
 const toEntry = (row: Row) => ({
-  id: Number(row.id),
+  id: row.id,
   date: row.entry_date,
   kind: row.kind,
   amount: won(row.amount),
-  categoryId: row.category_id === null ? null : Number(row.category_id),
+  categoryId: row.category_id === null ? null : row.category_id,
   categoryName: row.category_name,
   merchant: row.merchant,
   memo: row.memo,
@@ -258,19 +258,19 @@ export function entriesRouter(pool: Pool) {
     const body = entryBody.parse(req.body);
     if (!chosen(body)) {
       // Uncategorized unless a rule matches, decided in the same statement as the write.
-      const { rows } = await pool.query<{ id: string }>(
+      const { rows } = await pool.query<{ id: number }>(
         `INSERT INTO ledger_entries (entry_date, kind, amount, category_id, merchant, memo)
          VALUES ($1::date, $2::text, $3::bigint, ${ruleCategorySql('$2::text', '$4::text')}, $4::text, $5::text)
          RETURNING id`,
         [body.date, body.kind, body.amount, body.merchant, body.memo],
       );
-      res.status(201).json({ entry: toEntry(await findEntry(pool, Number(rows[0].id))) });
+      res.status(201).json({ entry: toEntry(await findEntry(pool, rows[0].id)) });
       return;
     }
     await checkCategory(pool, body);
     // One statement: the row is written only if the category is still visible and of the same kind.
     const { rows } = await writing(() =>
-      pool.query<{ id: string }>(
+      pool.query<{ id: number }>(
         `INSERT INTO ledger_entries (entry_date, kind, amount, category_id, merchant, memo)
          SELECT $1::date, $2, $3::bigint, c.id, $5::text, $6::text FROM ledger_categories c
          WHERE c.id = $4 AND c.kind = $2 AND NOT c.hidden
@@ -282,7 +282,7 @@ export function entriesRouter(pool: Pool) {
       await checkCategory(pool, body); // names what changed, e.g. the category was just hidden
       throw new HttpError(409, changedMeanwhile);
     }
-    res.status(201).json({ entry: toEntry(await findEntry(pool, Number(rows[0].id))) });
+    res.status(201).json({ entry: toEntry(await findEntry(pool, rows[0].id)) });
   });
 
   // Bulk classification of uncategorized entries. Entries that got a category meanwhile are left alone.
@@ -344,7 +344,7 @@ export function entriesRouter(pool: Pool) {
   // #154 A suggestion for each entry of the uncategorized list whose merchant was classified before.
   router.get('/suggestions', async (_req, res) => {
     const [list, history] = await Promise.all([
-      pool.query<{ id: string; kind: 'income' | 'expense'; merchant: string }>(
+      pool.query<{ id: number; kind: 'income' | 'expense'; merchant: string }>(
         `SELECT id, kind, merchant FROM ledger_entries WHERE category_id IS NULL
          ORDER BY entry_date DESC, id DESC LIMIT ${maxClassify}`,
       ),
@@ -353,7 +353,7 @@ export function entriesRouter(pool: Pool) {
     const suggestFor = suggester(history);
     const suggestions = list.rows.flatMap((entry) => {
       const found = suggestFor(entry);
-      return found ? [{ entryId: Number(entry.id), ...found }] : [];
+      return found ? [{ entryId: entry.id, ...found }] : [];
     });
     res.json({ suggestions });
   });
@@ -365,7 +365,7 @@ export function entriesRouter(pool: Pool) {
     const result = await inTransaction(pool, async (client) => {
       // Locked in id order, like /classify, so the merchant and kind cannot change before the update.
       const targets = await client.query<{
-        id: string;
+        id: number;
         kind: 'income' | 'expense';
         merchant: string;
       }>(
@@ -417,7 +417,7 @@ export function entriesRouter(pool: Pool) {
     const id = parseId(req.params.id, 'entry');
     const body = entryBody.parse(req.body);
     if (!chosen(body)) {
-      const { rows } = await pool.query<{ id: string }>(
+      const { rows } = await pool.query<{ id: number }>(
         `UPDATE ledger_entries
          SET entry_date = $2::date, kind = $3::text, amount = $4::bigint,
              category_id = ${ruleCategorySql('$3::text', '$5::text')}, merchant = $5::text, memo = $6::text,
@@ -430,14 +430,10 @@ export function entriesRouter(pool: Pool) {
       return;
     }
     const current = await findEntry(pool, id);
-    await checkCategory(
-      pool,
-      body,
-      current.category_id === null ? null : Number(current.category_id),
-    );
+    await checkCategory(pool, body, current.category_id === null ? null : current.category_id);
     // The hidden-category exception compares with the entry's category at write time, not at the check.
     const { rows } = await writing(() =>
-      pool.query<{ id: string }>(
+      pool.query<{ id: number }>(
         `UPDATE ledger_entries e
          SET entry_date = $2, kind = $3, amount = $4, category_id = $5, merchant = $6, memo = $7,
              updated_at = now()
@@ -450,11 +446,7 @@ export function entriesRouter(pool: Pool) {
     );
     if (!rows[0]) {
       const latest = await findEntry(pool, id); // 404 if it was deleted meanwhile
-      await checkCategory(
-        pool,
-        body,
-        latest.category_id === null ? null : Number(latest.category_id),
-      );
+      await checkCategory(pool, body, latest.category_id === null ? null : latest.category_id);
       throw new HttpError(409, changedMeanwhile);
     }
     res.json({ entry: toEntry(await findEntry(pool, id)) });

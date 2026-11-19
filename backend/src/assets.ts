@@ -261,7 +261,7 @@ function requireQuantityOrValue(body: z.infer<typeof assetBody>) {
 }
 
 type Row = {
-  id: string;
+  id: number;
   name: string;
   asset_type: (typeof assetTypes)[number];
   currency: 'KRW' | 'USD';
@@ -279,7 +279,7 @@ type Row = {
   prepaid_expires_on: string | null;
   prepaid_used_krw: string;
   has_trades: boolean;
-  security_id: string | null;
+  security_id: number | null;
   security_market: string | null;
   security_symbol: string | null;
   security_name: string | null;
@@ -300,7 +300,7 @@ type Row = {
   current_value_krw: string | null;
 };
 
-type UsageRow = { id: string; used_on: string; amount_krw: string; memo: string };
+type UsageRow = { id: number; used_on: string; amount_krw: string; memo: string };
 
 /** "Delayed" means more than 5 calendar days since the close or rate date (docs/price-source.md). */
 const staleAfterDays = 5;
@@ -465,7 +465,7 @@ export function total(value: string) {
 }
 
 const toAsset = (row: Row) => ({
-  id: Number(row.id),
+  id: row.id,
   name: row.name,
   type: row.asset_type,
   currency: row.currency,
@@ -501,7 +501,7 @@ const toAsset = (row: Row) => ({
     row.security_id === null
       ? null
       : {
-          id: Number(row.security_id),
+          id: row.security_id,
           market: row.security_market,
           symbol: row.security_symbol,
           name: row.security_name,
@@ -622,7 +622,7 @@ export function assetsRouter(pool: Pool, { today, now, prices, log }: Options) {
   const checkSecurity = async (db: Pool | PoolClient, body: z.infer<typeof assetBody>) => {
     if (body.securityId === null) return null;
     const { rows } = await db.query<{
-      id: string;
+      id: number;
       symbol: string;
       name: string | null;
       currency: string;
@@ -636,7 +636,7 @@ export function assetsRouter(pool: Pool, { today, now, prices, log }: Options) {
       );
     }
     return {
-      id: Number(security.id),
+      id: security.id,
       symbol: security.symbol,
       name: security.name,
       currency: security.currency,
@@ -670,7 +670,7 @@ export function assetsRouter(pool: Pool, { today, now, prices, log }: Options) {
     const body = assetBody.parse(req.body);
     requireQuantityOrValue(body);
     const security = await checkSecurity(pool, body);
-    const { rows } = await pool.query<{ id: string }>(
+    const { rows } = await pool.query<{ id: number }>(
       `INSERT INTO portfolio_assets (name, asset_type, currency, quantity, value_krw, value_foreign, memo,
          purchase_price_krw, purchased_on, useful_life_months, salvage_value_krw,
          prepaid_kind, prepaid_amount_krw, prepaid_starts_on, prepaid_expires_on,
@@ -678,7 +678,7 @@ export function assetsRouter(pool: Pool, { today, now, prices, log }: Options) {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING id`,
       values(body),
     );
-    const id = Number(rows[0].id);
+    const id = rows[0].id;
     await fetchIfMissing(security);
     res.status(201).json({ asset: toAsset(await readAsset(pool, id)) });
   });
@@ -766,7 +766,7 @@ export function assetsRouter(pool: Pool, { today, now, prices, log }: Options) {
 
   // #64 Uses of a stored-value prepaid asset: listed, added and deleted (no editing, decision 2026-11-08).
   const toUsage = (row: UsageRow) => ({
-    id: Number(row.id),
+    id: row.id,
     usedOn: row.used_on,
     amountKrw: won(row.amount_krw),
     memo: row.memo,

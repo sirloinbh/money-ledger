@@ -81,10 +81,10 @@ export const historyQuery = z
 
 type Side = 'buy' | 'sell';
 type Db = Pool | PoolClient;
-type Account = { id: string; cash_krw: string; fee_rate: string; closed_at: Date | null };
+type Account = { id: number; cash_krw: string; fee_rate: string; closed_at: Date | null };
 
 type QuoteRow = {
-  id: string;
+  id: number;
   symbol: string;
   name: string | null;
   currency: 'KRW' | 'USD';
@@ -168,9 +168,9 @@ function cashChange(row: QuoteRow, side: Side) {
 }
 
 type OrderRow = {
-  id: string;
-  account_id: string;
-  security_id: string;
+  id: number;
+  account_id: number;
+  security_id: number;
   request_key: string;
   side: Side;
   quantity: string;
@@ -192,9 +192,9 @@ const orderColumns = `o.id, o.account_id, o.security_id, o.request_key, o.side, 
 
 // Won amounts stay within the ₩1 quadrillion CHECK of 015, so they are exact as JSON numbers.
 const toOrder = (row: OrderRow) => ({
-  id: Number(row.id),
-  accountId: Number(row.account_id),
-  security: { id: Number(row.security_id), symbol: row.symbol, name: row.name },
+  id: row.id,
+  accountId: row.account_id,
+  security: { id: row.security_id, symbol: row.symbol, name: row.name },
   side: row.side,
   quantity: row.quantity,
   price: row.price,
@@ -248,7 +248,7 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
       values,
     );
     // Every security this account has traded, for the filter, whatever the other conditions are.
-    const traded = await pool.query<{ id: string; symbol: string; name: string | null }>(
+    const traded = await pool.query<{ id: number; symbol: string; name: string | null }>(
       `SELECT DISTINCT s.id, s.symbol, s.name FROM mock_orders o JOIN securities s ON s.id = o.security_id
        WHERE o.account_id = $1 ORDER BY s.name NULLS LAST, s.symbol`,
       [accountId],
@@ -257,7 +257,7 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
       orders: rows.slice(0, historyPage).map(toOrder),
       hasMore: rows.length > historyPage,
       securities: traded.rows.map((row) => ({
-        id: Number(row.id),
+        id: row.id,
         symbol: row.symbol,
         name: row.name,
       })),
@@ -273,7 +273,7 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
     const problem = problemOf(found, row, query.side, query.quantity);
     const change = problem === null ? cashChange(row, query.side) : null;
     res.json({
-      security: { id: Number(row.id), symbol: row.symbol, name: row.name, currency: row.currency },
+      security: { id: row.id, symbol: row.symbol, name: row.name, currency: row.currency },
       side: query.side,
       quantity: query.quantity,
       price: row.close,
@@ -304,8 +304,8 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
       const first = earlier.rows[0];
       if (first) {
         const same =
-          Number(first.account_id) === accountId &&
-          Number(first.security_id) === body.securityId &&
+          first.account_id === accountId &&
+          first.security_id === body.securityId &&
           first.side === body.side &&
           BigInt(first.quantity.split('.')[0]) === BigInt(body.quantity);
         if (!same) throw new HttpError(409, 'A different order was sent with the same order key');
@@ -351,7 +351,7 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
           );
         }
       }
-      const inserted = await client.query<{ id: string }>(
+      const inserted = await client.query<{ id: number }>(
         `INSERT INTO mock_orders (account_id, security_id, request_key, side, quantity, price, currency,
            price_date, fx_rate, fx_date, amount_krw, fee_krw, cash_after_krw)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,

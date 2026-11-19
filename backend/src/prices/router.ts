@@ -32,7 +32,7 @@ export const searchQuery = z.object({
 });
 
 type SecurityRow = {
-  id: string;
+  id: number;
   market: string;
   symbol: string;
   name: string | null;
@@ -46,7 +46,7 @@ type SecurityRow = {
 };
 
 const toSecurity = (row: SecurityRow) => ({
-  id: Number(row.id),
+  id: row.id,
   market: row.market,
   symbol: row.symbol,
   name: row.name,

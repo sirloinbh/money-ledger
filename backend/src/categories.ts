@@ -30,11 +30,11 @@ export const listQuery = z.object({
   visible: z.enum(['true'], { error: 'visible can only be true' }).optional(),
 });
 
-type Row = { id: string; kind: 'income' | 'expense'; name: string; hidden: boolean };
+type Row = { id: number; kind: 'income' | 'expense'; name: string; hidden: boolean };
 
 const columns = 'id, kind, name, hidden';
 const toCategory = (row: Row) => ({
-  id: Number(row.id),
+  id: row.id,
   kind: row.kind,
   name: row.name,
   hidden: row.hidden,

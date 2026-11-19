@@ -39,10 +39,10 @@ export const ruleBody = z.object(
 );
 
 type Row = {
-  id: string;
+  id: number;
   keyword: string;
   kind: 'income' | 'expense';
-  category_id: string;
+  category_id: number;
   category_name: string;
   category_hidden: boolean;
 };
@@ -52,10 +52,10 @@ const select = `SELECT r.id, r.keyword, r.kind, r.category_id, c.name AS categor
   FROM ledger_category_rules r JOIN ledger_categories c ON c.id = r.category_id`;
 
 const toRule = (row: Row) => ({
-  id: Number(row.id),
+  id: row.id,
   keyword: row.keyword,
   kind: row.kind,
-  categoryId: Number(row.category_id),
+  categoryId: row.category_id,
   categoryName: row.category_name,
   // A rule for a hidden category is kept but does not apply until the category is shown again.
   categoryHidden: row.category_hidden,
@@ -78,7 +78,7 @@ export function rulesRouter(pool: Pool) {
     let inserted;
     try {
       // The kind comes from the category, and a hidden category cannot get a new rule.
-      inserted = await pool.query<{ id: string }>(
+      inserted = await pool.query<{ id: number }>(
         `INSERT INTO ledger_category_rules (keyword, kind, category_id)
          SELECT $1::text, c.kind, c.id FROM ledger_categories c WHERE c.id = $2 AND NOT c.hidden
          RETURNING id`,
