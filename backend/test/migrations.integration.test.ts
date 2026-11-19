@@ -132,7 +132,7 @@ test('migrations apply to an empty database and can run again', { skip: !url }, 
       sql: 'CREATE TABLE migrate_partial (id int); SELECT no_such_column FROM migrate_partial',
       checksum: checksum('bad'),
     };
-    await assert.rejects(migrate(client, [...files, good, bad]), /Failed to apply 901_bad\.sql/);
+    await assert.rejects(migrate(client, [...files, good, bad]), /901_bad\.sql failed to apply/);
     const found = await tables();
     assert.ok(found.includes('migrate_good'), 'the earlier file stays');
     assert.ok(!found.includes('migrate_partial'), 'the failed file left nothing');
