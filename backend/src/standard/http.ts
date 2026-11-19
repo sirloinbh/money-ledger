@@ -138,7 +138,7 @@ const PG_INPUT_ERRORS: Record<string, string> = {
   '22008': 'Input has an invalid date or time',
 };
 
-export function errorHandler(err: unknown, _req: Request, res: Response, next: NextFunction) {
+function handleError(err: unknown, res: Response, next: NextFunction, withFields: boolean) {
   // The response has started (a stream, or an error after res.json): Express closes the connection. Writing a second
   // response here would throw ERR_HTTP_HEADERS_SENT inside the handler.
   if (res.headersSent) {
@@ -152,7 +152,7 @@ export function errorHandler(err: unknown, _req: Request, res: Response, next: N
   const error = typeof err === 'object' && err !== null ? (err as ErrorFields) : {};
   const invalid = zodIssues(error);
   if (invalid !== null) {
-    sendError(res, 400, invalid.text, invalid.fields);
+    sendError(res, 400, invalid.text, withFields ? invalid.fields : undefined);
     return;
   }
   // express.json() rejects malformed or oversized bodies before any route runs.
@@ -196,3 +196,18 @@ export function errorHandler(err: unknown, _req: Request, res: Response, next: N
   );
   sendError(res, 500, 'Server error');
 }
+
+/**
+ * The error handler to register last. With `{ fields: true }` a validation 400 also lists the invalid fields by path
+ * (`fields: [{ path, message }]`, #674); without it the body stays `{ error }`, so an app's existing assertions on the
+ * body keep passing until it switches fields on (#799).
+ */
+export function createErrorHandler(options: { fields?: boolean } = {}) {
+  const withFields = options.fields === true;
+  return (err: unknown, _req: Request, res: Response, next: NextFunction) => {
+    handleError(err, res, next, withFields);
+  };
+}
+
+/** The handler without `fields`: `app.use(errorHandler)`. */
+export const errorHandler = createErrorHandler();

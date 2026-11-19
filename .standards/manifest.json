@@ -1,5 +1,5 @@
 {
-  "centralSha": "487b45b4a39ffb2de9acd2b6d279a02c488fdc43",
+  "centralSha": "93cf8d7f01ab2bab1d5a224af934c7811180e6d5",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -155,7 +155,7 @@
     },
     ".prettierignore": {
       "mode": "section",
-      "sha256": "9e7b574f64d43be09d6ae51cd2dc429320d65bc9ed99957b2f4a466a4f549f43",
+      "sha256": "02e29c4ffcf4c78189a9b87b916306012002ba74ce5dcc50c02635f6d7e3891e",
       "source": "templates/app/.prettierignore.tmpl"
     },
     ".standards/blocked-packages.json": {
@@ -165,7 +165,7 @@
     },
     ".standards/check.mjs": {
       "mode": "full",
-      "sha256": "579f90cb538c008ad1d63fe4016cda9b214f9d7e3fb0feab3ab54f2d864fbbfa",
+      "sha256": "271a730f1ffc9f3275f0ac10c2e0baff52a584b0036f7bbe4f86f57fa0327f4a",
       "source": "scripts/standards-check.mjs"
     },
     ".standards/ioc-scan.mjs": {
@@ -280,7 +280,7 @@
     },
     "backend/src/standard/http.ts": {
       "mode": "full",
-      "sha256": "f4b01e75daffc707192667595dd2d34c1826a0492eab5cf0ef811f7da281684a",
+      "sha256": "b07a92105df2ffac9e756fc13a56695d4b5b903d77e79f7eeedd0f04e17dd252",
       "source": "templates/app/backend/src/standard/http.ts"
     },
     "backend/src/standard/jobs.ts": {
@@ -871,7 +871,7 @@
     },
     "frontend/src/lib/api.test.ts": {
       "mode": "full",
-      "sha256": "4723075f5c81a75dc425d37ae9f2b15de0f086f1f9a0d3e14ec7b3d90fb59b1b",
+      "sha256": "0d7b00364328f7fb134a2021e87baa844a6cc81c4e1bc3a90902d1a56a8fc2bc",
       "source": "templates/ui/frontend/src/lib/api.test.ts"
     },
     "frontend/src/lib/api.ts": {
@@ -1046,7 +1046,7 @@
     },
     "scripts/contract.mjs": {
       "mode": "full",
-      "sha256": "25e2aeb748ceaa41f3400883b1a9d57b359551e6dfc22c2c3d293652808f1a2e",
+      "sha256": "e90007c2ce6bdfcc35f0126af68745532ec7717bd3500fa3349c732f634b789c",
       "source": "templates/app/scripts/contract.mjs"
     },
     "scripts/gh-project.ps1": {
@@ -1061,7 +1061,7 @@
     },
     "scripts/test/contract.test.mjs": {
       "mode": "full",
-      "sha256": "feee6ed4f69ee23aed8c5d954ae49d73f1a9d9b78e1656111ec32d26abb8be19",
+      "sha256": "9958d3633250b3ce2e1b96021562db989761142c1c3f71de11a02700bc6b0c81",
       "source": "templates/app/scripts/test/contract.test.mjs"
     },
     "skills/std-backlog/SKILL.md": {

@@ -18,7 +18,10 @@ const hung = () =>
   vi.fn(
     (_path: string, init?: RequestInit) =>
       new Promise<Response>((_resolve, reject) => {
-        init?.signal?.addEventListener('abort', () => reject(new DOMException('x', 'AbortError')));
+        const abort = () => reject(new DOMException('The operation was aborted', 'AbortError'));
+        // A real fetch rejects at once when it is given a signal that is already aborted.
+        if (init?.signal?.aborted) abort();
+        else init?.signal?.addEventListener('abort', abort);
       }),
   );
 

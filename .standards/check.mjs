@@ -105,7 +105,7 @@ export function checkApi(sources) {
   if (!app) return warnings;
   const at = (source, index) => `${source.file}:${source.text.slice(0, index).split('\n').length}`;
   if (!sources.some((s) => /\bapp\.get\(\s*['"`]\/api\/health['"`]/.test(s.text))) warnings.push('backend/src: GET /api/health is missing. Every app has a health check API that verifies the DB connection.');
-  if (!/\bapp\.use\(\s*(errorHandler\b|\(\s*err\b)/.test(app.text)) warnings.push('backend/src/app.ts: the error middleware (app.use(errorHandler)) is missing, so errors are not returned as { error }.');
+  if (!/\bapp\.use\(\s*(errorHandler\b|createErrorHandler\(|\(\s*err\b)/.test(app.text)) warnings.push('backend/src/app.ts: the error middleware (app.use(errorHandler)) is missing, so errors are not returned as { error }.');
   const logAt = app.text.search(/\bapp\.use\(\s*requestLog\b/);
   if (logAt < 0) warnings.push('backend/src/app.ts: app.use(requestLog) is missing, so requests get no request ID or JSON log line (docs/logging.md).');
   else {
