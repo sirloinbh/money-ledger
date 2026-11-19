@@ -1,11 +1,12 @@
 // Managed file. Edit it in sirloinbh/project-standards templates/ui/frontend/src/components/ui/
+import { XIcon } from 'lucide-react';
 import type * as React from 'react';
 import { Drawer as DrawerPrimitive } from 'vaul';
 
 import { cn } from '../../lib/utils';
 
 // A bottom panel that can be dragged down to close (vaul). Use it on phones for short choices and forms;
-// Escape and the close button work as in Dialog.
+// Escape and the close button work as in Dialog (`showCloseButton={false}` hides the button).
 
 // vaul leaves focus on the trigger by default (autoFocus=false), so keyboard users would tab outside the open
 // drawer. Moving focus inside keeps it consistent with Dialog and Sheet.
@@ -22,7 +23,12 @@ function DrawerClose(props: React.ComponentProps<typeof DrawerPrimitive.Close>) 
   return <DrawerPrimitive.Close data-slot="drawer-close" {...props} />;
 }
 
-function DrawerContent({ className, children, ...props }: React.ComponentProps<typeof DrawerPrimitive.Content>) {
+function DrawerContent({
+  className,
+  children,
+  showCloseButton = true,
+  ...props
+}: React.ComponentProps<typeof DrawerPrimitive.Content> & { showCloseButton?: boolean }) {
   return (
     <DrawerPrimitive.Portal data-slot="drawer-portal">
       <DrawerPrimitive.Overlay
@@ -39,6 +45,15 @@ function DrawerContent({ className, children, ...props }: React.ComponentProps<t
       >
         <div aria-hidden className="mx-auto mt-4 h-2 w-[100px] shrink-0 rounded-full bg-muted" />
         {children}
+        {showCloseButton ? (
+          <DrawerPrimitive.Close
+            data-slot="drawer-close-button"
+            className="absolute top-3 right-3 flex size-8 items-center justify-center rounded-sm opacity-70 transition-opacity outline-none hover:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:size-11 [&_svg]:size-4"
+          >
+            <XIcon aria-hidden />
+            <span className="sr-only">Close</span>
+          </DrawerPrimitive.Close>
+        ) : null}
       </DrawerPrimitive.Content>
     </DrawerPrimitive.Portal>
   );

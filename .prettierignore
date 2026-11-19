@@ -49,10 +49,12 @@ frontend/src/lib/theme.ts
 frontend/src/lib/theme.test.ts
 frontend/src/lib/theme-config.ts
 frontend/src/lib/apps.ts
+frontend/src/lib/auth-config.ts
 frontend/src/lib/api.ts
 frontend/src/lib/api.test.ts
 frontend/src/lib/use-notice.ts
 frontend/src/health.ts
+frontend/src/health.test.ts
 frontend/src/sign-in.tsx
 frontend/src/auth-origin.ts
 frontend/src/auth-origin.test.ts

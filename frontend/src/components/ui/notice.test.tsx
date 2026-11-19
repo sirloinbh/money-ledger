@@ -10,14 +10,28 @@ import { Notice } from './notice';
 const saved: NoticeValue = { kind: 'status', text: 'Saved' };
 const failed: NoticeValue = { kind: 'error', text: 'Could not save' };
 
+test('the live regions exist before the first notice, so the first message is announced', () => {
+  const { rerender } = render(<Notice notice={undefined} />);
+  const status = screen.getByRole('status');
+  const alert = screen.getByRole('alert');
+  expect(status).toBeEmptyDOMElement();
+  expect(alert).toBeEmptyDOMElement();
+  rerender(<Notice notice={saved} />);
+  // The same elements stay in the page; only their text changes.
+  expect(screen.getByRole('status')).toBe(status);
+  expect(status).toHaveTextContent('Saved');
+  expect(alert).toBeEmptyDOMElement();
+});
+
 test('a status message is announced politely and an error at once', () => {
   const { rerender } = render(<Notice notice={saved} />);
   expect(screen.getByRole('status')).toHaveTextContent('Saved');
   rerender(<Notice notice={failed} />);
   expect(screen.getByRole('alert')).toHaveTextContent('Could not save');
+  expect(screen.getByRole('status')).toBeEmptyDOMElement();
   rerender(<Notice notice={undefined} />);
-  expect(screen.queryByRole('alert')).toBeNull();
-  expect(screen.queryByRole('status')).toBeNull();
+  expect(screen.getByRole('alert')).toBeEmptyDOMElement();
+  expect(screen.getByRole('status')).toBeEmptyDOMElement();
 });
 
 test('useNotice shows progress, the error a request threw, and clears', () => {

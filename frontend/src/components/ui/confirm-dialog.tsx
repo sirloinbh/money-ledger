@@ -10,7 +10,8 @@ import { Spinner } from './spinner';
 // Without a trigger Radix has nowhere to return focus when the dialog closes, so keyboard users land on
 // <body>: pass `returnFocusRef` with the element to go back to (#356).
 // While `onConfirm` runs the buttons are disabled; the dialog closes when it resolves and stays open when it
-// rejects, so the screen can show the error (for example with useNotice).
+// rejects, so the screen can show the error (for example with useNotice); a rejection is also logged with
+// console.error so it leaves a trace. The buttons use aria-disabled, not disabled, so focus stays on them.
 
 type ConfirmDialogProps = {
   title: string;
@@ -48,6 +49,7 @@ function ConfirmDialog({
   };
 
   const confirm = () => {
+    if (pending) return;
     const result = onConfirm();
     if (!(result instanceof Promise)) {
       setOpen(false);
@@ -59,7 +61,10 @@ function ConfirmDialog({
         setPending(false);
         setOpen(false);
       },
-      () => setPending(false),
+      (error: unknown) => {
+        console.error('ConfirmDialog: onConfirm failed', error);
+        setPending(false);
+      },
     );
   };
 
@@ -81,11 +86,11 @@ function ConfirmDialog({
         </DialogHeader>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline" disabled={pending}>
+            <Button variant="outline" aria-disabled={pending || undefined}>
               {cancelLabel}
             </Button>
           </DialogClose>
-          <Button variant={destructive ? 'destructive' : 'default'} disabled={pending} aria-busy={pending || undefined} onClick={confirm}>
+          <Button variant={destructive ? 'destructive' : 'default'} aria-disabled={pending || undefined} aria-busy={pending || undefined} onClick={confirm}>
             {pending ? <Spinner size="sm" label="Working" /> : null}
             {confirmLabel}
           </Button>

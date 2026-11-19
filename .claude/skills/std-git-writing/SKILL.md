@@ -13,7 +13,7 @@ What goes into Git and GitHub is a record people read again later. Someone seein
 
 - **English only.** Titles, bodies, commit messages, and review comments are written in English. Older records written in Korean are translated by their own issue; do not mix languages in new text.
 - **Lead with the result.** The first sentence says what was done or will be done. Do not open with background.
-- **Use plain words.** Explain abbreviations and internal keys (`maxRollout`, `manifest`, ...) the first time they appear. Put file paths and commands in backticks.
+- **Use plain words.** Explain abbreviations and internal keys (`neverTouch`, `manifest`, ...) the first time they appear. Put file paths and commands in backticks.
 - **One point per sentence.** Split multiple items into a list or table. Use checkboxes (`- [ ]`) for lists whose progress must be tracked.
 - **Make it verifiable.** Instead of vague words like "improve" or "clean up", name the changed files, numbers, and command results.
 - **Make the reader's job clear.** Collect what the user must do themselves at the top or under "Check before merging".
@@ -93,7 +93,7 @@ Local branches are managed with the git CLI. The agent runs these commands itsel
 - The title is about 50 characters. `type` uses the same list as branches. Use the imperative in lower case: `feat: add registry conflict check (#44)`
 - One commit holds one logical change. Commit the implementation, its tests, and its change record (`docs/changes/`) together.
 - The body explains what the diff cannot show. Do not list files.
-- Automated commits whose prefix tools rely on (the sync bot's `chore: sync central standards (project-standards@` and the compliance report commit) keep their format. Sync commits made before #455 used `chore: 중앙 표준 동기화 (project-standards@`, and the bot still treats them as its own.
+- Automated commits whose prefix tools rely on (the sync bot's `chore: sync central standards (project-standards@` and the compliance report commit) keep their format.
 
 | Bad | Good |
 |---|---|

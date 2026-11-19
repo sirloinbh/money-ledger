@@ -20,7 +20,7 @@ beforeAll(() => {
     }) as MediaQueryList;
 });
 
-test('a drawer opens as a named dialog and its close button closes it', () => {
+test('a drawer opens as a named dialog and a DrawerClose button closes it', () => {
   render(
     <Drawer>
       <DrawerTrigger asChild>
@@ -33,7 +33,7 @@ test('a drawer opens as a named dialog and its close button closes it', () => {
         </DrawerHeader>
         <DrawerFooter>
           <DrawerClose asChild>
-            <Button variant="outline">Close</Button>
+            <Button variant="outline">Done</Button>
           </DrawerClose>
         </DrawerFooter>
       </DrawerContent>
@@ -44,6 +44,39 @@ test('a drawer opens as a named dialog and its close button closes it', () => {
   expect(drawer).toHaveAccessibleDescription('Choose a weight unit.');
   // Focus moves inside, unlike vaul's default (see drawer.tsx).
   expect(drawer).toContainElement(document.activeElement as HTMLElement);
+  fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+  expect(screen.queryByRole('dialog', { name: 'Unit' })).toBeNull();
+});
+
+test('the built-in close button closes the drawer, and showCloseButton={false} removes it', () => {
+  const { unmount } = render(
+    <Drawer>
+      <DrawerTrigger asChild>
+        <Button>Open</Button>
+      </DrawerTrigger>
+      <DrawerContent>
+        <DrawerTitle>Unit</DrawerTitle>
+        <DrawerDescription>Choose a weight unit.</DrawerDescription>
+      </DrawerContent>
+    </Drawer>,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Open' }));
   fireEvent.click(screen.getByRole('button', { name: 'Close' }));
   expect(screen.queryByRole('dialog', { name: 'Unit' })).toBeNull();
+  unmount();
+
+  render(
+    <Drawer>
+      <DrawerTrigger asChild>
+        <Button>Open</Button>
+      </DrawerTrigger>
+      <DrawerContent showCloseButton={false}>
+        <DrawerTitle>Unit</DrawerTitle>
+        <DrawerDescription>Choose a weight unit.</DrawerDescription>
+      </DrawerContent>
+    </Drawer>,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+  expect(screen.getByRole('dialog', { name: 'Unit' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
 });

@@ -1,5 +1,5 @@
 {
-  "centralSha": "90927f0d12e467d587218467f2da9f404032e2c1",
+  "centralSha": "6ad8e7ff5e4c2d3e25ee96cfc1cfc7e767b469ec",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -65,7 +65,7 @@
     },
     ".claude/skills/std-git-writing/SKILL.md": {
       "mode": "full",
-      "sha256": "56a95a2f0835461785805780b7e053481de85c5ce302d9784e5d7f905cca9936",
+      "sha256": "25fa4473adec616b1c0b2ec63963481e530d83e270d79ccd01afeee46c4b32ee",
       "source": "templates/common/skills/std-git-writing/SKILL.md"
     },
     ".claude/skills/std-implementation/SKILL.md": {
@@ -155,7 +155,7 @@
     },
     ".prettierignore": {
       "mode": "section",
-      "sha256": "6cb0d6342fd5cf73f509f93d8679326542e62412f7b05e302c3d4cd700900121",
+      "sha256": "82679038e133f6e84dde1cb2880daf3f4f2e65e4044d9af32d06499cea615f80",
       "source": "templates/app/.prettierignore.tmpl"
     },
     ".standards/blocked-packages.json": {
@@ -165,7 +165,7 @@
     },
     ".standards/check.mjs": {
       "mode": "full",
-      "sha256": "fae1d3fa14cdb90a9320ed35e5565a7f382448570b87badf4e7c1e3b6130f8e6",
+      "sha256": "e0734e81d24c1794528257a64edc9270db86152eef2829ee6f0312965cb524b3",
       "source": "scripts/standards-check.mjs"
     },
     ".standards/ioc-scan.mjs": {
@@ -220,7 +220,7 @@
     },
     "AGENTS.md": {
       "mode": "full",
-      "sha256": "6125382fa74fa48f0ae9c2fd72c187d0f47e443b4914ebbc45ebabadeb554a7f",
+      "sha256": "4e2c6459855cb6be0b9d54bc1ae53b38d69c1c91aa8ea431a4d97f7f515a0887",
       "source": "templates/app/AGENTS.md.tmpl"
     },
     "backend/.npmrc": {
@@ -242,6 +242,7 @@
         "dependencies.@sirloinbh/auth-client": "1.0.0",
         "devDependencies.@sirloinbh/tsconfig": "1.0.0",
         "dependencies.express": "5.3.0",
+        "dependencies.express-rate-limit": "8.7.2",
         "dependencies.pg": "8.23.1",
         "dependencies.zod": "4.6.7",
         "devDependencies.@types/express": "5.0.6",
@@ -259,8 +260,13 @@
     },
     "backend/src/standard/auth.ts": {
       "mode": "full",
-      "sha256": "a33a4eefa1dbb21c24afc8c8a0caf689c6ed5439368dd1fe2bac28a7e0cb87a9",
+      "sha256": "e779809ab79e2e3bf7d3169b9b617fb107053360c4c3e14d5e7a27ed1082d6d3",
       "source": "templates/app/backend/src/standard/auth.ts"
+    },
+    "backend/src/standard/db.ts": {
+      "mode": "full",
+      "sha256": "fbb95d767ed1371f38904b7160ea7c8db7f38e7bda6fd1f5e4bd58fef2ee1fe0",
+      "source": "templates/app/backend/src/standard/db.ts"
     },
     "backend/src/standard/http.ts": {
       "mode": "full",
@@ -272,9 +278,24 @@
       "sha256": "5761d1a287d56f0f18c7e5655824818228213ffd25057313289dd3d47d4e3026",
       "source": "templates/jobs/backend/src/standard/jobs.ts"
     },
+    "backend/src/standard/migrate.ts": {
+      "mode": "full",
+      "sha256": "8a37a1344a53471d2df22c93d10c3f04df6096f71d5cc2682d840cdd98e5e172",
+      "source": "templates/app/backend/src/standard/migrate.ts.tmpl"
+    },
+    "backend/src/standard/migrations.ts": {
+      "mode": "full",
+      "sha256": "0566a72eee305a2d76321f02e1c538147a502112889d4d733ab1123f33d563aa",
+      "source": "templates/app/backend/src/standard/migrations.ts"
+    },
+    "backend/src/standard/rate-limit.ts": {
+      "mode": "full",
+      "sha256": "75a2366ab9448f13dc9bcb08aeaa63ce3a3f99be432c615d315fa604f1814aa3",
+      "source": "templates/app/backend/src/standard/rate-limit.ts"
+    },
     "backend/src/standard/tools.ts": {
       "mode": "full",
-      "sha256": "1f18074ebd5a47d065a32b97985cecf3d5a97c3bb8758332569bffdf0e3c663f",
+      "sha256": "7b2ebefc1580e6bc5dcd43d1f726bbe5130f2b9117db95f012b74a0277ee021b",
       "source": "templates/app/backend/src/standard/tools.ts"
     },
     "backend/tsconfig.json": {
@@ -394,7 +415,7 @@
     },
     "frontend/nginx.conf": {
       "mode": "full",
-      "sha256": "df50ba0b6b0d48ece7faa7c65cc65601cf53144773e388e04927b572e25351c9",
+      "sha256": "606a8bace619a4c93ad07086855d03d77b41090719064d3bc6f13038a26fdfeb",
       "source": "templates/app/frontend/nginx.conf.tmpl"
     },
     "frontend/package.json": {
@@ -453,12 +474,12 @@
     },
     "frontend/src/auth-origin.test.ts": {
       "mode": "full",
-      "sha256": "646b60431e40e709f40241396ddd0a8c28323227e7faf2fb8257f7a5349b3979",
+      "sha256": "8f2ffdb0d8d5d51a7c745e0fc63255ea0dce5a3164b93e00965be5157813e330",
       "source": "templates/ui/frontend/src/auth-origin.test.ts"
     },
     "frontend/src/auth-origin.ts": {
       "mode": "full",
-      "sha256": "1fb4c37122032f83f3eaa5768a7ff17e22a066556833fd420518300ff0b7d9b3",
+      "sha256": "3f16e336e489c84a47eb84ce2f83b3cdaf47d1830d6bb8bc5e859c76949ad436",
       "source": "templates/ui/frontend/src/auth-origin.ts"
     },
     "frontend/src/components/layout/app-shell.test.tsx": {
@@ -498,12 +519,12 @@
     },
     "frontend/src/components/ui/button.test.tsx": {
       "mode": "full",
-      "sha256": "e6865ec0c32f7cd3351636d1554db9c18e9d3e13033ba7dfbfbf7474b899187e",
+      "sha256": "edae93aec14ea4c8fd18233589cccf5f106e124c0b533a337727b01f48a28b4e",
       "source": "templates/ui/frontend/src/components/ui/button.test.tsx"
     },
     "frontend/src/components/ui/button.tsx": {
       "mode": "full",
-      "sha256": "eb3aa052b6e921ff66f04d49e9952d6abe90a2d5d25a504781dabc37bc02c8f1",
+      "sha256": "f965b4c651fae28288483f8e766aa197ed03b13ac563f934a24c98a6883c5d75",
       "source": "templates/ui/frontend/src/components/ui/button.tsx"
     },
     "frontend/src/components/ui/card.test.tsx": {
@@ -533,22 +554,22 @@
     },
     "frontend/src/components/ui/combobox.test.tsx": {
       "mode": "full",
-      "sha256": "975a07a5213c03c7756bba0e2aa9a4023e7113497b8cdb693a56c6446ae3db82",
+      "sha256": "e21505259a6ae4bbb6c0bd24cf5ea31680de0f778c1fab7c64195b303cd8d7a4",
       "source": "templates/ui/frontend/src/components/ui/combobox.test.tsx"
     },
     "frontend/src/components/ui/combobox.tsx": {
       "mode": "full",
-      "sha256": "7e3121830a82d61b549c69f00f771c47f9618ebba2b242b67ae3f44235848e9a",
+      "sha256": "87547092944fa19370eeaf4a1ce4ce4612ac2951ac74d0586c1e1482a850ebef",
       "source": "templates/ui/frontend/src/components/ui/combobox.tsx"
     },
     "frontend/src/components/ui/confirm-dialog.test.tsx": {
       "mode": "full",
-      "sha256": "bf21479f288eb1c2decb0a3b62d9c6f6480a1d5ee2a2c619982c2b3c952772b1",
+      "sha256": "370b9f090781eeec8964a58de42bb19b173754e70ce654714dfea838625136ee",
       "source": "templates/ui/frontend/src/components/ui/confirm-dialog.test.tsx"
     },
     "frontend/src/components/ui/confirm-dialog.tsx": {
       "mode": "full",
-      "sha256": "b9142f14599e3e0608db32e30b417c443e43b9e42bb8570f98de5713ea32975a",
+      "sha256": "11f64bbf65c1b92531878af751c9142868dba0285a4a4223625f80f67c347452",
       "source": "templates/ui/frontend/src/components/ui/confirm-dialog.tsx"
     },
     "frontend/src/components/ui/dialog.test.tsx": {
@@ -563,12 +584,12 @@
     },
     "frontend/src/components/ui/drawer.test.tsx": {
       "mode": "full",
-      "sha256": "e95911b47909827899b3f14454dddfa9ab2528043a2fa97c0a8d90bf93dca1f6",
+      "sha256": "a502fe425c1eeb629392cc054147e9702e798ece6d3d9d86de05a8a69cb95f5e",
       "source": "templates/ui/frontend/src/components/ui/drawer.test.tsx"
     },
     "frontend/src/components/ui/drawer.tsx": {
       "mode": "full",
-      "sha256": "89761a8417863ebbe0de329b36b4d3f6f8a70add46f4f562e00bc6780b6003db",
+      "sha256": "19f157382cc68755993fbb9abc9e77660e10096156a1bc0994c704b0c97cc0e7",
       "source": "templates/ui/frontend/src/components/ui/drawer.tsx"
     },
     "frontend/src/components/ui/dropdown-menu.test.tsx": {
@@ -608,12 +629,12 @@
     },
     "frontend/src/components/ui/notice.test.tsx": {
       "mode": "full",
-      "sha256": "aeff413642973fd8fbc553f697590e81b204611c5c86473b49da8bd6802a6cbb",
+      "sha256": "2d253d19c7cdd4bf6738b981e31d141622b0ead9407b48aa110331c9ac933700",
       "source": "templates/ui/frontend/src/components/ui/notice.test.tsx"
     },
     "frontend/src/components/ui/notice.tsx": {
       "mode": "full",
-      "sha256": "5186cacf432f12d0e289336b4ca643133129dd84c09be87a564e084992e1830d",
+      "sha256": "c1043a27a78a18532bce245e636c42437f044e9b85921b91534658b9a9165531",
       "source": "templates/ui/frontend/src/components/ui/notice.tsx"
     },
     "frontend/src/components/ui/select.test.tsx": {
@@ -666,25 +687,35 @@
       "sha256": "07e11eaeb03a31e942b7dc5ae51d685bcc1378febe29e70d736d75bbcd804348",
       "source": "templates/ui/frontend/src/components/ui/spinner.tsx"
     },
+    "frontend/src/health.test.ts": {
+      "mode": "full",
+      "sha256": "0a3fe5ab527a79b6b5ef0a2be5c68b49a8ae357c38122451c120f89d6a70da8d",
+      "source": "templates/ui/frontend/src/health.test.ts"
+    },
     "frontend/src/health.ts": {
       "mode": "full",
-      "sha256": "fa578cac742af84a10a7edd9736b1268c01f14a7f3aaa35257e0116fdc08fbba",
+      "sha256": "883b0f670b801155fc7e47802ca3864d3b67f53dc4aa46a3444aa786c8912892",
       "source": "templates/ui/frontend/src/health.ts"
     },
     "frontend/src/lib/api.test.ts": {
       "mode": "full",
-      "sha256": "ee802bd58d2fd9791d00bc00c40f63e01f8f3904585665d86d391a724356f499",
+      "sha256": "341b7392d1a264861f83099e05bc41eca0f05eade086764d67bc1b5e0d0e3889",
       "source": "templates/ui/frontend/src/lib/api.test.ts"
     },
     "frontend/src/lib/api.ts": {
       "mode": "full",
-      "sha256": "51fbb66f7a56ef041081e43a2ddd352bfc6dcf989847a74a9f821d1d86ba518f",
+      "sha256": "f1cdd14afe462fbbae31d2f5fca91741bca27a586a1e8e50128d22e9be36bdd0",
       "source": "templates/ui/frontend/src/lib/api.ts"
     },
     "frontend/src/lib/apps.ts": {
       "mode": "full",
       "sha256": "fb6473e83e30be2e47e7167d50283fda470ed9f1ae0f1dd4276a3eace2e8d0a2",
       "source": "templates/ui/frontend/src/lib/apps.ts.tmpl"
+    },
+    "frontend/src/lib/auth-config.ts": {
+      "mode": "full",
+      "sha256": "d79c53b94936cd62befd9a4cbd6304c558eaa2e6d1ba11eb8f00dfe2ba60e617",
+      "source": "templates/ui/frontend/src/lib/auth-config.ts.tmpl"
     },
     "frontend/src/lib/theme-config.ts": {
       "mode": "full",
@@ -728,7 +759,7 @@
     },
     "frontend/src/sign-in.tsx": {
       "mode": "full",
-      "sha256": "8e83f7fed04a4b0e9e5f3d9c683520b14c4cfcadb8e0a0ed6d03c6e3214c8a8c",
+      "sha256": "3bf2ab38a1aff76119bb3da8d6f14851efbd014cc24c3e4e186fac9626ad3a52",
       "source": "templates/ui/frontend/src/sign-in.tsx"
     },
     "frontend/tsconfig.json": {
@@ -834,7 +865,7 @@
     },
     "skills/std-git-writing/SKILL.md": {
       "mode": "full",
-      "sha256": "56a95a2f0835461785805780b7e053481de85c5ce302d9784e5d7f905cca9936",
+      "sha256": "25fa4473adec616b1c0b2ec63963481e530d83e270d79ccd01afeee46c4b32ee",
       "source": "templates/common/skills/std-git-writing/SKILL.md"
     },
     "skills/std-implementation/SKILL.md": {

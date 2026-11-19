@@ -42,8 +42,10 @@ test('while the action runs the buttons wait; the dialog closes when it succeeds
   render(<ConfirmDialog title="Delete it?" onConfirm={() => work.promise} trigger={<Button>Open</Button>} />);
   fireEvent.click(screen.getByRole('button', { name: 'Open' }));
   fireEvent.click(screen.getByRole('button', { name: /Delete/ }));
-  expect(screen.getByRole('button', { name: /Delete/ })).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+  // aria-disabled, not disabled: the focused button keeps keyboard focus while the action runs.
+  expect(screen.getByRole('button', { name: /Delete/ })).toHaveAttribute('aria-disabled', 'true');
+  expect(screen.getByRole('button', { name: 'Cancel' })).toHaveAttribute('aria-disabled', 'true');
+  expect(screen.getByRole('button', { name: /Delete/ })).not.toBeDisabled();
   expect(screen.getByRole('status', { name: 'Working' })).toBeInTheDocument();
   work.resolve();
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -54,9 +56,12 @@ test('a failed action leaves the dialog open so the screen can show why', async 
   render(<ConfirmDialog title="Delete it?" onConfirm={() => work.promise} trigger={<Button>Open</Button>} />);
   fireEvent.click(screen.getByRole('button', { name: 'Open' }));
   fireEvent.click(screen.getByRole('button', { name: /Delete/ }));
+  const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
   work.reject();
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled());
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Delete' })).not.toHaveAttribute('aria-disabled'));
   expect(screen.getByRole('dialog')).toBeInTheDocument();
+  expect(logged).toHaveBeenCalledWith('ConfirmDialog: onConfirm failed', expect.objectContaining({ message: 'Could not delete' }));
+  logged.mockRestore();
 });
 
 test('it can be controlled, e.g. opened for the row the user picked', () => {
@@ -109,4 +114,14 @@ test('an empty returnFocusRef keeps the trigger behaviour', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Open' }));
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   await waitFor(() => expect(screen.getByRole('button', { name: 'Open' })).toHaveFocus());
+});
+
+test('a second confirm click while the action runs does not run it again', () => {
+  const work = deferred();
+  const onConfirm = vi.fn(() => work.promise);
+  render(<ConfirmDialog title="Delete it?" onConfirm={onConfirm} trigger={<Button>Open</Button>} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+  fireEvent.click(screen.getByRole('button', { name: /Delete/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Delete/ }));
+  expect(onConfirm).toHaveBeenCalledOnce();
 });

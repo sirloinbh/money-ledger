@@ -6,6 +6,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { authOrigin } from './auth-origin';
 import { Button } from './components/ui/button';
 import { Spinner } from './components/ui/spinner';
+import { ROOT_DOMAIN } from './lib/auth-config';
 import { watchSession } from './session-watch';
 
 // The shared sign-in (sirloinbh/shared-auth, ADR-0015, #550, #551). The API answers 401
@@ -15,7 +16,7 @@ const SignedInUser = createContext<User | null>(null);
 
 /** Shows children only to a signed-in visitor; without an auth origin it shows them as before. */
 export function SignInGate({ children }: { children: React.ReactNode }) {
-  const origin = authOrigin(window.location);
+  const origin = authOrigin(window.location, ROOT_DOMAIN);
   return origin ? <Gate origin={origin}>{children}</Gate> : children;
 }
 
@@ -61,7 +62,7 @@ function Gate({ origin, children }: { origin: string; children: React.ReactNode 
 /** The signed-in account and a sign-out link for the top bar; nothing when there is no sign-in. */
 export function AccountActions() {
   const user = useContext(SignedInUser);
-  const origin = authOrigin(window.location);
+  const origin = authOrigin(window.location, ROOT_DOMAIN);
   if (!user || !origin) return null;
   return (
     <div className="flex items-center gap-2">
