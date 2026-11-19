@@ -74,7 +74,7 @@ export function buildOpenApi(options: OpenApiOptions) {
   const paths: Record<string, Json> = {};
   for (const route of Object.keys(options.operations).sort()) {
     const [method, path] = route.split(' ') as [string, string];
-    const op = options.operations[route]!;
+    const op = options.operations[route];
     const parameters: Json[] = [...path.matchAll(/:(\w+)/g)].map(([, name]) => ({
       name,
       in: 'path',

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Managed file. Edit it in sirloinbh/project-standards templates/app/deploy/
+# Managed file. Edit it in sirloinbh/project-standards templates/deploy/deploy/
 # Runs on the Lightsail server from /opt/money-ledger, started by scripts/deploy.ps1 or
 # by autodeploy.sh.
 #   deploy <ref>  build the commit, back up, migrate, start, health check; on failure
@@ -7,8 +7,9 @@
 #   rollback      start the previously deployed images again
 # Images are tagged by commit, so a rollback does not rebuild. Migrations are
 # forward-only; restoring data from the pre-deploy dump is a separate, manual step.
-# compose.yaml must tag images money-backend:${IMAGE_TAG} and
-# money-frontend:${IMAGE_TAG} and publish the web port as ${WEB_BIND}:${WEB_PORT}.
+# compose.yaml must tag the images `money-backend money-frontend` as <image>:${IMAGE_TAG} and publish the web
+# port as ${WEB_BIND}:${WEB_PORT}. One script serves the apps and the shared services (#696): the
+# registry values below decide whether migrations are a deploy step (apps) or run inside the image (services).
 set -euo pipefail
 cd /opt/money-ledger
 # One deploy at a time across every app on the server (ADR-0009). The autodeploy timer
@@ -17,6 +18,9 @@ if [ -z "${APPS_DEPLOY_LOCKED:-}" ]; then
   exec 9> /run/lock/apps-deploy.lock
   flock -w 1800 9 || { echo "another deploy is running" >&2; exit 4; }
 fi
+# A project that creates its own .env on the first deploy (the shared services: DB password, URLs) ships
+# deploy/bootstrap-env.sh for it; it is not a managed file.
+if [ ! -f .env ] && [ -f deploy/bootstrap-env.sh ]; then bash deploy/bootstrap-env.sh; fi
 
 # The server .env decides the published web port; without it the registry port is used.
 web_port=$(sed -n 's/^WEB_PORT=//p' .env 2>/dev/null | tail -n 1)
@@ -33,25 +37,31 @@ export NODE_AUTH_TOKEN="${NODE_AUTH_TOKEN:-}"
 # and the server .env holds no copy. Apps with features.claude also get ANTHROPIC_API_KEY from
 # /sirloinbh/shared/anthropic-api-key when .env.example does not tag it. The SSM key pair is in
 # the shared server file /opt/project-standards/.env (or the app .env). Without it, or when a
-# read fails, a value already in .env stays in use. Values are never printed.
+# read fails, a value already in .env stays in use. Values are never printed. A key whose comment
+# line also has @required must be readable: the deploy stops when it is not (#696).
 ssm_keys() {
   awk '
-    /^[[:space:]]*#/ { tag = ""; if (match($0, /@ssm=[^[:space:]@]+/)) tag = substr($0, RSTART + 5, RLENGTH - 5); next }
-    /^[A-Z][A-Z0-9_]*=/ { if (tag != "") { sub(/=.*/, ""); print $0, tag }; tag = ""; next }
+    /^[[:space:]]*#/ { tag = ""; req = ($0 ~ /@required/) ? 1 : 0; if (match($0, /@ssm=[^[:space:]@]+/)) tag = substr($0, RSTART + 5, RLENGTH - 5); next }
+    /^[A-Z][A-Z0-9_]*=/ { if (tag != "") { sub(/=.*/, ""); print $0, tag, req }; tag = ""; next }
     { tag = "" }
   ' .env.example 2> /dev/null || true
 }
 load_ssm_env() {
-  grep -qs '^SECRETS_AWS_ACCESS_KEY_ID=.' "${STANDARDS_ENV_FILE:-/opt/project-standards/.env}" .env || return 0
-  local list key name value
+  local list key name required value have_pair=1
+  grep -qs '^SECRETS_AWS_ACCESS_KEY_ID=.' "${STANDARDS_ENV_FILE:-/opt/project-standards/.env}" .env || have_pair=0
   list=$(ssm_keys)
   if [ "false" = true ] && ! printf '%s\n' "$list" | grep -q '^ANTHROPIC_API_KEY '; then
-    list=$(printf '%s\n%s' "$list" 'ANTHROPIC_API_KEY /sirloinbh/shared/anthropic-api-key')
+    list=$(printf '%s\n%s' "$list" 'ANTHROPIC_API_KEY /sirloinbh/shared/anthropic-api-key 0')
   fi
-  while read -r key name; do
+  while read -r key name required; do
     [ -n "$key" ] || continue
+    # Without a key pair only a required key is a problem; the others keep their .env value as before.
+    if [ "$have_pair" = 0 ] && [ "${required:-0}" != 1 ]; then continue; fi
     if value=$(bash deploy/ssm-get.sh "$name"); then
       export "$key=$value"
+    elif [ "${required:-0}" = 1 ]; then
+      echo "error: could not read $key from SSM ($name); it is marked @required" >&2
+      return 1
     else
       echo "warning: could not read $key from SSM ($name); using the .env value if there is one" >&2
     fi
@@ -117,8 +127,11 @@ case "${1:-}" in
     if [ -n "$current" ]; then backup; fi
     ensure_networks
     IMAGE_TAG="$tag" docker compose up -d --wait db
-    IMAGE_TAG="$tag" docker compose run --rm --no-deps \
-      -v "$PWD/database/migrations:/database/migrations:ro" api node dist/migrate.js
+    # Apps migrate as a step with the migrations mounted; a shared service's image runs them when it starts.
+    if [ "step" = step ]; then
+      IMAGE_TAG="$tag" docker compose run --rm --no-deps \
+        -v "$PWD/database/migrations:/database/migrations:ro" api node dist/migrate.js
+    fi
     save_api_errors
     IMAGE_TAG="$tag" docker compose up -d
     if ! health; then

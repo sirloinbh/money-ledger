@@ -77,7 +77,7 @@ export function checkComposeSecrets(text) {
   return problems;
 }
 
-// The deploy script (templates/app/deploy/remote-deploy.sh.tmpl) tags images by commit to roll back, reads
+// The deploy script (templates/deploy/deploy/remote-deploy.sh.tmpl) tags images by commit to roll back, reads
 // the web port from WEB_BIND/WEB_PORT, and runs migrations with the root db:migrate. Local DBs apply
 // migrations through the same runner, so compose must not also mount them into initdb (#695).
 export function checkComposeDeploy(text, { dbName = null, scripts = {} } = {}) {

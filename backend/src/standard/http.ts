@@ -116,7 +116,23 @@ function zodMessages(error: ErrorFields) {
   return shown.join(', ');
 }
 
-export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
+// PostgreSQL errors (SQLSTATE) caused by what the client sent: a 400 with a short message that never repeats the
+// database's own text (#673). 23505 (duplicate) is a 409 and 22021 (NUL) has its own message below.
+const PG_INPUT_ERRORS: Record<string, string> = {
+  '23503': 'A related item does not exist or is still in use',
+  '23514': 'Input is not allowed',
+  '22P02': 'Input has an invalid format',
+  '22007': 'Input has an invalid date or time',
+  '22008': 'Input has an invalid date or time',
+};
+
+export function errorHandler(err: unknown, _req: Request, res: Response, next: NextFunction) {
+  // The response has started (a stream, or an error after res.json): Express closes the connection. Writing a second
+  // response here would throw ERR_HTTP_HEADERS_SENT inside the handler.
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
   if (err instanceof HttpError) {
     sendError(res, err.status, err.message);
     return;
@@ -149,6 +165,11 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
   }
   if (error.code === '23505') {
     sendError(res, 409, 'This item already exists');
+    return;
+  }
+  const inputError = typeof error.code === 'string' ? PG_INPUT_ERRORS[error.code] : undefined;
+  if (inputError) {
+    sendError(res, 400, inputError);
     return;
   }
   // The internal message goes to the log only; the response never exposes it.
