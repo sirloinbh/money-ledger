@@ -32,7 +32,7 @@ export class RequestError extends Error {
   }
 }
 
-export const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 // The `fields` of an error body, keeping only well-formed entries (an older server sends none).
 function fieldErrors(data: unknown): FieldError[] {
