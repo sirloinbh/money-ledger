@@ -3,9 +3,9 @@ import { MinusIcon, PlusIcon } from 'lucide-react';
 import { type ComponentProps, useState } from 'react';
 
 import { cn } from '../../lib/utils';
-import { stepValue } from './number-step';
 import { Button } from './button';
 import { Input } from './input';
+import { stepValue } from './number-step';
 
 // kg and reps with − and + for one-handed entry. The value stays a string like the app's other
 // form fields, so typing "12." is not rewritten; the form and the server still validate it.

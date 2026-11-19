@@ -1,5 +1,5 @@
 {
-  "centralSha": "c610b151c2236738f993629c5da6be74e71bb7c2",
+  "centralSha": "1f552a1158b87a732594623682985003aa5c98ef",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -10,7 +10,7 @@
     },
     ".claude/hooks/block-package-installs.mjs": {
       "mode": "full",
-      "sha256": "56de5f100cf31c4acf790c7277912779af129786596333dc206bbf1a134f756f",
+      "sha256": "19f89a86a72201b874a7d0c5ee450dd7da86b7e2b983e666cb0db2a291a59878",
       "source": "templates/common/.claude/hooks/block-package-installs.mjs"
     },
     ".claude/hooks/pc-setup-notice.mjs": {
@@ -70,7 +70,7 @@
     },
     ".claude/skills/std-implementation/SKILL.md": {
       "mode": "full",
-      "sha256": "7b755a96be8500b97151219b245d1a3b0b72702f6f81bbf86bdf7425530a49cd",
+      "sha256": "be9aa957aa1b0c96eaa0185232d783655464960b4aa025b5522995e18c0e3606",
       "source": "templates/common/skills/std-implementation/SKILL.md"
     },
     ".claude/skills/std-session-notes/SKILL.md": {
@@ -130,7 +130,7 @@
     },
     ".github/workflows/ci.yml": {
       "mode": "full",
-      "sha256": "bf7a676590aa90e82df1425fa009bc0aca915607dff9637972d149394354602e",
+      "sha256": "ac166114c8b70f8215a1b6ca2cf18002710b5f066c97fa0f1a6e742470af2c34",
       "source": "templates/app/.github/workflows/ci.yml.tmpl"
     },
     ".gitignore": {
@@ -220,7 +220,7 @@
     },
     "AGENTS.md": {
       "mode": "full",
-      "sha256": "4e2c6459855cb6be0b9d54bc1ae53b38d69c1c91aa8ea431a4d97f7f515a0887",
+      "sha256": "be643ff8477cde0aedabfbe87ec14ac2dce84694e57de7c031cb5debcac26d1f",
       "source": "templates/app/AGENTS.md.tmpl"
     },
     "backend/.npmrc": {
@@ -275,7 +275,7 @@
     },
     "backend/src/standard/jobs.ts": {
       "mode": "full",
-      "sha256": "5761d1a287d56f0f18c7e5655824818228213ffd25057313289dd3d47d4e3026",
+      "sha256": "bd68835fd602904e14471809c69f3ca69112d0d1b8c1cfa924ef6df723365420",
       "source": "templates/jobs/backend/src/standard/jobs.ts"
     },
     "backend/src/standard/migrate.ts": {
@@ -375,7 +375,7 @@
     },
     "deploy/remote-deploy.sh": {
       "mode": "full",
-      "sha256": "ff8b769b08b3962476bc02226f555f702ee049902d77a6358c94f459b0da0ae0",
+      "sha256": "b5d2f5a391150d6bc894fcdd0a896a641fd2ba383f3dc7fb2cc70d50504add76",
       "source": "templates/deploy/deploy/remote-deploy.sh.tmpl"
     },
     "deploy/report.service": {
@@ -705,7 +705,7 @@
     },
     "frontend/src/components/ui/number-input.tsx": {
       "mode": "full",
-      "sha256": "e16a8c60bcd05c3d9c2b6aebe1bd8b63642d06be1e2fa85adbbefb64a02f354c",
+      "sha256": "661e476761ca336f8d2ec7d0603ebb8c78039703777f5b6d41bccd7b0b564bac",
       "source": "templates/ui/frontend/src/components/ui/number-input.tsx"
     },
     "frontend/src/components/ui/number-step.ts": {
@@ -968,11 +968,6 @@
       "sha256": "29a8537620ae2cab61a6a684db5efd0b98be1b5e36eca533a30e58c28197c267",
       "source": "templates/app/scripts/gh-project.ps1"
     },
-    "scripts/push-repositories.ps1": {
-      "mode": "full",
-      "sha256": "6bcd7b8d697fb6021c2d4ad7efbc10ac1c261a1265bce0c7d52917c9470db51b",
-      "source": "templates/app/scripts/push-repositories.ps1"
-    },
     "skills/std-backlog/SKILL.md": {
       "mode": "full",
       "sha256": "d78c85e0ab7e5cde745e013ab27d62b9cbcb8979012ee2dc5fc7b80f309fb6a4",
@@ -1000,7 +995,7 @@
     },
     "skills/std-implementation/SKILL.md": {
       "mode": "full",
-      "sha256": "7b755a96be8500b97151219b245d1a3b0b72702f6f81bbf86bdf7425530a49cd",
+      "sha256": "be9aa957aa1b0c96eaa0185232d783655464960b4aa025b5522995e18c0e3606",
       "source": "templates/common/skills/std-implementation/SKILL.md"
     },
     "skills/std-session-notes/SKILL.md": {

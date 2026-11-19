@@ -54,7 +54,7 @@ Do not stop to ask the user to choose when a sensible default exists. Pick the d
 
 - Before creating or updating a PR, run the related tests and required checks on the final change. Follow the project `AGENTS.md` for the required commands and the DB integration test conditions.
 - Fix failures, and record in docs and the PR, separately, any checks that could not run, skipped DB tests, and unfinished browser verification. If a needed verification is blocked, create the PR as a draft.
-- Push only the work branch. The PR target is this repo's `main`. The subtree sync script pushes to main and to the child repositories, so do not use it in this step.
+- Push only the work branch. The PR target is this repo's `main`.
 - If a PR for the same head branch exists, update it instead of creating a new one.
 - Write the PR title and body with the std-git-writing PR template. Pass the body as a UTF-8 file.
 - Check the GitHub Actions results and resolve related failures. Report checks that are still running as running.

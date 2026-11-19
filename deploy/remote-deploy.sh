@@ -4,7 +4,7 @@
 # by autodeploy.sh.
 #   deploy <ref>  build the commit, back up, migrate, start, health check; on failure
 #                 start the previous images again
-#   rollback      start the previously deployed images again
+#   rollback [tag] start the previously deployed images again, or the images of an earlier commit tag
 # Images are tagged by commit, so a rollback does not rebuild. Migrations are
 # forward-only; restoring data from the pre-deploy dump is a separate, manual step.
 # compose.yaml must tag the images `money-backend money-frontend` as <image>:${IMAGE_TAG} and publish the web
@@ -98,6 +98,18 @@ save_api_errors() {
     { grep -F '"level":"error"' || true; } >> .errors-before-deploy.log 2> /dev/null || true
   return 0
 }
+# Pulls the images CI pushed for a commit (ADR-0023, #755) and tags them with the local names compose.yaml uses, so
+# `docker compose up` finds them and builds nothing. Logs in with the server .env token (read:packages), which is
+# exported above. Any failure returns non-zero and the caller falls back to the local build.
+pull_images() {
+  local image
+  [ -n "${NODE_AUTH_TOKEN:-}" ] || { echo "no NODE_AUTH_TOKEN for ghcr.io; building here" >&2; return 1; }
+  printf '%s' "$NODE_AUTH_TOKEN" | docker login ghcr.io -u sirloinbh --password-stdin > /dev/null || return 1
+  for image in money-backend money-frontend; do
+    docker pull --quiet "ghcr.io/sirloinbh/$image:$1" > /dev/null || return 1
+    docker tag "ghcr.io/sirloinbh/$image:$1" "$image:$1" || return 1
+  done
+}
 start() {
   # Check out the commit that matches the images so compose.yaml and migrations agree.
   git checkout --quiet --detach "$1"
@@ -123,7 +135,13 @@ case "${1:-}" in
     load_ssm_env
     tag=$(git rev-parse --short=12 HEAD)
     echo "deploy $tag (previous: ${current:-none})"
-    IMAGE_TAG="$tag" docker compose build
+    # Pulling is off (off until the quota is confirmed, #756). When on, the CI image for this commit is
+    # pulled instead of built here; a missing image falls back to the build, so an app can move before its first push.
+    if [ "off" = on ] && pull_images "$tag"; then
+      echo "pulled $tag from ghcr.io/sirloinbh"
+    else
+      IMAGE_TAG="$tag" docker compose build
+    fi
     if [ -n "$current" ]; then backup; fi
     ensure_networks
     IMAGE_TAG="$tag" docker compose up -d --wait db
@@ -158,8 +176,13 @@ case "${1:-}" in
     echo "deployed $tag"
     ;;
   rollback)
-    previous=$(cat .previous 2>/dev/null || true)
+    # `rollback <tag>` starts any earlier commit tag (pulled when pulling is on); without a tag it is the previous one.
+    previous=${2:-$(cat .previous 2>/dev/null || true)}
     if [ -z "$previous" ]; then echo "no previous deployment" >&2; exit 1; fi
+    if [ -n "${2:-}" ] && [ "off" = on ]; then
+      git fetch --quiet --tags origin
+      pull_images "$previous" || echo "could not pull $previous; using the local image if there is one" >&2
+    fi
     start "$previous"
     health
     echo "$current" > .previous
@@ -170,7 +193,7 @@ case "${1:-}" in
     echo "rolled back to $previous"
     ;;
   *)
-    echo "usage: remote-deploy.sh deploy <git ref> | rollback" >&2
+    echo "usage: remote-deploy.sh deploy <git ref> | rollback [tag]" >&2
     exit 2
     ;;
 esac

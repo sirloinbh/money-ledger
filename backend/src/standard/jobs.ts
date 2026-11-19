@@ -103,7 +103,7 @@ type JobRow = {
 export type JobBoss = {
   start(): Promise<unknown>;
   stop(options?: { graceful?: boolean; timeout?: number }): Promise<void>;
-  getQueue(name: string): Promise<{ name: string } | null>;
+  getQueue(name: string): Promise<{ name: string; policy?: string } | null>;
   createQueue(name: string, options?: object): Promise<void>;
   updateQueue(name: string, options?: object): Promise<void>;
   work(name: string, options: object, handler: (jobs: BossJob[]) => Promise<BossResult[]>): Promise<string>;
@@ -150,7 +150,9 @@ function isNonRetryable(error: unknown) {
   if (error instanceof NonRetryable) return true;
   if (typeof error !== 'object' || error === null) return false;
   const { status, name } = error as { status?: unknown; name?: unknown };
-  return (typeof status === 'number' && status >= 400 && status < 500) || name === 'ZodError';
+  // 408 (timeout), 425 (too early) and 429 (rate limited) say "try again later", so they are retried with backoff.
+  const retryable4xx = status === 408 || status === 425 || status === 429;
+  return (typeof status === 'number' && status >= 400 && status < 500 && !retryable4xx) || name === 'ZodError';
 }
 
 function errorMessage(error: unknown) {
@@ -202,9 +204,17 @@ export function wrapHandler(queue: JobQueue, log: JobLog) {
 
 /** Creates or updates one queue; pg-boss's createQueue ignores an existing queue, so its options are updated. */
 async function ensureQueue(boss: JobBoss, name: string, options: object & { policy?: string }) {
-  if (await boss.getQueue(name)) {
-    // pg-boss cannot change a queue's policy (UpdateQueueOptions leaves it out).
-    const { policy: _policy, ...rest } = options;
+  const existing = await boss.getQueue(name);
+  if (existing) {
+    // pg-boss cannot change a queue's policy (UpdateQueueOptions leaves it out), so a queue created with another
+    // policy would silently lose the guarantee the code relies on (e.g. singleton). Stop at start instead.
+    const { policy, ...rest } = options;
+    if (policy && existing.policy && existing.policy !== policy) {
+      throw new Error(
+        `Queue "${name}" already exists with policy "${existing.policy}", but the code asks for "${policy}". ` +
+          'A policy cannot be changed: give the queue a new name (or drop the old queue by hand).',
+      );
+    }
     // pg-boss rejects an update with no properties ("no properties found to update"), e.g. for the dead-letter queue.
     if (Object.keys(rest).length > 0) await boss.updateQueue(name, rest);
   } else {

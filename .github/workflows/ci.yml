@@ -10,11 +10,12 @@ on:
 
 permissions:
   contents: read
-  packages: read
+  # write is the most the image-push job of the reusable workflow may use; every other job gets read (ADR-0023, #754).
+  packages: write
 
 jobs:
   ci:
-    uses: sirloinbh/project-standards/.github/workflows/reusable-app-ci.yml@6e3975b8919d6f825c8b5089ca38b16641e987d5
+    uses: sirloinbh/project-standards/.github/workflows/reusable-app-ci.yml@9a7a6d048ac51a3d80516751b2d04f9d8cb487c1
     with:
       node-version: '24.21.0'
       npm-version: '11.19.0'
@@ -24,3 +25,5 @@ jobs:
       e2e-visual: false
       playwright-image: 'mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27'
       knip-strict: true
+      push-images: false
+      image-prefix: 'ghcr.io/sirloinbh/money'
