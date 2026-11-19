@@ -1,10 +1,11 @@
 // Managed file. Edit it in sirloinbh/project-standards templates/ui/frontend/src/lib/
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 
 import { applyTheme, readTheme, THEME_KEY } from './theme';
 import { DARK_ONLY } from './theme-config';
 
 afterEach(() => {
+  vi.restoreAllMocks();
   document.documentElement.className = '';
   localStorage.clear();
 });
@@ -38,4 +39,30 @@ test.runIf(DARK_ONLY)('a dark-only app reads dark whatever was saved', () => {
   expect(readTheme()).toBe('dark');
   localStorage.removeItem(THEME_KEY);
   expect(readTheme()).toBe('dark');
+});
+
+// Blocked storage (private mode, site settings): reading throws, writing throws.
+const blockStorage = () => {
+  vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+    throw new DOMException('blocked', 'SecurityError');
+  });
+  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+    throw new DOMException('blocked', 'SecurityError');
+  });
+  vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+    throw new DOMException('blocked', 'SecurityError');
+  });
+};
+
+test.skipIf(DARK_ONLY)('blocked storage reads as "system"', () => {
+  blockStorage();
+  expect(readTheme()).toBe('system');
+});
+
+test.skipIf(DARK_ONLY)('blocked storage still applies the choice for this visit', () => {
+  blockStorage();
+  expect(() => applyTheme('dark')).not.toThrow();
+  expect(document.documentElement).toHaveClass('dark');
+  expect(() => applyTheme('system')).not.toThrow();
+  expect(document.documentElement.classList.length).toBe(0);
 });

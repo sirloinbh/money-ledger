@@ -1,3 +1,4 @@
+// Managed file. Edit it in sirloinbh/project-standards templates/app/backend/src/standard/
 // Shared migration runner (#677; rules: project-standards docs/conventions/database.md). Applies
 // database/migrations/NNN_<name>.sql in file name order and records each file in schema_migrations. Each file and its
 // history row commit in one transaction. The CLI is migrate.ts next to this file.

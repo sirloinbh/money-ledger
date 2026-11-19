@@ -24,3 +24,26 @@ test('a sheet opens from its side, is named, and Escape closes it', async () => 
   expect(screen.queryByRole('dialog')).toBeNull();
   await waitFor(() => expect(trigger).toHaveFocus());
 });
+
+test('the close button is offset by the top inset on every side except the bottom (#686)', () => {
+  const insetTop = 'top-[calc(env(safe-area-inset-top)+0.75rem)]';
+  for (const side of ['left', 'right', 'top', 'bottom'] as const) {
+    const { unmount } = render(
+      <Sheet defaultOpen>
+        <SheetContent side={side}>
+          <SheetTitle>Panel</SheetTitle>
+          <SheetDescription>Details.</SheetDescription>
+        </SheetContent>
+      </Sheet>,
+    );
+    const close = screen.getByRole('button', { name: 'Close' });
+    if (side === 'bottom') {
+      expect(close).toHaveClass('top-3');
+      expect(close).not.toHaveClass(insetTop);
+    } else {
+      expect(close).toHaveClass(insetTop);
+      expect(close).not.toHaveClass('top-3');
+    }
+    unmount();
+  }
+});

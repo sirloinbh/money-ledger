@@ -1,5 +1,5 @@
 // Managed file. Edit it in sirloinbh/project-standards templates/ui/frontend/src/components/ui/
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeAll, expect, test, vi } from 'vitest';
 
 import { Label } from './label';
@@ -36,13 +36,17 @@ test('the trigger is a named combobox that shows the placeholder', () => {
   expect(trigger).toHaveAttribute('aria-expanded', 'false');
 });
 
-test('the keyboard opens the list and picks an option', () => {
+test('the keyboard opens the list and picks an option', async () => {
   const onValueChange = vi.fn();
   render(<Period onValueChange={onValueChange} />);
   const trigger = screen.getByRole('combobox', { name: 'Period' });
   fireEvent.keyDown(trigger, { key: 'Enter' });
   expect(trigger).toHaveAttribute('aria-expanded', 'true');
-  fireEvent.click(screen.getByRole('option', { name: '1 month' }));
+  // Arrow keys move through the options and Enter picks the focused one; no pointer events.
+  await waitFor(() => expect(screen.getByRole('option', { name: '1 week' })).toHaveFocus());
+  fireEvent.keyDown(screen.getByRole('option', { name: '1 week' }), { key: 'ArrowDown' });
+  await waitFor(() => expect(screen.getByRole('option', { name: '1 month' })).toHaveFocus());
+  fireEvent.keyDown(screen.getByRole('option', { name: '1 month' }), { key: 'Enter' });
   expect(onValueChange).toHaveBeenCalledWith('month');
   expect(trigger).toHaveTextContent('1 month');
 });

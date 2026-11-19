@@ -1,7 +1,7 @@
 // Managed file. Edit it in sirloinbh/project-standards templates/ui/frontend/src/lib/
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { RequestError, requestForm, requestJson } from './api';
+import { onUnauthorized, RequestError, requestForm, requestJson } from './api';
 
 const reply = (status: number, body?: unknown) =>
   vi.fn(() =>
@@ -121,4 +121,33 @@ test('extra headers are sent, and requestForm sends the form without a content t
     '/api/upload',
     expect.objectContaining({ method: 'POST', body: form, headers: undefined }),
   );
+});
+
+test('a 401 calls the unauthorized handler (#669) and still rejects with the server message', async () => {
+  const handler = vi.fn();
+  const off = onUnauthorized(handler);
+  vi.stubGlobal('fetch', reply(401, { error: 'Sign in' }));
+  await expect(requestJson('/api/items')).rejects.toMatchObject({ status: 401, message: 'Sign in' });
+  await expect(requestForm('/api/upload', new FormData())).rejects.toBeInstanceOf(RequestError);
+  expect(handler).toHaveBeenCalledTimes(2);
+  vi.stubGlobal('fetch', reply(403, { error: 'No' }));
+  await expect(requestJson('/api/items')).rejects.toBeInstanceOf(RequestError);
+  expect(handler).toHaveBeenCalledTimes(2);
+  off();
+  vi.stubGlobal('fetch', reply(401));
+  await expect(requestJson('/api/items')).rejects.toBeInstanceOf(RequestError);
+  expect(handler).toHaveBeenCalledTimes(2);
+});
+
+test('the removal function of an older handler leaves a newer handler in place', async () => {
+  const first = vi.fn();
+  const second = vi.fn();
+  const offFirst = onUnauthorized(first);
+  const offSecond = onUnauthorized(second);
+  offFirst();
+  vi.stubGlobal('fetch', reply(401));
+  await expect(requestJson('/api/items')).rejects.toBeInstanceOf(RequestError);
+  expect(first).not.toHaveBeenCalled();
+  expect(second).toHaveBeenCalledOnce();
+  offSecond();
 });

@@ -47,7 +47,13 @@ function SheetContent({
         {...props}
       >
         {children}
-        <SheetPrimitive.Close className="absolute top-[calc(env(safe-area-inset-top)+0.75rem)] right-3 flex size-8 items-center justify-center rounded-sm opacity-70 transition-opacity outline-none hover:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:size-11 [&_svg]:size-4">
+        {/* A bottom sheet starts below the status bar, so only the other sides offset the button by the inset (#686). */}
+        <SheetPrimitive.Close
+          className={cn(
+            'absolute right-3 flex size-8 items-center justify-center rounded-sm opacity-70 transition-opacity outline-none hover:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:size-11 [&_svg]:size-4',
+            side === 'bottom' ? 'top-3' : 'top-[calc(env(safe-area-inset-top)+0.75rem)]',
+          )}
+        >
           <XIcon aria-hidden />
           <span className="sr-only">Close</span>
         </SheetPrimitive.Close>

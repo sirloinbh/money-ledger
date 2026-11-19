@@ -1,5 +1,5 @@
 {
-  "centralSha": "6ad8e7ff5e4c2d3e25ee96cfc1cfc7e767b469ec",
+  "centralSha": "7dd73b7e4bb40c6bb176771c8214b3467a22039a",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -130,7 +130,7 @@
     },
     ".github/workflows/ci.yml": {
       "mode": "full",
-      "sha256": "9f7a1a7adfad142c7a7a5ad1687908e2fc250642a957b51c6927c511dacbd0b8",
+      "sha256": "bf7a676590aa90e82df1425fa009bc0aca915607dff9637972d149394354602e",
       "source": "templates/app/.github/workflows/ci.yml.tmpl"
     },
     ".gitignore": {
@@ -255,7 +255,7 @@
     },
     "backend/src/standard/audit.ts": {
       "mode": "full",
-      "sha256": "bed036e2af8d35dcdc1f32c05a9d74fed4dd08b2bf6012a8e28c50ad71d36ae6",
+      "sha256": "1b15cbbf35c654c1192a36d9c7ec7ed8ed78c8bea3f211b325fdaa35096f51f4",
       "source": "templates/app/backend/src/standard/audit.ts"
     },
     "backend/src/standard/auth.ts": {
@@ -285,8 +285,18 @@
     },
     "backend/src/standard/migrations.ts": {
       "mode": "full",
-      "sha256": "538a2655c23762baad12a96f8b1c3cc2c206a4d576883c2fff9cb1b4b458bdd3",
+      "sha256": "a8925ea6d9969321c28f2b99ee52160ae7bfa9a4bed7e2cf0a64e213e7031f1d",
       "source": "templates/app/backend/src/standard/migrations.ts"
+    },
+    "backend/src/standard/openapi-cli.ts": {
+      "mode": "full",
+      "sha256": "98ee4a1f88f88568de2315e21860c65029355c1be87612265391fd6398cb374e",
+      "source": "templates/app/backend/src/standard/openapi-cli.ts"
+    },
+    "backend/src/standard/openapi.ts": {
+      "mode": "full",
+      "sha256": "ed10b073fd546bf45987e0895a08ab51e4d621dd059d8eae1f52c5b803f7b820",
+      "source": "templates/app/backend/src/standard/openapi.ts"
     },
     "backend/src/standard/rate-limit.ts": {
       "mode": "full",
@@ -438,6 +448,7 @@
         "dependencies.tailwind-merge": "3.7.0",
         "dependencies.tw-animate-css": "1.4.0",
         "dependencies.vaul": "1.1.2",
+        "dependencies.zod": "4.6.7",
         "devDependencies.@tailwindcss/vite": "4.3.3",
         "devDependencies.@testing-library/dom": "10.4.2",
         "devDependencies.@testing-library/jest-dom": "7.0.1",
@@ -484,12 +495,12 @@
     },
     "frontend/src/components/layout/app-shell.test.tsx": {
       "mode": "full",
-      "sha256": "91a5724d08b7cabb2c856ff01c123ac18c38c9048fa0684e17008b2cfacf892a",
+      "sha256": "7af3da5871e549fb6e32e35958e1517ea8d3804054a6d5ccb8a69e87863d24c7",
       "source": "templates/ui/frontend/src/components/layout/app-shell.test.tsx"
     },
     "frontend/src/components/layout/app-shell.tsx": {
       "mode": "full",
-      "sha256": "14fdfc9f4485c3144dff5de8410fef3e386808ef0df84c1b6b14ff7685232fe8",
+      "sha256": "5c611f28702543065eae56968e3b2a687be7f0fb6f942d7d117bbc1994b6fe16",
       "source": "templates/ui/frontend/src/components/layout/app-shell.tsx"
     },
     "frontend/src/components/layout/app-switcher.test.tsx": {
@@ -594,7 +605,7 @@
     },
     "frontend/src/components/ui/dropdown-menu.test.tsx": {
       "mode": "full",
-      "sha256": "52fdf90542b75af93b878d2825c745963a080db2fd6097330fad2d408b5b4f35",
+      "sha256": "b9def415480fc37e31424bca52855e55aed8ecc2b33c5363554bcbc45c4cb445",
       "source": "templates/ui/frontend/src/components/ui/dropdown-menu.test.tsx"
     },
     "frontend/src/components/ui/dropdown-menu.tsx": {
@@ -612,6 +623,11 @@
       "sha256": "984b2b103523254610d298026be332b76a700efd018845ed02ddcd3dc1d1b532",
       "source": "templates/ui/frontend/src/components/ui/empty-state.tsx"
     },
+    "frontend/src/components/ui/input-styles.ts": {
+      "mode": "full",
+      "sha256": "c9effc4c90b9c8c751e4699f2940bb3e411553de8ae5432cdc8fdd431f9baecc",
+      "source": "templates/ui/frontend/src/components/ui/input-styles.ts"
+    },
     "frontend/src/components/ui/input.test.tsx": {
       "mode": "full",
       "sha256": "470e918b1e9a78eb82421b72631b07f13e507391959135516adb67875783452a",
@@ -619,13 +635,23 @@
     },
     "frontend/src/components/ui/input.tsx": {
       "mode": "full",
-      "sha256": "9537ae0f55968bdad2f12ba83c5d59d52ccb6938970cbeeb7a2325a4053d0567",
+      "sha256": "9537ffd604c48ce9a47a0dd29292816a712a468c06290ffedd286c32cc363c8d",
       "source": "templates/ui/frontend/src/components/ui/input.tsx"
     },
     "frontend/src/components/ui/label.tsx": {
       "mode": "full",
       "sha256": "b8c573f0f368d6af331bff5d75bbf2a02202fd7aa1bc0d2bcd83ba6e0b0f37d4",
       "source": "templates/ui/frontend/src/components/ui/label.tsx"
+    },
+    "frontend/src/components/ui/native-select.test.tsx": {
+      "mode": "full",
+      "sha256": "21a371cf93814a3b6bbd735a32799d50aa9e46e09b0791e085d29bee4da3d32e",
+      "source": "templates/ui/frontend/src/components/ui/native-select.test.tsx"
+    },
+    "frontend/src/components/ui/native-select.tsx": {
+      "mode": "full",
+      "sha256": "4baa2f3946a533276bb2d4cad8c8fd8d0fb0bbb17dcbc81205d6c0f1d9a71767",
+      "source": "templates/ui/frontend/src/components/ui/native-select.tsx"
     },
     "frontend/src/components/ui/notice.test.tsx": {
       "mode": "full",
@@ -639,7 +665,7 @@
     },
     "frontend/src/components/ui/select.test.tsx": {
       "mode": "full",
-      "sha256": "a608d3c8b374b400ba341ccb05f639072d2ec40060b805a6158be1275fd41192",
+      "sha256": "2732af942979e4384ba057d6042d943953b62cd0230170233fb69ca20ed386f0",
       "source": "templates/ui/frontend/src/components/ui/select.test.tsx"
     },
     "frontend/src/components/ui/select.tsx": {
@@ -649,12 +675,12 @@
     },
     "frontend/src/components/ui/sheet.test.tsx": {
       "mode": "full",
-      "sha256": "5c73ba7b0240a710242a8de856f925f02633669b2f1e611c689da22f3e36bc04",
+      "sha256": "39e6add3358e7f1cb4e37933d6ce73e552ef13fa58cf719ff90274fddec2a334",
       "source": "templates/ui/frontend/src/components/ui/sheet.test.tsx"
     },
     "frontend/src/components/ui/sheet.tsx": {
       "mode": "full",
-      "sha256": "e6f12f32868d25cf861c150d7f92056316669194218cfb894118c68fe00a8d9b",
+      "sha256": "279f51e41d0857a15d649a7249d685e19f433e3b799000b5e4e991ce91d49f3f",
       "source": "templates/ui/frontend/src/components/ui/sheet.tsx"
     },
     "frontend/src/components/ui/skeleton.test.tsx": {
@@ -669,7 +695,7 @@
     },
     "frontend/src/components/ui/sonner.test.tsx": {
       "mode": "full",
-      "sha256": "6389d62c9881b12891745bf0548a5ee4610bdff270390995c4938e936dee2fc9",
+      "sha256": "2ce0e8de956e76f224d4c69823ceaaad236fe8be55692ee9148507130235ff48",
       "source": "templates/ui/frontend/src/components/ui/sonner.test.tsx"
     },
     "frontend/src/components/ui/sonner.tsx": {
@@ -687,6 +713,16 @@
       "sha256": "07e11eaeb03a31e942b7dc5ae51d685bcc1378febe29e70d736d75bbcd804348",
       "source": "templates/ui/frontend/src/components/ui/spinner.tsx"
     },
+    "frontend/src/components/ui/textarea.test.tsx": {
+      "mode": "full",
+      "sha256": "b49a6e3de614f339b25a02159063cbda5a8ba9491d94721038b123dd0e017676",
+      "source": "templates/ui/frontend/src/components/ui/textarea.test.tsx"
+    },
+    "frontend/src/components/ui/textarea.tsx": {
+      "mode": "full",
+      "sha256": "84b1bf1e355c9f0ff9f8ca18bccdc4e31b064cd9f52f98f2c4658be21178ab33",
+      "source": "templates/ui/frontend/src/components/ui/textarea.tsx"
+    },
     "frontend/src/health.test.ts": {
       "mode": "full",
       "sha256": "0a3fe5ab527a79b6b5ef0a2be5c68b49a8ae357c38122451c120f89d6a70da8d",
@@ -699,12 +735,12 @@
     },
     "frontend/src/lib/api.test.ts": {
       "mode": "full",
-      "sha256": "341b7392d1a264861f83099e05bc41eca0f05eade086764d67bc1b5e0d0e3889",
+      "sha256": "55e16f55540e675579946111be81d1a823f23123971436dddcdc58ee97548671",
       "source": "templates/ui/frontend/src/lib/api.test.ts"
     },
     "frontend/src/lib/api.ts": {
       "mode": "full",
-      "sha256": "f1cdd14afe462fbbae31d2f5fca91741bca27a586a1e8e50128d22e9be36bdd0",
+      "sha256": "77be0657c5144b745d97af7049df41de713a3eebece5bf529448144cba2d59bc",
       "source": "templates/ui/frontend/src/lib/api.ts"
     },
     "frontend/src/lib/apps.ts": {
@@ -724,7 +760,7 @@
     },
     "frontend/src/lib/theme.test.ts": {
       "mode": "full",
-      "sha256": "8ef3d1798f0b97071177e90375d5db9bccbc7d63aaea434e8aa2f7a74b0dad5e",
+      "sha256": "dd0280eeb79b0bd4f23e4bc69a5b0a4dc1a65502ab54db6043503e154c22fcae",
       "source": "templates/ui/frontend/src/lib/theme.test.ts"
     },
     "frontend/src/lib/theme.ts": {
@@ -749,17 +785,17 @@
     },
     "frontend/src/session-watch.test.ts": {
       "mode": "full",
-      "sha256": "1e3694637d3796306e286fa46792e25d229134816121312022f740f699850b58",
+      "sha256": "9b17d9b111948084165138f81b7dd314e95e216075e3d86523d11315333eca8f",
       "source": "templates/ui/frontend/src/session-watch.test.ts"
     },
     "frontend/src/session-watch.ts": {
       "mode": "full",
-      "sha256": "7df800670aa484cca1daf4e74093af33128a88b5c7a5a4c2e74f948784202404",
+      "sha256": "b0e9290a1759daedda65387da2cb90fbb71da27f756bd914d1136ad8545b7297",
       "source": "templates/ui/frontend/src/session-watch.ts"
     },
     "frontend/src/sign-in.tsx": {
       "mode": "full",
-      "sha256": "3bf2ab38a1aff76119bb3da8d6f14851efbd014cc24c3e4e186fac9626ad3a52",
+      "sha256": "3e1b2f7cc17dd1932df480e3a8b81f940044009c55e94e261e92cec88b36a7d5",
       "source": "templates/ui/frontend/src/sign-in.tsx"
     },
     "frontend/tsconfig.json": {
@@ -809,13 +845,17 @@
         "devDependencies.knip": "6.41.0",
         "devDependencies.prettier": "3.9.10",
         "devDependencies.prettier-plugin-tailwindcss": "0.8.1",
-        "devDependencies.typescript-eslint": "8.71.2"
+        "devDependencies.typescript-eslint": "8.71.2",
+        "devDependencies.@playwright/test": "1.63.0",
+        "devDependencies.@axe-core/playwright": "4.13.0",
+        "devDependencies.@lhci/cli": "0.16.0",
+        "devDependencies.concurrently": "9.2.5"
       },
       "source": "templates/index.json"
     },
     "playwright.config.ts": {
       "mode": "full",
-      "sha256": "c07cc833bb98fee85196dcd517484bb2416f0835678afaedefec7f0c29dc5a1f",
+      "sha256": "1b2e93e6f240513d03ce6a175ab1c0e6e2091e43f2e03676102574eb2e393c0c",
       "source": "templates/e2e/playwright.config.ts.tmpl"
     },
     "prettier.config.mjs": {

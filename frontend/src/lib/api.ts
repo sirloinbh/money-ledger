@@ -23,17 +23,32 @@ export class RequestError extends Error {
 
 export const DEFAULT_TIMEOUT_MS = 30_000;
 
-export interface RequestOptions {
+export type RequestOptions = {
   method?: string;
   headers?: Record<string, string>;
   /** Aborting rejects with a RequestError of kind `abort`. */
   signal?: AbortSignal;
   /** Milliseconds before the request is cancelled (kind `timeout`). Default 30 s; 0 disables it. */
   timeoutMs?: number;
-}
+};
 
-export interface JsonRequestOptions extends RequestOptions {
+export type JsonRequestOptions = RequestOptions & {
   body?: unknown;
+};
+
+let unauthorizedHandler: (() => void) | undefined;
+
+/**
+ * Registers the one function called whenever a request answers 401 (#669): the sign-in gate uses it to send
+ * a visitor whose session ended to sign-in. The request still rejects with its RequestError. Returns a
+ * function that removes the handler again. Only requestJson and requestForm report here; code that calls
+ * `fetch` directly is not watched.
+ */
+export function onUnauthorized(handler: () => void): () => void {
+  unauthorizedHandler = handler;
+  return () => {
+    if (unauthorizedHandler === handler) unauthorizedHandler = undefined;
+  };
 }
 
 async function send<T>(path: string, init: RequestInit, options: RequestOptions): Promise<T> {
@@ -62,6 +77,7 @@ async function send<T>(path: string, init: RequestInit, options: RequestOptions)
       }
       throw new RequestError('Cannot reach the server', undefined, 'network');
     }
+    if (response.status === 401) unauthorizedHandler?.();
     if (response.status === 204) return undefined as T;
     let data: unknown;
     let readable = true;

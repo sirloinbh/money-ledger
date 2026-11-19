@@ -2,7 +2,11 @@
 # Calls the central shared CI (reusable-app-ci) pinned to the central commit that was synced. Values come from the central registry and versions.json.
 name: ci
 
-on: [push, pull_request]
+# One run per commit: a pull request is tested through pull_request only; push runs on main (#699).
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 permissions:
   contents: read
@@ -10,7 +14,7 @@ permissions:
 
 jobs:
   ci:
-    uses: sirloinbh/project-standards/.github/workflows/reusable-app-ci.yml@7d2c18482250b4bda7f196e6d8174fe99ea26a47
+    uses: sirloinbh/project-standards/.github/workflows/reusable-app-ci.yml@6e3975b8919d6f825c8b5089ca38b16641e987d5
     with:
       node-version: '24.21.0'
       npm-version: '11.19.0'

@@ -1,13 +1,14 @@
 // Managed file. Edit it in sirloinbh/project-standards templates/ui/frontend/src/
 import { createUseUser, signInUrl, signOutUrl, type User } from '@sirloinbh/auth-client';
 import type * as React from 'react';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useState } from 'react';
 
 import { authOrigin } from './auth-origin';
 import { Button } from './components/ui/button';
 import { Spinner } from './components/ui/spinner';
+import { onUnauthorized } from './lib/api';
 import { ROOT_DOMAIN } from './lib/auth-config';
-import { watchSession } from './session-watch';
+import { browserStorage, clearRedirectMark, createUnauthorizedHandler } from './session-watch';
 
 // The shared sign-in (sirloinbh/shared-auth, ADR-0015, #550, #551). The API answers 401
 // without a session; the screen sends a signed-out visitor to auth.<domain> and back.
@@ -26,25 +27,35 @@ function Gate({ origin, children }: { origin: string; children: React.ReactNode 
     if (state.status === 'signed-out')
       window.location.assign(signInUrl(origin, window.location.href));
   }, [origin, state.status]);
-  // #596: once signed in, a 401 from the app's API means the session ended during use; back to sign-in.
-  useEffect(() => {
+  // #596, #669: a 401 from the app's API means the session ended; back to sign-in once. A layout effect runs
+  // before the children's first effects, so even their first requests are watched. If sign-in keeps sending the
+  // visitor back to a 401 (a redirect loop), the gate shows an error with a retry button instead.
+  const [loop, setLoop] = useState(false);
+  useLayoutEffect(() => {
     if (state.status !== 'signed-in') return;
-    const original = window.fetch;
-    window.fetch = watchSession(original, window.location.origin, () =>
-      window.location.assign(signInUrl(origin, window.location.href)),
+    return onUnauthorized(
+      createUnauthorizedHandler({
+        storage: browserStorage(),
+        redirect: () => window.location.assign(signInUrl(origin, window.location.href)),
+        onLoop: () => setLoop(true),
+      }),
     );
-    return () => {
-      window.fetch = original;
-    };
   }, [origin, state.status]);
-  if (state.status === 'signed-in')
+  const failed = loop || state.status === 'error';
+  if (state.status === 'signed-in' && !loop)
     return <SignedInUser.Provider value={state.user}>{children}</SignedInUser.Provider>;
   return (
     <main className="grid min-h-dvh place-items-center bg-background p-6 text-body-sm text-muted-foreground">
-      {state.status === 'error' ? (
+      {failed ? (
         <div role="alert" className="flex flex-col items-center gap-3">
-          <p>Could not check your sign-in.</p>
-          <Button variant="outline" onClick={() => window.location.reload()}>
+          <p>{loop ? 'Signing in did not finish.' : 'Could not check your sign-in.'}</p>
+          <Button
+            variant="outline"
+            onClick={() => {
+              clearRedirectMark(browserStorage());
+              window.location.reload();
+            }}
+          >
             Try again
           </Button>
         </div>
