@@ -32,13 +32,21 @@ services:
     networks: [default, shared-auth]
     depends_on:
       db: { condition: service_healthy }
+    # The image has no curl, so node asks the API itself. `docker compose up -d --wait` and web's depends_on use it.
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3105/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
     restart: unless-stopped
   web:
     image: money-frontend:${IMAGE_TAG:-local}
     build: { context: ., dockerfile: frontend/Dockerfile, secrets: [npm_token] }
     # Local default stays 127.0.0.1:8105; the server sets WEB_BIND/WEB_PORT in .env.
     ports: ['${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8105}:80']
-    depends_on: [api]
+    depends_on:
+      api: { condition: service_healthy }
     restart: unless-stopped
 volumes:
   money-ledger-data:
