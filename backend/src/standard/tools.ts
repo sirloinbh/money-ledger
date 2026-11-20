@@ -65,8 +65,10 @@ export function defineTool<S extends ToolInput, D extends AuditDb = AuditDb>(too
 /** A pg Pool: `query` for read tools and audit rows, `connect` for a write tool's transaction. */
 export type ToolPool<D extends AuditDb = AuditDb> = D & { connect: () => Promise<D & TxClient> };
 
-// shared-ai signs a token for one call; a token valid for longer than this is rejected.
-export const MAX_TOKEN_SECONDS = 300;
+// shared-ai signs a token for one call (it uses 60 s); a token valid for longer than this is rejected.
+export const MAX_TOKEN_SECONDS = 120;
+/** The `tool` claim of the token for GET /internal/tools. */
+export const LIST_TOOL = '@list';
 const CLOCK_SKEW_SECONDS = 30;
 const NAME = /^[a-z][a-z0-9]*(_[a-z0-9]+)+$/;
 
@@ -82,8 +84,11 @@ function base64url(part: string) {
   return Buffer.from(part, 'base64url');
 }
 
+/** The verified token: the caller plus the claims that bind it to one call (`null` when an older signer omits them). */
+export type VerifiedCall = ToolCaller & { jti: string | null; tool: string | null; exp: number };
+
 /** Checks a compact EdDSA JWT from shared-ai for this app and returns the caller, or throws a 401 CallError. */
-export function verifyCallToken(token: string, key: KeyObject, app: string, now = Date.now()): ToolCaller {
+export function verifyCallToken(token: string, key: KeyObject, app: string, now = Date.now()): VerifiedCall {
   const parts = token.split('.');
   if (parts.length !== 3) throw new CallError(401, 'Invalid call token');
   const [header, payload, signature] = parts as [string, string, string];
@@ -107,7 +112,7 @@ export function verifyCallToken(token: string, key: KeyObject, app: string, now 
   }
   if (!valid) throw new CallError(401, 'Invalid call token');
   const seconds = Math.floor(now / 1000);
-  const { iss, aud, sub, client, scope, iat, exp } = claims;
+  const { iss, aud, sub, client, scope, iat, exp, jti, tool } = claims;
   if (iss !== 'shared-ai' || aud !== app) throw new CallError(401, 'Call token is not for this app');
   if (typeof iat !== 'number' || typeof exp !== 'number' || iat > seconds + CLOCK_SKEW_SECONDS) {
     throw new CallError(401, 'Invalid call token');
@@ -118,13 +123,51 @@ export function verifyCallToken(token: string, key: KeyObject, app: string, now 
   if (typeof sub !== 'string' || !sub || typeof client !== 'string' || !client || typeof scope !== 'string') {
     throw new CallError(401, 'Invalid call token');
   }
-  return { owner: sub, client, scopes: scope.split(' ').filter(Boolean) };
+  if ((jti !== undefined && (typeof jti !== 'string' || !jti)) || (tool !== undefined && (typeof tool !== 'string' || !tool))) {
+    throw new CallError(401, 'Invalid call token');
+  }
+  return {
+    owner: sub,
+    client,
+    scopes: scope.split(' ').filter(Boolean),
+    jti: jti ?? null,
+    tool: tool ?? null,
+    exp,
+  };
 }
 
-function caller(req: Request, key: KeyObject, app: string) {
+/** `jti` values of accepted tokens, kept until their expiry plus the clock skew, so a captured token cannot be replayed. */
+export function createSeenTokens() {
+  const seen = new Map<string, number>();
+  return {
+    /** Records the token; false when its `jti` was already used. */
+    use(jti: string, exp: number, now = Date.now()) {
+      const seconds = Math.floor(now / 1000);
+      for (const [id, until] of seen) if (until <= seconds) seen.delete(id);
+      if (seen.has(jti)) return false;
+      seen.set(jti, exp + CLOCK_SKEW_SECONDS);
+      return true;
+    },
+  };
+}
+
+type CallContext = { key: KeyObject; app: string; seen: ReturnType<typeof createSeenTokens>; requireBinding: boolean };
+
+/**
+ * Verifies the Bearer token of one call: it must name this tool and carry a `jti` not seen before. A token without
+ * `tool` or `jti` (an older shared-ai) passes only while `requireBinding` is false.
+ */
+function caller(req: Request, ctx: CallContext, tool: string) {
   const match = /^Bearer (\S+)$/.exec(req.get('authorization') ?? '');
   if (!match?.[1]) throw new CallError(401, 'Call token missing');
-  return verifyCallToken(match[1], key, app);
+  const verified = verifyCallToken(match[1], ctx.key, ctx.app);
+  if (verified.tool === null || verified.jti === null) {
+    if (ctx.requireBinding) throw new CallError(401, 'Call token is not bound to one call');
+    return verified;
+  }
+  if (verified.tool !== tool) throw new CallError(401, 'Call token is not for this tool');
+  if (!ctx.seen.use(verified.jti, verified.exp)) throw new CallError(401, 'Call token was already used');
+  return verified;
 }
 
 /** The tool list entry shared-ai turns into an MCP tool (it adds the app prefix to the name). */
@@ -144,10 +187,24 @@ export function describeTool(tool: Tool<ToolInput, never>, app: string) {
  */
 export function registerToolRoutes<D extends AuditDb>(
   app: Express,
-  options: { app: string; tools: readonly Tool<ToolInput, D>[]; pool: ToolPool<D>; publicKey: string | undefined },
+  options: {
+    app: string;
+    tools: readonly Tool<ToolInput, D>[];
+    pool: ToolPool<D>;
+    publicKey: string | undefined;
+    /** Reject a token without `tool` and `jti`. Set it once shared-ai signs them (docs/ai-tools.md, deploy order). */
+    requireBinding?: boolean;
+    /** Where a failed best-effort audit write is reported. Default: console.error. */
+    log?: (message: string, err: unknown) => void;
+  },
 ) {
   if (!options.publicKey) return;
-  const key = createPublicKey(options.publicKey.replace(/\\n/g, '\n'));
+  const ctx: CallContext = {
+    key: createPublicKey(options.publicKey.replace(/\\n/g, '\n')),
+    app: options.app,
+    seen: createSeenTokens(),
+    requireBinding: options.requireBinding === true,
+  };
   const byName = new Map<string, Tool<ToolInput, D>>();
   for (const tool of options.tools) {
     if (!NAME.test(tool.name) || byName.has(tool.name)) throw new Error(`Invalid or repeated tool name: ${tool.name}`);
@@ -155,6 +212,16 @@ export function registerToolRoutes<D extends AuditDb>(
   }
   // Built once, so an input schema JSON Schema cannot express fails at start, not on every list call.
   const listed = { app: options.app, tools: options.tools.map((tool) => describeTool(tool, options.app)) };
+  const log = options.log ?? ((message: string, err: unknown) => console.error(message, err));
+  // The rows for a denied, invalid, or failed call and the row of a read are best effort: if the audit table or the
+  // connection is broken, the caller still gets the original answer or error, and the failed write is logged.
+  const auditSoft = async (db: AuditDb, entry: AuditEntry) => {
+    try {
+      await writeAudit(db, entry);
+    } catch (err) {
+      log('Tool audit row could not be written', err);
+    }
+  };
   const fail = (res: Response, err: unknown, next: NextFunction) => {
     if (err instanceof CallError) res.status(err.status).json({ error: err.message });
     else next(err);
@@ -162,7 +229,7 @@ export function registerToolRoutes<D extends AuditDb>(
 
   app.get('/internal/tools', (req: Request, res: Response, next: NextFunction) => {
     try {
-      caller(req, key, options.app);
+      caller(req, ctx, LIST_TOOL);
       res.json(listed);
     } catch (err) {
       fail(res, err, next);
@@ -171,7 +238,7 @@ export function registerToolRoutes<D extends AuditDb>(
 
   app.post('/internal/tools/:name', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const who = caller(req, key, options.app);
+      const who = caller(req, ctx, String(req.params.name));
       const tool = byName.get(String(req.params.name));
       if (!tool) throw new CallError(404, 'Tool not found');
       const requestId: unknown = res.locals.requestId;
@@ -182,12 +249,12 @@ export function registerToolRoutes<D extends AuditDb>(
         requestId: typeof requestId === 'string' ? requestId : null,
       } satisfies Partial<AuditEntry>;
       if (!who.scopes.includes(`${options.app}:${tool.access}`)) {
-        await writeAudit(options.pool, { ...audit, result: 'denied' });
+        await auditSoft(options.pool, { ...audit, result: 'denied' });
         throw new CallError(403, `Scope ${options.app}:${tool.access} is required`);
       }
       const checked = await tool.input['~standard'].validate(req.body ?? {});
       if (checked.issues) {
-        await writeAudit(options.pool, { ...audit, result: 'error' });
+        await auditSoft(options.pool, { ...audit, result: 'error' });
         throw new CallError(400, checked.issues.map((issue) => issue.message).join(', ') || 'Invalid input');
       }
       if (tool.access === 'read') {
@@ -195,10 +262,10 @@ export function registerToolRoutes<D extends AuditDb>(
         try {
           outcome = await tool.run(checked.value, { db: options.pool, caller: who });
         } catch (err) {
-          await writeAudit(options.pool, { ...audit, result: 'error' });
+          await auditSoft(options.pool, { ...audit, result: 'error' });
           throw err;
         }
-        await writeAudit(options.pool, { ...audit, entityId: outcome.entityId ?? null });
+        await auditSoft(options.pool, { ...audit, entityId: outcome.entityId ?? null });
         res.json({ result: outcome.result });
         return;
       }
@@ -216,7 +283,7 @@ export function registerToolRoutes<D extends AuditDb>(
         });
       } catch (err) {
         // The change rolled back with its row; this row records the failed attempt.
-        await writeAudit(options.pool, { ...audit, result: 'error' });
+        await auditSoft(options.pool, { ...audit, result: 'error' });
         throw err;
       }
       res.json({ result: outcome.result });

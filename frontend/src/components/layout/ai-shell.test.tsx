@@ -1,0 +1,115 @@
+// Managed file. Edit it in sirloinbh/project-standards templates/ui/frontend/src/components/layout/
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
+import { afterEach, expect, test, vi } from 'vitest';
+
+import { AiShell } from './ai-shell';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+function sseResponse(...events: unknown[]) {
+  const body = events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('');
+  return new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+}
+
+function openPanel() {
+  render(
+    <MemoryRouter initialEntries={['/workouts']}>
+      <AiShell origin="https://ai.daysofme.com" />
+    </MemoryRouter>,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'AI assistant' }));
+}
+
+function ask(text: string) {
+  fireEvent.change(screen.getByRole('textbox', { name: 'Message' }), { target: { value: text } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+}
+
+const addWorkout = {
+  type: 'tool_call',
+  id: 't1',
+  app: 'workout-memo',
+  tool: 'add_workout',
+  input: { name: 'Run' },
+  readOnly: false,
+  needsConfirmation: true,
+};
+
+test('there is no button where no AI service exists', () => {
+  render(
+    <MemoryRouter>
+      <AiShell origin={null} />
+    </MemoryRouter>,
+  );
+  expect(screen.queryByRole('button', { name: 'AI assistant' })).toBeNull();
+});
+
+test('a read tool runs without a question and the answer streams in', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(
+    sseResponse(
+      { type: 'tool_call', id: 't1', app: 'workout-memo', tool: 'list_workouts', input: {}, readOnly: true },
+      { type: 'tool_result', id: 't1', ok: true, summary: '2 workouts' },
+      { type: 'text', delta: 'You did 2 workouts.' },
+      { type: 'done', conversationId: 'c1' },
+    ),
+  );
+  vi.stubGlobal('fetch', fetchMock);
+  openPanel();
+  ask('What did I do?');
+  expect(await screen.findByText('You did 2 workouts.')).toBeInTheDocument();
+  expect(screen.getByText('workout-memo: list_workouts')).toBeInTheDocument();
+  expect(screen.getByText('2 workouts')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Allow' })).toBeNull();
+  const body = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+  expect(body.context.page).toBe('/workouts');
+});
+
+test('a tool that changes data waits for Allow, then confirms with the server', async () => {
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(sseResponse(addWorkout, { type: 'done', conversationId: 'c1' }))
+    .mockResolvedValueOnce(new Response(null, { status: 204 }));
+  vi.stubGlobal('fetch', fetchMock);
+  openPanel();
+  ask('Add a run');
+  fireEvent.click(await screen.findByRole('button', { name: 'Allow' }));
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit];
+  expect(url).toBe('https://ai.daysofme.com/api/chat/confirm');
+  expect(JSON.parse(init.body as string)).toEqual({ conversationId: 'c1', callId: 't1', approve: true });
+  expect(screen.queryByRole('button', { name: 'Allow' })).toBeNull();
+});
+
+test('Refuse sends approve false and marks the call refused', async () => {
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(sseResponse(addWorkout, { type: 'done', conversationId: 'c1' }))
+    .mockResolvedValueOnce(new Response(null, { status: 204 }));
+  vi.stubGlobal('fetch', fetchMock);
+  openPanel();
+  ask('Add a run');
+  fireEvent.click(await screen.findByRole('button', { name: 'Refuse' }));
+  await waitFor(() => expect(screen.getByText(/Refused/)).toBeInTheDocument());
+  const init = (fetchMock.mock.calls[1] as [string, RequestInit])[1];
+  expect(JSON.parse(init.body as string).approve).toBe(false);
+});
+
+test('the monthly limit is shown as a status message', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(sseResponse({ type: 'limit', message: 'The monthly AI limit is reached.' })),
+  );
+  openPanel();
+  ask('Hello');
+  expect(await screen.findByRole('status')).toHaveTextContent('The monthly AI limit is reached.');
+});
+
+test('a failed request shows an alert', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('failed')));
+  openPanel();
+  ask('Hello');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Cannot reach the AI service');
+});

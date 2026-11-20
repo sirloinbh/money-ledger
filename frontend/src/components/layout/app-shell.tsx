@@ -8,6 +8,7 @@ import { DARK_ONLY } from '../../lib/theme-config';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
+import { AiShell } from './ai-shell';
 import { AppSwitcher } from './app-switcher';
 import { ThemeToggle } from './theme-toggle';
 
@@ -91,6 +92,7 @@ function AppShell({
           </Link>
           <div className="ml-auto flex items-center gap-1">
             {actions}
+            <AiShell />
             <AppSwitcher />
             {/* A dark-only app (ADR-0011) has no mode to choose. */}
             {!DARK_ONLY && <ThemeToggle />}

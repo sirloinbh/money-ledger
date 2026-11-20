@@ -1,5 +1,5 @@
 {
-  "centralSha": "018b16251d584eccd1e8f39e6ac31de4136961bd",
+  "centralSha": "65e559661e7dfbd05d42d7031244677035f71819",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -55,8 +55,13 @@
     },
     ".claude/skills/std-communication/SKILL.md": {
       "mode": "full",
-      "sha256": "2487a690de4ef5cd52fddef0d7e81bda5e4bd0957b90b5fdd9916c2b78b70b9d",
+      "sha256": "a1ea728d0f38a4e5d88885831eb760480826da89d0ef970c91759ac21f4d7883",
       "source": "templates/common/skills/std-communication/SKILL.md"
+    },
+    ".claude/skills/std-feature-overview/SKILL.md": {
+      "mode": "full",
+      "sha256": "687730f3fee3731588fc0bb4d427441fa1c34ff4a90e3786de9bf6ad44a5fbc9",
+      "source": "templates/common/skills/std-feature-overview/SKILL.md"
     },
     ".claude/skills/std-foundation/SKILL.md": {
       "mode": "full",
@@ -103,6 +108,11 @@
       "sha256": "54e445ed8f356607b51e18b3b3d44520aa3e8aa19f6099a96f7ae26dd179a381",
       "source": "templates/common/.codex/rules/package-installs.rules"
     },
+    ".dockerignore": {
+      "mode": "full",
+      "sha256": "5ed5e711032081e3f5219896e9d11be7e59e67562a55d20f6310e0bf1e5c3aba",
+      "source": "templates/app/.dockerignore.tmpl"
+    },
     ".editorconfig": {
       "mode": "full",
       "sha256": "615b65b0043e7f6a0305fe5c744621a896dc50f3c27bca12f874b5bb514bd7af",
@@ -130,7 +140,7 @@
     },
     ".github/workflows/ci.yml": {
       "mode": "full",
-      "sha256": "291b5bfd5ff2622ab00095ea49c56b4cc03046c3eef8a524d8683bfaa2942c82",
+      "sha256": "0756fb22071ca78b216c4a230a5ceb00854df60cf0e467be9c81690caea00a9e",
       "source": "templates/app/.github/workflows/ci.yml.tmpl"
     },
     ".gitignore": {
@@ -155,7 +165,7 @@
     },
     ".prettierignore": {
       "mode": "section",
-      "sha256": "02e29c4ffcf4c78189a9b87b916306012002ba74ce5dcc50c02635f6d7e3891e",
+      "sha256": "574f9404b392a8fa23546ca0d80b9c7f2423e9b83567fc64ef912b1c04a47a86",
       "source": "templates/app/.prettierignore.tmpl"
     },
     ".standards/blocked-packages.json": {
@@ -165,7 +175,7 @@
     },
     ".standards/check.mjs": {
       "mode": "full",
-      "sha256": "271a730f1ffc9f3275f0ac10c2e0baff52a584b0036f7bbe4f86f57fa0327f4a",
+      "sha256": "0507fcf2a617ec2a7b7dde04bd66adfa15a26e25cd4d5f5d50ecce455616ce1e",
       "source": "scripts/standards-check.mjs"
     },
     ".standards/ioc-scan.mjs": {
@@ -183,11 +193,6 @@
       "sha256": "a22ef363d077ac564ebb6a36c9e10130d3b012de074051a70a55dab2c16e8f47",
       "source": "scripts/lib/hash.mjs"
     },
-    ".standards/lib/lockfiles.mjs": {
-      "mode": "full",
-      "sha256": "9cdebe7889490666c8690b76c51393746e7af4d6c4cf02ef1137d86afc3387c2",
-      "source": "scripts/lib/lockfiles.mjs"
-    },
     ".standards/lib/manifest.mjs": {
       "mode": "full",
       "sha256": "cd27f8b1877953444c098a406bedef1eb455fe15403fda194ef47d76bbb85f03",
@@ -197,11 +202,6 @@
       "mode": "full",
       "sha256": "109f91dba8789a498bd342610e3ebda04662a74b420694efbf2beab8bdbd058d",
       "source": "scripts/lib/render.mjs"
-    },
-    ".standards/lockfiles.mjs": {
-      "mode": "full",
-      "sha256": "d7f566edefdc07ac8873a15d24899f46d6e0865a6b18b7997bb7e18d994dc7ad",
-      "source": "scripts/lockfiles.mjs"
     },
     ".standards/secret-scan.mjs": {
       "mode": "full",
@@ -223,24 +223,14 @@
       "sha256": "be643ff8477cde0aedabfbe87ec14ac2dce84694e57de7c031cb5debcac26d1f",
       "source": "templates/app/AGENTS.md.tmpl"
     },
-    "backend/.dockerignore": {
-      "mode": "full",
-      "sha256": "bad2cc05949a6d212fc7a38e2b0a304aeb6ffedfa728e4b1199eb781de4c7be8",
-      "source": "templates/app/backend/.dockerignore.tmpl"
-    },
     "backend/.gitignore": {
       "mode": "full",
       "sha256": "d9dcf9ef3f41ee7bddbeefce9660e3ae5e88322ba2c3a5bc8fa80d42425aaf9f",
       "source": "templates/app/backend/.gitignore.tmpl"
     },
-    "backend/.npmrc": {
-      "mode": "full",
-      "sha256": "7a619f11fb3d8403fedcdc3996f136d86a208615d0871da16745e1c8089afa02",
-      "source": "templates/app/backend/.npmrc.tmpl"
-    },
     "backend/Dockerfile": {
       "mode": "full",
-      "sha256": "f21ee58f5c6ef77bfa693b688c9af4f44944e7674a7147ed540472244cfbdd7c",
+      "sha256": "58385efe6b767c240354187a36bf5ad671fe5a08617a88d4e59acafe1c4d0aba",
       "source": "templates/app/backend/Dockerfile.tmpl"
     },
     "backend/package.json": {
@@ -275,7 +265,7 @@
     },
     "backend/src/standard/db.ts": {
       "mode": "full",
-      "sha256": "859eaaa70e1f2a704d910423e0e56bd47da7a03bf5e69bab873f414282276369",
+      "sha256": "740d508493e06ef5ebc1c093218809903fdb68ab9f6ca5a2ffe0ea504ea831db",
       "source": "templates/app/backend/src/standard/db.ts"
     },
     "backend/src/standard/http.ts": {
@@ -305,7 +295,7 @@
     },
     "backend/src/standard/openapi.ts": {
       "mode": "full",
-      "sha256": "5ba2d863cb49564af5ca4e3094e4c7f74edf0b53056456e2e8fe67bcdba528d4",
+      "sha256": "8c90b84e0298c77d62a4ca4ec23bb0c0691f944cdf9c07823d194301e85043d2",
       "source": "templates/app/backend/src/standard/openapi.ts"
     },
     "backend/src/standard/rate-limit.ts": {
@@ -315,7 +305,7 @@
     },
     "backend/src/standard/tools.ts": {
       "mode": "full",
-      "sha256": "7b2ebefc1580e6bc5dcd43d1f726bbe5130f2b9117db95f012b74a0277ee021b",
+      "sha256": "833c04b69994066d759e99717e612658c2ced698f6767b2f535ddcac85343334",
       "source": "templates/app/backend/src/standard/tools.ts"
     },
     "backend/test/standard-api.test.ts": {
@@ -448,24 +438,14 @@
       "sha256": "b4e8ead364c3b893956dab4f7f7af1c863fbe0ea518fd41e2e248a4d748805c6",
       "source": "templates/app/eslint.config.mjs.tmpl"
     },
-    "frontend/.dockerignore": {
-      "mode": "full",
-      "sha256": "68718c38bd47a948819fbd48a09ef0c4ca7fc1f09691540f20f4293e184ee1be",
-      "source": "templates/app/frontend/.dockerignore.tmpl"
-    },
     "frontend/.gitignore": {
       "mode": "full",
       "sha256": "a30f14819f4cdff31693497b98ff4f444654e453312c1ae8d6d3f64b7ec1937e",
       "source": "templates/app/frontend/.gitignore.tmpl"
     },
-    "frontend/.npmrc": {
-      "mode": "full",
-      "sha256": "04f47581f41ed8e9af542f9f624737d48553914b160b0617a026597f70ceba77",
-      "source": "templates/app/frontend/.npmrc.tmpl"
-    },
     "frontend/Dockerfile": {
       "mode": "full",
-      "sha256": "b45d38f003a3b54be72f1bee4664ec3c72db8a95a0779c16af37b01982335fdd",
+      "sha256": "f20dbd48156a0efc8cef232f2c2444ff9e245fa21256c3046650cfdb1082fd40",
       "source": "templates/app/frontend/Dockerfile.tmpl"
     },
     "frontend/nginx.conf": {
@@ -539,6 +519,16 @@
       "sha256": "3f16e336e489c84a47eb84ce2f83b3cdaf47d1830d6bb8bc5e859c76949ad436",
       "source": "templates/ui/frontend/src/auth-origin.ts"
     },
+    "frontend/src/components/layout/ai-shell.test.tsx": {
+      "mode": "full",
+      "sha256": "2cef555260c6276f33477a65a309d50303ca4acba973fb856c209a7b3e96b3be",
+      "source": "templates/ui/frontend/src/components/layout/ai-shell.test.tsx"
+    },
+    "frontend/src/components/layout/ai-shell.tsx": {
+      "mode": "full",
+      "sha256": "f8567493f3f640451e22654c0eaf16ee10f7ae448bc754b2e907495036d612cc",
+      "source": "templates/ui/frontend/src/components/layout/ai-shell.tsx"
+    },
     "frontend/src/components/layout/app-shell.test.tsx": {
       "mode": "full",
       "sha256": "7af3da5871e549fb6e32e35958e1517ea8d3804054a6d5ccb8a69e87863d24c7",
@@ -546,7 +536,7 @@
     },
     "frontend/src/components/layout/app-shell.tsx": {
       "mode": "full",
-      "sha256": "5c611f28702543065eae56968e3b2a687be7f0fb6f942d7d117bbc1994b6fe16",
+      "sha256": "7c9f4b23c048d34b147e9c6a6d3f62734561a7f1e3ee0ceceb61264f33d637a5",
       "source": "templates/ui/frontend/src/components/layout/app-shell.tsx"
     },
     "frontend/src/components/layout/app-switcher.test.tsx": {
@@ -869,6 +859,21 @@
       "sha256": "2b9dcf54a0b6baa6a2dd896ccd55af04b51cf7c6a3585cff14bc53c8eb4a755a",
       "source": "templates/ui/frontend/src/health.ts"
     },
+    "frontend/src/lib/ai-chat.test.ts": {
+      "mode": "full",
+      "sha256": "3ee0265a86f0b066252bec455b4f76b04bfa2799cc06fee2fd3554e48b9a1462",
+      "source": "templates/ui/frontend/src/lib/ai-chat.test.ts"
+    },
+    "frontend/src/lib/ai-chat.ts": {
+      "mode": "full",
+      "sha256": "741e4286e8d66219e289600c0b04f128ab77efbd21458cab06b6f62e6d1aeb13",
+      "source": "templates/ui/frontend/src/lib/ai-chat.ts"
+    },
+    "frontend/src/lib/ai-config.ts": {
+      "mode": "full",
+      "sha256": "b79dc2f5959bdb290b8d48744be66646716ec97a2048ef6950c1d462ba60e39a",
+      "source": "templates/ui/frontend/src/lib/ai-config.ts.tmpl"
+    },
     "frontend/src/lib/api.test.ts": {
       "mode": "full",
       "sha256": "0d7b00364328f7fb134a2021e87baa844a6cc81c4e1bc3a90902d1a56a8fc2bc",
@@ -903,6 +908,11 @@
       "mode": "full",
       "sha256": "8f5a55461373d53cccb34588cfd8dca9e8cfe0d3d60774b2c83f884250ba3829",
       "source": "templates/ui/frontend/src/lib/theme.ts"
+    },
+    "frontend/src/lib/use-ai-chat.ts": {
+      "mode": "full",
+      "sha256": "5f746d29af05259230ebb76af234c277446e00e615f605409ae6487fe04980b6",
+      "source": "templates/ui/frontend/src/lib/use-ai-chat.ts"
     },
     "frontend/src/lib/use-notice.ts": {
       "mode": "full",
@@ -981,7 +991,7 @@
     },
     "knip.json": {
       "mode": "full",
-      "sha256": "b3b9fcc9dd9c425b8d7043d4d5a306f32044317ee5c53ff6ce3c6700c2eefc85",
+      "sha256": "909bde707c1607e4a23fbb310fbda9b0ede39bb495c7d5e4453501ed5518ae55",
       "source": "templates/app/knip.json"
     },
     "lighthouserc.json": {
@@ -1001,7 +1011,6 @@
         "engines.node": "24.21.0",
         "engines.npm": "11.19.0",
         "scripts.standards:check": "node .standards/check.mjs",
-        "scripts.lockfiles:sync": "node .standards/lockfiles.mjs --write",
         "scripts.knip": "knip",
         "devDependencies.@sirloinbh/eslint-config": "1.1.0",
         "devDependencies.@sirloinbh/prettier-config": "1.0.0",
@@ -1076,8 +1085,13 @@
     },
     "skills/std-communication/SKILL.md": {
       "mode": "full",
-      "sha256": "2487a690de4ef5cd52fddef0d7e81bda5e4bd0957b90b5fdd9916c2b78b70b9d",
+      "sha256": "a1ea728d0f38a4e5d88885831eb760480826da89d0ef970c91759ac21f4d7883",
       "source": "templates/common/skills/std-communication/SKILL.md"
+    },
+    "skills/std-feature-overview/SKILL.md": {
+      "mode": "full",
+      "sha256": "687730f3fee3731588fc0bb4d427441fa1c34ff4a90e3786de9bf6ad44a5fbc9",
+      "source": "templates/common/skills/std-feature-overview/SKILL.md"
     },
     "skills/std-foundation/SKILL.md": {
       "mode": "full",

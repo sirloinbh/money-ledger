@@ -5,6 +5,7 @@
 //   import { Pool } from 'pg';
 //   const pool = createPool(new Pool({ connectionString: process.env.DATABASE_URL }));
 //   await withTransaction(pool, async (client) => { await client.query('UPDATE ...'); });
+import type { Pool, PoolClient } from 'pg';
 
 /** The part of a pg PoolClient that withTransaction uses. */
 export type TxClient = {
@@ -13,21 +14,31 @@ export type TxClient = {
   release: (destroy?: boolean) => void;
 };
 
-/** The part of a pg Pool that these helpers use. */
-export type PoolLike<C extends TxClient = TxClient> = {
-  connect: () => Promise<C>;
-  on: (event: 'error', listener: (err: Error) => void) => unknown;
+/** The part of a pg client that createPool listens on. */
+export type ErrorSource = { on: (event: 'error', listener: (err: Error) => void) => unknown };
+
+/** The events createPool listens for on a pg Pool. */
+export type PoolEvents = {
+  on(event: 'error', listener: (err: Error) => void): unknown;
+  on(event: 'connect', listener: (client: ErrorSource) => void): unknown;
 };
 
+/** The part of a pg Pool that these helpers use. */
+export type PoolLike<C extends TxClient = TxClient> = PoolEvents & { connect: () => Promise<C> };
+
 /**
- * Adds the error listener pg needs: an idle client that loses its connection emits `error` on the pool, and without a
- * listener that event crashes the process. The error is logged; the pool drops the dead client and opens a new one.
+ * Adds the error listeners pg needs, so a lost connection is logged instead of ending the process. pg reports a lost
+ * connection as an `error` event, and an event nobody listens to throws. The pool listens for idle clients only: pg stops
+ * listening on a client while it is checked out (in a transaction, between its queries). So every connection also gets
+ * its own listener, and that one logs; an idle client reports on both, so the pool-level listener stays quiet. Queries on
+ * a lost connection still reject (the app answers 500); the pool drops the dead client and opens a new one.
  */
-export function createPool<P extends Pick<PoolLike, 'on'>>(
+export function createPool<P extends PoolEvents>(
   pool: P,
   log: (message: string, err: Error) => void = (message, err) => console.error(message, err),
 ): P {
-  pool.on('error', (err) => log('Idle database client failed', err));
+  pool.on('error', () => undefined);
+  pool.on('connect', (client) => client.on('error', (err) => log('Database connection failed', err)));
   return pool;
 }
 
@@ -36,6 +47,8 @@ export function createPool<P extends Pick<PoolLike, 'on'>>(
  * ROLLBACK itself fails the connection is in an unknown state, so the client is released with `true` and pg destroys
  * it instead of putting it back in the pool.
  */
+export function withTransaction<T>(pool: Pool, fn: (client: PoolClient) => Promise<T>): Promise<T>;
+export function withTransaction<T, C extends TxClient>(pool: Pick<PoolLike<C>, 'connect'>, fn: (client: C) => Promise<T>): Promise<T>;
 export async function withTransaction<T, C extends TxClient>(
   pool: Pick<PoolLike<C>, 'connect'>,
   fn: (client: C) => Promise<T>,

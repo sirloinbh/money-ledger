@@ -31,6 +31,10 @@ Every explanation addressed to the user is written in English. This applies to e
 - Issues, branches, commits, and PRs follow [std-git-writing](../std-git-writing/SKILL.md) and are written in English.
 - Issue and PR bodies, review comments, and new `docs` files are written in English.
 
+## Korean exception
+
+- [std-feature-overview](../std-feature-overview/SKILL.md) runs only when the user types `/std-feature-overview` and answers in Korean (user decision, 2026-11-18). Every other reply stays English.
+
 ## Out of scope
 
 - The language of prompts given to subagents is not fixed. Relay their results to the user in English.
