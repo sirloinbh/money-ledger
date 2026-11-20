@@ -106,7 +106,7 @@ export async function loadHistory(db: Db): Promise<HistoryRow[]> {
   const { rows } = await db.query<{
     kind: Kind;
     merchant: string;
-    category_id: string;
+    category_id: number;
     category_name: string;
     uses: string;
     last_date: string;
@@ -120,7 +120,7 @@ export async function loadHistory(db: Db): Promise<HistoryRow[]> {
   return rows.map((row) => ({
     kind: row.kind,
     merchant: row.merchant,
-    categoryId: Number(row.category_id),
+    categoryId: row.category_id,
     categoryName: row.category_name,
     uses: Number(row.uses),
     lastDate: row.last_date,

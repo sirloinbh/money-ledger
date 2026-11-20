@@ -269,11 +269,11 @@ export type UsSecurity = { id: number; symbol: string; name: string | null };
  * holding a quantity is linked to (#47), and the ones the open mock trading account holds (#53).
  */
 export async function trackedUsSecurities(db: Db, now: Date): Promise<UsSecurity[]> {
-  const { rows } = await db.query<{ id: string; symbol: string; name: string | null }>(
+  const { rows } = await db.query<{ id: number; symbol: string; name: string | null }>(
     `SELECT id, symbol, name FROM securities s WHERE ${trackedUs} ORDER BY symbol`,
     [now, trackedDays],
   );
-  return rows.map((row) => ({ id: Number(row.id), symbol: row.symbol, name: row.name }));
+  return rows.map((row) => ({ id: row.id, symbol: row.symbol, name: row.name }));
 }
 
 // Alias `s` is a security; $1 is now and $2 the tracked days.

@@ -51,10 +51,10 @@ export async function saveSnapshot(
 export async function snapshotOpenAccount(pool: Pool, now: Date) {
   const today = serviceDate(now);
   await inTransaction(pool, async (client) => {
-    const { rows } = await client.query<{ id: string }>(
+    const { rows } = await client.query<{ id: number }>(
       'SELECT id FROM mock_accounts WHERE closed_at IS NULL FOR UPDATE',
     );
-    for (const row of rows) await saveSnapshot(client, Number(row.id), today, today);
+    for (const row of rows) await saveSnapshot(client, row.id, today, today);
   });
 }
 

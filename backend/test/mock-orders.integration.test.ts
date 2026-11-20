@@ -96,14 +96,14 @@ test('mock trading market orders against the real database', { skip: !url }, asy
   const cashOf = async () =>
     Number(
       (
-        await pool.query<{ cash_krw: string }>('SELECT cash_krw FROM mock_accounts WHERE id = $1', [
+        await pool.query<{ cash_krw: number }>('SELECT cash_krw FROM mock_accounts WHERE id = $1', [
           accountId,
         ])
       ).rows[0].cash_krw,
     );
   const holding = async (symbol: string) =>
     (
-      await pool.query<{ quantity: string; cost_krw: string }>(
+      await pool.query<{ quantity: string; cost_krw: number }>(
         'SELECT quantity, cost_krw FROM mock_holdings WHERE account_id = $1 AND security_id = $2',
         [accountId, ids[symbol]],
       )
@@ -165,7 +165,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
           [706_000, 0, 9_294_000, 9_294_000],
         );
         assert.equal(await cashOf(), 9_294_000);
-        assert.deepEqual(await holding('005930'), { quantity: '10.00000000', cost_krw: '706000' });
+        assert.deepEqual(await holding('005930'), { quantity: '10.00000000', cost_krw: 706000 });
 
         // A later close does not change the recorded order.
         await pool.query(
@@ -175,7 +175,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
         const saved = await pool.query('SELECT price, amount_krw FROM mock_orders WHERE id = $1', [
           order.id,
         ]);
-        assert.deepEqual(saved.rows[0], { price: '70600.0000', amount_krw: '706000' });
+        assert.deepEqual(saved.rows[0], { price: '70600.0000', amount_krw: 706000 });
       },
       { today },
     );
@@ -260,7 +260,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
           assert.equal(placed.cashKrw, 10_000_000 - 961_535 - 144);
           assert.deepEqual(await holding('AAPL'), {
             quantity: '3.00000000',
-            cost_krw: String(961_535 + 144),
+            cost_krw: 961_535 + 144,
           });
 
           // Half a won rounds away from zero: 100,001 × 0.00015 = 15.00015 → 15; 10 shares → 150.0015 → 150.
@@ -290,7 +290,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
         pool,
         async (call) => {
           await call(path(), { method: 'POST', body: await body('100001', 'buy', '3') });
-          assert.deepEqual(await holding('100001'), { quantity: '3.00000000', cost_krw: '300003' });
+          assert.deepEqual(await holding('100001'), { quantity: '3.00000000', cost_krw: 300003 });
 
           const sold = await call(path(), {
             method: 'POST',
@@ -299,7 +299,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
           assert.equal(sold.status, 201);
           assert.equal((sold.data as Placed).cashKrw, 10_000_000 - 300_003 + 100_001);
           // round(300,003 × 2 / 3) = 200,002
-          assert.deepEqual(await holding('100001'), { quantity: '2.00000000', cost_krw: '200002' });
+          assert.deepEqual(await holding('100001'), { quantity: '2.00000000', cost_krw: 200002 });
 
           const tooMany = await call(path(), {
             method: 'POST',

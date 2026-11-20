@@ -66,12 +66,10 @@ const memo = z.string().trim().max(200, 'The note must be 200 characters or fewe
  * transaction (`lock`) the categories are share-locked, so one cannot be hidden or renamed before the INSERT.
  */
 async function check(db: Pool | PoolClient, rows: RowInput[], lock = false) {
-  const { rows: categories } = await db.query<{ id: string; kind: string; name: string }>(
-    `SELECT id::text, kind, name FROM ledger_categories WHERE NOT hidden${lock ? ' FOR SHARE' : ''}`,
+  const { rows: categories } = await db.query<{ id: number; kind: string; name: string }>(
+    `SELECT id, kind, name FROM ledger_categories WHERE NOT hidden${lock ? ' FOR SHARE' : ''}`,
   );
-  const byName = new Map(
-    categories.map((c) => [`${c.kind}/${c.name.normalize('NFC')}`, Number(c.id)]),
-  );
+  const byName = new Map(categories.map((c) => [`${c.kind}/${c.name.normalize('NFC')}`, c.id]));
   const valid: Valid[] = [];
   const problems: Problem[] = [];
   for (const row of rows) {

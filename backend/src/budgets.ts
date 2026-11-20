@@ -28,7 +28,7 @@ export const saveBody = z.object(
 );
 
 export type BudgetRow = {
-  category_id: string;
+  category_id: number;
   name: string;
   hidden: boolean;
   spent: string;
@@ -64,7 +64,7 @@ export const budgetListSql = `
     LEFT JOIN latest l ON l.category_id = c.id
     WHERE c.kind = 'expense'
   )
-  SELECT id::text AS category_id, name, hidden, spent::text AS spent, budget::text AS budget,
+  SELECT id AS category_id, name, hidden, spent::text AS spent, budget::text AS budget,
          to_char(budget_month, 'YYYY-MM') AS budget_month,
          -- greatest() skips NULL, so a category without a budget is NULL here on purpose, not 0.
          CASE WHEN budget IS NOT NULL THEN greatest(budget - spent, 0) END::text AS remaining,
@@ -85,7 +85,7 @@ export function budgetsRouter(pool: Pool) {
     res.json({
       month,
       budgets: rows.map((row) => ({
-        categoryId: Number(row.category_id),
+        categoryId: row.category_id,
         name: row.name,
         hidden: row.hidden,
         spent: won(row.spent),

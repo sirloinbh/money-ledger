@@ -69,7 +69,7 @@ export const tradeBody = z.object(
 type TradeBody = z.infer<typeof tradeBody>;
 
 type TradeRow = {
-  id: string;
+  id: number;
   side: 'buy' | 'sell';
   traded_on: string;
   quantity: string;
@@ -98,7 +98,7 @@ function won(value: string) {
 }
 
 const toTrade = (row: TradeRow) => ({
-  id: Number(row.id),
+  id: row.id,
   side: row.side,
   tradedOn: row.traded_on,
   quantity: row.quantity,
@@ -285,7 +285,7 @@ export function tradesRouter(pool: Pool, today: () => string) {
     const trade = await inTransaction(pool, async (client) => {
       const currency = await lockTradeable(client, assetId);
       const amount = await amountFor(client, body, currency);
-      const { rows } = await client.query<{ id: string }>(
+      const { rows } = await client.query<{ id: number }>(
         `INSERT INTO portfolio_trades (asset_id, side, traded_on, quantity, currency, price, fx_rate,
            amount_krw, fee_krw, tax_krw, memo)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
@@ -304,7 +304,7 @@ export function tradesRouter(pool: Pool, today: () => string) {
         ],
       );
       await settle(client, assetId);
-      return tradeResponse(client, assetId, Number(rows[0].id));
+      return tradeResponse(client, assetId, rows[0].id);
     });
     res.status(201).json({ trade });
   });

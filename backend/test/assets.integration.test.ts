@@ -314,10 +314,10 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
     const client = await pool.connect();
     try {
       await client.query("SET TimeZone = 'America/Sao_Paulo'");
-      const { rows } = await client.query<{ value: string }>(
+      const { rows } = await client.query<{ value: number }>(
         "SELECT portfolio_depreciated_value(1200000, 0, '2018-11-04', 60, '2018-12-04') AS value",
       );
-      assert.equal(rows[0].value, '1180000');
+      assert.equal(rows[0].value, 1180000);
     } finally {
       await client.query('RESET TimeZone');
       client.release();

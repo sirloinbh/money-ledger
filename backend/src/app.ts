@@ -18,12 +18,14 @@ import { netWorthRouter } from './net-worth.js';
 import { type PriceLog, type PriceSources, pricesRouter } from './prices/index.js';
 import { reportsRouter } from './reports.js';
 import { rulesRouter } from './rules.js';
+import { setInt8Parser } from './standard/db.js';
 import { errorHandler, notFound, requestLog, serviceDate } from './standard/http.js';
 import { summaryRouter } from './summary.js';
 import { trendRouter } from './trend.js';
 
 // DATE columns stay YYYY-MM-DD strings so the service time zone never shifts them.
 types.setTypeParser(1082, (value) => value);
+setInt8Parser(types);
 
 export { serviceDate };
 

@@ -119,7 +119,7 @@ async function makeReport(client: PoolClient, period: Period, start: string) {
     overspending = budgets.rows
       .filter((row) => row.status === 'reached' || row.status === 'over')
       .map((row) => ({
-        categoryId: Number(row.category_id),
+        categoryId: row.category_id,
         name: row.name,
         hidden: row.hidden,
         spent: row.spent,
@@ -130,20 +130,18 @@ async function makeReport(client: PoolClient, period: Period, start: string) {
       }));
   }
   const stored: Stored = { ...content, overspending };
-  const saved = await client.query<{ id: string }>(
+  const saved = await client.query<{ id: number }>(
     `INSERT INTO spending_reports (period, start_date, end_date, content)
      VALUES ($1, $2::date, $3::date, $4::jsonb)
      ON CONFLICT (period, start_date) DO NOTHING
-     RETURNING id::text`,
+     RETURNING id`,
     [period, start, end, JSON.stringify(stored)],
   );
-  return saved.rows[0]
-    ? { id: Number(saved.rows[0].id), period, startDate: start, endDate: end }
-    : null;
+  return saved.rows[0] ? { id: saved.rows[0].id, period, startDate: start, endDate: end } : null;
 }
 
 type ReportRow = {
-  id: string;
+  id: number;
   period: Period;
   start_date: string;
   end_date: string;
@@ -152,11 +150,11 @@ type ReportRow = {
   content: Stored;
 };
 
-const columns = `id::text, period, start_date, end_date,
+const columns = `id, period, start_date, end_date,
   to_char(created_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS made_on, seen_at IS NOT NULL AS seen, content`;
 
 const toListItem = (row: ReportRow) => ({
-  id: Number(row.id),
+  id: row.id,
   period: row.period,
   startDate: row.start_date,
   endDate: row.end_date,
