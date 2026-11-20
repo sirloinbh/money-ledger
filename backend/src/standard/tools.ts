@@ -6,7 +6,7 @@
 // imports no validation library. Docs: docs/ai-tools.md in project-standards.
 //
 //   app.use(express.json({ limit: '256kb' }));
-//   registerToolRoutes(app, { app: 'workout-memo', tools, pool, publicKey: process.env.AI_TOOLS_PUBLIC_KEY });
+//   registerToolRoutes(app, { app: 'workout-memo', tools, pool, publicKey: process.env.AI_TOOLS_PUBLIC_KEY, requireBinding: true });
 import { createPublicKey, type KeyObject, verify } from 'node:crypto';
 
 import type { Express, NextFunction, Request, Response } from 'express';

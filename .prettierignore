@@ -74,6 +74,9 @@ scripts/test/claude-skills.test.mjs
 backend/tsconfig.check.json
 frontend/tsconfig.build.json
 e2e/tsconfig.json
+e2e/support/jev.ts
+e2e/support/judged.ts
+e2e/fixtures/jev/
 frontend/src/vite-env.d.ts
 frontend/vite.config.ts
 frontend/src/main.tsx

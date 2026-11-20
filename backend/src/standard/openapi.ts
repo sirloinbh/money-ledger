@@ -20,10 +20,14 @@ export type Operation = {
    * not listed is an integer id when it is `id` or ends in `Id`, and a string otherwise.
    */
   params?: Record<string, ZodType>;
+  /** Request headers the route reads, by name (for example `{ 'Idempotency-Key': { description: '...', schema: z.uuid() } }`). */
+  headers?: Record<string, { description: string; schema?: ZodType; required?: boolean }>;
   /** Query parameters as one Zod object. */
   query?: ZodType;
   /** The success status first, then the error statuses this route documents on its own. */
   status: number[];
+  /** The content type of a success body that is not JSON (for example `text/csv`), documented as a string. */
+  produces?: string;
   /** Needs no sign-in (only GET /api/health): no security requirement, no default 401 or 429. */
   public?: boolean;
 };
@@ -95,12 +99,26 @@ export function buildOpenApi(options: OpenApiOptions) {
         parameters.push({ name, in: 'query', required: !!query.required?.includes(name), schema });
       }
     }
+    for (const [name, header] of Object.entries(op.headers ?? {})) {
+      parameters.push({
+        name,
+        in: 'header',
+        required: header.required ?? false,
+        description: header.description,
+        schema: header.schema ? schemaOf(header.schema) : { type: 'string' },
+      });
+    }
     if (op.body) schemas[op.body[0]] = schemaOf(op.body[1]);
     const [success, ...failures] = op.status as [number, ...number[]];
     // Every guarded route can answer 401 and 429; a route with a body can also answer 413. An own entry wins.
     const statuses = new Set([...failures, ...(op.public ? [] : [401, 429]), ...(op.body ? [413] : [])]);
     statuses.delete(success);
-    const responses: Json = { [success]: { description: text[success] ?? String(success) } };
+    const responses: Json = {
+      [success]: {
+        description: text[success] ?? String(success),
+        ...(op.produces ? { content: { [op.produces]: { schema: { type: 'string' } } } } : {}),
+      },
+    };
     for (const status of [...statuses].sort((a, b) => a - b)) {
       responses[status] = { description: text[status] ?? String(status), ...errorRef };
     }
