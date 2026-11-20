@@ -1,6 +1,5 @@
 import { meHandler } from '@sirloinbh/auth-client';
 import express from 'express';
-import { rateLimit } from 'express-rate-limit';
 import type { Pool } from 'pg';
 import { types } from 'pg';
 
@@ -20,6 +19,7 @@ import { reportsRouter } from './reports.js';
 import { rulesRouter } from './rules.js';
 import { setInt8Parser } from './standard/db.js';
 import { errorHandler, notFound, requestLog, serviceDate } from './standard/http.js';
+import { apiRateLimit } from './standard/rate-limit.js';
 import { summaryRouter } from './summary.js';
 import { trendRouter } from './trend.js';
 
@@ -51,16 +51,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   app.use(requestLog);
   // Same level as the /api/ limit in frontend/nginx.conf (10 r/s), for requests that skip nginx.
   // Per client IP. CodeQL js/missing-rate-limiting recognizes this middleware (#70).
-  app.use(
-    '/api',
-    rateLimit({
-      windowMs: 60_000,
-      limit: options.requestsPerMinute ?? 600,
-      standardHeaders: 'draft-8',
-      legacyHeaders: false,
-      message: { error: 'Too many requests. Try again in a moment' },
-    }),
-  );
+  apiRateLimit(app, { limitPerMinute: options.requestsPerMinute });
   // #149: the shared sign-in guards every /api route except /api/health, before any route registers.
   // After the rate limit, so a flood of unsigned requests does not reach the auth service.
   if (options.auth) app.use('/api', options.auth);
