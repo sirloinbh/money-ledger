@@ -37,8 +37,11 @@ shared_value() {
 signal_check=""
 signal_message=""
 restore_container=""
+# The unfinished dump file while pg_dump runs; removed on any exit so a failed dump leaves nothing behind (#874).
+partial_file=""
 finish() {
   local status=$?
+  if [ -n "$partial_file" ]; then rm -f "$partial_file"; fi
   if [ -n "$restore_container" ]; then docker rm -f "$restore_container" > /dev/null 2>&1 || true; fi
   if [ -n "$signal_check" ] && [ -f deploy/notify.sh ]; then
     if [ "$status" -eq 0 ]; then
@@ -99,15 +102,18 @@ dump() {
   name=$db-$(date +%F-%H%M%S)${label:+-$label}
   file=$dir/$name.sql.gz
   # --no-owner keeps the dump restorable into a database whose user has another name.
+  partial_file=$file.part
   docker exec "$dbc" sh -c 'pg_dump --no-owner --no-privileges -U "$POSTGRES_USER" -d "$POSTGRES_DB"' | gzip > "$file.part"
   mv "$file.part" "$file"
+  partial_file=""
   # Row counts are for the weekly restore check only: a failure here must not fail the dump
   # (or block a deploy). Without the file, the next restore check reports it.
   if ! docker exec "$dbc" sh -c 'psql -At -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$0"' "$COUNT_SQL" > "$dir/$name.counts"; then
     echo "row counts failed; $file has no .counts for the restore check" >&2
     rm -f "$dir/$name.counts"
   fi
-  find "$dir" -maxdepth 1 \( -name "$db-*.sql.gz" -o -name "$db-*.counts" \) -mtime +14 -delete
+  # Also a .part file older than a day, left by a killed script (the exit handler cannot run then).
+  find "$dir" -maxdepth 1 \( \( -name "$db-*.sql.gz" -o -name "$db-*.counts" \) -mtime +14 -o -name "$db-*.part" -mtime +0 \) -delete
   # Only the nightly dump prunes; a failed prune is retried the next night and does not fail the backup.
   if [ -z "$label" ] && ! docker exec "$dbc" sh -c 'psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "$0"' "$PRUNE_SQL"; then
     echo "audit_log retention delete failed" >&2

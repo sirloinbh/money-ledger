@@ -167,9 +167,13 @@ case "${1:-}" in
     keep="$tag|$(cat .previous 2>/dev/null || echo none)"
     # Split quotes keep the Go template away from the central template renderer.
     tag_format='{''{.Tag}}'
+    # Pulled images carry two names, the local one compose uses and the ghcr.io/sirloinbh/ one (#755); an
+    # image is freed only when both names are gone, so both repositories are pruned (#870). Without pulls the second one is empty.
     for image in money-backend money-frontend; do
-      docker image ls "$image" --format "$tag_format" | { grep -vxE "$keep" || true; } |
-        xargs -r -I{} docker image rm "$image:{}" > /dev/null
+      for repo in "$image" "ghcr.io/sirloinbh/$image"; do
+        docker image ls "$repo" --format "$tag_format" | { grep -vxE "$keep" || true; } |
+          xargs -r -I{} docker image rm "$repo:{}" > /dev/null
+      done
     done
     # Repeated deploys must not grow the disk (and so the snapshot size) without bound.
     docker builder prune -f --filter until=168h > /dev/null

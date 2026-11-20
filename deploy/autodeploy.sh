@@ -69,8 +69,14 @@ if [ "$sha" = "$(cat .autodeploy-failed 2>/dev/null || true)" ]; then
   exit 0
 fi
 
-state=$(curl -fsS -H 'Accept: application/vnd.github+json' \
-  "https://api.github.com/repos/$repo/actions/runs?head_sha=$full&per_page=100" | ci_state)
+# A failed call (rate limit of the unauthenticated API, network) must not end the run silently: say so, signal, and try again
+# on the next run (#871). The state is empty when curl failed, because ci_state then reads nothing.
+if ! state=$(curl -fsS -m 30 -H 'Accept: application/vnd.github+json' \
+  "https://api.github.com/repos/$repo/actions/runs?head_sha=$full&per_page=100" | ci_state 2> /dev/null) || [ -z "$state" ]; then
+  say "could not read the CI state of $sha from GitHub; trying again on the next run"
+  signal fail "could not read the CI state of $sha from GitHub"
+  exit 0
+fi
 case "$state" in
   pending)
     say "waiting for CI of $sha (deployed: $(cat .deployed 2> /dev/null || echo none))"
@@ -88,11 +94,17 @@ esac
 # Run the deploy script of the new commit (git replaces files, the running bash keeps
 # the old inode, so checking out under a running script is safe).
 git checkout --quiet --detach "$full"
-if APPS_DEPLOY_LOCKED=1 bash deploy/remote-deploy.sh deploy "$full"; then
+#
+# The output of the deploy is kept in .last-deploy.log (overwritten by each run), and a failed deploy sends its last lines
+# with the fail signal, so the reason is visible without a shell (#872). Values that look like a token, secret, password or
+# key are masked first; the deploy scripts do not print them, this is a second guard.
+if APPS_DEPLOY_LOCKED=1 bash deploy/remote-deploy.sh deploy "$full" 2>&1 | tee .last-deploy.log; then
   rm -f .autodeploy-failed
   signal ok "deployed $sha"
 else
   echo "$sha" > .autodeploy-failed
-  signal fail "deploy of $sha failed"
+  reason=$(tail -n 20 .last-deploy.log 2> /dev/null | sed -E 's/((TOKEN|SECRET|PASSWORD|KEY)[A-Za-z0-9_]*=)[^[:space:]]+/\1***/g' || true)
+  signal fail "deploy of $sha failed. Last lines of the deploy output:
+$reason"
   exit 1
 fi

@@ -26,3 +26,15 @@ export function sharedAuth(
   warn('WARNING: AUTH_INTERNAL_URL is not set, so the API runs WITHOUT sign-in (local development only)');
   return undefined;
 }
+
+/**
+ * The address the API listens on (#866): `HOST` if set; otherwise all interfaces when the sign-in is on and only
+ * 127.0.0.1 when it is off, so a local run without sign-in is not open to the network.
+ *
+ *   const auth = sharedAuth();
+ *   const host = listenHost(auth !== undefined);   // server.ts
+ */
+export function listenHost(authEnabled: boolean, env: Record<string, string | undefined> = process.env) {
+  if (env.HOST) return env.HOST;
+  return authEnabled ? '0.0.0.0' : '127.0.0.1';
+}

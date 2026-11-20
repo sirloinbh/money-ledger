@@ -1,6 +1,6 @@
 // Managed file. Edit it in sirloinbh/project-standards templates/ui/frontend/src/components/layout/
 import { BotIcon, RotateCcwIcon, SendIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
 
 import { aiOrigin } from '../../lib/ai-chat';
@@ -53,13 +53,24 @@ function ToolCall({ call, onAnswer }: { call: ToolCallView; onAnswer: (id: strin
   );
 }
 
-function ChatPanel({ origin }: { origin: string }) {
-  const { pathname } = useLocation();
-  const { messages, busy, error, limit, send, answer, reset } = useAiChat(origin, {
-    app: CURRENT_APP,
-    page: pathname,
-  });
-  const [draft, setDraft] = useState('');
+// The conversation and the draft live in AiShell, not here: the panel unmounts when it closes.
+function ChatPanel({
+  chat,
+  draft,
+  setDraft,
+}: {
+  chat: ReturnType<typeof useAiChat>;
+  draft: string;
+  setDraft: (value: string) => void;
+}) {
+  const { messages, busy, error, limit, send, answer, reset } = chat;
+  const log = useRef<HTMLDivElement>(null);
+  // Follow the newest text, unless the user scrolled up to read an earlier part.
+  const following = useRef(true);
+  useEffect(() => {
+    const el = log.current;
+    if (el && following.current) el.scrollTop = el.scrollHeight;
+  }, [messages, error, limit]);
 
   const submit = () => {
     if (!draft.trim() || busy) return;
@@ -69,7 +80,17 @@ function ChatPanel({ origin }: { origin: string }) {
 
   return (
     <>
-      <div className="flex-1 space-y-3 overflow-y-auto px-4" role="log" aria-live="polite" aria-label="Conversation">
+      <div
+        ref={log}
+        onScroll={(event) => {
+          const el = event.currentTarget;
+          following.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+        }}
+        className="flex-1 space-y-3 overflow-y-auto px-4"
+        role="log"
+        aria-live="polite"
+        aria-label="Conversation"
+      >
         {messages.length === 0 ? (
           <p className="text-body-sm text-muted-foreground">
             Ask about the data in any app. I ask before I change anything.
@@ -130,11 +151,11 @@ function ChatPanel({ origin }: { origin: string }) {
   );
 }
 
-/** The top bar button and its panel. `origin` is for tests; the app derives it from its address. */
-function AiShell({ origin }: { origin?: string | null }) {
-  // An app turns the button on with features.aiShell; an explicit `origin` (tests) skips the flag.
-  const resolved = origin !== undefined ? origin : AI_SHELL ? aiOrigin(window.location, ROOT_DOMAIN) : null;
-  if (!resolved) return null;
+// Closing the panel only hides it: the messages, a running answer and a pending confirmation stay with the button.
+function AiShellPanel({ origin }: { origin: string }) {
+  const { pathname } = useLocation();
+  const chat = useAiChat(origin, { app: CURRENT_APP, page: pathname });
+  const [draft, setDraft] = useState('');
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -147,10 +168,17 @@ function AiShell({ origin }: { origin?: string | null }) {
           <SheetTitle>AI assistant</SheetTitle>
           <SheetDescription className="sr-only">Chat with the assistant about the data in your apps</SheetDescription>
         </SheetHeader>
-        <ChatPanel origin={resolved} />
+        <ChatPanel chat={chat} draft={draft} setDraft={setDraft} />
       </SheetContent>
     </Sheet>
   );
+}
+
+/** The top bar button and its panel. `origin` is for tests; the app derives it from its address. */
+function AiShell({ origin }: { origin?: string | null }) {
+  // An app turns the button on with features.aiShell; an explicit `origin` (tests) skips the flag.
+  const resolved = origin !== undefined ? origin : AI_SHELL ? aiOrigin(window.location, ROOT_DOMAIN) : null;
+  return resolved ? <AiShellPanel origin={resolved} /> : null;
 }
 
 export { AiShell };

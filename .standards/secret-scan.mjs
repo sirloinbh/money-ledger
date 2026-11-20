@@ -61,11 +61,12 @@ function walk(root, dir = root, out = []) {
   return out;
 }
 
-// Tracked files when the folder is a git repository (what would be pushed), otherwise every file.
+// Tracked files when the folder is a git repository (what would be pushed), otherwise every file outside the skipped
+// folders. SKIP_DIRS only keeps the folder walk out of untracked output: a tracked file is scanned wherever it is,
+// so a secret committed under dist/ or coverage/ is still found (#865).
 export function listFiles(root) {
   const tracked = fs.existsSync(path.join(root, '.git')) ? git(root, ['ls-files', '-z']) : null;
-  const files = tracked === null ? walk(root) : tracked.split('\0').filter(Boolean);
-  return files.filter((file) => !file.split('/').some((part) => SKIP_DIRS.has(part)));
+  return tracked === null ? walk(root) : tracked.split('\0').filter(Boolean);
 }
 
 function readText(file) {

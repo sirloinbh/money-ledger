@@ -113,3 +113,80 @@ test('a failed request shows an alert', async () => {
   ask('Hello');
   expect(await screen.findByRole('alert')).toHaveTextContent('Cannot reach the AI service');
 });
+
+// A streamed answer that stays open until the request is aborted, like a real fetch.
+function openStream(signal: AbortSignal | undefined) {
+  return new Response(
+    new ReadableStream({
+      start(controller) {
+        signal?.addEventListener('abort', () => controller.error(new Error('aborted')));
+      },
+    }),
+    { status: 200, headers: { 'content-type': 'text/event-stream' } },
+  );
+}
+
+test('a turn cancelled by New conversation does not end the busy state of the next turn', async () => {
+  const fetchMock = vi
+    .fn()
+    .mockImplementation((_url: string, init: RequestInit) =>
+      Promise.resolve(openStream(init.signal as AbortSignal)),
+    );
+  vi.stubGlobal('fetch', fetchMock);
+  openPanel();
+  ask('first');
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  fireEvent.click(screen.getByRole('button', { name: 'New conversation' }));
+  ask('second');
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  // Let the cancelled first request settle.
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  ask('third');
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+});
+
+test('closing the panel keeps the conversation and the draft', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(sseResponse({ type: 'text', delta: 'Hello there.' }, { type: 'done', conversationId: 'c1' })),
+  );
+  openPanel();
+  ask('Hi');
+  expect(await screen.findByText('Hello there.')).toBeInTheDocument();
+  fireEvent.change(screen.getByRole('textbox', { name: 'Message' }), { target: { value: 'half a sentence' } });
+  fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  fireEvent.click(screen.getByRole('button', { name: 'AI assistant' }));
+  expect(await screen.findByText('Hello there.')).toBeInTheDocument();
+  expect(screen.getByRole('textbox', { name: 'Message' })).toHaveValue('half a sentence');
+});
+
+// jsdom does no layout: give the log element a size and remember where it is scrolled to.
+function sizeLog(log: HTMLElement, { scrollHeight, clientHeight }: { scrollHeight: number; clientHeight: number }) {
+  let top = 0;
+  Object.defineProperty(log, 'scrollHeight', { configurable: true, get: () => scrollHeight });
+  Object.defineProperty(log, 'clientHeight', { configurable: true, get: () => clientHeight });
+  Object.defineProperty(log, 'scrollTop', { configurable: true, get: () => top, set: (value: number) => (top = value) });
+}
+
+test('the conversation scrolls to the newest message', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sseResponse({ type: 'text', delta: 'Done.' }, { type: 'done', conversationId: 'c1' })));
+  openPanel();
+  const log = screen.getByRole('log');
+  sizeLog(log, { scrollHeight: 900, clientHeight: 300 });
+  ask('Hi');
+  expect(await screen.findByText('Done.')).toBeInTheDocument();
+  expect(log.scrollTop).toBe(900);
+});
+
+test('the conversation stays where the user scrolled to', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sseResponse({ type: 'text', delta: 'Done.' }, { type: 'done', conversationId: 'c1' })));
+  openPanel();
+  const log = screen.getByRole('log');
+  sizeLog(log, { scrollHeight: 900, clientHeight: 300 });
+  fireEvent.scroll(log); // scrollTop is 0: the user is far from the bottom
+  ask('Hi');
+  expect(await screen.findByText('Done.')).toBeInTheDocument();
+  expect(log.scrollTop).toBe(0);
+});
