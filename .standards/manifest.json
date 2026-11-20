@@ -1,5 +1,5 @@
 {
-  "centralSha": "063010d6bd9b5da561f43cdadd58e328f08d590f",
+  "centralSha": "04b2f6737785ee8523e013a1bc24450a3fa77cdf",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -125,7 +125,7 @@
     },
     ".github/dependabot.yml": {
       "mode": "full",
-      "sha256": "32c0c2b8ae82d2461b30ca81ea5b576b4026c7cc7d7e450e3ca148b7556e641a",
+      "sha256": "2f0727942c37c1e62ac3900734354a479510ea7ef3ca16231aef9b2ab4701c9c",
       "source": "templates/app/.github/dependabot.yml"
     },
     ".github/ISSUE_TEMPLATE/task.md": {
@@ -372,6 +372,11 @@
       "mode": "full",
       "sha256": "4f3ddc4d2df5b0907d1dea92f32164dd9199772a760be0da47a9e5db40b01e8d",
       "source": "templates/deploy/deploy/backup.timer.tmpl"
+    },
+    "deploy/bootstrap-env.sh": {
+      "mode": "full",
+      "sha256": "fea61970f752d136d6c9b29df260977905a39e52153be0956c09bdd2a73c6da6",
+      "source": "templates/app/deploy/bootstrap-env.sh.tmpl"
     },
     "deploy/health.service": {
       "mode": "full",
