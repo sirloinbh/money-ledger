@@ -94,6 +94,16 @@ export function checkComposeDeploy(text, { dbName = null, scripts = {} } = {}) {
   return problems;
 }
 
+/**
+ * Warnings for compose.yaml that do not fail the check (#875): the `api` service has no `healthcheck`, so
+ * `docker compose up -d --wait` and web's `depends_on` cannot tell when the API is ready. Returns warning strings.
+ */
+export function checkComposeWarnings(text) {
+  const api = text.match(/^ {2}api:[ \t]*\r?\n((?: {3,}.*\r?\n|[ \t]*\r?\n)*)/m);
+  if (api && !/^ {4}healthcheck:/m.test(api[1])) return ['compose.yaml: the api service has no healthcheck, so `docker compose up -d --wait` cannot tell when the API is ready. Add one on /api/health (scaffold/app/compose.yaml in project-standards has an example).'];
+  return [];
+}
+
 // API rules from docs/directory-rules.md "API". Warnings only: the apps grew different layouts
 // (routes/ modules or Routers in src/), so these look for the rules, not for one file layout.
 // sources: [{ file: 'backend/src/…', text }] without tests. Returns warning strings.
@@ -267,6 +277,7 @@ export function runCheck(root) {
       // an unreadable package.json is reported by the managed file check
     }
     for (const message of checkComposeDeploy(compose, { dbName: manifest.registry?.db?.name ?? null, scripts })) problems.push({ group: 'deploy contract', path: 'compose.yaml', message });
+    warnings.push(...checkComposeWarnings(compose));
   }
   return { problems, warnings, manifest };
 }

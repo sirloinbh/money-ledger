@@ -1,5 +1,5 @@
 {
-  "centralSha": "04b2f6737785ee8523e013a1bc24450a3fa77cdf",
+  "centralSha": "9c1f654987fbeb535abcfddb0cb2bf5828c53c10",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -140,7 +140,7 @@
     },
     ".github/workflows/ci.yml": {
       "mode": "full",
-      "sha256": "0aaccd5674b2baefe9ae7f607d48a5336258d76a1d3dc1d9c86c32642a24c0b9",
+      "sha256": "b276ed7c7c11ae30a252f2bbcf8c6d51c3d15bc0e38750cf94cb97677e5c90d2",
       "source": "templates/app/.github/workflows/ci.yml.tmpl"
     },
     ".gitignore": {
@@ -175,7 +175,7 @@
     },
     ".standards/check.mjs": {
       "mode": "full",
-      "sha256": "0507fcf2a617ec2a7b7dde04bd66adfa15a26e25cd4d5f5d50ecce455616ce1e",
+      "sha256": "ef4c3be007af70fd1701cc63d590f0dc4aa52a4aeaa34526f5e6f9abc1369ba7",
       "source": "scripts/standards-check.mjs"
     },
     ".standards/ci-migrate.sh": {
@@ -185,7 +185,7 @@
     },
     ".standards/ioc-scan.mjs": {
       "mode": "full",
-      "sha256": "a89be5071d7761fe9a77a9f9b3a14288aa2a261a04a55e46a21d1fe09e5d75b6",
+      "sha256": "1fdedfb197f82a9e97a6f2282d48b693f0a5bc8d20f6fb34c88075fd342b1ed0",
       "source": "scripts/ioc-scan.mjs"
     },
     ".standards/lib/env-tags.mjs": {
@@ -210,7 +210,7 @@
     },
     ".standards/secret-scan.mjs": {
       "mode": "full",
-      "sha256": "cb6a324f3b8207b779bfb4ef48cff98527461f2761c0d83a322a46e45e209fa8",
+      "sha256": "951b4e75e5515818717413a0ed03e94d8224a7f89ba4af7f2399a66860cd1b9e",
       "source": "scripts/secret-scan.mjs"
     },
     ".vscode/extensions.json": {
@@ -265,7 +265,7 @@
     },
     "backend/src/standard/auth.ts": {
       "mode": "full",
-      "sha256": "e779809ab79e2e3bf7d3169b9b617fb107053360c4c3e14d5e7a27ed1082d6d3",
+      "sha256": "7cb3e8eb7a319c56d5d89575dbbda06489bc5970b6c8f3ee1f9a1bfa312600e8",
       "source": "templates/app/backend/src/standard/auth.ts"
     },
     "backend/src/standard/db.ts": {
@@ -275,7 +275,7 @@
     },
     "backend/src/standard/http.ts": {
       "mode": "full",
-      "sha256": "b07a92105df2ffac9e756fc13a56695d4b5b903d77e79f7eeedd0f04e17dd252",
+      "sha256": "92bfa44e4dee30e4ca4b73010085cb5fea2a799c62898abd2c2598f421681fa8",
       "source": "templates/app/backend/src/standard/http.ts"
     },
     "backend/src/standard/jobs.ts": {
@@ -300,7 +300,7 @@
     },
     "backend/src/standard/openapi.ts": {
       "mode": "full",
-      "sha256": "75f71f04dfec9770d52b72ca87ae30fa0b84edf3f1ce1187753d35a3cff8378e",
+      "sha256": "e9fe812e39f00d8c85ec55c7313fb3674fe02ed086e64e725e2671bef2e8ebc8",
       "source": "templates/app/backend/src/standard/openapi.ts"
     },
     "backend/src/standard/rate-limit.ts": {
@@ -350,7 +350,7 @@
     },
     "deploy/autodeploy.sh": {
       "mode": "full",
-      "sha256": "32995f343c71dc40c30f458fe27e8934f54d096eed56d058206bbde6b9c074bd",
+      "sha256": "17a679162e72c3790e90ccfebd24c3fb5272856c7a11dbac998ea72076e754cd",
       "source": "templates/deploy/deploy/autodeploy.sh.tmpl"
     },
     "deploy/autodeploy.timer": {
@@ -365,7 +365,7 @@
     },
     "deploy/backup.sh": {
       "mode": "full",
-      "sha256": "ace5938bcfdd1ef188958e64f5a3b43ff388519b1c9621b9ed6590f0c5b8f3b7",
+      "sha256": "1ab8672536d6d89a7e41741ce77ef758c01f68dc609777e305e88b95577293e5",
       "source": "templates/deploy/deploy/backup.sh.tmpl"
     },
     "deploy/backup.timer": {
@@ -405,7 +405,7 @@
     },
     "deploy/remote-deploy.sh": {
       "mode": "full",
-      "sha256": "b1e77e8485823d5c954a6b84033c73f49d2098820477a784744f9b76bc575399",
+      "sha256": "7a8ce8e60f85a0272c111da7688d038564818755dfe3f1481daa46d5ce534826",
       "source": "templates/deploy/deploy/remote-deploy.sh.tmpl"
     },
     "deploy/report.service": {
@@ -541,12 +541,12 @@
     },
     "frontend/src/components/layout/ai-shell.test.tsx": {
       "mode": "full",
-      "sha256": "2cef555260c6276f33477a65a309d50303ca4acba973fb856c209a7b3e96b3be",
+      "sha256": "84b383a2ba9c5e93097258c7aa477fcb687d0f05268bbd4db5051ae5194dd87b",
       "source": "templates/ui/frontend/src/components/layout/ai-shell.test.tsx"
     },
     "frontend/src/components/layout/ai-shell.tsx": {
       "mode": "full",
-      "sha256": "f8567493f3f640451e22654c0eaf16ee10f7ae448bc754b2e907495036d612cc",
+      "sha256": "f9e11aaf69a5e8ab67c6591d3d0dff4dd3abb15cb6e6c5edeb46962f60e8034b",
       "source": "templates/ui/frontend/src/components/layout/ai-shell.tsx"
     },
     "frontend/src/components/layout/app-shell.test.tsx": {
@@ -931,7 +931,7 @@
     },
     "frontend/src/lib/use-ai-chat.ts": {
       "mode": "full",
-      "sha256": "5908817117c3059c3808bb1b4726fcde18724ddf3908491ff7ef7be977299c54",
+      "sha256": "c503af1629155d854657698d4b187e60b51fd1151ae040453ca6011e4d54a7cc",
       "source": "templates/ui/frontend/src/lib/use-ai-chat.ts"
     },
     "frontend/src/lib/use-notice.ts": {

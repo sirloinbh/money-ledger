@@ -43,6 +43,37 @@ function scriptFindings(where, scripts, rules) {
   return findings;
 }
 
+// Every node_modules folder in the repository (the root one and each workspace's), not those inside packages.
+function findModulesDirs(root, dir = root, out = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    if (entry.name === 'node_modules') out.push(path.join(dir, entry.name));
+    else if (!SKIP_DIRS.has(entry.name)) findModulesDirs(root, path.join(dir, entry.name), out);
+  }
+  return out;
+}
+
+// Reads the install scripts of the packages in one node_modules folder, and of their own nested node_modules.
+function scanInstalled(root, modules, rules, errors, warnings) {
+  for (const entry of fs.readdirSync(modules, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const dirs = entry.name.startsWith('@') ? fs.readdirSync(path.join(modules, entry.name)).map((n) => `${entry.name}/${n}`) : [entry.name];
+    for (const dir of dirs) {
+      const where = path.relative(root, path.join(modules, dir)).split(path.sep).join('/');
+      const manifest = path.join(modules, dir, 'package.json');
+      if (fs.existsSync(manifest)) {
+        try {
+          errors.push(...scriptFindings(where, JSON.parse(fs.readFileSync(manifest, 'utf8')).scripts, rules));
+        } catch {
+          warnings.push(`${where}/package.json could not be read`);
+        }
+      }
+      const nested = path.join(modules, dir, 'node_modules');
+      if (fs.existsSync(nested)) scanInstalled(root, nested, rules, errors, warnings);
+    }
+  }
+}
+
 /** Returns { errors, warnings } as human-readable strings. */
 export function scan(root, rules = loadRules()) {
   const errors = [];
@@ -68,27 +99,13 @@ export function scan(root, rules = loadRules()) {
     errors.push(...scriptFindings(file, pkg.scripts, rules));
   }
 
-  // Installed packages: only their install scripts are read, never executed.
-  const modules = path.join(root, 'node_modules');
-  if (fs.existsSync(modules)) {
-    for (const entry of fs.readdirSync(modules, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const dirs = entry.name.startsWith('@') ? fs.readdirSync(path.join(modules, entry.name)).map((n) => `${entry.name}/${n}`) : [entry.name];
-      for (const dir of dirs) {
-        const manifest = path.join(modules, dir, 'package.json');
-        if (!fs.existsSync(manifest)) continue;
-        try {
-          errors.push(...scriptFindings(`node_modules/${dir}`, JSON.parse(fs.readFileSync(manifest, 'utf8')).scripts, rules));
-        } catch {
-          warnings.push(`node_modules/${dir}/package.json could not be read`);
-        }
-      }
-    }
-  }
+  // Installed packages: only their install scripts are read, never executed. Every node_modules folder counts: a
+  // package npm could not hoist lands in a workspace's own node_modules (#864).
+  for (const modules of findModulesDirs(root)) scanInstalled(root, modules, rules, errors, warnings);
 
   const workflows = path.join(root, '.github/workflows');
   if (fs.existsSync(workflows)) {
-    for (const name of fs.readdirSync(workflows)) {
+    for (const { name } of fs.readdirSync(workflows, { withFileTypes: true }).filter((e) => e.isFile())) {
       const file = `.github/workflows/${name}`;
       if (rules.suspiciousWorkflowNames.some((s) => name.toLowerCase().includes(s))) errors.push(`${file}: workflow has the same name as a known compromise`);
       const text = fs.readFileSync(path.join(workflows, name), 'utf8');

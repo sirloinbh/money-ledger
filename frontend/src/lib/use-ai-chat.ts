@@ -103,7 +103,8 @@ export function useAiChat(origin: string, context: ChatContext) {
           setError(caught instanceof ChatError ? caught.message : 'Something went wrong');
         }
       } finally {
-        setBusy(false);
+        // A turn that reset() cancelled settles later: it must not clear the busy state of the turn that replaced it.
+        if (abort.current === controller) setBusy(false);
       }
     },
     [busy, origin, updateLast],

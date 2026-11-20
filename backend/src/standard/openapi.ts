@@ -74,6 +74,24 @@ const isIdName = (name: string) => name === 'id' || /[a-z0-9]Id$/.test(name);
 
 const errorRef = { content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } };
 
+/** Fails on a table entry the document cannot describe, naming the route, instead of writing a wrong document. */
+function checkOperation(route: string, op: Operation) {
+  const [method, path, ...extra] = route.split(' ');
+  if (!method || !path || !path.startsWith('/') || extra.length) {
+    throw new Error(`${route}: the key must be 'METHOD /path'`);
+  }
+  if (op.status.length === 0) throw new Error(`${route}: status needs at least the success status`);
+  const names = [...path.matchAll(/:(\w+)/g)].map(([, name]) => name);
+  const repeated = names.find((name, index) => names.indexOf(name) !== index);
+  if (repeated) throw new Error(`${route}: the path parameter :${repeated} appears twice`);
+  for (const name of Object.keys(op.params ?? {})) {
+    if (!names.includes(name)) throw new Error(`${route}: params lists '${name}', which is not a parameter of the path`);
+  }
+  const headers = Object.keys(op.headers ?? {}).map((name) => name.toLowerCase());
+  const twice = headers.find((name, index) => headers.indexOf(name) !== index);
+  if (twice) throw new Error(`${route}: the header '${twice}' is listed twice (header names ignore case)`);
+}
+
 export function buildOpenApi(options: OpenApiOptions) {
   const text = { ...defaultStatusText, ...options.statusText };
   const schemas: Json = {
@@ -87,15 +105,20 @@ export function buildOpenApi(options: OpenApiOptions) {
   for (const route of Object.keys(options.operations).sort()) {
     const [method, path] = route.split(' ') as [string, string];
     const op = options.operations[route];
-    const parameters: Json[] = [...path.matchAll(/:(\w+)/g)].map(([, name]) => ({
+    checkOperation(route, op);
+    const parameters: Json[] =[...path.matchAll(/:(\w+)/g)].map(([, name]) => ({
       name,
       in: 'path',
       required: true,
       schema: op.params?.[name] ? schemaOf(op.params[name]) : isIdName(name) ? { type: 'integer', minimum: 1 } : { type: 'string' },
     }));
     if (op.query) {
-      const query = schemaOf(op.query) as { properties?: Json; required?: string[] };
-      for (const [name, schema] of Object.entries(query.properties ?? {})) {
+      const query = schemaOf(op.query) as { type?: unknown; properties?: Json; required?: string[] };
+      // A union or an intersection has no `properties`: its parameters would silently be left out of the document.
+      if (query.type !== 'object' || typeof query.properties !== 'object') {
+        throw new Error(`${route}: query must be a Zod object (a union or intersection cannot be listed as parameters)`);
+      }
+      for (const [name, schema] of Object.entries(query.properties)) {
         parameters.push({ name, in: 'query', required: !!query.required?.includes(name), schema });
       }
     }

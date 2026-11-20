@@ -58,6 +58,8 @@ export function requestIdOf(res: Response): string | undefined {
 /**
  * Keeps a valid incoming X-Request-Id or creates one, returns it in the X-Request-Id response header, and
  * logs one JSON line when the response ends: time, level, requestId, method, path (no query), status, ms.
+ * A request whose connection closed before the response was written is logged as `status: 499, aborted: true` at
+ * level warn, not with the 200 that `res.statusCode` still holds (#869).
  */
 export function requestLog(req: Request, res: Response, next: NextFunction) {
   const incoming = req.get('x-request-id');
@@ -67,7 +69,8 @@ export function requestLog(req: Request, res: Response, next: NextFunction) {
   res.setHeader('X-Request-Id', requestId);
   // 'close' also fires when the client aborts, where 'finish' would not.
   res.on('close', () => {
-    const status = res.statusCode;
+    const aborted = !res.writableFinished;
+    const status = aborted ? 499 : res.statusCode;
     const line = JSON.stringify({
       time: new Date().toISOString(),
       level: status >= 500 ? 'error' : status >= 400 ? 'warn' : 'info',
@@ -75,6 +78,7 @@ export function requestLog(req: Request, res: Response, next: NextFunction) {
       method: req.method,
       path: req.originalUrl.split('?')[0],
       status,
+      ...(aborted ? { aborted: true } : {}),
       ms: Math.round(performance.now() - started),
     });
     if (status >= 500) console.error(line);
