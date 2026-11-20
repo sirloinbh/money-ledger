@@ -10,7 +10,7 @@ import { migrate, migrationStatus, readMigrations } from './migrations.js';
 
 // The advisory lock key of this app: 581_000 plus its registry slot, so no two apps share one.
 const lockKey = 581_000 + 5;
-// backend/src/standard (tsx) and /app/dist/standard (the image) are both three levels below the folder that holds database/.
+// backend/src/standard (tsx) and /app/backend/dist/standard (the image) are both three levels below the folder that holds database/ (the repo root; /app in the image, where deploy mounts it).
 const dir = fileURLToPath(new URL('../../../database/migrations/', import.meta.url));
 
 const flags = process.argv.slice(2);

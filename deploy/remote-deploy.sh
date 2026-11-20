@@ -148,7 +148,7 @@ case "${1:-}" in
     # Apps migrate as a step with the migrations mounted; a shared service's image runs them when it starts.
     if [ "step" = step ]; then
       IMAGE_TAG="$tag" docker compose run --rm --no-deps \
-        -v "$PWD/database/migrations:/database/migrations:ro" api node dist/migrate.js
+        -v "$PWD/database/migrations:/app/database/migrations:ro" api node dist/migrate.js
     fi
     save_api_errors
     IMAGE_TAG="$tag" docker compose up -d
