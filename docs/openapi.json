@@ -10,6 +10,11 @@
       "url": "/"
     }
   ],
+  "security": [
+    {
+      "session": []
+    }
+  ],
   "paths": {
     "/api/ledger/entries/{id}": {
       "delete": {
@@ -39,8 +44,28 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -88,6 +113,16 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
             "content": {
@@ -100,6 +135,26 @@
           },
           "409": {
             "description": "Duplicate or conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -139,8 +194,28 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -180,8 +255,28 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -229,8 +324,38 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -279,8 +404,28 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -337,8 +482,38 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -387,8 +562,28 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -403,6 +598,7 @@
     "/api/health": {
       "get": {
         "summary": "Check the server and the database connection",
+        "security": [],
         "responses": {
           "200": {
             "description": "Success"
@@ -440,6 +636,26 @@
           },
           "400": {
             "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -492,6 +708,26 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       },
@@ -521,8 +757,38 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "409": {
             "description": "Duplicate or conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -587,9 +853,7 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "enum": [
-                    "none"
-                  ]
+                  "const": "none"
                 },
                 {
                   "type": "string",
@@ -639,6 +903,26 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       },
@@ -668,8 +952,38 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "409": {
             "description": "Duplicate or conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -734,9 +1048,7 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "enum": [
-                    "none"
-                  ]
+                  "const": "none"
                 },
                 {
                   "type": "string",
@@ -786,6 +1098,26 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -796,6 +1128,26 @@
         "responses": {
           "200": {
             "description": "Success"
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -820,6 +1172,26 @@
           },
           "400": {
             "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -856,8 +1228,38 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Valid input the server cannot process",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -875,6 +1277,26 @@
         "responses": {
           "200": {
             "description": "Success"
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       },
@@ -904,8 +1326,38 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "409": {
             "description": "Duplicate or conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -937,6 +1389,26 @@
           },
           "400": {
             "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -984,6 +1456,26 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -997,6 +1489,16 @@
           },
           "401": {
             "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -1024,6 +1526,26 @@
         "responses": {
           "200": {
             "description": "Success"
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       },
@@ -1053,8 +1575,38 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "409": {
             "description": "Duplicate or conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -1094,8 +1646,28 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -1171,8 +1743,28 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -1220,6 +1812,16 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
             "content": {
@@ -1232,6 +1834,26 @@
           },
           "409": {
             "description": "Duplicate or conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -1301,8 +1923,28 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -1342,8 +1984,28 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -1382,6 +2044,26 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       },
@@ -1403,6 +2085,36 @@
           },
           "400": {
             "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -1442,8 +2154,28 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -1491,8 +2223,38 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -1532,8 +2294,28 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -1581,8 +2363,38 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -1621,6 +2433,26 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       },
@@ -1630,8 +2462,28 @@
           "200": {
             "description": "Success"
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Valid input the server cannot process",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -1671,6 +2523,26 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -1703,8 +2575,28 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -1722,6 +2614,26 @@
         "responses": {
           "200": {
             "description": "Success"
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -1754,8 +2666,28 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -1805,6 +2737,16 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
             "content": {
@@ -1817,6 +2759,26 @@
           },
           "409": {
             "description": "Duplicate or conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -1866,8 +2828,38 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -1885,6 +2877,26 @@
         "responses": {
           "200": {
             "description": "Success"
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -1915,6 +2927,36 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -1938,6 +2980,36 @@
           },
           "400": {
             "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -1976,8 +3048,38 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Valid input the server cannot process",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -2015,6 +3117,36 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -2025,6 +3157,26 @@
         "responses": {
           "200": {
             "description": "Success"
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -2067,6 +3219,16 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
             "content": {
@@ -2079,6 +3241,26 @@
           },
           "409": {
             "description": "Duplicate or conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -2118,8 +3300,28 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -2137,6 +3339,26 @@
         "responses": {
           "200": {
             "description": "Success"
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -2179,8 +3401,38 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -2211,7 +3463,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+              "pattern": "^d{4}-(0[1-9]|1[0-2])$"
             }
           }
         ],
@@ -2239,8 +3491,38 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -2280,8 +3562,28 @@
               }
             }
           },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -2301,7 +3603,7 @@
         "properties": {
           "error": {
             "type": "string",
-            "description": "Error message in English"
+            "description": "English error message"
           }
         },
         "required": [
@@ -2331,12 +3633,13 @@
           },
           "categoryId": {
             "type": "integer",
-            "exclusiveMinimum": 0
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
           },
           "amount": {
             "type": "integer",
-            "maximum": 9007199254740991,
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 9007199254740991
           },
           "variable": {
             "type": "boolean"
@@ -2392,22 +3695,27 @@
             "maximum": 9007199254740991
           },
           "categoryId": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "exclusiveMinimum": 0,
-            "default": null
+            "default": null,
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "merchant": {
+            "default": "",
             "type": "string",
-            "maxLength": 50,
-            "default": ""
+            "maxLength": 50
           },
           "memo": {
+            "default": "",
             "type": "string",
-            "maxLength": 200,
-            "default": ""
+            "maxLength": 200
           }
         },
         "required": [
@@ -2420,13 +3728,14 @@
         "type": "object",
         "properties": {
           "entryIds": {
+            "minItems": 1,
+            "maxItems": 200,
             "type": "array",
             "items": {
               "type": "integer",
-              "exclusiveMinimum": 0
-            },
-            "minItems": 1,
-            "maxItems": 200
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
           }
         },
         "required": [
@@ -2437,21 +3746,23 @@
         "type": "object",
         "properties": {
           "entryIds": {
+            "minItems": 1,
+            "maxItems": 200,
             "type": "array",
             "items": {
               "type": "integer",
-              "exclusiveMinimum": 0
-            },
-            "minItems": 1,
-            "maxItems": 200
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
           },
           "categoryId": {
             "type": "integer",
-            "exclusiveMinimum": 0
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
           },
           "remember": {
-            "type": "boolean",
-            "default": false
+            "default": false,
+            "type": "boolean"
           }
         },
         "required": [
@@ -2463,13 +3774,16 @@
         "type": "object",
         "properties": {
           "rows": {
+            "minItems": 1,
+            "maxItems": 2000,
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
                 "line": {
                   "type": "integer",
-                  "exclusiveMinimum": 0
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
                 },
                 "date": {
                   "type": "string"
@@ -2481,16 +3795,16 @@
                   "type": "string"
                 },
                 "category": {
-                  "type": "string",
-                  "default": ""
+                  "default": "",
+                  "type": "string"
                 },
                 "merchant": {
-                  "type": "string",
-                  "default": ""
+                  "default": "",
+                  "type": "string"
                 },
                 "memo": {
-                  "type": "string",
-                  "default": ""
+                  "default": "",
+                  "type": "string"
                 }
               },
               "required": [
@@ -2499,13 +3813,11 @@
                 "kind",
                 "amount"
               ]
-            },
-            "minItems": 1,
-            "maxItems": 2000
+            }
           },
           "skipDuplicates": {
-            "type": "boolean",
-            "default": true
+            "default": true,
+            "type": "boolean"
           }
         },
         "required": [
@@ -2522,12 +3834,13 @@
           },
           "categoryId": {
             "type": "integer",
-            "exclusiveMinimum": 0
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
           },
           "amount": {
             "type": "integer",
-            "maximum": 9007199254740991,
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 9007199254740991
           },
           "variable": {
             "type": "boolean"
@@ -2556,12 +3869,13 @@
         "properties": {
           "keyword": {
             "type": "string",
-            "maxLength": 50,
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 50
           },
           "categoryId": {
             "type": "integer",
-            "exclusiveMinimum": 0
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -2573,10 +3887,10 @@
         "type": "object",
         "properties": {
           "initialCashKrw": {
+            "default": 10000000,
             "type": "integer",
             "minimum": 10000,
-            "maximum": 10000000000,
-            "default": 10000000
+            "maximum": 10000000000
           }
         }
       },
@@ -2585,7 +3899,8 @@
         "properties": {
           "securityId": {
             "type": "integer",
-            "exclusiveMinimum": 0
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
           },
           "side": {
             "type": "string",
@@ -2600,28 +3915,41 @@
           },
           "requestKey": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           },
           "expectedPrice": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 30
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 30
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "expectedPriceDate": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 10
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "expectedFxRate": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 30
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 30
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -2662,139 +3990,175 @@
             ]
           },
           "quantity": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "pattern": "^\\d{1,12}(\\.\\d{1,8})?$",
-            "default": null
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{1,12}(\\.\\d{1,8})?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "valueKrw": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "minimum": 0,
-            "maximum": 1000000000000000,
-            "default": null
+            "default": null,
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000000
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "valueForeign": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
-            "default": null
-          },
-          "memo": {
-            "type": "string",
-            "maxLength": 200,
-            "default": ""
-          },
-          "depreciation": {
-            "type": [
-              "object",
-              "null"
-            ],
-            "properties": {
-              "purchasePriceKrw": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 1000000000000000
-              },
-              "purchasedOn": {
-                "type": "string",
-                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
-              },
-              "usefulLifeMonths": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 1200
-              },
-              "salvageValueKrw": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 1000000000000000,
-                "default": 0
-              }
-            },
-            "required": [
-              "purchasePriceKrw",
-              "purchasedOn",
-              "usefulLifeMonths"
-            ],
-            "default": null
-          },
-          "prepaid": {
-            "type": [
-              "object",
-              "null"
-            ],
-            "properties": {
-              "kind": {
-                "type": "string",
-                "enum": [
-                  "amount",
-                  "period"
-                ]
-              },
-              "amountKrw": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 1000000000000000
-              },
-              "startsOn": {
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-                "default": null
-              },
-              "expiresOn": {
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-                "default": null
-              }
-            },
-            "required": [
-              "kind",
-              "amountKrw"
-            ],
-            "default": null
-          },
-          "securityId": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "exclusiveMinimum": 0,
-            "maximum": 9007199254740991,
-            "default": null
-          },
-          "manualPrice": {
-            "type": [
-              "object",
-              "null"
-            ],
-            "properties": {
-              "price": {
+            "default": null,
+            "anyOf": [
+              {
                 "type": "string",
                 "pattern": "^\\d{1,16}(\\.\\d{1,4})?$"
               },
-              "pricedOn": {
-                "type": "string",
-                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              {
+                "type": "null"
               }
-            },
-            "required": [
-              "price",
-              "pricedOn"
-            ],
-            "default": null
+            ]
+          },
+          "memo": {
+            "default": "",
+            "type": "string",
+            "maxLength": 200
+          },
+          "depreciation": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "purchasePriceKrw": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000000000000
+                  },
+                  "purchasedOn": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "usefulLifeMonths": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1200
+                  },
+                  "salvageValueKrw": {
+                    "default": 0,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000000000000
+                  }
+                },
+                "required": [
+                  "purchasePriceKrw",
+                  "purchasedOn",
+                  "usefulLifeMonths"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prepaid": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "amount",
+                      "period"
+                    ]
+                  },
+                  "amountKrw": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000000000000
+                  },
+                  "startsOn": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "expiresOn": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "amountKrw"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "securityId": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "manualPrice": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "price": {
+                    "type": "string",
+                    "pattern": "^\\d{1,16}(\\.\\d{1,4})?$"
+                  },
+                  "pricedOn": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                },
+                "required": [
+                  "price",
+                  "pricedOn"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -2826,29 +4190,33 @@
             "pattern": "^\\d{1,16}(\\.\\d{1,4})?$"
           },
           "fxRate": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "pattern": "^\\d{1,8}(\\.\\d{1,4})?$",
-            "default": null
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{1,8}(\\.\\d{1,4})?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "feeKrw": {
+            "default": 0,
             "type": "integer",
             "minimum": 0,
-            "maximum": 1000000000000000,
-            "default": 0
+            "maximum": 1000000000000000
           },
           "taxKrw": {
+            "default": 0,
             "type": "integer",
             "minimum": 0,
-            "maximum": 1000000000000000,
-            "default": 0
+            "maximum": 1000000000000000
           },
           "memo": {
+            "default": "",
             "type": "string",
-            "maxLength": 100,
-            "default": ""
+            "maxLength": 100
           }
         },
         "required": [
@@ -2871,9 +4239,9 @@
             "maximum": 1000000000000000
           },
           "memo": {
+            "default": "",
             "type": "string",
-            "maxLength": 100,
-            "default": ""
+            "maxLength": 100
           }
         },
         "required": [
@@ -2890,8 +4258,8 @@
           },
           "amount": {
             "type": "integer",
-            "maximum": 9007199254740991,
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -2904,13 +4272,21 @@
         "properties": {
           "amount": {
             "type": "integer",
-            "maximum": 9007199254740991,
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 9007199254740991
           }
         },
         "required": [
           "amount"
         ]
+      }
+    },
+    "securitySchemes": {
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "sirloinbh.session_token",
+        "description": "The shared sign-in session cookie (ADR-0015)."
       }
     }
   }
