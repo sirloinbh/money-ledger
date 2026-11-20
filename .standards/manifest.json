@@ -1,5 +1,5 @@
 {
-  "centralSha": "65e559661e7dfbd05d42d7031244677035f71819",
+  "centralSha": "cb45d40e7fee77f363857521d90c3c1eee056a32",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -177,6 +177,11 @@
       "mode": "full",
       "sha256": "0507fcf2a617ec2a7b7dde04bd66adfa15a26e25cd4d5f5d50ecce455616ce1e",
       "source": "scripts/standards-check.mjs"
+    },
+    ".standards/ci-migrate.sh": {
+      "mode": "full",
+      "sha256": "cb46e78d0ee4acf968d9e5d49d9675c48f0d4457c5457515729183515326d414",
+      "source": "scripts/ci-migrate.sh"
     },
     ".standards/ioc-scan.mjs": {
       "mode": "full",
