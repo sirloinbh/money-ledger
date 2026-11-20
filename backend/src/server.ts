@@ -4,7 +4,7 @@ import { PgBoss } from 'pg-boss';
 import { createApp } from './app.js';
 import { snapshotOpenAccount } from './mock-snapshots.js';
 import { logPriceEvent, PRICE_QUEUE, priceQueue, sourcesFromEnv } from './prices/index.js';
-import { sharedAuth } from './standard/auth.js';
+import { listenHost, sharedAuth } from './standard/auth.js';
 import { createPool } from './standard/db.js';
 import { jobBossOptions, jobsModeFromEnv, jobsStatus, startJobs } from './standard/jobs.js';
 
@@ -25,13 +25,15 @@ const jobs = await startJobs(
 // A server that was off at 12:00 fetches once when it starts; the handler skips it when nothing is due.
 // No key: a `singleton` queue allows one running job per key, so a keyed job could overlap the cron's job.
 await jobs.send(PRICE_QUEUE, {});
+// Without the sign-in (local development) the API listens on 127.0.0.1 only; with it, on every interface (#866, #898).
+const auth = sharedAuth();
 const server = createApp(pool, {
   prices,
   priceLog: logPriceEvent,
-  auth: sharedAuth(),
+  auth,
   jobsStatus: jobsStatus(jobs.boss),
   toolsPublicKey: process.env.AI_TOOLS_PUBLIC_KEY,
-}).listen(port, '0.0.0.0', () => console.log(`API http://localhost:${port}`));
+}).listen(port, listenHost(auth !== undefined), () => console.log(`API http://localhost:${port}`));
 process.on('SIGTERM', () => {
   server.close(() => {
     void jobs.stop().then(() => pool.end());
