@@ -34,7 +34,13 @@ services:
       db: { condition: service_healthy }
     # The image has no curl, so node asks the API itself. `docker compose up -d --wait` and web's depends_on use it.
     healthcheck:
-      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3105/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3105/api/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
       interval: 5s
       timeout: 5s
       retries: 15
