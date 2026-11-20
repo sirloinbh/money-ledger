@@ -23,7 +23,6 @@
     "openapi": "npm run openapi -w backend",
     "typecheck": "npm run typecheck --workspaces && tsc -p e2e/tsconfig.json",
     "standards:check": "node .standards/check.mjs",
-    "lockfiles:sync": "node .standards/lockfiles.mjs --write",
     "knip": "knip"
   },
   "devDependencies": {
