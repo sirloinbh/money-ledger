@@ -2,15 +2,12 @@
 # Dependabot is used for security updates only. It does not open version-bump PRs(open-pull-requests-limit: 0).
 # Turn on security updates in the repo settings (Settings → Code security → Dependabot security updates).
 # Version bumps happen only through sync PRs from the central repo (docs/design.md section 4).
-# Each app has 3 lockfiles (root, frontend, backend), so the directories are grouped into one, and security updates are
-# opened as only two PRs: a minor/patch group and a major group (#267). Majors need code review, so they are kept separate.
+# Each app has one lockfile, the root package-lock.json (ADR-0022), so one directory covers the frontend and backend workspaces.
+# Security updates are opened as only two PRs: a minor/patch group and a major group (#267). Majors need code review, so they are kept separate.
 version: 2
 updates:
   - package-ecosystem: npm
-    directories:
-      - /
-      - /frontend
-      - /backend
+    directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 0
