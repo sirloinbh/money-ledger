@@ -23,8 +23,8 @@ export type ChatMessage = {
   calls: ToolCallView[];
 };
 
-/** Applies one stream event to the assistant message being built. Exported for tests. */
-export function applyEvent(message: ChatMessage, event: ChatEvent): ChatMessage {
+/** Applies one stream event to the assistant message being built. */
+function applyEvent(message: ChatMessage, event: ChatEvent): ChatMessage {
   switch (event.type) {
     case 'text':
       return { ...message, text: message.text + event.delta };

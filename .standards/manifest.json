@@ -1,5 +1,5 @@
 {
-  "centralSha": "cb45d40e7fee77f363857521d90c3c1eee056a32",
+  "centralSha": "73dc0c64c8cac666f61cd0117648808045b259c6",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -916,7 +916,7 @@
     },
     "frontend/src/lib/use-ai-chat.ts": {
       "mode": "full",
-      "sha256": "5f746d29af05259230ebb76af234c277446e00e615f605409ae6487fe04980b6",
+      "sha256": "5908817117c3059c3808bb1b4726fcde18724ddf3908491ff7ef7be977299c54",
       "source": "templates/ui/frontend/src/lib/use-ai-chat.ts"
     },
     "frontend/src/lib/use-notice.ts": {
