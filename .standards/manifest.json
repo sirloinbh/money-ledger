@@ -1,5 +1,5 @@
 {
-  "centralSha": "73dc0c64c8cac666f61cd0117648808045b259c6",
+  "centralSha": "e5a7ee6e2a90090b5dfd687667c7fd8cb0e1cc84",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -140,7 +140,7 @@
     },
     ".github/workflows/ci.yml": {
       "mode": "full",
-      "sha256": "0756fb22071ca78b216c4a230a5ceb00854df60cf0e467be9c81690caea00a9e",
+      "sha256": "0aaccd5674b2baefe9ae7f607d48a5336258d76a1d3dc1d9c86c32642a24c0b9",
       "source": "templates/app/.github/workflows/ci.yml.tmpl"
     },
     ".gitignore": {
@@ -285,7 +285,7 @@
     },
     "backend/src/standard/migrate.ts": {
       "mode": "full",
-      "sha256": "8a37a1344a53471d2df22c93d10c3f04df6096f71d5cc2682d840cdd98e5e172",
+      "sha256": "7e9cfe04d1e06dfb9f08ddb33af4aaf6e063112e355a24f86cde6528e3662d57",
       "source": "templates/app/backend/src/standard/migrate.ts.tmpl"
     },
     "backend/src/standard/migrations.ts": {
@@ -400,7 +400,7 @@
     },
     "deploy/remote-deploy.sh": {
       "mode": "full",
-      "sha256": "b5d2f5a391150d6bc894fcdd0a896a641fd2ba383f3dc7fb2cc70d50504add76",
+      "sha256": "b1e77e8485823d5c954a6b84033c73f49d2098820477a784744f9b76bc575399",
       "source": "templates/deploy/deploy/remote-deploy.sh.tmpl"
     },
     "deploy/report.service": {
@@ -478,7 +478,6 @@
         "dependencies.tailwind-merge": "3.7.0",
         "dependencies.tw-animate-css": "1.4.0",
         "dependencies.vaul": "1.1.2",
-        "dependencies.zod": "4.6.7",
         "devDependencies.@tailwindcss/vite": "4.3.3",
         "devDependencies.@testing-library/dom": "10.4.2",
         "devDependencies.@testing-library/jest-dom": "7.0.1",
@@ -490,7 +489,8 @@
         "devDependencies.tailwindcss": "4.3.3",
         "devDependencies.typescript": "5.9.3",
         "devDependencies.vite": "6.4.5",
-        "devDependencies.vitest": "5.0.3"
+        "devDependencies.vitest": "5.0.3",
+        "dependencies.zod": "4.6.7"
       },
       "source": "templates/index.json"
     },
