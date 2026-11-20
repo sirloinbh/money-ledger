@@ -1,13 +1,13 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import type { z } from 'zod/v4';
 
+import { categoryKind, categoryName } from '../../shared/contract';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
-import { categoryKind, categoryName } from './contract';
 import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 
