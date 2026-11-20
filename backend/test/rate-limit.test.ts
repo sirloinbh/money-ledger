@@ -11,11 +11,11 @@ test('requests over the per-minute limit get a 429', async () => {
   await withApi(
     pool,
     async (call) => {
-      assert.equal((await call('/api/health')).status, 200);
-      assert.equal((await call('/api/health')).status, 200);
-      const limited = await call('/api/health');
+      assert.equal((await call('/api/nothing')).status, 404);
+      assert.equal((await call('/api/nothing')).status, 404);
+      const limited = await call('/api/nothing');
       assert.equal(limited.status, 429);
-      assert.deepEqual(limited.data, { error: 'Too many requests. Try again in a moment' });
+      assert.deepEqual(limited.data, { error: 'Too many requests. Try again in a minute.' });
     },
     { requestsPerMinute: 2 },
   );
@@ -23,6 +23,18 @@ test('requests over the per-minute limit get a 429', async () => {
 
 test('the default limit leaves room for ordinary use', async () => {
   await withApi(pool, async (call) => {
-    for (let i = 0; i < 50; i += 1) assert.equal((await call('/api/health')).status, 200);
+    for (let i = 0; i < 50; i += 1) assert.equal((await call('/api/nothing')).status, 404);
   });
+});
+
+test('the health check is not counted', async () => {
+  await withApi(
+    pool,
+    async (call) => {
+      for (let i = 0; i < 3; i += 1) assert.equal((await call('/api/health')).status, 200);
+      assert.equal((await call('/api/nothing')).status, 404);
+      assert.equal((await call('/api/nothing')).status, 429);
+    },
+    { requestsPerMinute: 1 },
+  );
 });
