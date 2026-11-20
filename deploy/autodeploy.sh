@@ -50,9 +50,22 @@ say() {
 # lock busy sends nothing; the check's grace time covers it.
 signal() { if [ -f deploy/notify.sh ]; then bash deploy/notify.sh ping deploy "$@" || true; fi; }
 # One lock for every app on the server (ADR-0009): builds share 2 GB of memory, so only
-# one app builds or deploys at a time. A busy lock means "try again on the next run".
-exec 9> /run/lock/apps-deploy.lock
-flock -n 9 || { say "another deploy holds the lock; trying again on the next run"; exit 0; }
+# one app builds or deploys at a time. A busy lock is waited for up to 100 seconds, inside the 2-minute
+# timer period, so a run does not give up while a build ahead of it is about to finish (#899): with several
+# apps merged at once, a deploy that only polled once per run lost the lock again and again and waited far
+# longer than the queue ahead of it. If the lock is still busy, the next run tries again. AUTODEPLOY_LOCK_WAIT
+# (seconds) shortens the wait for tests.
+# The holder file names the app that took the lock last, so the busy line says who is deploying; it is
+# removed when that run ends, and a manual deploy (remote-deploy.sh) does not write it.
+lock=/run/lock/apps-deploy.lock
+holder=/run/lock/apps-deploy.holder
+exec 9> "$lock"
+if ! flock -w "${AUTODEPLOY_LOCK_WAIT:-100}" 9; then
+  say "another deploy holds the lock ($(cat "$holder" 2> /dev/null || echo unknown)); trying again on the next run"
+  exit 0
+fi
+echo "money-ledger" > "$holder" 2> /dev/null || true
+trap 'rm -f "$holder"' EXIT
 
 # FETCH_HEAD is the tip that was just fetched, whether or not the origin/main tracking ref was updated.
 git fetch --quiet origin main

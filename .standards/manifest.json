@@ -1,5 +1,5 @@
 {
-  "centralSha": "9c1f654987fbeb535abcfddb0cb2bf5828c53c10",
+  "centralSha": "c8ec08e7d9887071c29524c1817ccced8e22a625",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -350,7 +350,7 @@
     },
     "deploy/autodeploy.sh": {
       "mode": "full",
-      "sha256": "17a679162e72c3790e90ccfebd24c3fb5272856c7a11dbac998ea72076e754cd",
+      "sha256": "d16d38266d578050755e226be312d63beab3644bf46d2be3324905cbc75be8ba",
       "source": "templates/deploy/deploy/autodeploy.sh.tmpl"
     },
     "deploy/autodeploy.timer": {
