@@ -104,6 +104,64 @@ export function checkComposeWarnings(text) {
   return [];
 }
 
+/**
+ * Managed helpers that a repo-owned file must use (#906). Sync updates the managed file, but the repo-owned file
+ * that calls it does not change, so a helper can sit unused for weeks (#866 added `listenHost`, and 5 of 8 apps still
+ * passed a literal '0.0.0.0' a day later, #898). Each rule says which managed file offers the helper, which repo-owned
+ * file must use it, and how to tell from `sources` ([{ file, text }] of backend/src without tests).
+ * `applies(sources, manifestFiles)` is true only where the helper exists in this repo and the owned file is present;
+ * `check(sources)` returns problem texts. To add a rule: add an entry here and a passing and a failing case to
+ * scripts/test/standards-check.test.mjs (docs/changes/906-adoption-rules.md).
+ */
+const backendFile = (sources, file) => sources.find((s) => s.file === file);
+const notStandard = (sources) => sources.filter((s) => !s.file.startsWith('backend/src/standard/'));
+export const ADOPTION_RULES = [
+  {
+    id: 'listen-host',
+    helper: 'listenHost',
+    managedFile: 'backend/src/standard/auth.ts',
+    ownedFile: 'backend/src/server.ts',
+    applies: (sources, managed) => Boolean(managed['backend/src/standard/auth.ts'] && backendFile(sources, 'backend/src/server.ts')),
+    check: (sources) =>
+      /\blistenHost\(/.test(backendFile(sources, 'backend/src/server.ts').text)
+        ? []
+        : ["backend/src/server.ts: listen on `listenHost(auth !== undefined)` from standard/auth.ts instead of a literal host, so a run without the shared sign-in stays on 127.0.0.1 (project-standards#866, #898)."],
+  },
+  {
+    id: 'create-pool',
+    helper: 'createPool',
+    managedFile: 'backend/src/standard/db.ts',
+    // The files of the running server; one-off scripts (imports, exports) that open their own pool are not asked.
+    ownedFile: 'backend/src/server.ts, pool.ts or db.ts (the file that calls new Pool)',
+    applies: (sources, managed) => Boolean(managed['backend/src/standard/db.ts']),
+    check: (sources) =>
+      notStandard(sources)
+        .filter((s) => /^backend\/src\/(server|pool|db)\.ts$/.test(s.file) && /\bnew Pool\(/.test(s.text) && !/\bcreatePool\(/.test(s.text))
+        .map((s) => `${s.file}: wrap the pool with createPool(new Pool(...)) from standard/db.ts, so an idle-client error is logged and does not crash the process (ADR-0025).`),
+  },
+  {
+    id: 'tool-routes',
+    helper: 'registerToolRoutes',
+    managedFile: 'backend/src/standard/tools.ts',
+    ownedFile: 'backend/src/app.ts, backend/src/server.ts',
+    applies: (sources, managed) => Boolean(managed['backend/src/standard/tools.ts'] && backendFile(sources, 'backend/src/ai-tools.ts') && backendFile(sources, 'backend/src/app.ts')),
+    check: (sources) => {
+      const warnings = [];
+      const app = backendFile(sources, 'backend/src/app.ts').text;
+      if (!/\bregisterToolRoutes\(/.test(app)) warnings.push('backend/src/app.ts: ai-tools.ts exists but registerToolRoutes(app, { app, tools, pool, publicKey, requireBinding: true }) is not called, so shared-ai cannot reach the tools (docs/ai-tools.md).');
+      else if (!/\brequireBinding:\s*true\b/.test(app)) warnings.push('backend/src/app.ts: registerToolRoutes needs requireBinding: true, so a call token must name its tool and cannot be replayed (project-standards#670, #822).');
+      const server = backendFile(sources, 'backend/src/server.ts');
+      if (server && !/\bAI_TOOLS_PUBLIC_KEY\b/.test(server.text)) warnings.push('backend/src/server.ts: pass toolsPublicKey: process.env.AI_TOOLS_PUBLIC_KEY to createApp, or the AI tool routes stay off (docs/ai-tools.md).');
+      return warnings;
+    },
+  },
+];
+
+/** Warnings for the adoption rules that apply to this repo. `managed` is manifest.files. */
+export function checkAdoption(sources, managed = {}) {
+  return ADOPTION_RULES.filter((rule) => rule.applies(sources, managed)).flatMap((rule) => rule.check(sources));
+}
+
 // API rules from docs/directory-rules.md "API". Warnings only: the apps grew different layouts
 // (routes/ modules or Routers in src/), so these look for the rules, not for one file layout.
 // sources: [{ file: 'backend/src/…', text }] without tests. Returns warning strings.
@@ -263,6 +321,7 @@ export function runCheck(root) {
   }
   const backend = apiSources(root);
   warnings.push(...checkApi(backend));
+  warnings.push(...checkAdoption(backend, manifest.files));
   warnings.push(...checkZodArrays(backend));
   warnings.push(...checkFileNames(frontendFiles(root)));
   const compose = read('compose.yaml');

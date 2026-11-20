@@ -190,3 +190,69 @@ test('the conversation stays where the user scrolled to', async () => {
   expect(await screen.findByText('Done.')).toBeInTheDocument();
   expect(log.scrollTop).toBe(0);
 });
+
+// The real server holds the stream open while it waits for Allow and sends `done` only afterwards, so the
+// conversation id has to arrive before `done` (a `start` event) for the first message of a conversation.
+function heldStream() {
+  const encoder = new TextEncoder();
+  let controller!: ReadableStreamDefaultController<Uint8Array>;
+  const body = new ReadableStream<Uint8Array>({
+    start: (c) => {
+      controller = c;
+    },
+  });
+  const send = (event: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+  const response = new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+  return { response, send, close: () => controller.close() };
+}
+
+test('Allow works while the stream is still open: the conversation id comes with the start event', async () => {
+  const stream = heldStream();
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(stream.response)
+    .mockResolvedValueOnce(new Response(null, { status: 204 }));
+  vi.stubGlobal('fetch', fetchMock);
+  openPanel();
+  ask('Add a run');
+  stream.send({ type: 'start', conversationId: 'c1' });
+  stream.send(addWorkout);
+  fireEvent.click(await screen.findByRole('button', { name: 'Allow' }));
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit];
+  expect(url).toBe('https://ai.daysofme.com/api/chat/confirm');
+  expect(JSON.parse(init.body as string)).toEqual({ conversationId: 'c1', callId: 't1', approve: true });
+  stream.send({ type: 'tool_result', id: 't1', ok: true, summary: 'Added' });
+  stream.send({ type: 'done', conversationId: 'c1' });
+  stream.close();
+  expect(await screen.findByText('Added')).toBeInTheDocument();
+});
+
+test('Allow without a conversation id shows an error instead of doing nothing', async () => {
+  const stream = heldStream();
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(stream.response));
+  openPanel();
+  ask('Add a run');
+  stream.send(addWorkout);
+  fireEvent.click(await screen.findByRole('button', { name: 'Allow' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent(/start a new conversation/i);
+  stream.close();
+});
+
+test('a failed confirm shows the error and marks the call failed', async () => {
+  const stream = heldStream();
+  vi.stubGlobal(
+    'fetch',
+    vi
+      .fn()
+      .mockResolvedValueOnce(stream.response)
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: 'No change is waiting for an answer' }), { status: 404 })),
+  );
+  openPanel();
+  ask('Add a run');
+  stream.send({ type: 'start', conversationId: 'c1' });
+  stream.send(addWorkout);
+  fireEvent.click(await screen.findByRole('button', { name: 'Allow' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('No change is waiting for an answer');
+  stream.close();
+});
