@@ -8,14 +8,14 @@ exist". The recipe is `docs/conventions/first-ai-tool.md` in project-standards.
 
 ## Changes
 
-| File | Change |
-|---|---|
-| `database/migrations/022_audit_log.sql` | The audit table, copied unchanged from the scaffold |
-| `backend/src/entries.ts` | The paged list moved out of the route into `listEntries(db, query)`; the route calls it. Same SQL, same answer |
-| `backend/src/ai-tools.ts` | `list_entries`: a date range of at most 366 days, optional `kind`, `limit` (default 50, at most 100). Returns the entries and `total`, the same fields as `GET /api/ledger/entries` |
-| `backend/src/app.ts`, `backend/src/server.ts` | `registerToolRoutes` with `requireBinding: true`; `toolsPublicKey` from `AI_TOOLS_PUBLIC_KEY` |
-| `compose.yaml`, `.env.example` | `AI_TOOLS_PUBLIC_KEY`, the `shared-ai` network with the alias `money-ledger-api`, and the external network |
-| `backend/test/ai-tools.integration.test.ts`, `ai-tools-binding.test.ts` | Scope, signature, range, audit rows (`denied`, `ok`, `ok`, `error`); no key means a JSON 404; unbound, wrong-tool and replayed tokens are 401 |
+| File                                                                    | Change                                                                                                                                                                              |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `database/migrations/022_audit_log.sql`                                 | The audit table, copied unchanged from the scaffold                                                                                                                                 |
+| `backend/src/entries.ts`                                                | The paged list moved out of the route into `listEntries(db, query)`; the route calls it. Same SQL, same answer                                                                      |
+| `backend/src/ai-tools.ts`                                               | `list_entries`: a date range of at most 366 days, optional `kind`, `limit` (default 50, at most 100). Returns the entries and `total`, the same fields as `GET /api/ledger/entries` |
+| `backend/src/app.ts`, `backend/src/server.ts`                           | `registerToolRoutes` with `requireBinding: true`; `toolsPublicKey` from `AI_TOOLS_PUBLIC_KEY`                                                                                       |
+| `compose.yaml`, `.env.example`                                          | `AI_TOOLS_PUBLIC_KEY`, the `shared-ai` network with the alias `money-ledger-api`, and the external network                                                                          |
+| `backend/test/ai-tools.integration.test.ts`, `ai-tools-binding.test.ts` | Scope, signature, range, audit rows (`denied`, `ok`, `ok`, `error`); no key means a JSON 404; unbound, wrong-tool and replayed tokens are 401                                       |
 
 ## Verification
 
