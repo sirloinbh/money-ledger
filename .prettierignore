@@ -17,6 +17,8 @@ AGENTS.md
 CLAUDE.md
 skills/std-*/
 .claude/skills/std-*/
+skills/orca-lanes/
+.claude/skills/orca-lanes/
 .github/ISSUE_TEMPLATE/
 .github/pull_request_template.md
 .github/dependabot.yml

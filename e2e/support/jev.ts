@@ -2,9 +2,10 @@
 // The core of the Jev judge for e2e tests, with no Playwright import: it builds the request, replays or records
 // fixtures, and applies the gate. `judged.ts` wraps it for a Playwright page.
 //
-// Jev (TypeSafe AI) answers typed questions about text. With JEV_API_KEY and JEV_API_URL set, a call goes to the API
-// and its answer is stored as e2e/fixtures/jev/<hash of the request>.json. Without them the stored answer with the
-// same hash is replayed, so PR CI stays offline. No fixture and no key: the check is skipped, never failed.
+// Jev (TypeSafe AI) answers typed questions about text. With JEV_API_KEY set, a call goes to the API (the vendor's own
+// route by default; JEV_API_URL and JEV_MODEL select another, such as OpenRouter) and its answer is stored as
+// e2e/fixtures/jev/<hash of the request>.json. Without the key the stored answer with the same hash is replayed,
+// so PR CI stays offline. No fixture and no key: the check is skipped, never failed.
 // Only a confident wrong answer fails; anything else is a warning. The key stays in this Node process.
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -34,6 +35,9 @@ export const MAX_STATE_CHARS = 24_000;
 export const MAX_CALLS = 50;
 export const MAX_INPUT_TOKENS = 400_000;
 const TIMEOUT_MS = 10_000;
+/** The vendor's own route (System One), which the key in SSM is for (ADR-0028, #932). */
+export const DEFAULT_API_URL = 'https://api.typesafe.ai/v1/systemone';
+export const DEFAULT_MODEL = 'jev-latest';
 
 export type JevEnv = { JEV_API_KEY?: string; JEV_API_URL?: string; JEV_MODEL?: string };
 export type JevBudget = { calls: number; inputTokens: number };
@@ -47,7 +51,7 @@ export const sharedBudget: JevBudget = { calls: 0, inputTokens: 0 };
 export function buildRequest(
   state: string,
   questions: Record<string, JevQuestion>,
-  model = 'typesafe/jev',
+  model = DEFAULT_MODEL,
 ): JevRequest {
   return { model, state, questions };
 }
@@ -142,7 +146,7 @@ export async function judge(options: JudgeOptions): Promise<JevOutcome> {
   const file = join(options.fixtureDir, `${requestHash(request)}.json`);
   let response: JevResponse | undefined;
   let source: 'api' | 'fixture' = 'fixture';
-  if (env.JEV_API_KEY && env.JEV_API_URL) {
+  if (env.JEV_API_KEY) {
     if (budget.calls >= MAX_CALLS || budget.inputTokens >= MAX_INPUT_TOKENS) {
       return {
         outcome: 'skipped',
@@ -151,7 +155,12 @@ export async function judge(options: JudgeOptions): Promise<JevOutcome> {
     }
     budget.calls += 1;
     try {
-      response = await callApi(request, env.JEV_API_URL, env.JEV_API_KEY, options.fetchFn ?? fetch);
+      response = await callApi(
+        request,
+        env.JEV_API_URL || DEFAULT_API_URL,
+        env.JEV_API_KEY,
+        options.fetchFn ?? fetch,
+      );
     } catch (err) {
       return {
         outcome: 'skipped',
@@ -168,7 +177,7 @@ export async function judge(options: JudgeOptions): Promise<JevOutcome> {
     } catch {
       return {
         outcome: 'skipped',
-        reason: 'jev-fixture-missing: run once with JEV_API_KEY and JEV_API_URL to record it',
+        reason: 'jev-fixture-missing: run once with JEV_API_KEY to record it',
       };
     }
   }

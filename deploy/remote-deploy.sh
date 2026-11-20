@@ -135,9 +135,9 @@ case "${1:-}" in
     load_ssm_env
     tag=$(git rev-parse --short=12 HEAD)
     echo "deploy $tag (previous: ${current:-none})"
-    # Pulling is off (off until the quota is confirmed, #756). When on, the CI image for this commit is
+    # Pulling is on (off until the quota is confirmed, #756). When on, the CI image for this commit is
     # pulled instead of built here; a missing image falls back to the build, so an app can move before its first push.
-    if [ "off" = on ] && pull_images "$tag"; then
+    if [ "on" = on ] && pull_images "$tag"; then
       echo "pulled $tag from ghcr.io/sirloinbh"
     else
       IMAGE_TAG="$tag" docker compose build
@@ -183,7 +183,7 @@ case "${1:-}" in
     # `rollback <tag>` starts any earlier commit tag (pulled when pulling is on); without a tag it is the previous one.
     previous=${2:-$(cat .previous 2>/dev/null || true)}
     if [ -z "$previous" ]; then echo "no previous deployment" >&2; exit 1; fi
-    if [ -n "${2:-}" ] && [ "off" = on ]; then
+    if [ -n "${2:-}" ] && [ "on" = on ]; then
       git fetch --quiet --tags origin
       pull_images "$previous" || echo "could not pull $previous; using the local image if there is one" >&2
     fi
