@@ -15,6 +15,11 @@ export type Operation = {
   summary: string;
   /** The request body: its component name and Zod schema. */
   body?: [name: string, schema: ZodType];
+  /**
+   * Path parameters by name, as Zod schemas (for example `{ kind: z.enum(['a', 'b']), start: z.iso.date() }`). A name that is
+   * not listed is an integer id when it is `id` or ends in `Id`, and a string otherwise.
+   */
+  params?: Record<string, ZodType>;
   /** Query parameters as one Zod object. */
   query?: ZodType;
   /** The success status first, then the error statuses this route documents on its own. */
@@ -60,6 +65,9 @@ export function schemaOf(schema: ZodType): Json {
   return json;
 }
 
+/** `id` and names like `workoutId` are integer ids unless the operation lists a schema for them. */
+const isIdName = (name: string) => name === 'id' || /[a-z0-9]Id$/.test(name);
+
 const errorRef = { content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } };
 
 export function buildOpenApi(options: OpenApiOptions) {
@@ -79,7 +87,7 @@ export function buildOpenApi(options: OpenApiOptions) {
       name,
       in: 'path',
       required: true,
-      schema: name === 'id' ? { type: 'integer', minimum: 1 } : { type: 'string' },
+      schema: op.params?.[name] ? schemaOf(op.params[name]) : isIdName(name) ? { type: 'integer', minimum: 1 } : { type: 'string' },
     }));
     if (op.query) {
       const query = schemaOf(op.query) as { properties?: Json; required?: string[] };

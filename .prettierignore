@@ -50,9 +50,13 @@ frontend/src/lib/theme.test.ts
 frontend/src/lib/theme-config.ts
 frontend/src/lib/apps.ts
 frontend/src/lib/auth-config.ts
+frontend/src/lib/ai-config.ts
 frontend/src/lib/api.ts
 frontend/src/lib/api.test.ts
 frontend/src/lib/use-notice.ts
+frontend/src/lib/ai-chat.ts
+frontend/src/lib/ai-chat.test.ts
+frontend/src/lib/use-ai-chat.ts
 frontend/src/health.ts
 frontend/src/health.test.ts
 frontend/src/sign-in.tsx

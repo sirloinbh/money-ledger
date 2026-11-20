@@ -1,0 +1,11 @@
+# Managed file. Edit it in sirloinbh/project-standards templates/app/
+node_modules
+**/node_modules
+**/dist
+.git
+.env
+**/.env
+test-results
+playwright-report
+coverage
+.local

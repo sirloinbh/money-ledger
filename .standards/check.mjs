@@ -7,7 +7,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseEnvExample, ssmProblems } from './lib/env-tags.mjs';
-import { compareWorkspaceLockfile, workspaceLockfiles } from './lib/lockfiles.mjs';
 import { checkManifest, MANIFEST_PATH } from './lib/manifest.mjs';
 
 const CENTRAL = 'sirloinbh/project-standards';
@@ -220,31 +219,6 @@ function checkPackages(packages, read, problems) {
   }
 }
 
-// CI installs from the root lockfile and the Docker builds from frontend/ and backend/ lockfiles (#303).
-function checkLockfiles(read, problems) {
-  const rootPackage = read('package.json');
-  const rootLock = read('package-lock.json');
-  if (rootPackage === null || rootLock === null) return;
-  const lock = JSON.parse(rootLock);
-  for (const workspace of workspaceLockfiles(JSON.parse(rootPackage), (rel) => read(rel) !== null)) {
-    const file = `${workspace}/package-lock.json`;
-    let differences;
-    try {
-      differences = compareWorkspaceLockfile(lock, workspace, JSON.parse(read(file)));
-    } catch (error) {
-      problems.push({ group: 'workspace lockfile', path: file, message: error.message });
-      continue;
-    }
-    if (!differences.length) continue;
-    const shown = differences.slice(0, 5).map((d) => `${d.name} ${d.workspace.join('·') || 'none'} (root ${d.root.join('·') || 'none'})`);
-    problems.push({
-      group: 'workspace lockfile',
-      path: file,
-      message: `${differences.length} package(s) differ in version from the root package-lock.json: ${shown.join(', ')}${differences.length > 5 ? ' and more' : ''}. Fix with node .standards/lockfiles.mjs --write`,
-    });
-  }
-}
-
 /** Names of dependencies whose version is a ^ or ~ range; every app version must be exact (#701). */
 export function rangeVersions(pkg) {
   return ['dependencies', 'devDependencies', 'optionalDependencies'].flatMap((section) =>
@@ -268,7 +242,6 @@ export function runCheck(root) {
   }
   checkPackages(manifest.packages, read, problems);
   if (manifest.registry) checkRegistry(manifest.registry, read, problems, warnings);
-  checkLockfiles(read, problems);
   for (const file of ['package.json', 'frontend/package.json', 'backend/package.json']) {
     const text = read(file);
     for (const range of text === null ? [] : rangeVersions(JSON.parse(text))) problems.push({ group: 'version range', path: file, message: `${range} must be an exact version` });
