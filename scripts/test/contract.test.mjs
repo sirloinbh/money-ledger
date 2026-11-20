@@ -9,7 +9,7 @@ import { copies, diffContract, hasContract } from '../contract.mjs';
 
 test('repository contract copies match shared/contract.ts', () => {
   assert.deepEqual(diffContract(), []);
-  assert.equal(copies.length, 2);
+  assert.equal(copies.length, 1);
 });
 
 test('an app without shared/contract.ts has nothing to check (ADR-0026)', () => {

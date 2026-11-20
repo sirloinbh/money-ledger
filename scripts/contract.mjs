@@ -1,7 +1,7 @@
 // Managed file. Edit it in sirloinbh/project-standards templates/app/scripts/
-// Copies the shared input contract (source of truth: shared/contract.ts) into the
-// backend and frontend so each area still builds alone (Docker contexts, subtree repos).
-// `node scripts/contract.mjs sync` writes the copies; without arguments it only checks.
+// Copies the shared input contract (source of truth: shared/contract.ts) into the backend, whose `tsc` build
+// keeps src/ as its root. The frontend imports shared/contract.ts directly (#784).
+// `node scripts/contract.mjs sync` writes the copy; without arguments it only checks.
 // The contract is opt-in (ADR-0026): an app without shared/contract.ts has nothing to copy or check, and both commands exit 0.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const source = path.join(root, 'shared/contract.ts');
-export const copies = ['backend/src/contract.ts', 'frontend/src/contract.ts'].map((file) =>
+export const copies = ['backend/src/contract.ts'].map((file) =>
   path.join(root, file),
 );
 // Git may check files out with CRLF on Windows; compare text by content.
@@ -30,7 +30,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     console.log('No shared/contract.ts: the app does not use the shared contract.');
   } else if (process.argv[2] === 'sync') {
     for (const file of copies) fs.copyFileSync(source, file);
-    console.log('Copied shared/contract.ts to backend/src and frontend/src.');
+    console.log('Copied shared/contract.ts to backend/src.');
   } else {
     const stale = diffContract();
     if (stale.length) {
