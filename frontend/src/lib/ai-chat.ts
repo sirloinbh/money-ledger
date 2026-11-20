@@ -31,6 +31,8 @@ export type ToolCallInfo = {
 };
 
 export type ChatEvent =
+  // The first event of a turn: the id is needed to answer a confirmation while the stream is still open.
+  | { type: 'start'; conversationId: string }
   | { type: 'text'; delta: string }
   | ({ type: 'tool_call' } & ToolCallInfo)
   | { type: 'tool_result'; id: string; ok: boolean; summary?: string }
@@ -63,7 +65,7 @@ export function parseEventBlock(block: string): ChatEvent | null {
   }
   const event = value as { type?: unknown };
   if (typeof event?.type !== 'string') return null;
-  return ['text', 'tool_call', 'tool_result', 'limit', 'error', 'done'].includes(event.type)
+  return ['start', 'text', 'tool_call', 'tool_result', 'limit', 'error', 'done'].includes(event.type)
     ? (value as ChatEvent)
     : null;
 }

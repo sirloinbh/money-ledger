@@ -1,5 +1,5 @@
 {
-  "centralSha": "c8ec08e7d9887071c29524c1817ccced8e22a625",
+  "centralSha": "7812b9c848637f018e66f23aad2d35417d3f38a8",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -140,7 +140,7 @@
     },
     ".github/workflows/ci.yml": {
       "mode": "full",
-      "sha256": "b276ed7c7c11ae30a252f2bbcf8c6d51c3d15bc0e38750cf94cb97677e5c90d2",
+      "sha256": "737578c530b28575e96c2e30e03110a502e21c265b6b2b9724b1af199ad517f7",
       "source": "templates/app/.github/workflows/ci.yml.tmpl"
     },
     ".gitignore": {
@@ -175,7 +175,7 @@
     },
     ".standards/check.mjs": {
       "mode": "full",
-      "sha256": "ef4c3be007af70fd1701cc63d590f0dc4aa52a4aeaa34526f5e6f9abc1369ba7",
+      "sha256": "173364dd454da9a5a772d7a597391b2e5a760d1f3907bf73d6b1c6faa486ee6a",
       "source": "scripts/standards-check.mjs"
     },
     ".standards/ci-migrate.sh": {
@@ -541,7 +541,7 @@
     },
     "frontend/src/components/layout/ai-shell.test.tsx": {
       "mode": "full",
-      "sha256": "84b383a2ba9c5e93097258c7aa477fcb687d0f05268bbd4db5051ae5194dd87b",
+      "sha256": "885768ab25a241bf7e5407545831063d3690e71558f310a15178c4bfeab0324c",
       "source": "templates/ui/frontend/src/components/layout/ai-shell.test.tsx"
     },
     "frontend/src/components/layout/ai-shell.tsx": {
@@ -886,12 +886,12 @@
     },
     "frontend/src/lib/ai-chat.ts": {
       "mode": "full",
-      "sha256": "741e4286e8d66219e289600c0b04f128ab77efbd21458cab06b6f62e6d1aeb13",
+      "sha256": "8befa3a6f2bfacc5edf55e7945fe1cabd8f05d9936f33e3cdc5c004a74086df0",
       "source": "templates/ui/frontend/src/lib/ai-chat.ts"
     },
     "frontend/src/lib/ai-config.ts": {
       "mode": "full",
-      "sha256": "b79dc2f5959bdb290b8d48744be66646716ec97a2048ef6950c1d462ba60e39a",
+      "sha256": "674ff117542f53aff8b0c735bff39f6bea1733fc455b14b20128895f6fd24a9d",
       "source": "templates/ui/frontend/src/lib/ai-config.ts.tmpl"
     },
     "frontend/src/lib/api.test.ts": {
@@ -931,7 +931,7 @@
     },
     "frontend/src/lib/use-ai-chat.ts": {
       "mode": "full",
-      "sha256": "c503af1629155d854657698d4b187e60b51fd1151ae040453ca6011e4d54a7cc",
+      "sha256": "4bad18f6ba6d64ef2c7725933e291c81dc008783703ced6fe825a884dacb5448",
       "source": "templates/ui/frontend/src/lib/use-ai-chat.ts"
     },
     "frontend/src/lib/use-notice.ts": {

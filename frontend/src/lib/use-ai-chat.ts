@@ -92,7 +92,8 @@ export function useAiChat(origin: string, context: ChatContext) {
           context: contextRef.current,
           signal: controller.signal,
           onEvent: (event) => {
-            if (event.type === 'done') conversationId.current = event.conversationId;
+            // `start` comes first: a confirmation is answered while the stream is open, before `done`.
+            if (event.type === 'start' || event.type === 'done') conversationId.current = event.conversationId;
             else if (event.type === 'limit') setLimit(event.message);
             else if (event.type === 'error') setError(event.message);
             else updateLast((last) => applyEvent(last, event));
@@ -113,7 +114,11 @@ export function useAiChat(origin: string, context: ChatContext) {
   const answer = useCallback(
     async (callId: string, approve: boolean) => {
       const id = conversationId.current;
-      if (!id) return;
+      if (!id) {
+        // An answer that cannot be sent must not look like a click that did nothing.
+        setError('This conversation has no ID yet. Start a new conversation and try again.');
+        return;
+      }
       const patch = (status: ToolCallStatus) =>
         setMessages((all) =>
           all.map((m) => ({ ...m, calls: m.calls.map((c) => (c.id === callId ? { ...c, status } : c)) })),
