@@ -219,6 +219,27 @@ async function findEntry(pool: Pool, id: number) {
 type Chosen = EntryBody & { categoryId: number };
 const chosen = (body: EntryBody): body is Chosen => body.categoryId !== null;
 
+/** One page of the entries that match the filters, newest first. The list route and the AI tool share it. */
+export async function listEntries(db: Pick<Pool, 'query'>, query: ListQuery) {
+  const page = query.page ?? 1;
+  const pageSize = query.size ?? pageSizes.default;
+  const { where, params } = listFilter(query);
+  const n = params.length;
+  const [list, count] = await Promise.all([
+    db.query<Row>(
+      `${select} ${where} ORDER BY e.entry_date DESC, e.id DESC LIMIT $${n + 1} OFFSET $${n + 2}`,
+      [...params, pageSize, (page - 1) * pageSize],
+    ),
+    db.query<{ total: string }>(`SELECT count(*) AS total FROM ledger_entries e ${where}`, params),
+  ]);
+  return {
+    entries: list.rows.map(toEntry),
+    total: Number(count.rows[0].total),
+    page,
+    pageSize,
+  };
+}
+
 export function entriesRouter(pool: Pool) {
   const router = Router();
 
@@ -232,26 +253,7 @@ export function entriesRouter(pool: Pool) {
       res.json({ entries: rows.map(toEntry) });
       return;
     }
-    const page = query.page ?? 1;
-    const pageSize = query.size ?? pageSizes.default;
-    const { where, params } = listFilter(query);
-    const n = params.length;
-    const [list, count] = await Promise.all([
-      pool.query<Row>(
-        `${select} ${where} ORDER BY e.entry_date DESC, e.id DESC LIMIT $${n + 1} OFFSET $${n + 2}`,
-        [...params, pageSize, (page - 1) * pageSize],
-      ),
-      pool.query<{ total: string }>(
-        `SELECT count(*) AS total FROM ledger_entries e ${where}`,
-        params,
-      ),
-    ]);
-    res.json({
-      entries: list.rows.map(toEntry),
-      total: Number(count.rows[0].total),
-      page,
-      pageSize,
-    });
+    res.json(await listEntries(pool, query));
   });
 
   router.post('/', async (req, res) => {
