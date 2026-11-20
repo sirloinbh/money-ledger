@@ -1,16 +1,17 @@
+import { Pool } from 'pg';
 import { PgBoss } from 'pg-boss';
 
 import { createApp } from './app.js';
 import { snapshotOpenAccount } from './mock-snapshots.js';
-import { connectPool } from './pool.js';
 import { logPriceEvent, PRICE_QUEUE, priceQueue, sourcesFromEnv } from './prices/index.js';
 import { sharedAuth } from './standard/auth.js';
+import { createPool } from './standard/db.js';
 import { jobBossOptions, jobsModeFromEnv, jobsStatus, startJobs } from './standard/jobs.js';
 
 const port = Number(process.env.PORT ?? 3105);
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is required');
-const pool = connectPool(databaseUrl);
+const pool = createPool(new Pool({ connectionString: databaseUrl }));
 const prices = sourcesFromEnv();
 const boss = new PgBoss(jobBossOptions(databaseUrl));
 // PRICE_JOBS=off still works (the old switch); JOBS_MODE=off|send is the shared one (docs: price-source.md).

@@ -2,20 +2,82 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+import express from 'express';
 import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
 import { createApp } from '../src/app.js';
-import { buildOpenApi, jsonSchema, registeredRoutes } from '../src/openapi.js';
+import { document, operations } from '../src/openapi.js';
+import { schemaOf } from '../src/standard/openapi.js';
+
+const accounts = '/api/mock/accounts';
+const assets = '/api/portfolio/assets';
+
+type Layer = {
+  route?: { path: string; methods: Record<string, boolean> };
+  handle?: { stack?: Layer[] };
+  matchers?: ((path: string) => unknown)[];
+};
+// Express does not keep the path a router is mounted on, so the mounts are listed here in the order the app
+// registers them, per parent prefix. The walk checks each against the router's own matcher and fails on a
+// mismatch or a leftover, so a changed or new mount cannot slip by.
+const mounts: Record<string, string[]> = {
+  '': [
+    '/api/ledger/entries/csv',
+    '/api/ledger/budgets',
+    '/api/ledger/categories',
+    '/api/ledger/entries',
+    '/api/ledger/fixed-costs',
+    '/api/ledger/rules',
+    '/api/ledger/summary',
+    '/api/reports',
+    '/api/ledger/trend',
+    assets,
+    '/api/portfolio/net-worth',
+    `${accounts}/:accountId/orders`,
+    `${accounts}/:accountId/holdings`,
+    `${accounts}/:accountId/snapshots`,
+    accounts,
+    '/api/prices',
+  ],
+  [assets]: ['/:id/trades'],
+};
+function walk(stack: Layer[], prefix: string): string[] {
+  const expected = [...(mounts[prefix] ?? [])];
+  const found = stack.flatMap((layer) => {
+    if (layer.route) {
+      const path = layer.route.path === '/' ? prefix : prefix + layer.route.path;
+      return Object.keys(layer.route.methods).map((m) => `${m.toUpperCase()} ${path}`);
+    }
+    if (!layer.handle?.stack) return [];
+    const mount = expected.shift();
+    if (!mount || !layer.matchers?.[0]?.(mount))
+      throw new Error(`Router mounted at an unlisted path (expected ${mount}); update mounts`);
+    return walk(layer.handle.stack, prefix + mount);
+  });
+  if (expected.length) throw new Error(`Mounts not registered: ${expected.join(', ')}`);
+  return found;
+}
+function registeredRoutes(app: express.Express) {
+  return walk((app as unknown as { router: { stack: Layer[] } }).router.stack, '');
+}
 
 // Routes are only registered here, never called, so no database is needed.
 const app = () => createApp({} as Pool);
 
-test('docs/openapi.json is up to date with the routes and schemas', async () => {
+test('docs/openapi.json is up to date with the operation table', async () => {
   const committed = JSON.parse(
     await readFile(new URL('../../docs/openapi.json', import.meta.url), 'utf8'),
   ) as unknown;
-  assert.deepEqual(committed, buildOpenApi(app()), 'run `npm run openapi -w backend` and commit');
+  assert.deepEqual(
+    committed,
+    JSON.parse(JSON.stringify(document)),
+    'run `npm run openapi -w backend` and commit',
+  );
+});
+
+test('the operation table and the registered routes are the same set', () => {
+  assert.deepEqual(Object.keys(operations).sort(), [...registeredRoutes(app())].sort());
 });
 
 test('API paths start with /api and use lowercase words joined by hyphens', () => {
@@ -25,45 +87,16 @@ test('API paths start with /api and use lowercase words joined by hyphens', () =
     assert.match(route, /^[A-Z]+ \/api(\/(:\w+|[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+)?))*$/);
 });
 
-test('formats stay in the document whether they are the type or a check', () => {
-  assert.deepEqual(jsonSchema(z.int().min(1)), { type: 'integer', minimum: 1 });
-  assert.deepEqual(jsonSchema(z.number().int()), { type: 'integer' });
-  assert.deepEqual(jsonSchema(z.uuid()), { type: 'string', format: 'uuid' });
-  assert.deepEqual(jsonSchema(z.guid()), { type: 'string', format: 'uuid' });
-  assert.deepEqual(jsonSchema(z.string().uuid()), { type: 'string', format: 'uuid' });
-  assert.deepEqual(jsonSchema(z.email()), { type: 'string', format: 'email' });
-  assert.deepEqual(jsonSchema(z.iso.date()), { type: 'string', format: 'date' });
-  assert.deepEqual(jsonSchema(z.iso.datetime()), { type: 'string', format: 'date-time' });
+test('guarded routes document the sign-in, 401 and 429; the public route does not', () => {
+  const paths = document.paths as Record<
+    string,
+    Record<string, { security?: unknown[]; responses: Record<string, unknown> }>
+  >;
+  assert.deepEqual(paths['/api/health']!.get!.security, []);
+  assert.ok(!('401' in paths['/api/health']!.get!.responses));
+  assert.ok('429' in paths['/api/me']!.get!.responses);
 });
 
-test('a preprocessed value is described by its target', () => {
-  assert.deepEqual(jsonSchema(z.preprocess((value) => value, z.string().min(1))), {
-    type: 'string',
-    minLength: 1,
-  });
-});
-
-test('unsupported schemas and undocumented routes fail instead of being skipped', () => {
-  assert.throws(() => jsonSchema(z.date()), /Unsupported Zod type for OpenAPI: date/);
-  assert.throws(() => jsonSchema(z.ulid()), /Unsupported string format: ulid/);
-  const extended = app();
-  extended.get('/api/undocumented', (_req, res) => void res.json({}));
-  assert.throws(() => buildOpenApi(extended), /\+GET \/api\/undocumented/);
-});
-
-test('a union and a literal are described, as in the entry list category filter', () => {
-  assert.deepEqual(jsonSchema(z.union([z.literal('none'), z.string().regex(/^\d+$/)])), {
-    anyOf: [
-      { type: 'string', enum: ['none'] },
-      { type: 'string', pattern: String.raw`^\d+$` },
-    ],
-  });
-});
-
-test('every route of the nested routers is found, with its full path', () => {
-  const routes = registeredRoutes(app());
-  assert.ok(routes.includes('GET /api/portfolio/assets/:id/trades'));
-  assert.ok(routes.includes('POST /api/mock/accounts/:accountId/orders'));
-  assert.ok(routes.includes('PUT /api/ledger/fixed-costs/:id/months/:month'));
-  assert.equal(new Set(routes).size, routes.length, 'no route is listed twice');
+test('a type JSON Schema cannot express fails instead of being skipped', () => {
+  assert.throws(() => schemaOf(z.date()), /Date cannot be represented/);
 });
