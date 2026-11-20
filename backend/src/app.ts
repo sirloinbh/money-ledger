@@ -3,6 +3,7 @@ import express from 'express';
 import type { Pool } from 'pg';
 import { types } from 'pg';
 
+import { tools } from './ai-tools.js';
 import { assetsRouter } from './assets.js';
 import { budgetsRouter } from './budgets.js';
 import { categoriesRouter } from './categories.js';
@@ -20,6 +21,7 @@ import { rulesRouter } from './rules.js';
 import { setInt8Parser } from './standard/db.js';
 import { errorHandler, notFound, requestLog, serviceDate } from './standard/http.js';
 import { apiRateLimit } from './standard/rate-limit.js';
+import { registerToolRoutes } from './standard/tools.js';
 import { summaryRouter } from './summary.js';
 import { trendRouter } from './trend.js';
 
@@ -40,6 +42,8 @@ type AppOptions = {
   auth?: express.RequestHandler;
   // Read-only background job status (ADR-0018). Mounted after `auth`, so it needs the shared sign-in.
   jobsStatus?: express.RequestHandler;
+  // shared-ai's public key (project-standards#711). None by default: /internal/tools is then a JSON 404.
+  toolsPublicKey?: string;
 };
 
 export function createApp(pool: Pool, options: AppOptions = {}) {
@@ -95,6 +99,15 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
       log: options.priceLog ?? (() => undefined),
     }),
   );
+  // AI tools for shared-ai on /internal/tools: outside /api, so nginx never forwards them and the signed call
+  // token, not the session, is the check. shared-ai signs the tool and jti claims, so the app requires them.
+  registerToolRoutes(app, {
+    app: 'money-ledger',
+    tools,
+    pool,
+    publicKey: options.toolsPublicKey,
+    requireBinding: true,
+  });
   app.use('/api', notFound);
   app.use(errorHandler);
   return app;

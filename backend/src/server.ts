@@ -30,6 +30,7 @@ const server = createApp(pool, {
   priceLog: logPriceEvent,
   auth: sharedAuth(),
   jobsStatus: jobsStatus(jobs.boss),
+  toolsPublicKey: process.env.AI_TOOLS_PUBLIC_KEY,
 }).listen(port, '0.0.0.0', () => console.log(`API http://localhost:${port}`));
 process.on('SIGTERM', () => {
   server.close(() => {
