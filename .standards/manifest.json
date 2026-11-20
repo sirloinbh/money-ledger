@@ -1,5 +1,5 @@
 {
-  "centralSha": "7812b9c848637f018e66f23aad2d35417d3f38a8",
+  "centralSha": "39c40af728c442dbcc74fcae3a311a70c5dc0772",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -42,6 +42,11 @@
       "mode": "full",
       "sha256": "e67554ab7dd656ab57a1690d5a0ef18df592c96c562f482f92beb78045286003",
       "source": "templates/common/.claude/settings.json.tmpl"
+    },
+    ".claude/skills/orca-lanes/SKILL.md": {
+      "mode": "full",
+      "sha256": "c82722c8e36622482062325abb0761deb43b7d5b23bc33f5f93d27e973c2612c",
+      "source": "templates/common/skills/orca-lanes/SKILL.md"
     },
     ".claude/skills/std-backlog/SKILL.md": {
       "mode": "full",
@@ -140,7 +145,7 @@
     },
     ".github/workflows/ci.yml": {
       "mode": "full",
-      "sha256": "737578c530b28575e96c2e30e03110a502e21c265b6b2b9724b1af199ad517f7",
+      "sha256": "36c1c20cd7906f579295c350d24ed2e174877017e6af6f06441bbe0490dd1441",
       "source": "templates/app/.github/workflows/ci.yml.tmpl"
     },
     ".gitignore": {
@@ -165,7 +170,7 @@
     },
     ".prettierignore": {
       "mode": "section",
-      "sha256": "eecaa09e597906a8c0bfafaec67567ac980a312a46d0fc47f6d188aac62da3ff",
+      "sha256": "b2e51dd2a014403c87e744232b7c2b71f2e88c85ecf2a4cdfcffaa1e367732f1",
       "source": "templates/app/.prettierignore.tmpl"
     },
     ".standards/blocked-packages.json": {
@@ -350,7 +355,7 @@
     },
     "deploy/autodeploy.sh": {
       "mode": "full",
-      "sha256": "d16d38266d578050755e226be312d63beab3644bf46d2be3324905cbc75be8ba",
+      "sha256": "ef9491c14395180ca824d2ab9cb33ef2043c1c0d67a09b21f78945b7f34ba1a4",
       "source": "templates/deploy/deploy/autodeploy.sh.tmpl"
     },
     "deploy/autodeploy.timer": {
@@ -405,7 +410,7 @@
     },
     "deploy/remote-deploy.sh": {
       "mode": "full",
-      "sha256": "7a8ce8e60f85a0272c111da7688d038564818755dfe3f1481daa46d5ce534826",
+      "sha256": "35e49cfec5cc880551fdfa97d3f62ef5cc7c142d7f947c791c625c247a914e3d",
       "source": "templates/deploy/deploy/remote-deploy.sh.tmpl"
     },
     "deploy/report.service": {
@@ -440,7 +445,7 @@
     },
     "e2e/support/jev.ts": {
       "mode": "full",
-      "sha256": "83ec5d7d0250919b6f4361125aa8cb6c31f6c8fbb75869ef6140d41c3130086a",
+      "sha256": "1d22cca3fb7e6c1c210c0d8f3652c9e9e1a8fe805c37aaf48692df1bd1cf12b7",
       "source": "templates/e2e/e2e/support/jev.ts"
     },
     "e2e/support/judged.ts": {
@@ -1092,6 +1097,11 @@
       "mode": "full",
       "sha256": "29763254f7b3d81db6eae67536e00362a9e495edf2bc5d66059ae6ef4277807b",
       "source": "templates/app/scripts/test/contract.test.mjs"
+    },
+    "skills/orca-lanes/SKILL.md": {
+      "mode": "full",
+      "sha256": "c82722c8e36622482062325abb0761deb43b7d5b23bc33f5f93d27e973c2612c",
+      "source": "templates/common/skills/orca-lanes/SKILL.md"
     },
     "skills/std-backlog/SKILL.md": {
       "mode": "full",

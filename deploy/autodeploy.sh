@@ -76,10 +76,17 @@ if [ "$sha" = "$(cat .deployed 2>/dev/null || true)" ]; then
   signal ok "up to date at $sha"
   exit 0
 fi
+# A commit that failed because its CI was red is looked at again every run: a green re-run of the same commit (a flaky
+# job, #925) or a newer commit clears the mark by itself. .autodeploy-ci-failed names the commit whose CI failed; a failed
+# deploy and a rollback write only .autodeploy-failed, which stays until a new commit arrives (the same commit would fail again).
+ci_retry=
 if [ "$sha" = "$(cat .autodeploy-failed 2>/dev/null || true)" ]; then
-  say "$sha failed before; waiting for a new commit on main"
-  signal fail "$sha failed before; waiting for a new commit on main"
-  exit 0
+  if [ "$sha" != "$(cat .autodeploy-ci-failed 2>/dev/null || true)" ]; then
+    say "$sha failed before; waiting for a new commit on main"
+    signal fail "$sha failed before; waiting for a new commit on main"
+    exit 0
+  fi
+  ci_retry=1
 fi
 
 # A failed call (rate limit of the unauthenticated API, network) must not end the run silently: say so, signal, and try again
@@ -97,12 +104,21 @@ case "$state" in
     exit 0
     ;;
   fail)
-    echo "CI failed for $sha; not deploying"
+    if [ -n "$ci_retry" ]; then
+      say "CI of $sha is still red; waiting for a green re-run or a new commit on main"
+    else
+      echo "CI failed for $sha; not deploying"
+    fi
     echo "$sha" > .autodeploy-failed
+    echo "$sha" > .autodeploy-ci-failed
     signal fail "CI failed for $sha"
     exit 0
     ;;
 esac
+if [ -n "$ci_retry" ]; then
+  echo "CI of $sha is green now; deploying"
+  rm -f .autodeploy-failed .autodeploy-ci-failed
+fi
 
 # Run the deploy script of the new commit (git replaces files, the running bash keeps
 # the old inode, so checking out under a running script is safe).
