@@ -75,8 +75,11 @@ ensure_networks() {
   docker network inspect shared-ai > /dev/null 2>&1 || docker network create shared-ai > /dev/null
 }
 
+# compose.yaml gives api a healthcheck, so `up -d --wait` returns once api is healthy and fails when it is not (#963).
+# health() is the second check, through the web port and the proxy path a visitor uses (#866); a few rounds are enough.
+compose_wait=${COMPOSE_WAIT_TIMEOUT:-180}
 health() {
-  for _ in $(seq 1 30); do
+  for _ in $(seq 1 10); do
     # Connection resets while containers start are expected; only the final result matters.
     if curl -fsS "http://127.0.0.1:$web_port/api/health" > /dev/null 2>&1; then return 0; fi
     sleep 2
@@ -117,7 +120,7 @@ start() {
   save_api_errors
   ensure_networks
   IMAGE_TAG="$1" docker compose up -d --wait db
-  IMAGE_TAG="$1" docker compose up -d
+  IMAGE_TAG="$1" docker compose up -d --wait --wait-timeout "$compose_wait"
 }
 # Pre-deploy dump with the same script as the nightly one (deploy/backup.sh, #262): kept with
 # the nightly dumps for 14 days and copied to S3 when the server .env names a bucket.
@@ -151,12 +154,10 @@ case "${1:-}" in
         -v "$PWD/database/migrations:/app/database/migrations:ro" api node dist/migrate.js
     fi
     save_api_errors
-    IMAGE_TAG="$tag" docker compose up -d
-    if ! health; then
+    if ! { IMAGE_TAG="$tag" docker compose up -d --wait --wait-timeout "$compose_wait" && health; }; then
       echo "health check failed for $tag" >&2
       if [ -n "$current" ]; then
-        start "$current"
-        health && echo "restored $current" >&2
+        if start "$current" && health; then echo "restored $current" >&2; else echo "could not restore $current" >&2; fi
       fi
       exit 1
     fi

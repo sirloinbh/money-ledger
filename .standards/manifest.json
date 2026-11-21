@@ -1,5 +1,5 @@
 {
-  "centralSha": "39c40af728c442dbcc74fcae3a311a70c5dc0772",
+  "centralSha": "52d0d2c2eb7310dae0d93356742a36fc4914fb30",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -115,7 +115,7 @@
     },
     ".dockerignore": {
       "mode": "full",
-      "sha256": "5ed5e711032081e3f5219896e9d11be7e59e67562a55d20f6310e0bf1e5c3aba",
+      "sha256": "f8b83b53552e65e003ebd36ac56870b323a1f1cc9d7062e408ec4a1ad5e62e38",
       "source": "templates/app/.dockerignore.tmpl"
     },
     ".editorconfig": {
@@ -240,7 +240,7 @@
     },
     "backend/Dockerfile": {
       "mode": "full",
-      "sha256": "58385efe6b767c240354187a36bf5ad671fe5a08617a88d4e59acafe1c4d0aba",
+      "sha256": "b2b8ed62d049c3d401aa64ef1dd50ed226ae5fddfb442e559274d8e9928fe371",
       "source": "templates/app/backend/Dockerfile.tmpl"
     },
     "backend/package.json": {
@@ -410,7 +410,7 @@
     },
     "deploy/remote-deploy.sh": {
       "mode": "full",
-      "sha256": "35e49cfec5cc880551fdfa97d3f62ef5cc7c142d7f947c791c625c247a914e3d",
+      "sha256": "7cb45f5dd3e2774548859b2f4a5124ba4d10af214033f6c7d9757a2c0b2f5242",
       "source": "templates/deploy/deploy/remote-deploy.sh.tmpl"
     },
     "deploy/report.service": {
