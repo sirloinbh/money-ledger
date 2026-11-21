@@ -1,8 +1,8 @@
 #!/bin/bash
-# Managed file. Edit it in sirloinbh/project-standards templates/app/deploy/
+# Managed file. Edit it in sirloinbh/project-standards templates/deploy/deploy/
 # Daily one-line server report for money-ledger (#285), sent as the body of the healthchecks.io
 # "report" signal (deploy/notify.sh). It records what ADR-0009 asked to measure on the shared
-# server: memory, disk, this app's container memory and the deployed commit.
+# server: memory, disk, this project's container memory and the deployed commit.
 #   report.sh          build the line and send it (fail signal over the thresholds)
 #   report.sh line     only print the line
 # Errors (ADR-0021): lines with "level":"error" in the api logs since the last send (.report-last-sent,
@@ -14,17 +14,20 @@
 # REPORT_ERROR_LIMIT (default 0: any error fails the day).
 set -euo pipefail
 cd /opt/money-ledger
-export IMAGE_TAG=${IMAGE_TAG:-$(cat .deployed 2>/dev/null || echo none)}
 
 env_value() { sed -n "s/^$1=//p" .env 2>/dev/null | tail -n 1 | tr -d "\"'\r"; }
 
 memory_percent() { free -m | awk '/^Mem:/ { printf "%d", ($2 - $7) * 100 / $2 }'; }
 disk_percent() { df -P / | awk 'NR == 2 { sub("%", "", $5); print $5 }'; }
 
+# Containers are found by their compose labels, not through docker compose: a service's compose.yaml
+# requires secrets that deploy/remote-deploy.sh reads from SSM, and this script runs without them (#967).
+project_ids() { docker ps "$@" -q --filter label=com.docker.compose.project=money-ledger 2> /dev/null || true; }
+
 # "name 123MiB, name 45MiB" for the containers of this compose project.
 containers() {
   local ids
-  ids=$(docker compose ps -q 2> /dev/null || true)
+  ids=$(project_ids)
   if [ -z "$ids" ]; then
     echo "no containers"
     return
@@ -44,7 +47,11 @@ fi
 started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 error_lines() {
-  { cat .errors-before-deploy.log 2> /dev/null || true; docker compose logs --no-log-prefix --since "$since" --until "$started" api 2> /dev/null || true; } |
+  local id
+  # -a: a crashed api container still has its logs. oneoff=False: not a leftover `docker compose run` (migrations).
+  # 2>&1: stdout and stderr, both kept by the log driver.
+  id=$(project_ids -a --filter label=com.docker.compose.service=api --filter label=com.docker.compose.oneoff=False | head -n 1)
+  { cat .errors-before-deploy.log 2> /dev/null || true; if [ -n "$id" ]; then docker logs --since "$since" --until "$started" "$id" 2>&1 || true; fi; } |
     { grep -F '"level":"error"' || true; }
 }
 # "<requestId> <status> <path>" for the first 5 request IDs; "-" for a field a line does not have.
