@@ -1,5 +1,5 @@
 {
-  "centralSha": "52d0d2c2eb7310dae0d93356742a36fc4914fb30",
+  "centralSha": "b205088594b7c7295df8eba87cb06a37e0a32e0e",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -400,7 +400,7 @@
     },
     "deploy/install-backup.sh": {
       "mode": "full",
-      "sha256": "248826dbe60739dcd6432d42acd67b8c1495b12414ecbc32b479314610651c01",
+      "sha256": "886dbc5cd2eca89a388bb446ecbc6de56f74cb7f1a371b2fc71dd535dc40eb31",
       "source": "templates/deploy/deploy/install-backup.sh.tmpl"
     },
     "deploy/notify.sh": {
@@ -415,18 +415,18 @@
     },
     "deploy/report.service": {
       "mode": "full",
-      "sha256": "129b0bf5a63ad740dc8e6a39a54e614f00cca85fb10909863e316c95b77ffbc8",
-      "source": "templates/app/deploy/report.service.tmpl"
+      "sha256": "2b722a3a41c26447aae03e2bb7d843283026910ddc02ab3886f4e342e89eab1c",
+      "source": "templates/deploy/deploy/report.service.tmpl"
     },
     "deploy/report.sh": {
       "mode": "full",
-      "sha256": "a75ae397cfeb39554b095149f1b6260a2c033d999b4e7e7dbbe281e441a19882",
-      "source": "templates/app/deploy/report.sh.tmpl"
+      "sha256": "4eaec6fa9bf4f0d493f52ec24b38b1764a1c594778de6d43382213457f62948f",
+      "source": "templates/deploy/deploy/report.sh.tmpl"
     },
     "deploy/report.timer": {
       "mode": "full",
-      "sha256": "290c721ba0c11b7d8ee1c53e51197eeeaa26e5ce6d1f38d878df475e2a97c9a6",
-      "source": "templates/app/deploy/report.timer.tmpl"
+      "sha256": "bfec89686741026a2432e9a4bdf3d94be9c6a126eb3173906093c827a4b60a26",
+      "source": "templates/deploy/deploy/report.timer.tmpl"
     },
     "deploy/restore-check.service": {
       "mode": "full",
