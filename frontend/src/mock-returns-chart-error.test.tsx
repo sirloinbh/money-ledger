@@ -4,12 +4,17 @@ import { expect, test, vi } from 'vitest';
 import { MockReturns } from './mock-returns';
 
 // The chart file cannot be loaded the first time (an old tab after a deploy, offline), then can.
-const chartFile = vi.hoisted(() => ({ loads: 0 }));
-vi.mock('./mock-return-chart', () => {
-  chartFile.loads += 1;
-  if (chartFile.loads === 1) throw new Error('Failed to fetch dynamically imported module');
-  return { MockReturnChart: () => <p>Chart</p> };
-});
+// The factory runs once and returns the module; reading its export fails the first time (#182). The screen's
+// `lazy(() => import(...).then((module) => module.MockReturnChart))` then rejects like a failed download, without relying
+// on Vitest running a throwing factory again.
+const chartFile = vi.hoisted(() => ({ reads: 0 }));
+vi.mock('./mock-return-chart', () => ({
+  get MockReturnChart() {
+    chartFile.reads += 1;
+    if (chartFile.reads === 1) throw new Error('Failed to fetch dynamically imported module');
+    return () => <p>Chart</p>;
+  },
+}));
 
 test('a chart file that fails to load leaves the table, and Try again loads it again', async () => {
   vi.stubGlobal(
