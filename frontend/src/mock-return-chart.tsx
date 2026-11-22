@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts';
 
+import { EmptyChart } from './chart-boundary';
 import { formatWon, signedPercent } from './format';
 import { formatMonthDay } from './quote-format';
 
@@ -37,7 +38,8 @@ function ReturnTooltip({ active, payload }: TooltipContentProps) {
 export function MockReturnChart({ points }: { points: ReturnPoint[] }) {
   // Numbers only for drawing; the labels use the decimal text from the server.
   const data = points.map((point) => ({ ...point, value: Number(point.returnPct) }));
-  const last = points.at(-1)!;
+  const last = points.at(-1);
+  if (!last) return <EmptyChart />;
   return (
     <div
       role="img"

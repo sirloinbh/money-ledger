@@ -25,3 +25,9 @@ test('the chart grows with the number of categories', () => {
   const three = Number.parseInt(screen.getByRole('img').style.height, 10);
   expect(three - one).toBe(2 * 36);
 });
+
+test('an empty list draws nothing instead of failing (#202)', () => {
+  render(<CategoryShareChart categories={[]} />);
+  expect(screen.getByText('Nothing to draw yet.')).toBeInTheDocument();
+  expect(screen.queryByRole('img')).toBeNull();
+});

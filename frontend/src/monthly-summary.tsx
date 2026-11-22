@@ -1,19 +1,12 @@
-import {
-  Component,
-  lazy,
-  type ReactNode,
-  Suspense,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
+import { ChartBoundary } from './chart-boundary';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
 import { shiftMonth } from './entry-filters-state';
 import { formatWon, serviceToday } from './format';
+import { lazyChart } from './lazy-chart';
 import { requestJson } from './lib/api';
 import { cn } from './lib/utils';
 import { readSummaryMonth } from './summary-month';
@@ -40,12 +33,10 @@ type Summary = {
 };
 
 // Recharts is large: the chart loads in its own file when a month with expense is shown, not with the app.
-// `lazy` keeps a failed load, so a failure starts a new one for the next month or retry.
-const loadChart = () =>
-  lazy(() =>
-    import('./category-share-chart').then((module) => ({ default: module.CategoryShareChart })),
-  );
-const chart = { Chart: loadChart() };
+// After a failed download, ChartBoundary (#202) loads the file again on the next try; a drawing error is logged.
+const chart = lazyChart(() =>
+  import('./category-share-chart').then((module) => module.CategoryShareChart),
+);
 
 /** `version` changes when entries change elsewhere on the page, so the totals reload. */
 export function MonthlySummary({ version = 0 }: { version?: number }) {
@@ -164,14 +155,12 @@ export function MonthlySummary({ version = 0 }: { version?: number }) {
                 </p>
               ) : (
                 <>
-                  <ChartBoundary key={`${month}:${attempt}`}>
-                    <Suspense
-                      fallback={
-                        <p className="text-body-sm text-muted-foreground">Loading the chart</p>
-                      }
-                    >
-                      <chart.Chart categories={shown.categories} />
-                    </Suspense>
+                  <ChartBoundary
+                    chart={chart}
+                    message="Could not load the chart. Check the values in the table below."
+                    key={`${month}:${attempt}`}
+                  >
+                    <chart.Chart categories={shown.categories} />
                   </ChartBoundary>
                   <ShareTable categories={shown.categories} total={shown.expense} />
                 </>
@@ -182,32 +171,6 @@ export function MonthlySummary({ version = 0 }: { version?: number }) {
       )}
     </section>
   );
-}
-
-/**
- * The chart file failing to load (an old tab after a deploy, offline) must not take the page down: say so in
- * place of the chart. The table next to it still has every value.
- */
-class ChartBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-
-  componentDidCatch() {
-    chart.Chart = loadChart();
-  }
-
-  render() {
-    return this.state.failed ? (
-      <p className="text-body-sm text-muted-foreground">
-        Could not load the chart. Check the values in the table below.
-      </p>
-    ) : (
-      this.props.children
-    );
-  }
 }
 
 function Total({ label, value, hint }: { label: string; value: string; hint?: string }) {
