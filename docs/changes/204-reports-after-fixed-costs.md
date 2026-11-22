@@ -13,7 +13,7 @@ The code review on 2026-11-18 found three problems in the spending reports: the 
 - `frontend/src/fixed-costs-api.ts`: new `addDue()` that rejects when adding the due entries failed (the failure is still forgotten, so the next caller tries again). `addDueOnce()` keeps its old meaning (a failure resolves with 0) for callers that go on either way.
 - `frontend/src/reports-api.ts`: `makeReportsOnce()` waits on `addDue()`, so when adding the due entries failed, no `POST /api/reports/generate` is sent on that open. The next call tries both again.
 - `backend/src/reports.ts`: the monthly overspending list is now part of the report's one content statement (`budgetListSql` as a subquery, filtered on `reached`/`over`), so every number of a report comes from one snapshot. The stored JSON has the same keys and values as before. A weekly report stores `overspending: null` as before.
-- `frontend/src/reports.tsx`: the report page checks the id (digits only) before asking the server, and a 404 answer or a bad id shows "Report not found. It may have been removed, or the address is wrong." without "Try again". A report loaded for another id is not shown under the new address.
+- `frontend/src/reports.tsx`: the report page checks the id with the server's `ID_PATTERN` rule (1 to 15 digits, no leading zero) before asking the server, and a 404 answer or a bad id shows "Report not found. It may have been removed, or the address is wrong." without "Try again". A report loaded for another id is not shown under the new address.
 
 ### Why one statement instead of `REPEATABLE READ`
 
@@ -24,7 +24,7 @@ The issue suggested running generation under `REPEATABLE READ`. Generation first
 Tests added or changed:
 
 - `frontend/src/reports-api.test.ts` (new): reports are made after the due entries; when `fixed-costs/generate` fails, no `reports/generate` request is sent and the next call tries both again (this test fails when `makeReportsOnce` uses the old `addDueOnce`).
-- `frontend/src/reports.test.tsx`: "an unknown report id says the report was not found, without Try again" (`/reports/999`, 404) and "an id that is not a number is not found, and is not sent" (`/reports/abc`).
+- `frontend/src/reports.test.tsx`: "an unknown report id says the report was not found, without Try again" (`/reports/999`, 404) and "an id the server would refuse (…) is not found, and is not sent" (`abc`, `0` and a 16-digit id).
 - `backend/test/reports.integration.test.ts` (unchanged) still checks the stored monthly overspending list (reached and over, with spent, budget, over and percent), so the one-statement query keeps the same content.
 
 Commands (local, test DB `postgres:17-alpine` with every migration applied, `TEST_DATABASE_URL` set):
@@ -42,3 +42,7 @@ Browser check (local API 3195 and Vite 5295):
 ## Limits
 
 - When adding the due entries keeps failing, no report is made on app open. The daily server job planned in #185 makes them too.
+
+## Review
+
+- Round 1 ([PR comment](https://github.com/sirloinbh/money-ledger/pull/243#issuecomment-7078369984)): changes needed, 1 finding. The client id pattern allowed 16 digits while the server allows 15, so a 16-digit id got a 400 and the useless "Try again". Fixed in "fix: match the report id pattern to the server (#204)"; the not-sent test now covers `abc`, `0` and a 16-digit id (the 16-digit case failed before the fix). `vitest run src/reports.test.tsx src/reports-api.test.ts`: 11 pass; eslint and prettier clean on the changed files.

@@ -123,8 +123,8 @@ function changeText(report: Report) {
     : `${formatWon(-report.change)} less than ${before}`;
 }
 
-/** A report id in the address: digits only, so `/reports/abc` is not sent to the server. */
-const reportId = /^[1-9]\d{0,15}$/;
+/** A report id in the address, as the server accepts it (`ID_PATTERN`): `/reports/abc` is not sent. */
+const reportId = /^[1-9]\d{0,14}$/;
 
 export function ReportPage({ health }: { health: Health }) {
   const { id = '' } = useParams();
