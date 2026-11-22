@@ -68,3 +68,9 @@ Several screen tests used fakes that answered almost any request: one merged pay
 ## Review
 
 - Round 1 (PR #263 comment): approve after one nit, fixed. The shared asset fake's handlers now take the request body as a parameter instead of reading back the last recorded request. The asset tests (38) pass, and the type check and lint pass. No split issues.
+- Merges of `origin/main` (after #190, #203, #187, #185, #195, and the #188 backend move):
+  - `assets.tsx` is resolved onto the #190 split. `AssetsAnswer` stays in `assets.tsx`, and the shared fake imports `Asset` from `asset-model.ts`.
+  - The #203 tests in `mock-history` and `asset-trades` are kept next to the #183 ones. The #203 trade test answers its failure with a plain `Response`.
+  - The CSV import test follows the #203 copy ("Import 1 entry").
+  - Checks after the merges, in parts through the lock: `format:check`, `lint`, `contract:check`, `typecheck` exit 0. Frontend: 75 files, 524 pass, 3 skipped. Backend: 456 pass. `test:skills`: 4 pass. `build` and `knip` pass.
+- Round 2 (PR #263 comment): approve, no findings on the merge resolution.
