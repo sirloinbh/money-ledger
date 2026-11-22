@@ -60,7 +60,11 @@ function fakeApi() {
       if (url === '/api/ledger/entries/classify') {
         const ids = body!.entryIds as number[];
         const categoryId = body!.categoryId as number;
-        const hit = entries.filter((entry) => ids.includes(entry.id) && entry.categoryId === null);
+        const kind = categories.find((category) => category.id === categoryId)!.kind;
+        // As the server: entries of the other kind are skipped (#199).
+        const hit = entries.filter(
+          (entry) => ids.includes(entry.id) && entry.categoryId === null && entry.kind === kind,
+        );
         hit.forEach((entry) => (entry.categoryId = categoryId));
         const merchants = [...new Set(hit.map((entry) => entry.merchant).filter(Boolean))];
         if (body!.remember) {
@@ -212,10 +216,10 @@ test.each([
   { label: 'no entry', pick: [], category: '1', message: 'Select the entries to classify' },
   { label: 'no category', pick: ['₩1,000'], category: '', message: 'Choose a category' },
   {
-    label: 'an income entry with an expense category',
-    pick: ['₩1,000', '₩4,000'],
+    label: 'only income entries and an expense category',
+    pick: ['₩4,000'],
     category: '1',
-    message: 'Some entries are a different kind from the chosen category',
+    message: 'None of the selected entries is the kind of this category',
   },
 ])('classifying with $label is refused before sending', async ({ pick, category, message }) => {
   render(<UncategorizedEntries />);
@@ -364,7 +368,7 @@ test('updated and skipped counts are reported in words', async () => {
   fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: '1' } });
   fireEvent.click(screen.getByRole('button', { name: 'Classify 2 selected' }));
   expect(await findLive('status')).toHaveTextContent(
-    '1 entry classified as Food. 1 skipped (already classified or changed). 1 existing rule changed to Food',
+    '1 entry classified as Food. 1 skipped (a different kind, or already classified or changed). 1 existing rule changed to Food',
   );
 });
 
@@ -375,7 +379,7 @@ test('a category of the other kind marks the category field', async () => {
   fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: '3' } });
   fireEvent.click(screen.getByRole('button', { name: 'Classify 1 selected' }));
   expect(await findLive('alert')).toHaveTextContent(
-    'Some entries are a different kind from the chosen category',
+    'None of the selected entries is the kind of this category',
   );
   expect(screen.getByLabelText('Category to apply')).toHaveAttribute('aria-invalid', 'true');
 });
@@ -475,4 +479,18 @@ test('a rule added for a parent that does not bump a version does not skip a lat
   rules.push({ id: 9, keyword: 'Bookshop', kind: 'expense', categoryId: 2 });
   rerender(<RuleManager version={1} onChange={onChange} />);
   expect(await screen.findByText('Bookshop')).toBeInTheDocument();
+});
+
+test('a selection with an entry of the other kind classifies the rest and reports the skip (#199)', async () => {
+  render(<UncategorizedEntries />);
+  await screen.findByRole('option', { name: 'Food' });
+  fireEvent.click(within(row('₩1,000')).getByRole('checkbox'));
+  fireEvent.click(within(row('₩4,000')).getByRole('checkbox'));
+  fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: '1' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Classify 2 selected' }));
+  expect(await findLive('status')).toHaveTextContent(
+    '1 entry classified as Food. 1 skipped (a different kind, or already classified or changed)',
+  );
+  expect(posts()[0].body).toMatchObject({ entryIds: [1, 4], categoryId: 1 });
+  expect(screen.getByRole('heading', { name: 'Uncategorized entries (3)' })).toBeVisible();
 });

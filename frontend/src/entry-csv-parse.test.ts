@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 
 import {
+  CsvError,
   dataRowCount,
   exportUrl,
   guessMapping,
@@ -125,4 +126,23 @@ test('blank lines before the header are skipped, and the header is the first row
     [4, '2026-11-01'],
   ]);
   expect(dataRowCount(rows)).toBe(1);
+});
+
+test('an unclosed quote is refused with the line it opens on, not merged into one field (#200)', () => {
+  expect(() => parseCsv('date,memo\n2026-11-01,ok\n2026-11-02,"broken\n2026-11-03,x\n')).toThrow(
+    new CsvError('Line 3 has an unclosed quote'),
+  );
+  // Line breaks inside a closed quote count too, with CRLF or LF.
+  expect(() => parseCsv('a,"b\r\nc"\r\n"d\r\n')).toThrow(
+    new CsvError('Line 3 has an unclosed quote'),
+  );
+  expect(parseCsv('a,"b\r\nc"\r\nd')).toEqual([['a', 'b\r\nc'], ['d']]);
+});
+
+test('kind words are matched on their own keys only (#200)', () => {
+  const rows = parseCsv('date,kind,amount\n2026-11-01,constructor,1\n2026-11-01,입금,2\n');
+  expect(toImportRows(rows, guessMapping(rows[0]), 'expense').map((row) => row.kind)).toEqual([
+    'constructor',
+    'income',
+  ]);
 });

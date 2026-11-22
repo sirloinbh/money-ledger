@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './com
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
 import {
+  CsvError,
   dataRowCount,
   entryCsvPath,
   exportUrl,
@@ -16,6 +17,7 @@ import {
   headerIndex,
   type ImportRow,
   type Mapping,
+  maxImportBytes,
   maxImportRows,
   notUtf8,
   parseCsv,
@@ -58,6 +60,10 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
     setPreview(undefined);
   };
 
+  // Counts chosen files only: an import that ends after another file was chosen must not clear that file,
+  // while one that ends after a column change still clears the imported file's form (#200).
+  const fileChoice = useRef(0);
+
   const changeMapping = (next: Mapping) => {
     setMapping(next);
     changed();
@@ -76,21 +82,49 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
 
   const choose = async (event: ChangeEvent<HTMLInputElement>) => {
     const chosen = event.target.files?.[0];
+    fileChoice.current++;
     changed();
     const asked = choice.current;
     clear();
+    // Each file starts from the defaults: choices made for the previous file do not carry over (#200).
+    setSkipDuplicates(true);
+    setFixedKind('expense');
     if (!chosen) {
       reset();
       return;
     }
-    const text = await chosen.text();
+    // Checked before reading: a huge file would be read whole into memory first (#200).
+    if (chosen.size > maxImportBytes) {
+      reset();
+      showError(
+        `The file is larger than ${maxImportBytes / 1024 / 1024} MB. Split it and import the parts`,
+      );
+      return;
+    }
+    let text: string;
+    try {
+      text = await chosen.text();
+    } catch {
+      if (choice.current !== asked) return;
+      reset();
+      showError('Could not read the file. Choose it again');
+      return;
+    }
     if (choice.current !== asked) return; // another file was chosen meanwhile
     if (notUtf8(text)) {
       reset();
       showError('This file is not UTF-8. In Excel, save it as "CSV UTF-8" and choose it again');
       return;
     }
-    const rows = parseCsv(text);
+    let rows: string[][];
+    try {
+      rows = parseCsv(text);
+    } catch (cause) {
+      if (!(cause instanceof CsvError)) throw cause;
+      reset();
+      showError(`${cause.message}. Fix the file and choose it again`);
+      return;
+    }
     const count = dataRowCount(rows);
     if (count === 0) {
       reset();
@@ -139,6 +173,8 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
     if (busy || !preview || preview.problems.length > 0) return;
     setBusy(true);
     clear();
+    const asked = choice.current;
+    const importedFile = fileChoice.current;
     try {
       const result = await requestJson<{ imported: number; skipped: number }>(
         `${entryCsvPath}/import`,
@@ -147,17 +183,20 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
           body: { rows: preview.sent, skipDuplicates },
         },
       );
-      reset();
+      // A file chosen while this one was importing stays: only the imported file's form is cleared (#200).
+      const current = fileChoice.current === importedFile;
+      if (current) reset();
       showStatus(
         result.skipped > 0
           ? `Imported ${result.imported} entries and skipped ${result.skipped} likely duplicates`
           : `Imported ${result.imported} entries`,
       );
       onImported();
-      fileInput.current?.focus();
+      if (current) fileInput.current?.focus();
     } catch (cause) {
       // Nothing was saved. Something changed since the preview (e.g. a category was hidden): check again.
-      setPreview(undefined);
+      // A preview made meanwhile (another file or other columns) stays.
+      if (choice.current === asked) setPreview(undefined);
       showError(cause, 'Could not import the file');
     } finally {
       setBusy(false);

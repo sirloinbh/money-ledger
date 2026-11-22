@@ -295,3 +295,22 @@ test('a holding order form left open does not carry over to the account after a 
   expect(screen.queryByText(/Sold all your/)).toBeNull();
   expect(screen.queryByRole('form', { name: 'Samsung Electronics mock order' })).toBeNull();
 });
+
+test('a typed reset amount survives a reload after an order; a new account fills in its own (#197)', async () => {
+  open = account(1, 10_000_000);
+  const { rerender } = render(<MockAccount refreshKey={0} />);
+  const amount = await screen.findByLabelText('New starting amount (KRW)');
+  fireEvent.change(amount, { target: { value: '25,000,000' } });
+
+  open = { ...open, cashKrw: 9_294_000 };
+  rerender(<MockAccount refreshKey={1} />);
+  await vi.waitFor(() => expect(screen.getAllByText('₩9,294,000')).toHaveLength(2));
+  expect(screen.getByLabelText('New starting amount (KRW)')).toHaveValue('25,000,000');
+
+  // Another account (opened in another tab, here) brings its own starting amount.
+  open = account(2, 50_000_000);
+  rerender(<MockAccount refreshKey={2} />);
+  await vi.waitFor(() =>
+    expect(screen.getByLabelText('New starting amount (KRW)')).toHaveValue('50,000,000'),
+  );
+});

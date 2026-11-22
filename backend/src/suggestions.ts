@@ -19,8 +19,10 @@ export type HistoryRow = {
 type Suggestion = { categoryId: number; categoryName: string; from: string };
 
 /**
- * The merchant compared for suggestions: lower case, without bracketed parts such as "(주)", a trailing branch
- * word ending in 점 or 지점 ("스타벅스 강남점" → "스타벅스"), digits, spaces and punctuation.
+ * The merchant compared for suggestions: lower case, without bracketed parts such as "(주)", words that are only
+ * digits or punctuation (a terminal or card number), a trailing branch word ending in 점 or 지점
+ * ("스타벅스 강남점" → "스타벅스"), spaces and punctuation. Digits inside a word stay, so "GS25" is not
+ * "gs칼텍스" and "카페24" is not every "카페…" (#199).
  */
 export function merchantKey(merchant: string) {
   const words = merchant
@@ -28,13 +30,16 @@ export function merchantKey(merchant: string) {
     .toLowerCase()
     .replace(/\([^)]*\)|\[[^\]]*\]|㈜/g, ' ')
     .trim()
-    .split(/\s+/);
+    .split(/\s+/)
+    .filter((word) => !/^[\d\p{P}\p{S}]*$/u.test(word));
   if (words.length > 1 && words.at(-1)!.endsWith('점')) words.pop();
-  return words.join('').replace(/[\d\p{P}\p{S}\s]/gu, '');
+  return words.join('').replace(/[\p{P}\p{S}\s]/gu, '');
 }
 
-// A shorter key would make a one-letter name the prefix of half the history.
+// A shorter key would make a one-letter name match half the history.
 const minKey = 2;
+// A prefix match needs a longer key: "카페" would otherwise be the prefix of every café (#199).
+const minPrefix = 3;
 
 type Keyed = HistoryRow & { lower: string; key: string };
 
@@ -43,6 +48,7 @@ function matchTier(lower: string, key: string, row: Keyed) {
   if (lower === row.lower) return 0;
   if (key.length < minKey || row.key.length < minKey) return undefined;
   if (key === row.key) return 1;
+  if (Math.min(key.length, row.key.length) < minPrefix) return undefined;
   if (key.startsWith(row.key) || row.key.startsWith(key)) return 2;
   return undefined;
 }

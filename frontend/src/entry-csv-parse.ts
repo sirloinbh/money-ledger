@@ -6,6 +6,8 @@ import { withoutThousands } from './format';
 
 export const entryCsvPath = '/api/ledger/entries/csv';
 export const maxImportRows = 2000;
+/** The API takes at most 2 MB of JSON per import, so a larger file cannot be sent anyway (#200). */
+export const maxImportBytes = 2 * 1024 * 1024;
 const bom = String.fromCharCode(0xfeff);
 const replacement = String.fromCharCode(0xfffd);
 
@@ -18,16 +20,23 @@ export function exportUrl(filters: Filters) {
   return query ? `${entryCsvPath}?${query}` : entryCsvPath;
 }
 
+/** A file the reader cannot split into rows; the message names the line in the file. */
+export class CsvError extends Error {}
+
 /**
  * Splits CSV text into rows of fields (RFC 4180): quoted fields may hold commas, doubled quotes and line
  * breaks; lines end with CRLF or LF. A leading BOM is dropped. Empty lines are kept as rows, so a row's index
- * is its row number in a spreadsheet; `toImportRows` leaves them out.
+ * is its row number in a spreadsheet; `toImportRows` leaves them out. A quote that is never closed would
+ * swallow every later row into one field, so it throws a `CsvError` naming the line it opens on (#200).
  */
 export function parseCsv(text: string) {
   const rows: string[][] = [];
   let row: string[] = [];
   let field = '';
   let quoted = false;
+  // The line of the file being read, and the one the open quote started on.
+  let line = 1;
+  let quoteLine = 0;
   const source = text.startsWith(bom) ? text.slice(1) : text;
   const endRow = () => {
     row.push(field);
@@ -37,22 +46,29 @@ export function parseCsv(text: string) {
   };
   for (let i = 0; i < source.length; i++) {
     const char = source[i];
+    if (char === '\n' || (char === '\r' && source[i + 1] !== '\n')) line++;
     if (quoted) {
       if (char === '"' && source[i + 1] === '"') {
         field += '"';
         i++;
       } else if (char === '"') quoted = false;
       else field += char;
-    } else if (char === '"' && field === '') quoted = true;
-    else if (char === ',') {
+    } else if (char === '"' && field === '') {
+      quoted = true;
+      quoteLine = line;
+    } else if (char === ',') {
       row.push(field);
       field = '';
     } else if (char === '\n') endRow();
     else if (char === '\r') {
-      if (source[i + 1] === '\n') i++;
+      if (source[i + 1] === '\n') {
+        i++;
+        line++;
+      }
       endRow();
     } else field += char;
   }
+  if (quoted) throw new CsvError(`Line ${quoteLine} has an unclosed quote`);
   if (field !== '' || row.length > 0) endRow();
   return rows;
 }
@@ -105,6 +121,12 @@ const kindWords: Record<string, FixedKind> = {
   입금: 'income',
 };
 
+/** A kind word in English or Korean, or the text as it is. Own keys only: "constructor" is not a kind (#200). */
+const kindWord = (text: string) => {
+  const word = text.toLowerCase();
+  return Object.hasOwn(kindWords, word) ? kindWords[word] : text;
+};
+
 export type ImportRow = {
   line: number;
   date: string;
@@ -133,7 +155,7 @@ export function toImportRows(rows: string[][], mapping: Mapping, fixedKind: Fixe
       {
         line: index + 1,
         date: /^\d{4}[./]\d{2}[./]\d{2}$/.test(date) ? date.replace(/[./]/g, '-') : date,
-        kind: mapping.kind >= 0 ? (kindWords[kind.toLowerCase()] ?? kind) : fixedKind,
+        kind: mapping.kind >= 0 ? kindWord(kind) : fixedKind,
         amount: withoutThousands(cell(row, 'amount').replace(/^₩\s*/, '').replace(/원$/, '')),
         category: cell(row, 'category'),
         merchant: cell(row, 'merchant'),

@@ -34,6 +34,7 @@ Do not pass it through a PowerShell pipe such as `Get-Content … | docker compo
 
 - Write every migration so that it is safe to run again.
 - Never edit or delete a file once it has been applied anywhere; add a new file instead. The runner checks this with the checksum.
+- `backend/test/migration-checksums.test.ts` pins the checksum of every shipped file, so an edit fails `npm test` before it can stop a deploy. When a new migration merges, add its line there (#180).
 - Parallel branches reserve their number when they start.
 - Preserve the meaning of existing data, and leave values you could not confirm as NULL.
 - Do not put `BEGIN`/`COMMIT` in a file: the runner already wraps each file in a transaction. `DO $$ BEGIN … END $$` blocks are fine.
