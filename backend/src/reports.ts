@@ -195,7 +195,7 @@ async function refresh(pool: Pool) {
  * date `today`. Two runs at once wait for each other, and the unique (period, start_date) key keeps a period to one
  * report either way. Returns the reports made.
  */
-const generateReports = (pool: Pool, today: string) =>
+export const generateReports = (pool: Pool, today: string) =>
   withReportsLock(pool, async (client) => {
     await rebuildChanged(client);
     const made = [];

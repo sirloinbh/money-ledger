@@ -45,7 +45,7 @@ const attempts = 3;
  * REPEATABLE READ snapshot so they agree with each other; two saves of the same day at once make the later upsert
  * fail with a serialization error (40001), so the save runs again with a fresh snapshot.
  */
-async function saveNetWorth(pool: Pool, day: string) {
+export async function saveNetWorth(pool: Pool, day: string) {
   for (let attempt = 1; ; attempt += 1) {
     try {
       return await inTransaction(pool, async (client) => {
