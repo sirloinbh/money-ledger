@@ -24,7 +24,7 @@ Choices made while applying it (no separate user decision needed; reverse them i
   - The trigger takes the reports' advisory lock in shared mode; making or rebuilding reports takes it in exclusive mode. So an entry change either commits before a report is built, and the build sees it, or waits until the build commits and then marks the new report. Without this, an entry saved while a new report was being made could be missing from it for good.
 - `backend/src/reports.ts`
   - `rebuildStale` recomputes the content of each stale report with the same one-statement query as a new report (#204) and clears `stale`, setting `rebuilt_at`.
-  - `generateReports(pool, today)` (exported for the daily job in #185) rebuilds stale reports, then makes the new ones, in one transaction under the exclusive lock.
+  - `generateReports(pool, today)` (the daily job in #185 can export and call it) rebuilds stale reports, then makes the new ones, in one transaction under the exclusive lock.
   - `GET /api/reports` and `GET /api/reports/:id` rebuild stale reports first when there are any, so a report opened right after an entry change already shows it.
   - Each report has `updatedOn`: the service date of the last rebuild, or `null`.
 - `frontend/src/reports.tsx`, `frontend/src/reports-api.ts`: the report footer now says "Saved on <date>[, updated on <date>]. It is updated when an expense entry in this period, or the one before it, is added, changed or deleted." instead of "Entries changed after that are not reflected here".
