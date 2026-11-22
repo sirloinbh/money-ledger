@@ -495,3 +495,46 @@ test('a selection with an entry of the other kind classifies the rest and report
   expect(posts()[0].body).toMatchObject({ entryIds: [1, 4], categoryId: 1 });
   expect(screen.getByRole('heading', { name: 'Uncategorized entries (3)' })).toBeVisible();
 });
+
+/** After the next change is saved, the reload of `path` fails once (#262). */
+function failReloadAfterSave(path: string) {
+  const api = vi.mocked(fetch).getMockImplementation()!;
+  let saved = false;
+  vi.mocked(fetch).mockImplementation((url: string | URL | Request, init?: RequestInit) => {
+    const method = init?.method ?? 'GET';
+    if (method !== 'GET') saved = true;
+    else if (saved && String(url).startsWith(path)) {
+      saved = false;
+      return Promise.reject(new TypeError('offline'));
+    }
+    return api(url, init);
+  });
+}
+
+test('a classification or rule saved while its list fails to reload is a note, not an error (#262)', async () => {
+  const { unmount } = render(<UncategorizedEntries />);
+  await screen.findByRole('heading', { name: 'Uncategorized entries (4)' });
+  await screen.findByRole('option', { name: 'Food' });
+  failReloadAfterSave('/api/ledger/entries');
+  fireEvent.click(within(row('₩1,000')).getByRole('checkbox'));
+  fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: '1' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Classify 1 selected' }));
+  expect(await findLive('status')).toHaveTextContent(
+    'The list could not be reloaded; reload the page to see it',
+  );
+  expect(queryLive('alert')).toBeNull();
+  unmount();
+
+  // The classification above saved a merchant rule, so the rule list is not empty.
+  render(<RuleManager />);
+  await screen.findByRole('list', { name: 'Classification rules' });
+  await screen.findByRole('option', { name: 'Food' });
+  failReloadAfterSave('/api/ledger/rules');
+  fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: 'Starbucks' } });
+  fireEvent.change(screen.getByLabelText('Category'), { target: { value: '1' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add rule' }));
+  expect(await findLive('status')).toHaveTextContent(
+    "Rule 'Starbucks' added. The list could not be reloaded; reload the page to see it",
+  );
+  expect(queryLive('alert')).toBeNull();
+});

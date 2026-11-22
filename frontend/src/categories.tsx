@@ -67,12 +67,12 @@ export function CategoryManager({ onChange }: { onChange?: () => void } = {}) {
         showError(cause);
         return false;
       }
-      // The change is saved even when the reload fails; say both instead of reporting a failure.
+      // The change is saved even when the reload fails, so this is a note, not an error (#262).
       try {
         await load();
         showStatus(done);
       } catch {
-        showError(`${done}. Could not reload the list`);
+        showStatus(`${done}. The list could not be reloaded; reload the page to see it`);
       }
       return true;
     } finally {
