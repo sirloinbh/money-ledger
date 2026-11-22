@@ -53,3 +53,7 @@ Browser check (local API 3195 and Vite 5295, dev DB with `주거` renamed to `Ho
 
 - Presets still match the default Korean names; a renamed category is not guessed, the user chooses it.
 - Months skipped while the category was hidden are added when it is shown again. If that turns out to be unwanted, stopping the item before showing the category again keeps them out (starting again begins at the current month).
+
+## Review
+
+- Round 1 ([PR comment](https://github.com/sirloinbh/money-ledger/pull/238#issuecomment-7078092407)): approve, no blocking comments. One non-blocking nit (presets match default names), already under Limits.
