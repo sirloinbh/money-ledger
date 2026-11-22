@@ -30,6 +30,7 @@ import {
 import { formatWon, serviceToday } from './format';
 import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
+import { useOwnChange } from './lib/use-own-change';
 import { cn } from './lib/utils';
 
 // #38 Income and expense entries: add, edit, delete.
@@ -146,24 +147,21 @@ export function EntryManager({
     }
   }, []);
 
-  // Set when this component reports its own change: it reloads by itself, so the version bump that follows
-  // does not load the list a second time. The parent must pass back the version it bumps (LedgerPage does);
-  // the flag is cleared by that one effect run.
-  const skipReload = useRef(false);
-  const notifyChange = () => {
-    if (!onChange) return;
-    skipReload.current = true;
-    onChange();
-  };
+  // A save or delete here reloads the list by itself, so the version bump it reports skips one reload (#198).
+  const { notifyChange, takeSkip } = useOwnChange(
+    onChange,
+    `${categoriesVersion}:${entriesVersion}`,
+  );
+  // The filters the last effect run loaded: new filters always load, even right after an own change.
+  const effectQuery = useRef<string | undefined>(undefined);
 
   // Also reloads after a category change elsewhere on the page: the list shows category names.
   useEffect(() => {
-    if (skipReload.current) {
-      skipReload.current = false;
-      return;
-    }
+    const newFilters = effectQuery.current !== query;
+    effectQuery.current = query;
+    if (takeSkip() && !newFilters) return;
     loadEntries().catch((cause: unknown) => showError(cause, 'Could not load the entries'));
-  }, [loadEntries, showError, categoriesVersion, entriesVersion, query]);
+  }, [loadEntries, showError, takeSkip, categoriesVersion, entriesVersion, query]);
 
   useEffect(() => {
     requestJson<{ categories: Category[] }>('/api/ledger/categories')
@@ -324,20 +322,26 @@ export function EntryManager({
       showError('Saving in progress. Try again in a moment');
       throw new Error('saving'); // keeps the dialog open
     }
+    // Blocks a save, an edit and a second delete until this one is done.
+    saving.current = true;
     try {
-      await requestJson(`${entriesPath}/${entry.id}`, { method: 'DELETE' });
-    } catch (cause) {
-      showError(cause);
-      throw cause; // keeps the dialog open
-    }
-    notifyChange();
-    afterDelete.current = sectionTitle.current;
-    if (editing?.id === entry.id) stopEdit();
-    try {
-      await loadEntries();
-      showStatus('Entry deleted');
-    } catch {
-      showError('Entry deleted. Could not reload the list');
+      try {
+        await requestJson(`${entriesPath}/${entry.id}`, { method: 'DELETE' });
+      } catch (cause) {
+        showError(cause);
+        throw cause; // keeps the dialog open
+      }
+      notifyChange();
+      afterDelete.current = sectionTitle.current;
+      if (editing?.id === entry.id) stopEdit();
+      try {
+        await loadEntries();
+        showStatus('Entry deleted');
+      } catch {
+        showError('Entry deleted. Could not reload the list');
+      }
+    } finally {
+      saving.current = false;
     }
   };
 

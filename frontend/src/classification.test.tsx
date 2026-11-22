@@ -444,3 +444,35 @@ test('without suggestions, or when they fail to load, the list still works', asy
   expect(screen.queryByRole('button', { name: /^Apply \d+ suggestion/ })).not.toBeInTheDocument();
   expect(queryLive('alert')).toBeNull();
 });
+
+test('a classification reported to a parent that does not bump a version does not skip a later reload (#198)', async () => {
+  const onChange = vi.fn();
+  const { rerender } = render(<UncategorizedEntries version={0} onChange={onChange} />);
+  await screen.findByRole('option', { name: 'Food' });
+  fireEvent.click(within(row('₩1,000')).getByRole('checkbox'));
+  fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: '1' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Classify 1 selected' }));
+  await screen.findByRole('heading', { name: 'Uncategorized entries (3)' });
+  expect(onChange).toHaveBeenCalledTimes(1);
+
+  // Later an entry is added elsewhere on the page, and the parent bumps the version for that.
+  entries.push(entry(5, 'Bookshop'));
+  rerender(<UncategorizedEntries version={1} onChange={onChange} />);
+  expect(await screen.findByRole('heading', { name: 'Uncategorized entries (4)' })).toBeVisible();
+});
+
+test('a rule added for a parent that does not bump a version does not skip a later reload (#198)', async () => {
+  const onChange = vi.fn();
+  const { rerender } = render(<RuleManager version={0} onChange={onChange} />);
+  await screen.findByRole('option', { name: 'Food' });
+  fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: 'Kimbap' } });
+  fireEvent.change(screen.getByLabelText('Category', { selector: '#rule-category' }), {
+    target: { value: '1' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Add rule' }));
+  expect(await findLive('status')).toHaveTextContent("Rule 'Kimbap' added");
+
+  rules.push({ id: 9, keyword: 'Bookshop', kind: 'expense', categoryId: 2 });
+  rerender(<RuleManager version={1} onChange={onChange} />);
+  expect(await screen.findByText('Bookshop')).toBeInTheDocument();
+});
