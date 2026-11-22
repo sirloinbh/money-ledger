@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ChartPie, FileText, LayoutDashboard, Settings2, TrendingUp, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
@@ -97,11 +98,16 @@ function Workspace() {
 }
 
 export function App() {
+  // #213 One query client for the app's lifetime (kept in state, so a re-render does not drop the cache). It uses
+  // React Query's defaults until the shared createQueryClient() (lib/query.ts) arrives with the central sync.
+  const [queryClient] = useState(() => new QueryClient());
   return (
-    <BrowserRouter>
-      <SignInGate>
-        <Workspace />
-      </SignInGate>
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <SignInGate>
+          <Workspace />
+        </SignInGate>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }
