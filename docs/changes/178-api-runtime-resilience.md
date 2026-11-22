@@ -47,6 +47,18 @@ error on that pool does not throw; no second listener was added (it would log th
   pass; build passes.
 - `npm run knip` with the same `TEST_DATABASE_URL`: exit 0.
 
+### Review round 1 (PR #234): changes needed, 1 finding fixed, 1 split off
+
+- Fixed: when `startJobs` failed after `boss.start()` succeeded (for example a queue policy mismatch), the started
+  PgBoss kept its own pool and timers, and shutdown could not stop it because no `Jobs` came back.
+  `backgroundJobs().start(boss, open, afterStart)` now takes the boss and calls `boss.stop({ graceful: false })` after
+  a failed start. The start-failure test asserts that stop call; a manual run with a wrong DB password still logs only
+  `jobs_start_failed` and answers 503.
+- Split off: #235 (retry a failed job start; pg-boss 12 has `start({ attempts })`, but the managed `startJobs` does
+  not pass it). Linked under #206.
+- Commit `fix: stop a partly started job runner after a failed start (#178)`: `npm run check` exit 0 (backend 417
+  pass / 0 skipped, frontend 456 pass / 3 skipped, skills 4 pass, build ok); `npm run knip` exit 0.
+
 ## Limits
 
 - The signal path (`SIGINT`/`SIGTERM`) was tested with fakes only; Windows does not deliver `SIGTERM` to a Node

@@ -28,6 +28,8 @@ async function serve(
   }
 }
 
+const idleBoss = { stop: () => assert.fail('a started boss is not stopped by start()') };
+
 function fakeJobs(overrides: Partial<Jobs> = {}): Jobs {
   const boss = {
     getQueues: async () => [],
@@ -61,7 +63,14 @@ test('when the job runner fails to start, the failure is logged and the API stil
     assert.deepEqual(await before.json(), { error: 'Background jobs are still starting' });
 
     let sent = false;
+    const stops: unknown[] = [];
+    const boss = {
+      stop: async (options?: unknown) => {
+        stops.push(options);
+      },
+    };
     await jobs.start(
+      boss,
       () => Promise.reject(new Error('connect ECONNREFUSED 127.0.0.1:5432')),
       async () => {
         sent = true;
@@ -69,6 +78,8 @@ test('when the job runner fails to start, the failure is logged and the API stil
     );
     assert.equal(jobs.state(), 'failed');
     assert.equal(sent, false, 'nothing is sent when the start failed');
+    // A boss that started before the failure (e.g. a queue policy mismatch) is stopped, not left running.
+    assert.deepEqual(stops, [{ graceful: false }]);
     assert.deepEqual(logged, [
       {
         level: 'error',
@@ -88,7 +99,7 @@ test('when the job runner fails to start, the failure is logged and the API stil
 test('with jobs off the status route says so instead of answering 500', async () => {
   const jobs = backgroundJobs('off', () => assert.fail('nothing to log'));
   let opened = false;
-  await jobs.start(async () => {
+  await jobs.start(idleBoss, async () => {
     opened = true;
     return fakeJobs();
   });
@@ -104,6 +115,7 @@ test('running jobs answer the shared status view; a failed first send is only lo
   const logged: Record<string, unknown>[] = [];
   const jobs = backgroundJobs('all', (line) => logged.push(line));
   await jobs.start(
+    idleBoss,
     async () => fakeJobs(),
     () => Promise.reject(new Error('queue is busy')),
   );
@@ -131,6 +143,7 @@ test('shutdown waits for a pending start, survives a failing jobs.stop, and runs
   const jobs = backgroundJobs('all', log);
   let finishStart: (value: Jobs) => void = () => {};
   void jobs.start(
+    idleBoss,
     () =>
       new Promise<Jobs>((resolve) => {
         finishStart = resolve;

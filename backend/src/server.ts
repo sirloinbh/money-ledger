@@ -29,9 +29,10 @@ const server = createApp(pool, {
 }).listen(port, listenHost(auth !== undefined), () => console.log(`API http://localhost:${port}`));
 // #178: jobs start after the API listens; a start-up failure is logged and the API keeps serving.
 void jobs.start(
-  () =>
+  new PgBoss(jobBossOptions(databaseUrl)),
+  (boss) =>
     startJobs(
-      new PgBoss(jobBossOptions(databaseUrl)),
+      boss,
       // After each daily fetch the open mock account's value is saved for the return chart (#54).
       [priceQueue(pool, prices, logPriceEvent, (now) => snapshotOpenAccount(pool, now))],
       { mode },

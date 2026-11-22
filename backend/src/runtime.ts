@@ -4,7 +4,14 @@
 import type { RequestHandler } from 'express';
 
 import { sendError } from './standard/http.js';
-import { type JobLog, type Jobs, type JobsMode, jobsStatus, logJob } from './standard/jobs.js';
+import {
+  type JobBoss,
+  type JobLog,
+  type Jobs,
+  type JobsMode,
+  jobsStatus,
+  logJob,
+} from './standard/jobs.js';
 
 type JobsState = 'off' | 'starting' | 'running' | 'failed';
 
@@ -19,8 +26,9 @@ function messageOf(error: unknown) {
 }
 
 /**
- * Holds the background jobs of this process. `start` runs `open` (startJobs) and then `afterStart`; a rejection of
- * either is logged and the API keeps serving. `status` answers GET /api/jobs/status: the shared status view while
+ * Holds the background jobs of this process. `start` runs `open(boss)` (startJobs) and then `afterStart`; a rejection
+ * of either is logged and the API keeps serving. When `open` fails after pg-boss started (e.g. a queue policy
+ * mismatch), the boss is stopped, so its own pool and timers do not outlive the failure. `status` answers GET /api/jobs/status: the shared status view while
  * the jobs run, otherwise a 503 that says why. `stop` waits for a pending start, so a start that finishes after
  * the stop signal does not leave pg-boss running.
  */
@@ -37,18 +45,24 @@ export function backgroundJobs(mode: JobsMode, log: JobLog = logJob) {
     jobsStatus(jobs.boss)(req, res).catch(next);
   };
 
-  function start(
-    open: () => Promise<Jobs>,
+  function start<B extends Pick<JobBoss, 'stop'>>(
+    boss: B,
+    open: (boss: B) => Promise<Jobs>,
     afterStart: (jobs: Jobs) => Promise<unknown> = async () => {},
   ) {
     if (mode === 'off') return starting;
     starting = (async () => {
       try {
-        jobs = await open();
+        jobs = await open(boss);
         state = 'running';
       } catch (error) {
         state = 'failed';
         log({ level: 'error', event: 'jobs_start_failed', message: messageOf(error) });
+        try {
+          await boss.stop({ graceful: false });
+        } catch (stopError) {
+          log({ level: 'error', event: 'jobs_stop_failed', message: messageOf(stopError) });
+        }
         return;
       }
       try {
