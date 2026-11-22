@@ -28,9 +28,9 @@ function messageOf(error: unknown) {
 /**
  * Holds the background jobs of this process. `start` runs `open(boss)` (startJobs) and then `afterStart`; a rejection
  * of either is logged and the API keeps serving. When `open` fails after pg-boss started (e.g. a queue policy
- * mismatch), the boss is stopped, so its own pool and timers do not outlive the failure. `status` answers GET /api/jobs/status: the shared status view while
- * the jobs run, otherwise a 503 that says why. `stop` waits for a pending start, so a start that finishes after
- * the stop signal does not leave pg-boss running.
+ * mismatch), the boss is stopped, so its own pool and timers do not outlive the failure. `status` answers
+ * GET /api/jobs/status: the shared status view while the jobs run, otherwise a 503 that says why. `stop` waits for a
+ * pending start, so a start that finishes after the stop signal does not leave pg-boss running.
  */
 export function backgroundJobs(mode: JobsMode, log: JobLog = logJob) {
   let state: JobsState = mode === 'off' ? 'off' : 'starting';

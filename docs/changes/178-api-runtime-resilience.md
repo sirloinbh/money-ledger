@@ -59,6 +59,11 @@ error on that pool does not throw; no second listener was added (it would log th
 - Commit `fix: stop a partly started job runner after a failed start (#178)`: `npm run check` exit 0 (backend 417
   pass / 0 skipped, frontend 456 pass / 3 skipped, skills 4 pass, build ok); `npm run knip` exit 0.
 
+### Review round 2 (PR #234): approve, no blocking comments
+
+- nit fixed: a doc comment line in `runtime.ts` was over the line length. Comment only; `prettier --check`, `eslint`
+  and backend `tsc` pass, and `backend/test/runtime.test.ts` passes (6/6).
+
 ## Limits
 
 - The signal path (`SIGINT`/`SIGTERM`) was tested with fakes only; Windows does not deliver `SIGTERM` to a Node
