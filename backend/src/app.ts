@@ -38,6 +38,9 @@ type AppOptions = {
   // Price sources for immediate fetches (#51). None by default: tests and a server without keys fetch nothing.
   prices?: PriceSources;
   priceLog?: PriceLog;
+  // #187 Receives work that runs after an answer was sent (the fetch on linking an asset). By default it just
+  // runs; tests collect and await it so none outlives its test.
+  background?: (task: Promise<void>) => void;
   // The shared sign-in session check (#149). None by default: tests and local development run open.
   auth?: express.RequestHandler;
   // Read-only background job status (ADR-0018). Mounted after `auth`, so it needs the shared sign-in.
@@ -84,6 +87,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
       now,
       prices: options.prices ?? {},
       log: options.priceLog ?? (() => undefined),
+      background: options.background ?? (() => undefined),
     }),
   );
   app.use('/api/portfolio/net-worth', netWorthRouter(pool, { today }));

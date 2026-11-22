@@ -92,12 +92,27 @@ test('asset valuation against the real database', { skip: !url }, async (t) => {
     const { data } = await call(asOf ? `${assets}?asOf=${asOf}` : assets);
     return { assets: data.assets as Asset[], totals: data.totals as Totals };
   };
-  const api = (run: (call: Call) => Promise<void>, sources = {}) =>
-    withApi(pool, run, {
-      today: () => today,
-      now: () => new Date(`${today}T03:00:00Z`),
-      prices: sources,
-    });
+  // #187 The fetch on link runs after the answer. Tests collect it and wait for it (`settle`), so a fetch
+  // never lands after its test has checked or the next one has reset the tables.
+  const pending: Promise<void>[] = [];
+  const background = (task: Promise<void>) => {
+    pending.push(task);
+  };
+  const settle = async () => {
+    await Promise.all(pending.splice(0));
+  };
+  const api = async (run: (call: Call) => Promise<void>, sources = {}) => {
+    try {
+      await withApi(pool, run, {
+        today: () => today,
+        now: () => new Date(`${today}T03:00:00Z`),
+        prices: sources,
+        background,
+      });
+    } finally {
+      await settle();
+    }
+  };
 
   await t.test('a linked stock is valued at its newest close, delayed after 5 days', async () => {
     await reset();
@@ -364,10 +379,17 @@ test('asset valuation against the real database', { skip: !url }, async (t) => {
             securityId: ids.AAPL,
           });
           assert.equal(asset.valueIssue, 'no_price');
+          await settle();
         },
-        { today: () => today, prices: fakeSources(), priceLog: (event) => logged.push(event) },
+        {
+          today: () => today,
+          prices: fakeSources(),
+          priceLog: (event) => logged.push(event),
+          background,
+        },
       );
     } finally {
+      await settle();
       await pool.query('ALTER TABLE price_fetch_state_off RENAME TO price_fetch_state');
     }
     assert.deepEqual(logged, [{ event: 'price_fetch_now', symbol: 'AAPL', result: 'error' }]);
@@ -406,8 +428,12 @@ test('asset valuation against the real database', { skip: !url }, async (t) => {
           quantity: '2',
           securityId: ids.AAPL,
         });
-        assert.equal(asset.price?.source, 'close');
-        assert.equal(asset.price?.currency, 'USD');
+        // #187 The save answers before the fetch; the next list load has the close.
+        assert.equal(asset.valueIssue, 'no_price');
+        await settle();
+        const [listed] = (await list(call)).assets;
+        assert.equal(listed.price?.source, 'close');
+        assert.equal(listed.price?.currency, 'USD');
         const calls = await pool.query<{ n: number }>(
           'SELECT count(*)::int AS n FROM price_api_calls',
         );
@@ -459,11 +485,44 @@ test('asset valuation against the real database', { skip: !url }, async (t) => {
         });
         assert.equal(asset.valueIssue, 'no_price');
       },
-      { today: () => today, prices: sources, priceLog: (event) => logged.push(event) },
+      { today: () => today, prices: sources, priceLog: (event) => logged.push(event), background },
     );
+    await settle();
     assert.deepEqual(logged, [
       { event: 'price_fetch_now', symbol: 'AAPL', result: 'fetch_failed' },
     ]);
+  });
+
+  await t.test('a save answers without waiting for a slow price source (#187)', async () => {
+    await reset();
+    await rate('2026-11-09', '1400');
+    const sources = fakeSources();
+    const answer = sources.tiingo.closes;
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    sources.tiingo.closes = async (...args) => {
+      await held;
+      return answer(...args);
+    };
+    await api(async (call) => {
+      // The fetch is still held when the save answers.
+      const asset = await create(call, {
+        name: '애플',
+        type: 'stock',
+        currency: 'USD',
+        quantity: '2',
+        securityId: ids.AAPL,
+      });
+      assert.equal(asset.valueIssue, 'no_price');
+      assert.equal(pending.length, 1);
+      release();
+      await settle();
+      const [listed] = (await list(call)).assets;
+      assert.equal(listed.price?.source, 'close');
+      assert.equal(listed.valueIssue, null);
+    }, sources);
   });
 
   await t.test('linking and hand prices are checked with messages', async () => {
