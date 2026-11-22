@@ -284,6 +284,55 @@ test('a stop signal cancels a waiting retry at once (#235)', async () => {
   assert.equal(made, 1, 'no new boss after the stop');
 });
 
+test('a boss constructor that throws is a failed attempt, not an unhandled rejection (#235)', async () => {
+  const logged: Record<string, unknown>[] = [];
+  const jobs = backgroundJobs('all', (line) => logged.push(line), []);
+  await jobs.start(
+    () => {
+      throw new Error('bad connection string');
+    },
+    async () => fakeJobs(),
+  );
+  assert.equal(jobs.state(), 'failed');
+  assert.deepEqual(logged, [
+    {
+      level: 'error',
+      event: 'jobs_start_failed',
+      attempt: 1,
+      final: true,
+      message: 'bad connection string',
+    },
+  ]);
+});
+
+test('a start that finishes after the stop signal sends nothing and is stopped (#235)', async () => {
+  const jobs = backgroundJobs('all', () => undefined, []);
+  let finish: (value: Jobs) => void = () => {};
+  let sent = false;
+  let stopped = false;
+  void jobs.start(
+    () => idleBoss,
+    () =>
+      new Promise<Jobs>((resolve) => {
+        finish = resolve;
+      }),
+    async () => {
+      sent = true;
+    },
+  );
+  const stopping = jobs.stop();
+  finish(
+    fakeJobs({
+      stop: async () => {
+        stopped = true;
+      },
+    }),
+  );
+  await stopping;
+  assert.equal(sent, false);
+  assert.equal(stopped, true);
+});
+
 test('the server pool (createPool) survives an idle-client error instead of crashing the process', () => {
   const pool = createPool(new Pool({ connectionString: 'postgres://unused@127.0.0.1:1/none' }));
   // Without a listener, emitting 'error' throws (and in the server, ends the process).

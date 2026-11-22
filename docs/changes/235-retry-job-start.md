@@ -37,3 +37,18 @@ with no options and it would not cover a failure after `boss.start()` (queue cre
   pass / 3 skipped, skills 4 pass, build ok.
 - `npm run knip`: first exit 1 (`START_RETRY_DELAYS_MS` exported but unused elsewhere); the export was dropped (it is
   only the default), then knip exit 0, and `eslint` and backend `tsc` pass on the changed file.
+
+### Review round 1 (PR #250): changes needed, 2 findings fixed
+
+- `createBoss()` ran outside the `try`, so a PgBoss constructor that throws (for example on bad options) rejected the
+  start promise that `server.ts` does not await: an unhandled rejection that ends Node. It now runs inside the `try`
+  and counts as a failed attempt. Test: "a boss constructor that throws is a failed attempt" (with the old code,
+  `await jobs.start(...)` in that test would reject instead of resolving).
+- A start that finished after the stop signal still ran `afterStart` (the first price send) during shutdown. It now
+  skips it; `stop()` still stops those jobs. Test: "a start that finishes after the stop signal sends nothing and is
+  stopped".
+- `backend/test/runtime.test.ts`: 11 pass.
+- The full `npm run check` was stopped by the system for low memory during lint. As the coordinator's memory rule says,
+  the remaining steps ran in parts in the foreground through the shared lock: format check (passed in the stopped
+  run), `lint` 0, `contract:check` 0, `typecheck` 0, backend tests 445 pass / 0 skipped (DB tests ran), frontend
+  `--maxWorkers=3` 480 pass / 3 skipped, `test:skills` 0, `build` 0, `knip` 0.

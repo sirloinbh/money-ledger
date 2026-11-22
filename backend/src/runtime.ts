@@ -78,8 +78,10 @@ export function backgroundJobs(
     open: (boss: B) => Promise<Jobs>,
     number: number,
   ) {
-    const boss = createBoss();
+    let boss: B | null = null;
     try {
+      // Inside the try: a constructor that throws is a failed attempt, not an unhandled rejection that ends Node.
+      boss = createBoss();
       jobs = await open(boss);
       return true;
     } catch (error) {
@@ -93,7 +95,7 @@ export function backgroundJobs(
         message: messageOf(error),
       });
       try {
-        await boss.stop({ graceful: false });
+        await boss?.stop({ graceful: false });
       } catch (stopError) {
         log({ level: 'error', event: 'jobs_stop_failed', message: messageOf(stopError) });
       }
@@ -123,6 +125,8 @@ export function backgroundJobs(
         }
       }
       state = 'running';
+      // A start that finished after the stop signal is stopped by stop(); it sends nothing first.
+      if (stopping.signal.aborted) return;
       try {
         await afterStart(jobs!);
       } catch (error) {
