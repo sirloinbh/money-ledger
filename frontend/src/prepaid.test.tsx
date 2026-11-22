@@ -83,10 +83,9 @@ function usageApi(url: string, method: string, body: unknown) {
   const asset = stored.find((item) => item.id === assetId)!;
   const left = asset.prepaid!.amountKrw - usedOf(assetId);
   if (use.amountKrw > left) {
-    return json(
-      { error: `Cannot use more than the balance (remaining ₩${left.toLocaleString('en-US')})` },
-      400,
-    );
+    // #192 Worded unlike the real server on purpose: the screen must go by `fields`, not the words.
+    const error = `Only ₩${left.toLocaleString('en-US')} is left to spend`;
+    return json({ error, fields: [{ path: 'amountKrw', message: error }] }, 400);
   }
   const usage = { ...use, id: 100 + entries.length };
   entries.push(usage);
@@ -242,9 +241,7 @@ test('uses lower a stored value, a use above the balance shows the server messag
     target: { value: '250001' },
   });
   fireEvent.click(within(panel).getByRole('button', { name: 'Add usage' }));
-  expect(await findLive('alert', panel)).toHaveTextContent(
-    'Cannot use more than the balance (remaining ₩250,000)',
-  );
+  expect(await findLive('alert', panel)).toHaveTextContent('Only ₩250,000 is left to spend');
   expect(within(panel).getByLabelText('Amount used (KRW)')).toHaveAttribute('aria-invalid', 'true');
 
   // Deleting asks first.
@@ -282,15 +279,13 @@ test('a date refused by the server marks the date field, and a date that does no
   });
 
   // A past date the (fake) server refuses because of the expiry.
+  const expired = 'Past its expiry (2026-01-31)';
   vi.mocked(fetch).mockImplementationOnce(() =>
-    json(
-      { error: 'The expiry date (2026-01-31) has passed, so it cannot be used on that date' },
-      400,
-    ),
+    json({ error: expired, fields: [{ path: 'usedOn', message: expired }] }, 400),
   );
   fireEvent.change(date, { target: { value: '2026-02-01' } });
   fireEvent.click(within(panel).getByRole('button', { name: 'Add usage' }));
-  expect(await findLive('alert', panel)).toHaveTextContent('The expiry date (2026-01-31)');
+  expect(await findLive('alert', panel)).toHaveTextContent('Past its expiry (2026-01-31)');
   expect(date).toHaveAttribute('aria-invalid', 'true');
   expect(within(panel).getByLabelText('Amount used (KRW)')).not.toHaveAttribute('aria-invalid');
 
@@ -319,6 +314,35 @@ test('a refusal that is not about the date or the balance marks no field', async
   fireEvent.click(within(panel).getByRole('button', { name: 'Add usage' }));
   expect(await findLive('alert', panel)).toHaveTextContent('Asset not found');
   expect(within(panel).getByLabelText('Amount used (KRW)')).not.toHaveAttribute('aria-invalid');
+  expect(within(panel).getByLabelText('Date used')).not.toHaveAttribute('aria-invalid');
+});
+
+test('the refused field comes from the server code, not words in the message (#192)', async () => {
+  stored.push(salon);
+  await ready();
+  fireEvent.click(screen.getByRole('button', { name: 'Salon membership usage records' }));
+  const panel = screen.getByRole('region', { name: 'Salon membership usage records' });
+  fireEvent.change(within(panel).getByLabelText('Amount used (KRW)'), {
+    target: { value: '1000' },
+  });
+  // "dated" and "update" no longer point at the date: the path names the amount.
+  const message = 'The balance dated today needs an update before this amount';
+  vi.mocked(fetch).mockImplementationOnce(() =>
+    json({ error: message, fields: [{ path: 'amountKrw', message }] }, 400),
+  );
+  fireEvent.click(within(panel).getByRole('button', { name: 'Add usage' }));
+  expect(await findLive('alert', panel)).toHaveTextContent(message);
+  expect(within(panel).getByLabelText('Amount used (KRW)')).toHaveAttribute('aria-invalid', 'true');
+  expect(within(panel).getByLabelText('Date used')).not.toHaveAttribute('aria-invalid');
+
+  // A 400 that names no field marks none, whatever it says.
+  vi.mocked(fetch).mockImplementationOnce(() =>
+    json({ error: 'Usage records can only be added to a prepaid voucher dated today' }, 400),
+  );
+  fireEvent.click(within(panel).getByRole('button', { name: 'Add usage' }));
+  await vi.waitFor(() =>
+    expect(within(panel).getByLabelText('Amount used (KRW)')).not.toHaveAttribute('aria-invalid'),
+  );
   expect(within(panel).getByLabelText('Date used')).not.toHaveAttribute('aria-invalid');
 });
 

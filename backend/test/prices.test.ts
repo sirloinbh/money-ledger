@@ -57,6 +57,27 @@ test('KRX rows keep the code, name and whole-won close and drop rows without a t
   assert.throws(() => parseKrxDaily({ error: 'x' }), SourceError);
 });
 
+test('a KRX answer whose items lack the expected fields fails instead of reading as a holiday (#193)', () => {
+  const missing = /KRX quote response is missing the code, name or close fields/;
+  // Renamed fields, as a changed response format would bring.
+  assert.throws(
+    () => parseKrxDaily({ OutBlock_1: [{ CODE: '005930', NAME: '삼성전자', CLOSE: '71000' }] }),
+    missing,
+  );
+  // One item without a close field among good ones, and an item that is not an object.
+  assert.throws(
+    () =>
+      parseKrxDaily({
+        OutBlock_1: [
+          { ISU_CD: '005930', ISU_NM: '삼성전자', TDD_CLSPRC: '71,000' },
+          { ISU_CD: '000660', ISU_NM: 'SK하이닉스' },
+        ],
+      }),
+    missing,
+  );
+  assert.throws(() => parseKrxDaily({ OutBlock_1: ['005930'] }), SourceError);
+});
+
 test('the Tiingo list keeps NYSE, NASDAQ and NYSE ARCA stocks and ETFs that still trade', () => {
   const csv = [
     'ticker,exchange,assetType,priceCurrency,startDate,endDate',
@@ -127,6 +148,27 @@ test('the first file of a ZIP archive is read, deflated or stored', () => {
   assert.equal(firstZipEntry(zip(8)).toString(), content.toString());
   assert.equal(firstZipEntry(zip(0)).toString(), content.toString());
   assert.throws(() => firstZipEntry(Buffer.from('not a zip file at all, just text here')));
+
+  // #193 A size in the list that does not match what is there is an error, not a shorter file.
+  const withSizes = (method: 0 | 8, compressed: number, size: number) => {
+    const archive = zip(method);
+    const central = archive.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+    archive.writeUInt32LE(compressed, central + 20);
+    archive.writeUInt32LE(size, central + 24);
+    return archive;
+  };
+  const deflated = deflateRawSync(content).length;
+  // Data said to run past the end of the download.
+  assert.throws(() => firstZipEntry(withSizes(0, 10_000, 10_000)), /cut off/);
+  // A stored or deflated file shorter than its listed size.
+  assert.throws(
+    () => firstZipEntry(withSizes(0, content.length - 5, content.length)),
+    /not the size it should be/,
+  );
+  assert.throws(
+    () => firstZipEntry(withSizes(8, deflated, content.length + 1)),
+    /not the size it should be/,
+  );
 });
 
 test('a source without a key is left out; PRICE_SOURCE=fake uses the fake for all', () => {
@@ -137,6 +179,28 @@ test('a source without a key is left out; PRICE_SOURCE=fake uses the fake for al
   assert.equal(some.krx, undefined);
   const fake = sourcesFromEnv({ PRICE_SOURCE: 'fake', KRX_API_KEY: 'k' });
   assert.equal(fake.krx?.name, 'FAKE');
+});
+
+test('PRICE_SOURCE=fake is refused in production and other values are logged (#193)', () => {
+  assert.throws(
+    () => sourcesFromEnv({ PRICE_SOURCE: 'fake', NODE_ENV: 'production' }),
+    /PRICE_SOURCE=fake cannot be used in production/,
+  );
+  assert.equal(sourcesFromEnv({ PRICE_SOURCE: 'fake', NODE_ENV: 'test' }).fx?.name, 'FAKE');
+  const logged: Record<string, unknown>[] = [];
+  const sources = sourcesFromEnv({ PRICE_SOURCE: 'Fake ', KOREAEXIM_API_KEY: 'k' }, (event) =>
+    logged.push(event),
+  );
+  assert.equal(sources.fx?.name, 'KOREAEXIM');
+  assert.deepEqual(logged, [
+    {
+      event: 'price_source_unknown',
+      message: 'Unknown PRICE_SOURCE value; using the real sources',
+    },
+  ]);
+  const quiet: Record<string, unknown>[] = [];
+  sourcesFromEnv({ PRICE_SOURCE: '' }, (event) => quiet.push(event));
+  assert.deepEqual(quiet, []);
 });
 
 test('source errors never carry the key or the URL', async (t) => {

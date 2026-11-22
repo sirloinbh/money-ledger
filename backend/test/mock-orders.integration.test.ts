@@ -58,6 +58,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
       '005_mock_accounts.sql',
       '009_prices.sql',
       '012_krx_listing.sql',
+      '024_price_fetch_not_found.sql',
       '015_mock_orders.sql',
       '004_portfolio_assets.sql',
       '007_depreciable_assets.sql',
