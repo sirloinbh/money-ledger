@@ -40,6 +40,11 @@ export type OpenApiOptions = {
   operations: Record<string, Operation>;
   /** The description of the `error` field of the shared Error schema. */
   errorDescription?: string;
+  /**
+   * The app registers `createErrorHandler({ fields: true })` (standard/http.ts), so a validation 400 also lists the invalid
+   * fields: the Error schema then documents the optional `fields: [{ path, message }]` (#999).
+   */
+  errorFields?: boolean;
   /** Replaces the default text of a status, e.g. `{ 409: 'The name is taken' }`. */
   statusText?: Record<number, string>;
 };
@@ -72,6 +77,19 @@ export function schemaOf(schema: ZodType): Json {
 /** `id` and names like `workoutId` are integer ids unless the operation lists a schema for them. */
 const isIdName = (name: string) => name === 'id' || /[a-z0-9]Id$/.test(name);
 
+// The `fields` list of a validation 400 with createErrorHandler({ fields: true }) (standard/http.ts FieldError).
+const errorFieldsSchema = {
+  type: 'array',
+  description: 'Only on a validation 400: each invalid field with its message',
+  items: {
+    type: 'object',
+    properties: {
+      path: { type: 'string', description: 'Where the field is in the input, joined by dots (items.0.name)' },
+      message: { type: 'string', description: 'The message for this field' },
+    },
+    required: ['path', 'message'],
+  },
+};
 const errorRef = { content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } };
 
 /** Fails on a table entry the document cannot describe, naming the route, instead of writing a wrong document. */
@@ -97,7 +115,10 @@ export function buildOpenApi(options: OpenApiOptions) {
   const schemas: Json = {
     Error: {
       type: 'object',
-      properties: { error: { type: 'string', description: options.errorDescription ?? 'A short message for the user' } },
+      properties: {
+        error: { type: 'string', description: options.errorDescription ?? 'A short message for the user' },
+        ...(options.errorFields ? { fields: errorFieldsSchema } : {}),
+      },
       required: ['error'],
     },
   };
