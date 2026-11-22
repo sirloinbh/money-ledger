@@ -160,6 +160,7 @@ test('new spending reports are announced with links until they are opened (#62)'
     startDate,
     endDate,
     madeOn: '2026-11-16',
+    updatedOn: null,
     seen,
     total: 56500,
   });

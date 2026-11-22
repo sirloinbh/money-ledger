@@ -9,7 +9,12 @@ import { runMigration, withApi } from './helpers.js';
 const url = process.env.TEST_DATABASE_URL;
 
 type Created = { id: number; period: string; startDate: string; endDate: string };
-type ListItem = Created & { madeOn: string; seen: boolean; total: number };
+type ListItem = Created & {
+  madeOn: string;
+  updatedOn: string | null;
+  seen: boolean;
+  total: number;
+};
 type Report = ListItem & {
   previousTotal: number;
   change: number;
@@ -48,6 +53,8 @@ test('spending reports against the real database', { skip: !url }, async (t) => 
     await runMigration(pool, '017_ledger_budgets.sql');
     await runMigration(pool, '021_spending_reports.sql');
     await runMigration(pool, '021_spending_reports.sql'); // re-running is safe
+    await runMigration(pool, '026_spending_report_changes.sql');
+    await runMigration(pool, '026_spending_report_changes.sql'); // re-running is safe
     const { rows } = await pool.query<{ id: string; kind: string; name: string }>(
       'SELECT id, kind, name FROM ledger_categories',
     );
@@ -177,19 +184,110 @@ test('spending reports against the real database', { skip: !url }, async (t) => 
     );
   });
 
-  await t.test('a period is made once, and later edits leave its report as it was', async () => {
+  await t.test('a period is made once, even when two opens run at the same time', async () => {
     await reset();
     await spend('2026-11-09', 'expense/식비', 30000);
-    // Two opens at the same time.
     const [first, second] = await Promise.all([generate('2026-11-16'), generate('2026-11-16')]);
     assert.equal(first.length + second.length, 2);
     assert.deepEqual(await generate('2026-11-16'), []);
     const rows = await pool.query('SELECT period, start_date FROM spending_reports');
     assert.equal(rows.rowCount, 2);
+  });
 
-    const weekId = [...first, ...second].find((item) => item.period === 'week')!.id;
-    await spend('2026-11-10', 'expense/식비', 1000);
-    assert.equal((await report(weekId)).total, 30000);
+  await t.test(
+    'a report is rebuilt when an expense entry in its period changes (#205)',
+    async () => {
+      await reset();
+      await spend('2026-11-09', 'expense/식비', 30000);
+      const created = await generate('2026-11-16');
+      const weekId = created.find((item) => item.period === 'week')!.id;
+      const octoberId = created.find((item) => item.period === 'month')!.id;
+      const stale = async () =>
+        (
+          await pool.query<{ id: string }>(
+            'SELECT id FROM spending_reports WHERE stale ORDER BY id',
+          )
+        ).rows.map((row) => Number(row.id));
+
+      // Added: the week's report and the list follow, and say when they were updated.
+      const added = await pool.query<{ id: string }>(
+        `INSERT INTO ledger_entries (entry_date, kind, amount, category_id)
+       VALUES ('2026-11-10', 'expense', 1000, $1) RETURNING id`,
+        [ids['expense/교통']],
+      );
+      assert.deepEqual(await stale(), [weekId]); // October is not touched
+      let week = await report(weekId);
+      assert.equal(week.total, 31000);
+      assert.deepEqual(
+        week.topCategories.map((category) => [category.name, category.amount]),
+        [
+          ['식비', 30000],
+          ['교통', 1000],
+        ],
+      );
+      assert.match(week.updatedOn!, /^\d{4}-\d{2}-\d{2}$/);
+      assert.equal((await report(octoberId)).updatedOn, null);
+      assert.deepEqual(await stale(), []);
+
+      // Changed, then deleted.
+      const entryId = added.rows[0].id;
+      await pool.query('UPDATE ledger_entries SET amount = 5000 WHERE id = $1', [entryId]);
+      assert.equal((await list()).find((item) => item.id === weekId)!.total, 35000);
+      await pool.query('DELETE FROM ledger_entries WHERE id = $1', [entryId]);
+      assert.equal((await report(weekId)).total, 30000);
+
+      // The week before is the report's "previous" total, so it changes the report too.
+      await spend('2026-11-07', 'expense/식비', 2000);
+      week = await report(weekId);
+      assert.deepEqual([week.previousTotal, week.change], [2000, 28000]);
+
+      // Neither income, a memo, nor an entry outside the periods marks a report.
+      await spend('2026-11-11', 'income/급여', 3000000, 'income');
+      await pool.query("UPDATE ledger_entries SET memo = 'lunch' WHERE entry_date = '2026-11-09'");
+      await spend('2026-11-20', 'expense/식비', 7000);
+      assert.deepEqual(await stale(), []);
+
+      // An entry moved from income to expense counts.
+      await pool.query(
+        "UPDATE ledger_entries SET kind = 'expense', category_id = $1 WHERE kind = 'income' AND entry_date = '2026-11-11'",
+        [ids['expense/식비']],
+      );
+      assert.deepEqual(await stale(), [weekId]);
+
+      // Opening the app rebuilds it too, and the report keeps whether it was seen.
+      await call('2026-11-16', `/api/reports/${weekId}/seen`, 'PUT');
+      await generate('2026-11-16');
+      assert.deepEqual(await stale(), []);
+      const listed = (await list()).find((item) => item.id === weekId)!;
+      assert.deepEqual([listed.total, listed.seen], [3030000, true]);
+    },
+  );
+
+  await t.test('an entry saved while reports are made is never lost', async () => {
+    await reset();
+    // An entry change in an open transaction holds the reports' lock in shared mode.
+    const writer = await pool.connect();
+    try {
+      await writer.query('BEGIN');
+      await writer.query(
+        `INSERT INTO ledger_entries (entry_date, kind, amount, category_id)
+         VALUES ('2026-11-09', 'expense', 4000, $1)`,
+        [ids['expense/식비']],
+      );
+      let done = false;
+      const making = generate('2026-11-16').then((created) => {
+        done = true;
+        return created;
+      });
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      assert.equal(done, false, 'making reports waits for the entry to commit');
+      await writer.query('COMMIT');
+      const created = await making;
+      const week = created.find((item) => item.period === 'week')!;
+      assert.equal((await report(week.id)).total, 4000);
+    } finally {
+      writer.release();
+    }
   });
 
   await t.test(

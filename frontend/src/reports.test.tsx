@@ -17,6 +17,7 @@ const weekItem = {
   startDate: '2026-11-08',
   endDate: '2026-11-14',
   madeOn: '2026-11-16',
+  updatedOn: null,
   seen: false,
   total: 56500,
 };
@@ -26,6 +27,7 @@ const monthItem = {
   startDate: '2026-10-01',
   endDate: '2026-10-31',
   madeOn: '2026-11-16',
+  updatedOn: '2026-11-20',
   seen: true,
   total: 110000,
 };
@@ -144,7 +146,11 @@ test('a weekly report: totals, the change, the top 3 and no overspending; openin
     '3. Uncategorized₩5,000 (8.8%)',
   ]);
   expect(screen.queryByRole('heading', { name: 'Overspending' })).toBeNull();
-  expect(screen.getByText(/Saved on 2026-11-16\. Entries changed after that/)).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      'Saved on 2026-11-16. It is updated when an expense entry in this period, or the one before it, is added, changed or deleted.',
+    ),
+  ).toBeInTheDocument();
   await vi.waitFor(() => expect(calls).toContain('PUT /api/reports/3/seen'));
 });
 
@@ -160,6 +166,10 @@ test('a monthly report lists the categories that reached or passed their budget;
     'Transport: spent ₩70,000 of a ₩50,000 budget, ₩20,000 more (140.0%)',
   ]);
   expect(screen.getByText('₩110,000 more than the month before')).toBeInTheDocument();
+  // Rebuilt after an entry change (#205): the date of the update is shown.
+  expect(
+    screen.getByText(/^Saved on 2026-11-16, updated on 2026-11-20\. It is updated/),
+  ).toBeInTheDocument();
   expect(calls).not.toContain('PUT /api/reports/2/seen');
 });
 
