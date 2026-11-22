@@ -25,6 +25,10 @@ Opening a security detail (`POST /api/prices/securities/:id/view`) called `track
 - Both changed tests fail without the `src` changes and pass with them.
 - Commands and results are in the PR body.
 
+## Review
+
+- Round 1 (PR #249 comment): approve, no blocking comments; one non-blocking nitpick (the second room read), kept as a limit below.
+
 ## Limits
 
 - `trackOpened` reads the room again inside its own call, so a new US open runs the count twice (once unlocked, once under the lock). The unlocked read only decides whether to spend a Tiingo call.
