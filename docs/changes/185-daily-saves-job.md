@@ -46,3 +46,11 @@ Both: a daily pg-boss job on the server does the three saves, and the app keeps 
 
 - A server that is off at 00:05 and 19:05 does not catch up when it starts; the app's on-open calls cover that day.
 - The job's status is in `GET /api/jobs/status` with the price queue.
+
+## Review
+
+- Round 1: approve, no blocking comments.
+  - Every step is idempotent: the fixed-cost runs key, the report key with the reports lock, and the net worth upsert with its `40001` retry (#195). So the 00:05 and 19:05 runs, a pg-boss retry and an app open at the same time add nothing twice.
+  - The service date is read when the job runs, so the 00:05 run already uses the new day.
+  - The job is not started in `jobs.integration.test.ts`, so that test's schedule list stays as it is.
+  - Non-blocking: a server that is off at both times does not catch up on start; the app's on-open calls cover that, as decided. It is recorded under Limits.
