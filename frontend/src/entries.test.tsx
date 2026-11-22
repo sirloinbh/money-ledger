@@ -4,7 +4,8 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { EntryManager } from './entries';
-import { findLive, getLive } from './test/live';
+import { findLive, getLive, queryLive } from './test/live';
+import { unexpectedRequest } from './test/unexpected';
 
 // The list filters live in the address, so the manager renders inside a router.
 const Router = ({ children }: { children: ReactNode }) => (
@@ -30,6 +31,8 @@ const categories = [
 
 let stored: Entry[];
 let requests: { method: string; url: string; body: unknown }[];
+// When set, the next list load answers with this error (a reload that fails).
+let failNextList: string | undefined;
 
 const json = (body: unknown, status = 200) =>
   Promise.resolve(
@@ -38,7 +41,8 @@ const json = (body: unknown, status = 200) =>
       : new Response(JSON.stringify(body), { status }),
   );
 
-// A small in-memory /api/ledger/entries (newest first) and a fixed category list.
+// A small in-memory /api/ledger/entries (newest first), a fixed category list, and the CSV import, which adds
+// one entry per row sent. Any other request fails the test (#183).
 function fakeApi() {
   vi.stubGlobal(
     'fetch',
@@ -48,12 +52,48 @@ function fakeApi() {
         ? (JSON.parse(init.body as string) as Omit<Entry, 'id' | 'categoryName'>)
         : undefined;
       requests.push({ method, url, body });
-      if (url === '/api/ledger/categories') return json({ categories });
-      if (method === 'GET')
+      const path = url.split('?')[0];
+      if (method === 'GET' && url === '/api/ledger/categories') return json({ categories });
+      if (method === 'GET' && path === '/api/ledger/entries') {
+        if (failNextList) {
+          const error = failNextList;
+          failNextList = undefined;
+          return json({ error }, 500);
+        }
         return json({
           entries: [...stored].sort((a, b) => b.date.localeCompare(a.date)),
           total: stored.length,
         });
+      }
+      if (method === 'POST' && url === '/api/ledger/entries/csv/preview') {
+        const { rows } = init.body
+          ? (JSON.parse(init.body as string) as { rows: unknown[] })
+          : { rows: [] };
+        return json({ rows: rows.length, valid: rows.length, problems: [], duplicates: [] });
+      }
+      if (method === 'POST' && url === '/api/ledger/entries/csv/import') {
+        const { rows } = JSON.parse(init.body as string) as {
+          rows: { date: string; amount: string; merchant: string }[];
+        };
+        stored = [
+          ...stored,
+          ...rows.map((row, index) => ({
+            id: 100 + index,
+            date: row.date,
+            kind: 'expense' as const,
+            amount: Number(row.amount),
+            categoryId: null,
+            categoryName: null,
+            merchant: row.merchant,
+            memo: '',
+          })),
+        ];
+        return json({ imported: rows.length, skipped: 0 });
+      }
+      const known =
+        (method === 'POST' && url === '/api/ledger/entries') ||
+        ((method === 'PUT' || method === 'DELETE') && /^\/api\/ledger\/entries\/\d+$/.test(url));
+      if (!known) return unexpectedRequest(method, url);
       const id = Number(url.split('/').pop());
       if (method === 'DELETE') {
         stored = stored.filter((entry) => entry.id !== id);
@@ -90,6 +130,7 @@ beforeEach(() => {
     },
   ];
   requests = [];
+  failNextList = undefined;
   fakeApi();
 });
 
@@ -522,4 +563,80 @@ test('a delete blocks a save until it is done (#198)', async () => {
   stored = [];
   finishDelete(new Response(null, { status: 204 }));
   expect(await screen.findByText('Entry deleted')).toBeInTheDocument();
+});
+
+/** After the next change is saved, the reload of `path` fails once (#262). */
+function failReloadAfterSave(path: string) {
+  const api = vi.mocked(fetch).getMockImplementation()!;
+  let saved = false;
+  vi.mocked(fetch).mockImplementation((url: string | URL | Request, init?: RequestInit) => {
+    const method = init?.method ?? 'GET';
+    if (method !== 'GET') saved = true;
+    else if (saved && String(url).startsWith(path)) {
+      saved = false;
+      return Promise.reject(new TypeError('offline'));
+    }
+    return api(url, init);
+  });
+}
+
+test('a saved entry or delete whose list fails to reload is a note, not an error (#262)', async () => {
+  await ready();
+  failReloadAfterSave('/api/ledger/entries');
+  fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '12500' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
+  expect(await findLive('status')).toHaveTextContent(
+    'Expense ₩12,500 recorded. The list could not be reloaded; reload the page to see it',
+  );
+  expect(queryLive('alert')).toBeNull();
+
+  failReloadAfterSave('/api/ledger/entries');
+  fireEvent.click(screen.getByRole('button', { name: 'Delete 2026-11-01 Leisure ₩5,000' }));
+  const dialog = screen.getByRole('dialog', { name: 'Delete this entry?' });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+  await vi.waitFor(() =>
+    expect(getLive('status')).toHaveTextContent(
+      'Entry deleted. The list could not be reloaded; reload the page to see it',
+    ),
+  );
+  expect(queryLive('alert')).toBeNull();
+});
+
+// #183 After a CSV import the list must show the new rows: a parent with `onChange` is told (it bumps the
+// version that reloads the list); without one the list reloads itself, and a failed reload says so.
+const importOneRow = async () => {
+  const file = new File(['date,merchant,amount\n2026-11-02,Bakery,4500\n'], 'card.csv', {
+    type: 'text/csv',
+  });
+  fireEvent.change(screen.getByLabelText('CSV file to import'), { target: { files: [file] } });
+  await screen.findByRole('group', { name: /Columns of card\.csv/ });
+  fireEvent.click(screen.getByRole('button', { name: 'Check the rows' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Import 1 entry' }));
+};
+
+test('a CSV import is reported to the parent, which reloads the list', async () => {
+  const onChange = vi.fn();
+  render(<EntryManager entriesVersion={0} onChange={onChange} />, { wrapper: Router });
+  await screen.findByRole('list', { name: 'Entry list' });
+  const loads = () =>
+    requests.filter((r) => r.method === 'GET' && r.url !== '/api/ledger/categories');
+  const before = loads().length;
+  await importOneRow();
+  await vi.waitFor(() => expect(onChange).toHaveBeenCalledOnce());
+  // The parent's version bump does the reload, not the manager itself.
+  expect(loads()).toHaveLength(before);
+});
+
+test('without a parent a CSV import reloads the list itself', async () => {
+  await ready();
+  await importOneRow();
+  expect(await screen.findByText('Bakery')).toBeInTheDocument();
+});
+
+test('without a parent a failed reload after a CSV import says so', async () => {
+  await ready();
+  failNextList = 'Cannot connect to the database';
+  await importOneRow();
+  expect(await screen.findByText('Cannot connect to the database')).toBeInTheDocument();
+  expect(screen.queryByText('Bakery')).toBeNull();
 });

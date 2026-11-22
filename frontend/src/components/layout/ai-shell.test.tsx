@@ -1,5 +1,5 @@
 // Managed file. Edit it in sirloinbh/project-standards templates/ui/frontend/src/components/layout/
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, expect, test, vi } from 'vitest';
 
@@ -114,24 +114,24 @@ test('a failed request shows an alert', async () => {
   expect(await screen.findByRole('alert')).toHaveTextContent('Cannot reach the AI service');
 });
 
-// A streamed answer that stays open until the request is aborted, like a real fetch.
-function openStream(signal: AbortSignal | undefined) {
-  return new Response(
-    new ReadableStream({
-      start(controller) {
-        signal?.addEventListener('abort', () => controller.error(new Error('aborted')));
-      },
-    }),
-    { status: 200, headers: { 'content-type': 'text/event-stream' } },
-  );
+// A request that waits for its answer until it is aborted, then rejects like a real fetch does.
+function pendingUntilAborted(signal: AbortSignal | undefined) {
+  return new Promise<Response>((_resolve, reject) => {
+    signal?.addEventListener('abort', () => reject(new DOMException('The request was aborted', 'AbortError')));
+  });
+}
+
+// The cancelled turn settles through promise callbacks only (the rejected fetch, then catch and finally), and
+// nothing on screen shows when it is done. A zero-delay task runs only after every queued promise callback, so
+// this waits for exactly that, on a fast or a loaded machine alike; act() then renders any state it changed.
+function settlePromises() {
+  return act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
 }
 
 test('a turn cancelled by New conversation does not end the busy state of the next turn', async () => {
   const fetchMock = vi
     .fn()
-    .mockImplementation((_url: string, init: RequestInit) =>
-      Promise.resolve(openStream(init.signal as AbortSignal)),
-    );
+    .mockImplementation((_url: string, init: RequestInit) => pendingUntilAborted(init.signal as AbortSignal));
   vi.stubGlobal('fetch', fetchMock);
   openPanel();
   ask('first');
@@ -139,10 +139,13 @@ test('a turn cancelled by New conversation does not end the busy state of the ne
   fireEvent.click(screen.getByRole('button', { name: 'New conversation' }));
   ask('second');
   await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-  // Let the cancelled first request settle.
-  await new Promise((resolve) => setTimeout(resolve, 20));
-  ask('third');
-  await new Promise((resolve) => setTimeout(resolve, 20));
+  // Let the cancelled first request settle, so a wrong busy reset would have happened by now.
+  await settlePromises();
+  fireEvent.change(screen.getByRole('textbox', { name: 'Message' }), { target: { value: 'third' } });
+  // With a draft typed, Send is disabled only while the second turn is still busy.
+  expect(screen.getByRole('button', { name: 'Send' })).toHaveAttribute('aria-disabled', 'true');
+  fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+  await settlePromises();
   expect(fetchMock).toHaveBeenCalledTimes(2);
 });
 

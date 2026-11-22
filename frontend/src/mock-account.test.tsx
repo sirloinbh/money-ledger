@@ -2,7 +2,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { MockAccount } from './mock-account';
-import { findLive } from './test/live';
+import { findLive, queryLive } from './test/live';
+import { unexpectedRequest } from './test/unexpected';
 
 type Account = {
   id: number;
@@ -40,7 +41,10 @@ function fakeApi() {
         ? (JSON.parse(init.body as string) as { initialCashKrw: number })
         : undefined;
       requests.push({ method, url, body });
-      if (method === 'GET' && url.endsWith('/holdings')) {
+      // An account's own pages (holdings, history, returns) and its reset. The tests change `open` to stand for
+      // the server moving on, so any account id is accepted here; the method and the path are not.
+      const [, page] = /^\/api\/mock\/accounts\/\d+\/(\w+)$/.exec(url.split('?')[0]) ?? [];
+      if (method === 'GET' && page === 'holdings') {
         const cash = open?.cashKrw ?? 0;
         return json({
           summary: {
@@ -78,23 +82,30 @@ function fakeApi() {
               : [],
         });
       }
-      if (method === 'GET' && url.includes('/orders')) {
+      if (method === 'GET' && page === 'orders') {
         return json({ orders: [], hasMore: false, securities: [] });
       }
-      if (method === 'GET' && url.endsWith('/snapshots')) {
+      if (method === 'GET' && page === 'snapshots') {
         return json({ startDate: '2026-11-05', initialCashKrw: 10_000_000, snapshots: [] });
       }
-      if (method === 'GET') return json({ account: open, closedAccounts: closed });
+      if (method === 'GET' && url === '/api/mock/accounts') {
+        return json({ account: open, closedAccounts: closed });
+      }
+      const reset = method === 'POST' && page === 'reset';
+      if (!reset && !(method === 'POST' && url === '/api/mock/accounts')) {
+        // Any other request fails the test (#183).
+        return unexpectedRequest(method, url);
+      }
       if (failNext) {
         const { status, error } = failNext;
         failNext = undefined;
         return json({ error }, status);
       }
-      if (url.endsWith('/reset') && open) {
+      if (reset && open) {
         closed = [{ ...open, closedAt: '2026-11-05T02:00:00.000Z' }, ...closed];
       }
       open = account(open ? open.id + 1 : 1, body!.initialCashKrw);
-      return json({ account: open }, url.endsWith('/reset') ? 200 : 201);
+      return json({ account: open }, reset ? 200 : 201);
     }),
   );
 }
@@ -313,4 +324,30 @@ test('a typed reset amount survives a reload after an order; a new account fills
   await vi.waitFor(() =>
     expect(screen.getByLabelText('New starting amount (KRW)')).toHaveValue('50,000,000'),
   );
+});
+
+/** After the next change is saved, the reload of `path` fails once (#265). */
+function failReloadAfterSave(path: string) {
+  const api = vi.mocked(fetch).getMockImplementation()!;
+  let saved = false;
+  vi.mocked(fetch).mockImplementation((url: string | URL | Request, init?: RequestInit) => {
+    const method = init?.method ?? 'GET';
+    if (method !== 'GET') saved = true;
+    else if (saved && String(url) === path) {
+      saved = false;
+      return Promise.reject(new TypeError('offline'));
+    }
+    return api(url, init);
+  });
+}
+
+test('a created account whose reload fails is a note, not an error (#265)', async () => {
+  render(<MockAccount />);
+  await screen.findByLabelText('Starting amount (KRW)');
+  failReloadAfterSave('/api/mock/accounts');
+  fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
+  await expectStatus(
+    'Mock trading account created with ₩10,000,000. The account could not be reloaded; reload the page to see it',
+  );
+  expect(queryLive('alert')).toBeNull();
 });

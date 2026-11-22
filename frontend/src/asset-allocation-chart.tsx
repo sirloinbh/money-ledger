@@ -10,7 +10,9 @@ import {
   YAxis,
 } from 'recharts';
 
+import { EmptyChart } from './chart-boundary';
 import { formatWon } from './format';
+import { axisName } from './lazy-chart';
 
 // #48 Asset allocation as horizontal bars, the same look as #40's category chart (decision 2026-11-10).
 // One series, so no legend: the tab names it. The exact values are in the table below the chart, so the chart
@@ -26,11 +28,6 @@ export type AllocationBar = {
 };
 
 const rowHeight = 36;
-const nameLength = 8;
-
-/** Long names are cut on the axis only; the tooltip and the table show them whole. */
-const shortName = (name: string) =>
-  name.length > nameLength ? `${name.slice(0, nameLength - 1)}…` : name;
 
 /** The won amount, or a note when it is too large to show exactly (the table says the same). */
 const amountText = (amount: number | null) =>
@@ -49,10 +46,11 @@ function ShareTooltip({ active, payload }: TooltipContentProps) {
   );
 }
 
-/** `bars` largest first, at least one. `title` names what is spread (By type / By asset). */
+/** `bars` largest first (an empty list draws nothing). `title` names what is spread (By type / By asset). */
 export function AssetAllocationChart({ bars, title }: { bars: AllocationBar[]; title: string }) {
   const height = bars.length * rowHeight + 32;
   const largest = bars[0];
+  if (!largest) return <EmptyChart />;
   return (
     <div
       role="img"
@@ -83,7 +81,7 @@ export function AssetAllocationChart({ bars, title }: { bars: AllocationBar[]; t
             dataKey="key"
             width={88}
             tickFormatter={(key: string) =>
-              shortName(bars.find((bar) => bar.key === key)?.name ?? key)
+              axisName(bars.find((bar) => bar.key === key)?.name ?? key)
             }
             tick={{ fill: 'var(--foreground)', fontSize: 12 }}
             axisLine={{ stroke: 'var(--border)' }}

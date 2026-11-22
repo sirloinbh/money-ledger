@@ -94,18 +94,29 @@ export function NumberInput({
 // are taken, so the stored value is always finite (NaN would empty a saved draft) and pasted
 // "0x10" or "1e3" is refused rather than read as 16 or 1000. A lone "." reads as 0 until the
 // digits after it arrive, so ".5" can be typed.
+// #972: with allowEmpty the value may be undefined. An emptied field then stays undefined, never 0,
+// so a required field shows its error when the form is saved; without it an emptied field reads as 0.
 const typedNumber = /^\d*\.?\d*$/;
-const readNumber = (text: string) => (text === '.' ? 0 : Number(text));
+const readNumber = (text: string, allowEmpty: boolean) =>
+  text === '' && allowEmpty ? undefined : text === '.' ? 0 : Number(text);
+const showNumber = (value: number | undefined) => (value === undefined ? '' : String(value));
+type NumberValueProps = Omit<ComponentProps<typeof NumberInput>, 'value' | 'onValueChange'> &
+  (
+    | { allowEmpty?: false; value: number; onValueChange: (value: number) => void }
+    | {
+        allowEmpty: true;
+        value: number | undefined;
+        onValueChange: (value: number | undefined) => void;
+      }
+  );
 export function NumberValueInput({
   value,
   onValueChange,
+  allowEmpty = false,
   ...props
-}: Omit<ComponentProps<typeof NumberInput>, 'value' | 'onValueChange'> & {
-  value: number;
-  onValueChange: (value: number) => void;
-}) {
-  const [text, setText] = useState(String(value));
-  const shown = Object.is(readNumber(text), value) ? text : String(value);
+}: NumberValueProps) {
+  const [text, setText] = useState(showNumber(value));
+  const shown = Object.is(readNumber(text, allowEmpty), value) ? text : showNumber(value);
   return (
     <NumberInput
       {...props}
@@ -114,7 +125,8 @@ export function NumberValueInput({
         const normalized = next.replace(',', '.');
         if (!typedNumber.test(normalized)) return;
         setText(normalized);
-        onValueChange(readNumber(normalized));
+        // Without allowEmpty readNumber never returns undefined, so the narrower callback is safe.
+        (onValueChange as (value: number | undefined) => void)(readNumber(normalized, allowEmpty));
       }}
     />
   );

@@ -10,7 +10,9 @@ import {
   YAxis,
 } from 'recharts';
 
+import { EmptyChart } from './chart-boundary';
 import { formatWon } from './format';
+import { axisName } from './lazy-chart';
 import type { CategoryShare } from './monthly-summary';
 
 // #40 Expense by category as horizontal bars (2026-11-08 decision: easy to read with many categories).
@@ -19,11 +21,6 @@ import type { CategoryShare } from './monthly-summary';
 // for every label.
 
 const rowHeight = 36;
-const nameLength = 8;
-
-/** Long names are cut on the axis only; the tooltip and the table show them whole. */
-const shortName = (name: string) =>
-  name.length > nameLength ? `${name.slice(0, nameLength - 1)}…` : name;
 
 /** Axis ticks: 0 / 50K / 100K … compact, full numbers below 10,000. */
 const compactWon = (value: number) =>
@@ -49,6 +46,7 @@ function ShareTooltip({ active, payload }: TooltipContentProps) {
 export function CategoryShareChart({ categories }: { categories: CategoryShare[] }) {
   const height = categories.length * rowHeight + 32;
   const largest = categories[0];
+  if (!largest) return <EmptyChart />;
   return (
     <div
       role="img"
@@ -78,7 +76,7 @@ export function CategoryShareChart({ categories }: { categories: CategoryShare[]
             type="category"
             dataKey="name"
             width={88}
-            tickFormatter={shortName}
+            tickFormatter={(name: string) => axisName(name)}
             tick={{ fill: 'var(--foreground)', fontSize: 12 }}
             axisLine={{ stroke: 'var(--border)' }}
             tickLine={false}
