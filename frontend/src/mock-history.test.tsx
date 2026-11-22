@@ -3,6 +3,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 
 import { MockHistory } from './mock-history';
 import { findLive } from './test/live';
+import { unexpectedRequest } from './test/unexpected';
 
 const order = (id: number, side: 'buy' | 'sell' = 'buy') => ({
   id,
@@ -35,6 +36,7 @@ const securities = [
 ];
 
 let urls: string[];
+// The orders page for a URL, or a Response to answer with as is (a failure).
 let answer: (url: string) => unknown;
 // When set, answers wait for it, so a test can look at the screen while a load is running.
 let gate: Promise<void> | undefined;
@@ -45,11 +47,16 @@ beforeEach(() => {
   answer = () => ({ orders: [order(3, 'sell'), apple, order(1)], hasMore: false, securities });
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (url: string) => {
+    vi.fn(async (url: string, init: RequestInit = {}) => {
       urls.push(url);
-      const body = JSON.stringify(answer(url));
+      const method = init.method ?? 'GET';
+      // Only account 7's orders are served; any other request fails the test (#183).
+      if (method !== 'GET' || url.split('?')[0] !== '/api/mock/accounts/7/orders') {
+        return unexpectedRequest(method, url);
+      }
+      const result = answer(url);
       await gate;
-      return new Response(body);
+      return result instanceof Response ? result : new Response(JSON.stringify(result));
     }),
   );
 });
@@ -198,4 +205,49 @@ test('one share is "1 share", not "1 shares" (#203)', async () => {
   const list = await screen.findByRole('list', { name: 'Trade history' });
   expect(within(list).getByRole('listitem')).toHaveTextContent('BuySamsung Electronics 1 share');
   expect(within(list).getByRole('listitem')).not.toHaveTextContent('1 shares');
+});
+
+// #183 Error paths: a failed load says why and leaves the screen usable.
+const failure = (error: string, status = 500) =>
+  new Response(JSON.stringify({ error }), { status });
+
+test('a first load that fails shows the server message instead of a list or a spinner', async () => {
+  answer = () => failure('Cannot connect to the database', 503);
+  render(<MockHistory accountId={7} refreshKey={0} />);
+  expect(await findLive('alert')).toHaveTextContent('Cannot connect to the database');
+  expect(screen.queryByRole('list')).toBeNull();
+  expect(screen.queryByText('Loading trade history')).toBeNull();
+});
+
+test('a filter that fails to load keeps the old list, no longer busy, and Apply tries again', async () => {
+  render(<MockHistory accountId={7} refreshKey={0} />);
+  const list = await screen.findByRole('list', { name: 'Trade history' });
+  answer = () => failure('Cannot connect to the database');
+  fireEvent.change(screen.getByLabelText('Security'), { target: { value: '1' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+  expect(await findLive('alert')).toHaveTextContent('Cannot connect to the database');
+  expect(within(list).getAllByRole('listitem')).toHaveLength(3);
+  expect(list).not.toHaveAttribute('aria-busy');
+  expect(screen.queryByText('Updating trade history')).toBeNull();
+
+  answer = () => ({ orders: [order(1)], hasMore: false, securities });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  await vi.waitFor(() =>
+    expect(within(screen.getByRole('list')).getAllByRole('listitem')).toHaveLength(1),
+  );
+  expect(screen.queryByText('Cannot connect to the database')).toBeNull();
+});
+
+test('Load more that fails keeps the shown orders and says why', async () => {
+  answer = () => ({ orders: [order(3), order(2)], hasMore: true, securities });
+  render(<MockHistory accountId={7} refreshKey={0} />);
+  const list = await screen.findByRole('list', { name: 'Trade history' });
+  answer = () => failure('Cannot connect to the database');
+  fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
+
+  expect(await findLive('alert')).toHaveTextContent('Cannot connect to the database');
+  expect(urls.at(-1)).toBe('/api/mock/accounts/7/orders?before=2');
+  expect(within(list).getAllByRole('listitem')).toHaveLength(2);
+  expect(screen.getByRole('button', { name: 'Load more' })).not.toHaveAttribute('aria-disabled');
 });

@@ -2,127 +2,51 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { AssetManager } from './assets';
+import { type AssetFake, assetsAnswer, fakeAssetApi } from './test/asset-api';
 import { findLive, getLive } from './test/live';
 
-type Asset = {
-  id: number;
-  name: string;
-  type: string;
-  currency: 'KRW' | 'USD';
-  quantity: string | null;
-  valueKrw: number | null;
-  valueForeign: string | null;
-  memo: string;
-  depreciation?: {
-    purchasePriceKrw: number;
-    purchasedOn: string;
-    usefulLifeMonths: number;
-    salvageValueKrw: number;
-  } | null;
-};
-
-let stored: Asset[];
-let requests: { method: string; url: string; body: unknown }[];
+// The shared fake asset server (test/asset-api.ts): totals the way the server adds them, and any request it does
+// not serve fails the test.
+let api: AssetFake;
 
 const json = (body: unknown, status = 200) =>
-  Promise.resolve(
-    status === 204
-      ? new Response(null, { status })
-      : new Response(JSON.stringify(body), { status }),
-  );
-
-// The server works out a depreciated value from the date; the fake says it is half the purchase price.
-const withCurrent = (asset: Asset) => ({
-  ...asset,
-  // #47 fields: no link, no price, no rate unless a test sets them.
-  security: null,
-  manualPrice: null,
-  price: null,
-  fx: null,
-  currentValueForeign: asset.valueForeign ?? null,
-  valueIssue: null,
-  costKrw: null,
-  profitKrw: null,
-  returnPercent: null,
-  depreciation: asset.depreciation ?? null,
-  prepaid: null,
-  hasTrades: false,
-  currentValueKrw: asset.depreciation ? asset.depreciation.purchasePriceKrw / 2 : asset.valueKrw,
-});
-
-// Totals the way the server does: current won values only, debts apart.
-function totals() {
-  const valued = stored.map(withCurrent);
-  const sum = (debt: boolean) =>
-    valued
-      .filter((asset) => (asset.type === 'debt') === debt)
-      .reduce((total, asset) => total + (asset.currentValueKrw ?? 0), 0);
-  return {
-    assetsKrw: sum(false),
-    debtsKrw: sum(true),
-    netKrw: sum(false) - sum(true),
-    uncounted: valued.filter((asset) => asset.currentValueKrw === null).length,
-  };
-}
-
-function fakeApi() {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn((url: string, init: RequestInit = {}) => {
-      const method = init.method ?? 'GET';
-      const body = init.body ? (JSON.parse(init.body as string) as Omit<Asset, 'id'>) : undefined;
-      requests.push({ method, url, body });
-      if (method === 'GET') return json({ assets: stored.map(withCurrent), totals: totals() });
-      const id = Number(url.split('/').pop());
-      if (method === 'DELETE') {
-        stored = stored.filter((asset) => asset.id !== id);
-        return json(undefined, 204);
-      }
-      const saved = { ...body!, id: method === 'POST' ? stored.length + 10 : id };
-      stored =
-        method === 'POST'
-          ? [...stored, saved]
-          : stored.map((asset) => (asset.id === id ? saved : asset));
-      return json({ asset: withCurrent(saved) }, method === 'POST' ? 201 : 200);
-    }),
-  );
-}
+  Promise.resolve(new Response(JSON.stringify(body), { status }));
 
 beforeEach(() => {
-  stored = [
-    {
-      id: 1,
-      name: 'Emergency fund account',
-      type: 'cash',
-      currency: 'KRW',
-      quantity: null,
-      valueKrw: 5000000,
-      valueForeign: null,
-      memo: '',
-    },
-    {
-      id: 2,
-      name: 'Lease deposit loan',
-      type: 'debt',
-      currency: 'KRW',
-      quantity: null,
-      valueKrw: 7000000,
-      valueForeign: null,
-      memo: '',
-    },
-    {
-      id: 3,
-      name: 'Apple',
-      type: 'stock',
-      currency: 'USD',
-      quantity: '1.50000000',
-      valueKrw: null,
-      valueForeign: null,
-      memo: 'Overseas',
-    },
-  ];
-  requests = [];
-  fakeApi();
+  api = fakeAssetApi({
+    stored: [
+      {
+        id: 1,
+        name: 'Emergency fund account',
+        type: 'cash',
+        currency: 'KRW',
+        quantity: null,
+        valueKrw: 5000000,
+        valueForeign: null,
+        memo: '',
+      },
+      {
+        id: 2,
+        name: 'Lease deposit loan',
+        type: 'debt',
+        currency: 'KRW',
+        quantity: null,
+        valueKrw: 7000000,
+        valueForeign: null,
+        memo: '',
+      },
+      {
+        id: 3,
+        name: 'Apple',
+        type: 'stock',
+        currency: 'USD',
+        quantity: '1.50000000',
+        valueKrw: null,
+        valueForeign: null,
+        memo: 'Overseas',
+      },
+    ],
+  });
 });
 
 const ready = async () => {
@@ -158,7 +82,7 @@ test('a won asset is added with its value as a whole number', async () => {
   fireEvent.change(screen.getByLabelText('Valuation (KRW)'), { target: { value: '300,000,000' } });
   fireEvent.click(screen.getByRole('button', { name: 'Add' }));
   expect(await findLive('status')).toHaveTextContent('Apartment added');
-  expect(requests).toContainEqual({
+  expect(api.requests).toContainEqual({
     method: 'POST',
     url: '/api/portfolio/assets',
     body: {
@@ -186,7 +110,7 @@ test('a USD asset with a quantity sends decimal strings', async () => {
   fireEvent.change(screen.getByLabelText('Valuation (USD)'), { target: { value: '1,234.56' } });
   fireEvent.click(screen.getByRole('button', { name: 'Add' }));
   await findLive('status');
-  expect(requests.find((request) => request.method === 'POST')?.body).toMatchObject({
+  expect(api.requests.find((request) => request.method === 'POST')?.body).toMatchObject({
     currency: 'USD',
     quantity: '0.25',
     valueKrw: null,
@@ -240,7 +164,7 @@ test.each([
   fireEvent.click(screen.getByRole('button', { name: 'Add' }));
   expect(getLive('alert')).toHaveTextContent(message);
   expect(screen.getByLabelText(field)).toHaveAttribute('aria-invalid', 'true');
-  expect(requests.some((request) => request.method === 'POST')).toBe(false);
+  expect(api.requests.some((request) => request.method === 'POST')).toBe(false);
 });
 
 test('a debt has no quantity field and asks for the amount still owed', async () => {
@@ -259,7 +183,7 @@ test('editing fills the form, moves focus to it, and saves with PUT', async () =
   fireEvent.change(screen.getByLabelText('Valuation (USD)'), { target: { value: '300' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
   expect(await findLive('status')).toHaveTextContent('Apple updated');
-  expect(requests).toContainEqual({
+  expect(api.requests).toContainEqual({
     method: 'PUT',
     url: '/api/portfolio/assets/3',
     body: {
@@ -304,7 +228,7 @@ test('a server refusal shows its message', async () => {
 });
 
 test('cancelling an edit keeps focus in the form and a USD value round-trips', async () => {
-  stored[2] = { ...stored[2], valueForeign: '1234.5000' };
+  api.stored[2] = { ...api.stored[2], valueForeign: '1234.5000' };
   await ready();
   fireEvent.click(screen.getByRole('button', { name: 'Edit Apple' }));
   expect(screen.getByLabelText('Valuation (USD)')).toHaveValue('1234.5');
@@ -329,7 +253,7 @@ test('a depreciating asset is entered as a purchase price, date and useful life'
   expect(screen.getByLabelText('Useful life (months)')).toHaveValue('60');
   fireEvent.click(screen.getByRole('button', { name: 'Add' }));
   expect(await findLive('status')).toHaveTextContent('Laptop added');
-  expect(requests).toContainEqual({
+  expect(api.requests).toContainEqual({
     method: 'POST',
     url: '/api/portfolio/assets',
     body: {
@@ -416,7 +340,7 @@ test.each([
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
     expect(getLive('alert')).toHaveTextContent(message);
     expect(screen.getByLabelText(field)).toHaveAttribute('aria-invalid', 'true');
-    expect(requests.some((request) => request.method === 'POST')).toBe(false);
+    expect(api.requests.some((request) => request.method === 'POST')).toBe(false);
   },
 );
 
@@ -437,7 +361,7 @@ test('a purchase date outside 1900–2100 is not sent', async () => {
   fireEvent.submit(screen.getByRole('form', { name: 'New asset' }));
   expect(getLive('alert')).toHaveTextContent('Enter a purchase date between 1900 and 2100');
   expect(date).toHaveAttribute('aria-invalid', 'true');
-  expect(requests.some((request) => request.method === 'POST')).toBe(false);
+  expect(api.requests.some((request) => request.method === 'POST')).toBe(false);
 });
 
 test('a purchase date that is not on the calendar is not sent (#189)', async () => {
@@ -453,7 +377,7 @@ test('a purchase date that is not on the calendar is not sent (#189)', async () 
   fireEvent.submit(screen.getByRole('form', { name: 'New asset' }));
   expect(getLive('alert')).toHaveTextContent('Enter a purchase date between 1900 and 2100');
   expect(date).toHaveAttribute('aria-invalid', 'true');
-  expect(requests.some((request) => request.method === 'POST')).toBe(false);
+  expect(api.requests.some((request) => request.method === 'POST')).toBe(false);
 });
 
 test('an older list answer that arrives last does not replace a newer one (#189)', async () => {
@@ -494,7 +418,7 @@ test('a save waits while a delete is running (#189)', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Delete Lease deposit loan' }));
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
   await vi.waitFor(() =>
-    expect(requests.some((request) => request.method === 'DELETE')).toBe(true),
+    expect(api.requests.some((request) => request.method === 'DELETE')).toBe(true),
   );
 
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Apartment' } });
@@ -502,7 +426,7 @@ test('a save waits while a delete is running (#189)', async () => {
   fireEvent.change(screen.getByLabelText('Valuation (KRW)'), { target: { value: '300000000' } });
   // The open delete dialog hides the page from the accessibility tree; a submit there is ignored.
   fireEvent.submit(screen.getByRole('form', { name: 'New asset', hidden: true }));
-  expect(requests.some((request) => request.method === 'POST')).toBe(false);
+  expect(api.requests.some((request) => request.method === 'POST')).toBe(false);
 
   release();
   expect(await screen.findByText('Lease deposit loan deleted')).toBeInTheDocument();
@@ -512,7 +436,7 @@ test('a save waits while a delete is running (#189)', async () => {
 });
 
 test('editing a #45 depreciable row offers its value as the purchase price', async () => {
-  stored.push({
+  api.stored.push({
     id: 5,
     name: 'Old TV',
     type: 'depreciable',
@@ -529,7 +453,7 @@ test('editing a #45 depreciable row offers its value as the purchase price', asy
 });
 
 test('editing a depreciating asset fills its schedule', async () => {
-  stored.push({
+  api.stored.push({
     id: 4,
     name: 'Bed',
     type: 'depreciable',
@@ -555,10 +479,9 @@ test('editing a depreciating asset fills its schedule', async () => {
 });
 
 test('a total too large to show says so instead of a wrong number', async () => {
-  const api = vi.mocked(fetch);
-  api.mockImplementationOnce(() =>
+  vi.mocked(fetch).mockImplementationOnce(() =>
     json({
-      assets: stored.map(withCurrent),
+      ...assetsAnswer(api.stored),
       totals: { assetsKrw: null, debtsKrw: 7000000, netKrw: null, uncounted: 1 },
     }),
   );

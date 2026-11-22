@@ -30,6 +30,9 @@ import { useNotice } from './lib/use-notice';
 // the server returns its current value. Paying is a ledger expense, so a use is not recorded as one again.
 // #190 Types and pure helpers are in asset-model.ts, the form in asset-form.tsx, the list in asset-list.tsx.
 
+/** GET /api/portfolio/assets */
+export type AssetsAnswer = { assets: Asset[]; totals: Totals; allocation: Allocation };
+
 /** `afterAllocation` goes right under the allocation card (#49: the net worth history). */
 export function AssetManager({ afterAllocation }: { afterAllocation?: ReactNode } = {}) {
   const [assets, setAssets] = useState<Asset[] | undefined>(undefined);
@@ -53,7 +56,7 @@ export function AssetManager({ afterAllocation }: { afterAllocation?: ReactNode 
   const latestLoad = useRef(0);
   const load = useCallback(async () => {
     const request = ++latestLoad.current;
-    let data: { assets: Asset[]; totals: Totals; allocation: Allocation };
+    let data: AssetsAnswer;
     try {
       data = await requestJson(assetsPath);
     } catch (cause) {

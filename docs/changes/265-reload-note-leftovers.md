@@ -24,3 +24,4 @@ No shared test helper changed (agent4 is working on the test fakes, #183); each 
 ## Review
 
 - Round 1: approve, no blocking findings. Both edits change only the notice kind and sentence in the catch path; the mock account's first-load "Loading" check and the prepaid panel's focus handling are untouched, and no shared test helper changed.
+- Merged `origin/main` after #183 (strict test fakes) to resolve an import conflict in `mock-account.test.tsx` (both `queryLive` and `unexpectedRequest` kept). The new test's `failReloadAfterSave` wraps the strict fake, so no unanswered request is reported. Targeted runs after the merge (prepaid, mock account, assets, asset trades, entries): 122 pass; lint, typecheck and format pass.
