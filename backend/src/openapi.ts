@@ -22,20 +22,27 @@ import * as trend from './trend.js';
 const accounts = '/api/mock/accounts';
 const assets = '/api/portfolio/assets';
 // A month path parameter is YYYY-MM.
-const monthParam = z.string().regex(/^d{4}-(0[1-9]|1[0-2])$/);
+const monthParam = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
 
 // Every registered route must appear here exactly once (checked when building).
-export const operations: Record<string, Operation> = {
+const table: Record<string, Operation> = {
   'GET /api/health': {
     summary: 'Check the server and the database connection',
-    status: [200, 500],
+    // Public, but behind the rate limit like every /api route.
+    status: [200, 429, 500],
     public: true,
   },
-  'GET /api/me': { summary: 'Get the signed-in user', status: [200, 401, 503] },
+  'GET /api/me': { summary: 'Get the signed-in user', status: [200] },
+  'GET /api/jobs/status': {
+    summary: 'Get the background job queues, recent and failed jobs, and schedules',
+    // 503 also when background jobs are off, still starting, or failed to start (#178).
+    status: [200],
+  },
   'GET /api/ledger/entries/csv': {
     summary: 'Export the filtered entries as a CSV file',
     query: entries.listQuery,
     status: [200, 400],
+    produces: 'text/csv',
   },
   'POST /api/ledger/entries/csv/preview': {
     summary: 'Check the rows of a CSV import and flag likely duplicates',
@@ -119,7 +126,8 @@ export const operations: Record<string, Operation> = {
   'PATCH /api/ledger/fixed-costs/:id': {
     summary: 'Change or deactivate a fixed cost',
     body: ['FixedCostUpdateBody', fixedCosts.updateBody],
-    status: [200, 400, 404],
+    // 422: the category is gone or not an expense category.
+    status: [200, 400, 404, 422],
   },
   'POST /api/ledger/fixed-costs/generate': {
     summary: 'Create the entries of the fixed costs that are due',
@@ -216,7 +224,8 @@ export const operations: Record<string, Operation> = {
   [`GET ${accounts}/:accountId/orders/preview`]: {
     summary: 'Preview the fill of a mock order',
     query: orders.previewQuery,
-    status: [200, 400, 404],
+    // 409: the account was already reset (closed).
+    status: [200, 400, 404, 409],
   },
   [`POST ${accounts}/:accountId/orders`]: {
     summary:
@@ -255,6 +264,15 @@ export const operations: Record<string, Operation> = {
   },
 };
 
+// The shared sign-in in front of every guarded route answers 503 when the sign-in service is down; the standard
+// builder adds only 401 and 429 (and 413 with a body), so 503 is added here (#181).
+export const operations: Record<string, Operation> = Object.fromEntries(
+  Object.entries(table).map(([route, op]) => [
+    route,
+    op.public ? op : { ...op, status: [...op.status, 503] },
+  ]),
+);
+
 const statusText: Record<number, string> = {
   200: 'Success',
   201: 'Created',
@@ -264,8 +282,9 @@ const statusText: Record<number, string> = {
   404: 'Not found',
   409: 'Duplicate or conflict',
   422: 'Valid input the server cannot process',
+  429: 'Too many requests',
   500: 'Server error',
-  503: 'Sign-in service unavailable',
+  503: 'Sign-in service unavailable (on /api/jobs/status also: background jobs not running)',
 };
 
 export const document = buildOpenApi({

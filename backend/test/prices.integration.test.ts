@@ -88,9 +88,11 @@ test('shared price store against the real database', { skip: !url }, async (t) =
     );
     await runMigration(pool, '009_prices.sql');
     await runMigration(pool, '012_krx_listing.sql');
+    await runMigration(pool, '024_price_fetch_not_found.sql');
     // re-running is safe
     await runMigration(pool, '009_prices.sql');
     await runMigration(pool, '012_krx_listing.sql');
+    await runMigration(pool, '024_price_fetch_not_found.sql');
     // The daily fetch also covers US securities linked to portfolio assets (#47) and held in the mock
     // account (#53).
     for (const file of [
@@ -227,6 +229,73 @@ test('shared price store against the real database', { skip: !url }, async (t) =
       checked_through: '2026-11-07',
       last_error: null,
     });
+  });
+
+  await t.test('a DB error in one source still runs the others (#193)', async () => {
+    await reset();
+    const { sources, calls } = counted();
+    // Every read or write of the KRX state fails, as if that query hit a broken connection.
+    const broken = new Proxy(pool, {
+      get(target, prop) {
+        if (prop === 'query') {
+          return (text: unknown, values?: unknown[]) =>
+            String(text).includes('price_fetch_state') && values?.[0] === 'KRX'
+              ? Promise.reject(new Error('connection lost'))
+              : target.query(text as string, values);
+        }
+        const value: unknown = Reflect.get(target, prop, target);
+        return typeof value === 'function' ? (value as () => unknown).bind(target) : value;
+      },
+    });
+    const logged: Record<string, unknown>[] = [];
+    const result = await runDailyFetch(broken, sources, noon, (event) => logged.push(event));
+    assert.deepEqual(result, { complete: false });
+    // No KRX call was made, each market logged its failure, and the rate and the US list still ran.
+    assert.deepEqual(calls.krx, []);
+    assert.deepEqual(
+      logged
+        .filter((event) => event.event === 'price_fetch_failed')
+        .map((event) => [event.source, event.scope]),
+      [
+        ['KRX', 'KOSPI'],
+        ['KRX', 'KOSDAQ'],
+        ['KRX', 'KRX_ETF'],
+      ],
+    );
+    assert.ok(logged.some((event) => event.event === 'price_state_error'));
+    assert.equal(calls.fx.at(-1), '2026-11-09');
+    assert.equal(calls.tickers, 1);
+    assert.equal((await state('KOREAEXIM', 'USD'))?.checked_through, '2026-11-09');
+  });
+
+  await t.test('two runs due at the same time: only one fetches (#193)', async () => {
+    await reset();
+    const { sources, calls } = counted();
+    // The KRX answers wait a little, so both calls are inside the due check and the run together.
+    const slow = {
+      ...sources,
+      krx: {
+        name: sources.krx.name,
+        daily: async (market: 'KOSPI' | 'KOSDAQ' | 'KRX_ETF', date: string) => {
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          return sources.krx.daily(market, date);
+        },
+      },
+    };
+    // Open connections first, so neither due check waits for a new one and both read the state at once.
+    await Promise.all([1, 2, 3, 4].map(() => pool.query('SELECT pg_sleep(0.05)')));
+    const results = await Promise.all([
+      runIfDue(pool, slow, noon, quiet),
+      runIfDue(pool, slow, noon, quiet),
+    ]);
+    assert.deepEqual([...results].sort(), [false, true]);
+    assert.equal(calls.krx.length, 30);
+    assert.equal(calls.tickers, 1);
+    // The lock is released afterwards: a later due hour runs again.
+    await pool.query(
+      "UPDATE price_fetch_state SET checked_through = NULL WHERE source = 'DAILY_JOB'",
+    );
+    assert.equal(await runIfDue(pool, slow, at('2026-11-09T04:00:00Z'), quiet), true);
   });
 
   await t.test(
@@ -655,6 +724,10 @@ test('shared price store against the real database', { skip: !url }, async (t) =
       await runDailyFetch(pool, sources, day(1), log);
       assert.equal(gone(), 1);
       assert.equal((await state('TIINGO', 'GONE'))?.last_error, 'Not found at Tiingo');
+      const flag = await pool.query<{ not_found: boolean }>(
+        "SELECT not_found FROM price_fetch_state WHERE source = 'TIINGO' AND scope = 'GONE'",
+      );
+      assert.equal(flag.rows[0].not_found, true);
 
       // The next 6 days skip it, without a failure line each day.
       logged.length = 0;
@@ -684,6 +757,33 @@ test('shared price store against the real database', { skip: !url }, async (t) =
       await runDailyFetch(pool, sources, day(8), log);
       assert.equal(gone(), 2);
       assert.ok(logged.some((event) => event.scope === 'GONE' && event.result === 'not_found'));
+    },
+  );
+
+  await t.test(
+    'a 404 stored as text before 024, in either language, is still skipped (#193)',
+    async () => {
+      await reset();
+      const { sources, calls } = counted();
+      await runDailyFetch(pool, sources, noon, quiet);
+      await pool.query(
+        `INSERT INTO securities (market, symbol, kind, currency, viewed_at)
+         VALUES ('NYSE', 'OLDKO', 'stock', 'USD', $1), ('NYSE', 'OLDEN', 'stock', 'USD', $1)`,
+        [noon],
+      );
+      // Rows as the fetch wrote them before the flag: only the message said "not found".
+      await pool.query(
+        `INSERT INTO price_fetch_state (source, scope, checked_through, last_attempt_at, last_error)
+         VALUES ('TIINGO', 'OLDKO', '2026-11-06', $1, 'Tiingo에 없는 종목입니다'),
+                ('TIINGO', 'OLDEN', '2026-11-06', $1, 'Not found at Tiingo')`,
+        [noon],
+      );
+      await runMigration(pool, '024_price_fetch_not_found.sql');
+      await runDailyFetch(pool, sources, new Date(noon.getTime() + 86_400_000), quiet);
+      assert.deepEqual(
+        calls.closes.filter((call) => call.startsWith('OLD')),
+        [],
+      );
     },
   );
 

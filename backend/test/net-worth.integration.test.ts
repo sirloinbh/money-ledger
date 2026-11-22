@@ -36,6 +36,7 @@ test('net worth snapshots against the real database', { skip: !url }, async (t) 
       '013_asset_trades.sql',
       '009_prices.sql',
       '012_krx_listing.sql',
+      '024_price_fetch_not_found.sql',
       '015_mock_orders.sql',
       '016_asset_valuation.sql',
       '018_mock_snapshots.sql',
