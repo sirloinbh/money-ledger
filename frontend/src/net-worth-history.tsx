@@ -86,9 +86,11 @@ export function NetWorthHistory() {
     }
   };
 
-  // The list of another period stays (dimmed) while the chosen one loads.
-  const shown = list?.data;
-  const loading = list !== undefined && list.period !== period;
+  // The list of another period stays (dimmed) while the chosen one loads; once that load fails it is hidden, so
+  // the old period's records are not shown under the new period's dates.
+  const stale = list !== undefined && list.period !== period;
+  const shown = failed && stale ? undefined : list?.data;
+  const loading = stale && !failed;
   // The axis starts at the period's first day, or at the first save for the whole history.
   const axisFrom = from ?? shown?.snapshots[0]?.date ?? today;
 

@@ -58,7 +58,9 @@ const signedWon = (amount: number) =>
 
 // The loaders do not change, so each card loads once (and again on retry).
 // Waits for today's save when the app opens, like the net worth card on the portfolio page.
-const loadNetWorth = () => saveTodayOnce().then(() => requestJson<NetWorth>(netWorthPath));
+// Only the latest saved day: the card shows no history (#195).
+const loadNetWorth = () =>
+  saveTodayOnce().then(() => requestJson<NetWorth>(`${netWorthPath}?latest=true`));
 // Waits for this open's reports to be made, so a period that just finished is announced.
 const loadReports = () =>
   makeReportsOnce().then(() => requestJson<{ reports: ReportItem[] }>(reportsPath));

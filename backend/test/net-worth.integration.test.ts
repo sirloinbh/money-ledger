@@ -136,6 +136,63 @@ test('net worth snapshots against the real database', { skip: !url }, async (t) 
     });
   });
 
+  await t.test('two saves of the same day at once both succeed (#195)', async () => {
+    await reset();
+    await api(async (call) => {
+      await add(call, cash('Bank account', 2_000));
+      // Another save of the day is in flight: its row is written but not committed yet.
+      const other = await pool.connect();
+      try {
+        await other.query('BEGIN');
+        await other.query(
+          `INSERT INTO net_worth_snapshots (snapshot_date, assets_krw, debts_krw, net_krw, uncounted)
+           VALUES ($1, 1, 0, 1, 0)`,
+          [day],
+        );
+        // This save reads its totals, then waits on that row; the commit makes its upsert a serialization
+        // failure (40001), which used to answer 500.
+        const pending = save(call);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await other.query('COMMIT');
+        const { status, data } = await pending;
+        assert.equal(status, 200, JSON.stringify(data));
+        assert.equal(data.snapshot?.netKrw, 2_000);
+      } finally {
+        other.release();
+      }
+      const results = await Promise.all([save(call), save(call), save(call)]);
+      assert.deepEqual(
+        results.map((result) => result.status),
+        [200, 200, 200],
+      );
+      assert.deepEqual(
+        (await list(call)).snapshots.map((row) => [row.date, row.netKrw]),
+        [['2026-11-10', 2_000]],
+      );
+    });
+  });
+
+  await t.test('`latest=true` gives only the latest saved day', async () => {
+    await reset();
+    await api(async (call) => {
+      assert.deepEqual((await list(call, '?latest=true')).snapshots, []);
+      await add(call, cash('Bank account', 1_000));
+      day = '2026-10-01';
+      await save(call);
+      day = '2026-11-10';
+      await add(call, cash('Wallet', 500));
+      await save(call);
+      const latest = await list(call, '?latest=true');
+      assert.equal(latest.today, '2026-11-10');
+      assert.deepEqual(
+        latest.snapshots.map((row) => [row.date, row.netKrw]),
+        [['2026-11-10', 1_500]],
+      );
+      const wrong = await call(`${netWorth}?latest=yes`);
+      assert.equal(wrong.status, 400);
+    });
+  });
+
   await t.test(
     'days without a save stay out, oldest first, and `from` limits the list',
     async () => {

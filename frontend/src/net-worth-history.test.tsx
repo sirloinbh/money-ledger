@@ -108,6 +108,20 @@ test('the periods read their own range; the whole history has no start', async (
   expect(screen.getByText(`All records – ${dayLabel(today)}`)).toBeInTheDocument();
 });
 
+test('a failed period switch hides the previous period instead of showing it under the new dates', async () => {
+  render(<NetWorthHistory />);
+  await screen.findByTestId('chart');
+  failList = true;
+  fireEvent.click(screen.getByRole('button', { name: '1 year' }));
+  expect(await screen.findByText('Could not load the net worth records.')).toBeInTheDocument();
+  expect(screen.queryByTestId('chart')).not.toBeInTheDocument();
+  expect(screen.queryByRole('group', { name: 'Net worth period' })).toBeInTheDocument();
+  // Try again with the server back: the chosen period is shown.
+  failList = false;
+  fireEvent.click(screen.getByRole('button', { name: 'Try loading the net worth records again' }));
+  expect(await screen.findByTestId('chart')).toHaveTextContent(`${periodStart(today, '1y')}~`);
+});
+
 test('the table lists every saved day, newest first, with how many were left out', async () => {
   // The quiet save on opening is refused, so today keeps the value with an item left out.
   saveError = 'Not saved in this test';
