@@ -6,6 +6,7 @@ import { Pool } from 'pg';
 import { fakeSources } from '../src/prices/fake.js';
 import { dailyTiingoLimit, runDailyFetch, tiingoHourlyLimit } from '../src/prices/fetch.js';
 import { priceQueue } from '../src/prices/jobs.js';
+import { parseKrxDaily } from '../src/prices/krx.js';
 import { runIfDue } from '../src/prices/scheduler.js';
 import { type PriceSources, SourceError } from '../src/prices/sources.js';
 import { saveKrxDay, trackedUsLimit, trackedUsSecurities } from '../src/prices/store.js';
@@ -1148,6 +1149,78 @@ test('shared price store against the real database', { skip: !url }, async (t) =
       // Back in the data: active again.
       await save(days[11], [samsung, halted]);
       assert.equal(await activeOf('000660'), true);
+    },
+  );
+
+  await t.test(
+    'a Korean security listed with no trades for 10 market days becomes inactive (#102)',
+    async () => {
+      await reset();
+      const days = [
+        '2026-11-02',
+        '2026-11-03',
+        '2026-11-04',
+        '2026-11-05',
+        '2026-11-06',
+        '2026-11-09',
+        '2026-11-10',
+        '2026-11-11',
+        '2026-11-12',
+        '2026-11-13',
+        '2026-11-16',
+        '2026-11-17',
+      ];
+      // A KRX answer as the real one has it: the halted stock stays listed at its last close with open 0 and
+      // volume 0 (DH오토넥스 on 2026-11-13 and 2026-11-19).
+      const item = (code: string, name: string, close: string, open: string, volume: string) => ({
+        BAS_DD: '',
+        ISU_CD: code,
+        ISU_NM: name,
+        TDD_CLSPRC: close,
+        TDD_OPNPRC: open,
+        ACC_TRDVOL: volume,
+      });
+      const save = (date: string, haltedTrades: boolean) =>
+        saveKrxDay(
+          pool,
+          'KOSPI',
+          date,
+          parseKrxDaily({
+            OutBlock_1: [
+              item('005930', '삼성전자', '70,000', '69,900', '1,234,567'),
+              haltedTrades
+                ? item('000300', 'DH오토넥스', '4200', '4150', '3,210')
+                : item('000300', 'DH오토넥스', '4200', '0', '0'),
+            ],
+          }),
+          'FAKE',
+          noon,
+        );
+      const state = async () =>
+        (
+          await pool.query<{ active: boolean; days: number; last: string }>(
+            `SELECT s.active, count(p.trade_date)::int AS days, max(p.trade_date)::text AS last
+             FROM securities s LEFT JOIN security_prices p ON p.security_id = s.id
+             WHERE s.symbol = '000300' GROUP BY s.active`,
+          )
+        ).rows[0];
+
+      await save(days[0], true);
+      for (const date of days.slice(1, 10)) await save(date, false);
+      // 9 market days listed without a trade: still active, and no close is stored for those days.
+      assert.deepEqual(await state(), { active: true, days: 1, last: '2026-11-02' });
+
+      // The 10th: inactive (buys blocked, sells allowed), keeping the last traded close.
+      await save(days[10], false);
+      assert.deepEqual(await state(), { active: false, days: 1, last: '2026-11-02' });
+      assert.equal(
+        (await pool.query("SELECT active FROM securities WHERE symbol = '005930'")).rows[0].active,
+        true,
+      );
+
+      // Trading again: active again.
+      await save(days[11], true);
+      assert.deepEqual(await state(), { active: true, days: 2, last: '2026-11-17' });
     },
   );
 
