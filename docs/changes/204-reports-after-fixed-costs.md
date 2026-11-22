@@ -46,3 +46,4 @@ Browser check (local API 3195 and Vite 5295):
 ## Review
 
 - Round 1 ([PR comment](https://github.com/sirloinbh/money-ledger/pull/243#issuecomment-7078369984)): changes needed, 1 finding. The client id pattern allowed 16 digits while the server allows 15, so a 16-digit id got a 400 and the useless "Try again". Fixed in "fix: match the report id pattern to the server (#204)"; the not-sent test now covers `abc`, `0` and a 16-digit id (the 16-digit case failed before the fix). `vitest run src/reports.test.tsx src/reports-api.test.ts`: 11 pass; eslint and prettier clean on the changed files.
+- Round 2 ([PR comment](https://github.com/sirloinbh/money-ledger/pull/243#issuecomment-7078506552)): approve, no blocking comments. Full `npm run check` on the fixed tree: pass (backend 425/0/0, frontend 472 pass + 3 skipped as before, skills 4, build ok); `npm run knip`: pass.
