@@ -92,3 +92,22 @@ Same order as health-log, plan-routine, cert-manager and dev-career-portfolio: i
 - `npm run check` with `TEST_DATABASE_URL` on this worker's test DB: passed. Backend 464 passed, 0 failed, 0 skipped; frontend vitest 79 files, 563 passed, 3 skipped; skills tests 4 passed; build passed.
 - `npm run knip` with the DB URL set: clean (the deleted `use-own-change.ts` leaves nothing unused).
 - Browser (local API, scratch DB) at 390×844: an uncategorized "Bakery" expense of ₩3,000 was saved; the rule put it in Food, the list showed it at the top and the summary's expense rose to ₩25,000. At 1440×900: adding the Rent fixed cost (₩500,000, day 1) said "Rent added", added its entry to the entry list and the summary (₩525,000), and returned focus to the Fixed costs heading; deleting the ₩3,000 entry said "Entry deleted", lowered the summary to ₩522,000 and put focus on the entries heading. No console warnings or errors.
+
+## PR 5: Mock trading; the order counter is gone (`refactor/213-mock-trading-query`)
+
+### Changes
+
+- `query-reads.ts` (new): the helpers for a page whose reads share a root key, moved out of `ledger-query.ts`: `refreshReads` (cancel the reads on their way, then invalidate), `useLoadError`, and `useReadsReload` (refresh every read under the root and check the section's own list). `ledger-query.ts` keeps `refreshLedger` and `useLedgerReload` as the ledger's use of them.
+- `mock-query.ts` (new): `mockKey` and the keys of the account, holdings, return trend and trade history (first page per filter).
+- `mock-trading.tsx`: no order counter. `SecuritySearch` takes `orders` (show the order form) instead of `onOrdered`.
+- `mock-order.tsx`: after a filled order, or one whose answer was lost, every mock read loads again (`mockKey`).
+- `mock-account.tsx`: the account is a query; create and reset go through `useApiMutation`, then refresh every mock read and check the account (a failed reload is the same note as before, #265). The typed reset amount still survives a reload; another account fills in its own.
+- `mock-holdings.tsx`, `mock-returns.tsx`: queries keyed by account; no `refreshKey` or `onOrdered`. A holding sold out with its form open still says "Sold all your …".
+- `mock-history.tsx`: the first page is a query per filter (the previous list stays, marked busy, while new filters load, and stays after their load failed). "Load more" pages are kept for the first page they continue; a new first page (an order, new filters) starts the list again from the newest. Apply after a failed load tries the same filters again. Only new filters and a reload after a change (an invalidated read) mark the list "Updating"; a quiet refetch when the window gets focus again is not announced (review round 1).
+- Tests: every mock test renders through the test client; the refresh-key tests drive a mock change; the order tests check that other mock reads go stale; the holdings sell-out test lets the order itself reload the holdings. New: an order after Load more starts the list again from the newest. New: a refetch without a change is not announced as an update (fails without the round 1 fix). "Clear filters" now shows the unfiltered list from the cache (it was loaded seconds before); the "failed load" returns test starts a new visit.
+
+### Verification
+
+- `npm run check` with `TEST_DATABASE_URL` on this worker's test DB: passed. Backend 464 passed, 0 failed, 0 skipped; frontend vitest 79 files, 565 passed, 3 skipped (after review round 1); skills tests 4 passed; build passed.
+- `npm run knip` with the DB URL set: clean.
+- Browser (local API with the fake price source, scratch DB). 390×844: creating an account said "Mock trading account created with ₩10,000,000" and put focus on its heading; buying 10 shares of 005930 from the search detail changed the cash to ₩9,281,000, listed the holding and added the trade to the history. 1440×900: selling the 10 shares from the holding said "Sold all your 삼성전자", put the cash back to ₩10,000,000, and listed the sale first. No console warnings or errors. Focus goes to the page body when the sold row goes away, as before this PR (#279). The other hand-written loaders (Dashboard, Reports, Portfolio, health) have no counters; they move in #278.

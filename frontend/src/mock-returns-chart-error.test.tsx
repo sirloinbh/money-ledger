@@ -1,7 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { expect, test, vi } from 'vitest';
 
 import { MockReturns } from './mock-returns';
+import { renderWithQuery } from './test/query';
 
 // The chart file cannot be loaded the first time (an old tab after a deploy, offline), then can.
 // The factory runs once and returns the module; reading its export fails the first time (#182). The screen's
@@ -34,7 +35,7 @@ test('a chart file that fails to load leaves the table, and Try again loads it a
     ),
   );
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
-  render(<MockReturns accountId={7} refreshKey={0} />);
+  renderWithQuery(<MockReturns accountId={7} />);
   expect(
     await screen.findByText('Could not load the chart. Check the values in the table below.'),
   ).toBeInTheDocument();

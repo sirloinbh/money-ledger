@@ -53,8 +53,8 @@ type Search =
   | { state: 'error'; message: string }
   | { state: 'done'; query: string; securities: Found[] };
 
-/** `onOrdered`, when given, shows the mock order form in the detail and is called after each filled order. */
-export function SecuritySearch({ onOrdered }: { onOrdered?: () => void } = {}) {
+/** `orders` shows the mock order form in the detail (the Mock trading page). */
+export function SecuritySearch({ orders = false }: { orders?: boolean } = {}) {
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState<Search>({ state: 'idle' });
   const [invalid, setInvalid] = useState(false);
@@ -218,7 +218,7 @@ export function SecuritySearch({ onOrdered }: { onOrdered?: () => void } = {}) {
           id={selection.id}
           onLoaded={refreshRow}
           onFailed={detailFailed}
-          onOrdered={onOrdered}
+          orders={orders}
         />
       )}
     </div>
@@ -229,12 +229,12 @@ function SecurityDetail({
   id,
   onLoaded,
   onFailed,
-  onOrdered,
+  orders,
 }: {
   id: number;
   onLoaded: (detail: Detail) => void;
   onFailed: (id: number) => void;
-  onOrdered?: () => void;
+  orders: boolean;
 }) {
   const [detail, setDetail] = useState<Detail | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -374,9 +374,7 @@ function SecurityDetail({
             </div>
           ) : null}
         </dl>
-        {onOrdered ? (
-          <MockOrder securityId={security.id} title={title(security)} onOrdered={onOrdered} />
-        ) : null}
+        {orders ? <MockOrder securityId={security.id} title={title(security)} /> : null}
       </CardContent>
     </Card>
   );

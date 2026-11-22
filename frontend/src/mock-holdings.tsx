@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Notice } from './components/ui/notice';
 import { formatDecimal, formatWon, sharesOf, signedPercent } from './format';
-import { requestJson } from './lib/api';
+import { useApiQuery } from './lib/query';
 import { useNotice } from './lib/use-notice';
 import { MockOrder } from './mock-order';
+import { mockKeys } from './mock-query';
+import { useLoadError } from './query-reads';
 import { formatMonthDay, formatPrice, quoteBasis } from './quote-format';
 
 // #53 What the mock account holds and how it has done. Every amount and rate comes from the server
@@ -53,50 +55,34 @@ const profitText = (profit: number | null, pct: string | null) =>
 const heldTitle = (held: Holding) => held.security.name ?? held.security.symbol;
 
 /**
- * `refreshKey` changes after an order on the page, so values are reloaded (#52). Each holding opens the
- * order form too: a suspended security (#97) is not found by search, so this is the way to sell it.
+ * Values reload with every mock change (`mockKey`, #213), so an order anywhere on the page shows here. Each holding
+ * opens the order form too: a suspended security (#97) is not found by search, so this is the way to sell it.
  */
-export function MockHoldings({
-  accountId,
-  refreshKey,
-  onOrdered,
-}: {
-  accountId: number;
-  refreshKey: number;
-  onOrdered: () => void;
-}) {
-  const [data, setData] = useState<{ accountId: number; data: Data } | undefined>(undefined);
+export function MockHoldings({ accountId }: { accountId: number }) {
+  // Keyed by account, so values of an account that was reset in the meantime are never shown for the new one.
+  const read = useApiQuery<Data>(
+    mockKeys.holdings(accountId),
+    `/api/mock/accounts/${accountId}/holdings`,
+  );
+  const loaded = read.data;
   // The holding whose order form is open.
-  const [ordering, setOrdering] = useState<number>();
-  // Read when values come back, to tell whether the holding with the open form was sold out.
-  const open = useRef<{ id: number; title: string } | undefined>(undefined);
+  const [ordering, setOrdering] = useState<{ id: number; title: string }>();
   const notice = useNotice();
   const { error: showError, status: showStatus, clear } = notice;
+  useLoadError(read.error, showError, 'Could not load the holdings');
 
-  useEffect(() => {
-    let current = true;
-    requestJson<Data>(`/api/mock/accounts/${accountId}/holdings`)
-      .then((loaded) => {
-        if (!current) return;
-        const sold = open.current;
-        if (sold && !loaded.holdings.some((held) => held.security.id === sold.id)) {
-          // Its order form goes away with the row, so the result is said here.
-          open.current = undefined;
-          setOrdering(undefined);
-          showStatus(`Sold all your ${sold.title}`);
-        } else clear();
-        setData({ accountId, data: loaded });
-      })
-      .catch((cause: unknown) => {
-        if (current) showError(cause, 'Could not load the holdings');
-      });
-    return () => {
-      current = false;
-    };
-  }, [accountId, refreshKey, showError, showStatus, clear]);
-
-  // Values of an account that was reset in the meantime are never shown for the new one.
-  const loaded = data?.accountId === accountId ? data.data : undefined;
+  // When values come back: a holding with the open form that was sold out takes its form with it, so the
+  // result is said here.
+  const [seen, setSeen] = useState(loaded);
+  if (loaded !== seen) {
+    setSeen(loaded);
+    if (loaded) {
+      if (ordering && !loaded.holdings.some((held) => held.security.id === ordering.id)) {
+        setOrdering(undefined);
+        showStatus(`Sold all your ${ordering.title}`);
+      } else clear();
+    }
+  }
 
   return (
     <section aria-labelledby="mock-holdings-title" className="flex flex-col gap-3">
@@ -183,26 +169,22 @@ export function MockHoldings({
                       type="button"
                       variant="outline"
                       size="sm"
-                      aria-expanded={ordering === held.security.id}
+                      aria-expanded={ordering?.id === held.security.id}
                       aria-label={`${heldTitle(held)} order`}
-                      onClick={() => {
-                        const closing = ordering === held.security.id;
-                        open.current = closing
-                          ? undefined
-                          : { id: held.security.id, title: heldTitle(held) };
-                        setOrdering(closing ? undefined : held.security.id);
-                      }}
+                      onClick={() =>
+                        setOrdering(
+                          ordering?.id === held.security.id
+                            ? undefined
+                            : { id: held.security.id, title: heldTitle(held) },
+                        )
+                      }
                     >
-                      {ordering === held.security.id ? 'Close order' : 'Order'}
+                      {ordering?.id === held.security.id ? 'Close order' : 'Order'}
                     </Button>
                   </div>
-                  {ordering === held.security.id ? (
+                  {ordering?.id === held.security.id ? (
                     <div className="mt-2 rounded-xl border px-4 py-3">
-                      <MockOrder
-                        securityId={held.security.id}
-                        title={heldTitle(held)}
-                        onOrdered={onOrdered}
-                      />
+                      <MockOrder securityId={held.security.id} title={heldTitle(held)} />
                     </div>
                   ) : null}
                 </li>

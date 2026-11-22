@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { ChartBoundary } from './chart-boundary';
 import { Button } from './components/ui/button';
@@ -6,9 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './com
 import { Notice } from './components/ui/notice';
 import { formatWon, serviceToday, signedPercent } from './format';
 import { lazyChart } from './lazy-chart';
-import { requestJson } from './lib/api';
+import { useApiQuery } from './lib/query';
 import { useNotice } from './lib/use-notice';
+import { mockKeys } from './mock-query';
 import type { ReturnPoint } from './mock-return-chart';
+import { useLoadError } from './query-reads';
 
 // #54 How the mock account's return moved by day (decisions 2026-11-10): the chart starts at 0% on the day the
 // account started and joins the saved daily values; days before snapshots existed are not filled in. The
@@ -59,32 +61,26 @@ function allPoints(data: Snapshots): ReturnPoint[] {
 const signedWon = (amount: number) =>
   amount > 0 ? `+${formatWon(amount)}` : amount < 0 ? `-${formatWon(-amount)}` : formatWon(0);
 
-/** `refreshKey` changes after an order on the page; an order saves the day's value, so it is reloaded. */
-export function MockReturns({ accountId, refreshKey }: { accountId: number; refreshKey: number }) {
-  const [data, setData] = useState<{ accountId: number; data: Snapshots } | undefined>(undefined);
+/** Reloads with every mock change (`mockKey`, #213): an order saves the day's value. */
+export function MockReturns({ accountId }: { accountId: number }) {
+  const read = useApiQuery<Snapshots>(
+    mockKeys.snapshots(accountId),
+    `/api/mock/accounts/${accountId}/snapshots`,
+  );
   const [period, setPeriod] = useState<Period>('1m');
   // Bumped by Try again so a chart that failed to load is tried again.
   const [attempt, setAttempt] = useState(0);
   const notice = useNotice();
   const { error: showError, clear } = notice;
+  useLoadError(read.error, showError, 'Could not load the return trend');
+  // A load that succeeds clears the message of one that failed before.
+  const [seen, setSeen] = useState(read.data);
+  if (read.data !== seen) {
+    setSeen(read.data);
+    if (read.data) clear();
+  }
 
-  useEffect(() => {
-    let current = true;
-    requestJson<Snapshots>(`/api/mock/accounts/${accountId}/snapshots`)
-      .then((loaded) => {
-        if (!current) return;
-        clear();
-        setData({ accountId, data: loaded });
-      })
-      .catch((cause: unknown) => {
-        if (current) showError(cause, 'Could not load the return trend');
-      });
-    return () => {
-      current = false;
-    };
-  }, [accountId, refreshKey, showError, clear]);
-
-  const loaded = data?.accountId === accountId ? data.data : undefined;
+  const loaded = read.data;
   const months = periods.find((item) => item.value === period)?.months ?? null;
   const from = months === null ? '' : monthsBefore(serviceToday(), months);
   const points = loaded ? allPoints(loaded).filter((point) => point.date >= from) : [];

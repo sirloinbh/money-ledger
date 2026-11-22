@@ -25,9 +25,10 @@ import {
   parseAmount,
 } from './entry-model';
 import { formatWon, serviceToday } from './format';
-import { ledgerKeys, refreshLedger, useLedgerReload, useLoadError } from './ledger-query';
+import { ledgerKeys, refreshLedger, useLedgerReload } from './ledger-query';
 import { type ApiRequest, useApiMutation } from './lib/query';
 import { useNotice } from './lib/use-notice';
+import { useLoadError } from './query-reads';
 
 // #38 Income and expense entries: add, edit, delete.
 // #39 The list is filtered by period, kind, category and search (kept in the address) and split into pages.

@@ -1,8 +1,10 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { MockOrder } from './mock-order';
+import { mockKeys } from './mock-query';
 import { findLive } from './test/live';
+import { renderWithQuery, testQueryClient } from './test/query';
 
 const krwPreview = {
   security: { id: 1, symbol: '005930', name: 'Samsung Electronics', currency: 'KRW' },
@@ -61,9 +63,15 @@ const orderFor = (quantity: string) => {
   fireEvent.click(screen.getByRole('button', { name: 'Review order' }));
 };
 
+// The account another card read before the order: an order makes it (and every mock read) load again (#213).
+const otherRead = () => {
+  testQueryClient().setQueryData(mockKeys.accounts(), { account: null, closedAccounts: [] });
+  return () => testQueryClient().getQueryState(mockKeys.accounts())?.isInvalidated;
+};
+
 test('a buy shows which close it fills at, then fills once and reports the new cash', async () => {
-  const onOrdered = vi.fn();
-  render(<MockOrder securityId={1} title="Samsung Electronics" onOrdered={onOrdered} />);
+  const reloaded = otherRead();
+  renderWithQuery(<MockOrder securityId={1} title="Samsung Electronics" />);
   orderFor('10');
 
   const dialog = await screen.findByRole('dialog', {
@@ -93,7 +101,7 @@ test('a buy shows which close it fills at, then fills once and reports the new c
     expectedFxRate: null,
   });
   expect(requestKey).toMatch(/^[0-9a-f-]{36}$/);
-  expect(onOrdered).toHaveBeenCalledTimes(1);
+  expect(reloaded()).toBe(true);
   expect(screen.getByLabelText('Quantity (shares)')).toHaveValue('');
 });
 
@@ -109,7 +117,7 @@ test('a US sale shows the rate and a delayed close, and sends side sell', async 
     cashAfterKrw: 10_961_535,
     heldQuantity: '3.00000000',
   };
-  render(<MockOrder securityId={2} title="Apple Inc" onOrdered={() => undefined} />);
+  renderWithQuery(<MockOrder securityId={2} title="Apple Inc" />);
   fireEvent.click(screen.getByRole('button', { name: 'Sell' }));
   expect(screen.getByRole('button', { name: 'Sell' })).toHaveAttribute('aria-pressed', 'true');
   orderFor('3');
@@ -123,7 +131,7 @@ test('a US sale shows the rate and a delayed close, and sends side sell', async 
 });
 
 test('a bad quantity, no account and a refused preview never reach the order', async () => {
-  render(<MockOrder securityId={1} title="Samsung Electronics" onOrdered={() => undefined} />);
+  renderWithQuery(<MockOrder securityId={1} title="Samsung Electronics" />);
   orderFor('1.5');
   expect(await findLive('alert')).toHaveTextContent(
     'Enter the quantity as a whole number of shares',
@@ -145,8 +153,8 @@ test('a bad quantity, no account and a refused preview never reach the order', a
 
 test('a lost connection keeps the request key for the retry; a refusal starts a new one', async () => {
   postAnswers = ['offline'];
-  const onOrdered = vi.fn();
-  render(<MockOrder securityId={1} title="Samsung Electronics" onOrdered={onOrdered} />);
+  const reloaded = otherRead();
+  renderWithQuery(<MockOrder securityId={1} title="Samsung Electronics" />);
   orderFor('10');
   let dialog = await screen.findByRole('dialog');
   fireEvent.click(within(dialog).getByRole('button', { name: 'Buy' }));
@@ -156,7 +164,7 @@ test('a lost connection keeps the request key for the retry; a refusal starts a 
     ),
   ).toBeInTheDocument();
   // The account card is reloaded in case the order filled.
-  expect(onOrdered).toHaveBeenCalledTimes(1);
+  expect(reloaded()).toBe(true);
 
   // Closed and confirmed again: the same order goes with the same key, so it cannot fill twice.
   fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
@@ -178,15 +186,15 @@ test('a lost connection keeps the request key for the retry; a refusal starts a 
 
 test('a 5xx after sending (e.g. a proxy timeout) is treated like a lost connection', async () => {
   postAnswers = [{ status: 502, body: {} }];
-  const onOrdered = vi.fn();
-  render(<MockOrder securityId={1} title="Samsung Electronics" onOrdered={onOrdered} />);
+  const reloaded = otherRead();
+  renderWithQuery(<MockOrder securityId={1} title="Samsung Electronics" />);
   orderFor('10');
   let dialog = await screen.findByRole('dialog');
   fireEvent.click(within(dialog).getByRole('button', { name: 'Buy' }));
   expect(
     await screen.findByText(/The order may have been filled, so check your account cash/),
   ).toBeInTheDocument();
-  expect(onOrdered).toHaveBeenCalledTimes(1);
+  expect(reloaded()).toBe(true);
   // The retry goes with the same key.
   fireEvent.click(within(dialog).getByRole('button', { name: 'Buy' }));
   await screen.findByText(/Bought \d+ shares/);
@@ -196,7 +204,7 @@ test('a 5xx after sending (e.g. a proxy timeout) is treated like a lost connecti
 });
 
 test('a preview missing any value the order uses is never confirmed (#197)', async () => {
-  render(<MockOrder securityId={1} title="Samsung Electronics" onOrdered={() => undefined} />);
+  renderWithQuery(<MockOrder securityId={1} title="Samsung Electronics" />);
   for (const missing of ['priceDate', 'feeKrw', 'cashAfterKrw', 'price', 'amountKrw']) {
     preview = { ...krwPreview, [missing]: null };
     orderFor('1');
@@ -218,7 +226,7 @@ test('a preview missing any value the order uses is never confirmed (#197)', asy
 test('on plain HTTP (no crypto.randomUUID) the order key still comes from crypto.getRandomValues (#197)', async () => {
   const { getRandomValues } = crypto;
   vi.stubGlobal('crypto', { getRandomValues: getRandomValues.bind(crypto) });
-  render(<MockOrder securityId={1} title="Samsung Electronics" onOrdered={() => undefined} />);
+  renderWithQuery(<MockOrder securityId={1} title="Samsung Electronics" />);
   orderFor('1');
   const dialog = await screen.findByRole('dialog', { name: 'Buy 1 share of Samsung Electronics' });
   fireEvent.click(within(dialog).getByRole('button', { name: 'Buy' }));
@@ -230,7 +238,7 @@ test('on plain HTTP (no crypto.randomUUID) the order key still comes from crypto
 
 test('a browser without any random source says why the order cannot be placed (#197)', async () => {
   vi.stubGlobal('crypto', {});
-  render(<MockOrder securityId={1} title="Samsung Electronics" onOrdered={() => undefined} />);
+  renderWithQuery(<MockOrder securityId={1} title="Samsung Electronics" />);
   orderFor('1');
   expect(await findLive('alert')).toHaveTextContent(
     'This browser cannot create an order key, so the order cannot be placed. Open the app over HTTPS and try again',

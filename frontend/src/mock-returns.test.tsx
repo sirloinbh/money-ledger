@@ -1,8 +1,10 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
+import { mockKey } from './mock-query';
 import { MockReturns } from './mock-returns';
 import { findLive } from './test/live';
+import { forgetQueryClient, renderWithQuery, testQueryClient } from './test/query';
 
 // The chart itself is checked in mock-return-chart.test.tsx; here it only reports the days it was given.
 vi.mock('./mock-return-chart', () => ({
@@ -50,7 +52,7 @@ afterEach(() => {
 });
 
 test('1 month by default; 3 months and everything start further back, from 0% on the first day', async () => {
-  render(<MockReturns accountId={7} refreshKey={0} />);
+  renderWithQuery(<MockReturns accountId={7} />);
   expect(await screen.findByTestId('chart')).toHaveTextContent('2026-10-10,2026-10-20,2026-11-09');
   expect(urls).toEqual(['/api/mock/accounts/7/snapshots']);
   expect(screen.getByRole('button', { name: '1 month' })).toHaveAttribute('aria-pressed', 'true');
@@ -77,7 +79,7 @@ test('a saved value on the first day replaces the 0% start; fewer than two point
     initialCashKrw: 10_000_000,
     snapshots: [day('2026-11-09', 10_000_000, '0.00')],
   };
-  const { rerender } = render(<MockReturns accountId={7} refreshKey={0} />);
+  renderWithQuery(<MockReturns accountId={7} />);
   expect(await screen.findByText(/Only one value so far/)).toBeInTheDocument();
   expect(screen.queryByTestId('chart')).toBeNull();
 
@@ -86,8 +88,8 @@ test('a saved value on the first day replaces the 0% start; fewer than two point
     initialCashKrw: 10_000_000,
     snapshots: [day('2026-11-09', 10_000_000, '0.00'), day('2026-11-10', 10_010_000, '0.10')],
   };
-  // An order elsewhere on the page reloads the values: the same card, given a new refresh key (#182).
-  rerender(<MockReturns accountId={7} refreshKey={1} />);
+  // An order elsewhere on the page reloads the values in the same card (#182, #213).
+  await act(() => testQueryClient().invalidateQueries({ queryKey: mockKey }));
   expect(await screen.findByTestId('chart')).toHaveTextContent('2026-11-09,2026-11-10');
   expect(screen.queryByText(/Only one value so far/)).toBeNull();
   expect(screen.getAllByRole('table')).toHaveLength(1);
@@ -95,9 +97,10 @@ test('a saved value on the first day replaces the 0% start; fewer than two point
 
 test('no saved value in the period says so; a failed load shows the reason', async () => {
   body = { startDate: '2026-07-01', initialCashKrw: 10_000_000, snapshots: [] };
-  const { unmount } = render(<MockReturns accountId={7} refreshKey={0} />);
+  const { unmount } = renderWithQuery(<MockReturns accountId={7} />);
   expect(await screen.findByText('No values are saved for this period.')).toBeInTheDocument();
   unmount();
+  forgetQueryClient(); // a new visit, not the values just read
 
   vi.stubGlobal(
     'fetch',
@@ -107,6 +110,6 @@ test('no saved value in the period says so; a failed load shows the reason', asy
       ),
     ),
   );
-  render(<MockReturns accountId={7} refreshKey={0} />);
+  renderWithQuery(<MockReturns accountId={7} />);
   expect(await findLive('alert')).toHaveTextContent('A server error occurred');
 });
