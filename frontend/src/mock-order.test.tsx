@@ -194,3 +194,47 @@ test('a 5xx after sending (e.g. a proxy timeout) is treated like a lost connecti
   dialog = screen.queryByRole('dialog') as HTMLElement;
   expect(dialog).toBeNull();
 });
+
+test('a preview missing any value the order uses is never confirmed (#197)', async () => {
+  render(<MockOrder securityId={1} title="Samsung Electronics" onOrdered={() => undefined} />);
+  for (const missing of ['priceDate', 'feeKrw', 'cashAfterKrw', 'price', 'amountKrw']) {
+    preview = { ...krwPreview, [missing]: null };
+    orderFor('1');
+    expect(await findLive('alert')).toHaveTextContent('Cannot place the order');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  }
+  // A US preview without a rate is not fillable either.
+  preview = {
+    ...krwPreview,
+    security: { id: 2, symbol: 'AAPL', name: 'Apple Inc', currency: 'USD' },
+    price: '231.5000',
+  };
+  orderFor('1');
+  expect(await findLive('alert')).toHaveTextContent('Cannot place the order');
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(posts()).toHaveLength(0);
+});
+
+test('on plain HTTP (no crypto.randomUUID) the order key still comes from crypto.getRandomValues (#197)', async () => {
+  const { getRandomValues } = crypto;
+  vi.stubGlobal('crypto', { getRandomValues: getRandomValues.bind(crypto) });
+  render(<MockOrder securityId={1} title="Samsung Electronics" onOrdered={() => undefined} />);
+  orderFor('1');
+  const dialog = await screen.findByRole('dialog', { name: 'Buy 1 share of Samsung Electronics' });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Buy' }));
+  await vi.waitFor(() => expect(posts()).toHaveLength(1));
+  expect(posts()[0].body!.requestKey).toMatch(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+  );
+});
+
+test('a browser without any random source says why the order cannot be placed (#197)', async () => {
+  vi.stubGlobal('crypto', {});
+  render(<MockOrder securityId={1} title="Samsung Electronics" onOrdered={() => undefined} />);
+  orderFor('1');
+  expect(await findLive('alert')).toHaveTextContent(
+    'This browser cannot create an order key, so the order cannot be placed. Open the app over HTTPS and try again',
+  );
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(posts()).toHaveLength(0);
+});

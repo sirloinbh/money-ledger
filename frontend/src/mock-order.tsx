@@ -40,6 +40,41 @@ type Placed = { order: { priceDate: string }; cashKrw: number };
 
 const sideNames: Record<Side, string> = { buy: 'Buy', sell: 'Sell' };
 
+/**
+ * The preview as a fillable order, or null. Every field the dialog and the order use is checked here (#197),
+ * so a preview with a missing close date, fee, cash after the order or (for USD) rate is never confirmed.
+ */
+function readyOf(data: Preview): Ready | null {
+  const { price, priceDate, amountKrw, feeKrw, cashAfterKrw } = data;
+  if (
+    data.problem !== null ||
+    price === null ||
+    priceDate === null ||
+    amountKrw === null ||
+    feeKrw === null ||
+    cashAfterKrw === null ||
+    (data.security.currency === 'USD' && data.fxRate === null)
+  ) {
+    return null;
+  }
+  return { ...data, price, priceDate, amountKrw, feeKrw, cashAfterKrw };
+}
+
+/**
+ * A random (version 4) UUID for the order key, or null when the browser cannot make one. `crypto.randomUUID`
+ * exists only in a secure context (HTTPS or localhost); `crypto.getRandomValues` also works on plain HTTP (#197).
+ */
+function newRequestKey(): string | null {
+  const random = globalThis.crypto as Partial<Crypto> | undefined;
+  if (typeof random?.randomUUID === 'function') return random.randomUUID();
+  if (typeof random?.getRandomValues !== 'function') return null;
+  const bytes = random.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // RFC 9562 variant
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 /** Whole shares from 1 to 1,000,000, as the server accepts them; commas are allowed while typing. */
 function parseQuantity(text: string): { quantity: string } | { message: string } {
   const digits = text.trim().replaceAll(',', '');
@@ -100,16 +135,24 @@ export function MockOrder({
       const data = await requestJson<Preview>(
         `/api/mock/accounts/${account.id}/orders/preview?securityId=${securityId}&side=${side}&quantity=${parsed.quantity}`,
       );
-      if (data.problem !== null || data.price === null || data.amountKrw === null) {
+      const ready = readyOf(data);
+      if (!ready) {
         showError(data.problem ?? 'Cannot place the order');
         return;
       }
-      notice.clear();
       const order = `${account.id}:${securityId}:${side}:${parsed.quantity}`;
       if (requestKey.current?.order !== order) {
-        requestKey.current = { order, key: crypto.randomUUID() };
+        const key = newRequestKey();
+        if (!key) {
+          showError(
+            'This browser cannot create an order key, so the order cannot be placed. Open the app over HTTPS and try again',
+          );
+          return;
+        }
+        requestKey.current = { order, key };
       }
-      setPreview({ accountId: account.id, side, quantity: parsed.quantity, data: data as Ready });
+      notice.clear();
+      setPreview({ accountId: account.id, side, quantity: parsed.quantity, data: ready });
     } catch (cause) {
       showError(cause, 'Could not check the order');
     } finally {

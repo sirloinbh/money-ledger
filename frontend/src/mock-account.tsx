@@ -64,10 +64,17 @@ export function MockAccount({
   const notice = useNotice();
   const { error: showError, status: showStatus } = notice;
 
+  // The account the reset amount was filled in for. A reload after an order keeps what was typed (#197);
+  // only the first load or another account (a reset, a new account) fills in its starting amount again.
+  const filledFor = useRef<number | undefined>(undefined);
+
   const load = useCallback(async () => {
     const data = await requestJson<State>(accountsPath);
     setState(data);
-    if (data.account) setResetAmount(grouped(data.account.initialCashKrw));
+    if (data.account && data.account.id !== filledFor.current) {
+      filledFor.current = data.account.id;
+      setResetAmount(grouped(data.account.initialCashKrw));
+    }
   }, []);
 
   useEffect(() => {

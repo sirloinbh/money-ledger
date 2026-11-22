@@ -8,7 +8,7 @@ import { dailyTiingoLimit, runDailyFetch, tiingoHourlyLimit } from '../src/price
 import { priceQueue } from '../src/prices/jobs.js';
 import { runIfDue } from '../src/prices/scheduler.js';
 import { type PriceSources, SourceError } from '../src/prices/sources.js';
-import { saveKrxDay, trackedUsLimit } from '../src/prices/store.js';
+import { saveKrxDay, trackedUsLimit, trackedUsSecurities } from '../src/prices/store.js';
 import { runMigration, withApi } from './helpers.js';
 
 const url = process.env.TEST_DATABASE_URL;
@@ -536,12 +536,16 @@ test('shared price store against the real database', { skip: !url }, async (t) =
       const { sources, calls } = counted();
       await runDailyFetch(pool, sources, noon, quiet);
       const now = at('2026-11-09T04:00:00Z');
-      // 450 opened in the last 30 days, the oldest 29 days ago.
+      // 450 opened in the last 30 days, the oldest 29 days ago: SPY (a ticker Tiingo knows) and 449 others.
       await pool.query(
         `INSERT INTO securities (market, symbol, kind, currency, viewed_at)
          SELECT 'NYSE', 'T' || n, 'stock', 'USD', $1::timestamptz - interval '29 days'
-         FROM generate_series(1, $2) n`,
+         FROM generate_series(1, $2 - 1) n`,
         [now, trackedUsLimit],
+      );
+      await pool.query(
+        "UPDATE securities SET viewed_at = $1::timestamptz - interval '29 days' WHERE symbol = 'SPY'",
+        [now],
       );
       const idOf = async (symbol: string) =>
         (await pool.query<{ id: string }>('SELECT id FROM securities WHERE symbol = $1', [symbol]))
@@ -582,9 +586,14 @@ test('shared price store against the real database', { skip: !url }, async (t) =
       assert.deepEqual([stored.quote?.close, stored.quoteIssue], ['415.2500', 'tracking_full']);
 
       // A tracked one is still opened and its 30 days start again.
-      const tracked = await view('T1', now);
+      const tracked = await view('SPY', now);
       assert.notEqual(tracked.quoteIssue, 'tracking_full');
-      assert.equal((await viewedAt('T1'))?.getTime(), now.getTime());
+      assert.equal((await viewedAt('SPY'))?.getTime(), now.getTime());
+      // #194 A tracked ticker Tiingo does not know is answered, but reopening it does not extend it.
+      const before = await viewedAt('T1');
+      const unknown = await view('T1', now);
+      assert.equal(unknown.quoteIssue, 'not_found');
+      assert.equal((await viewedAt('T1'))?.getTime(), before?.getTime());
 
       // A day later the other 449 have dropped off, so AAPL is fetched and tracked.
       const later = at('2026-11-10T04:00:00Z');
@@ -594,6 +603,50 @@ test('shared price store against the real database', { skip: !url }, async (t) =
       assert.equal((await viewedAt('AAPL'))?.getTime(), later.getTime());
     },
   );
+
+  await t.test('a ticker Tiingo does not know never takes a tracked slot (#194)', async () => {
+    await reset();
+    const { sources, calls } = counted();
+    await runDailyFetch(pool, sources, noon, quiet);
+    await pool.query(
+      "INSERT INTO securities (market, symbol, kind, currency) VALUES ('NYSE', 'NOPE', 'stock', 'USD')",
+    );
+    const id = (await pool.query("SELECT id FROM securities WHERE symbol = 'NOPE'")).rows[0]
+      .id as string;
+    const tracked = async (when: Date) =>
+      (await trackedUsSecurities(pool, when)).map((security) => security.symbol);
+    const before = await tracked(noon);
+    // Opened twice: a 404, then the stored answer. Neither puts it on the daily fetch.
+    for (const minutes of [0, 5]) {
+      const when = new Date(noon.getTime() + minutes * 60_000);
+      await withApi(
+        pool,
+        async (call) => {
+          const detail = (await call(`/api/prices/securities/${id}/view`, { method: 'POST' }))
+            .data as Detail;
+          assert.deepEqual([detail.quote, detail.quoteIssue], [null, 'not_found']);
+        },
+        { today: () => '2026-11-09', now: () => when, prices: sources },
+      );
+      assert.deepEqual(await tracked(when), before);
+    }
+    assert.equal(calls.closes.filter((call) => call.startsWith('NOPE ')).length, 1);
+    const viewed = await pool.query("SELECT viewed_at FROM securities WHERE symbol = 'NOPE'");
+    assert.equal(viewed.rows[0].viewed_at, null);
+    // A known ticker opened the same way is fetched and tracked.
+    await withApi(
+      pool,
+      async (call) => {
+        const aapl = (await pool.query("SELECT id FROM securities WHERE symbol = 'AAPL'")).rows[0]
+          .id as string;
+        const detail = (await call(`/api/prices/securities/${aapl}/view`, { method: 'POST' }))
+          .data as Detail;
+        assert.equal(detail.quoteIssue, null);
+      },
+      { today: () => '2026-11-09', now: () => noon, prices: sources },
+    );
+    assert.deepEqual(await tracked(noon), [...before, 'AAPL'].sort());
+  });
 
   await t.test('a Korean security shows its stored close, delayed after 5 days', async () => {
     await reset();

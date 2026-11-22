@@ -34,3 +34,4 @@ Touched files owned by other workers (assets, mock trading) only for these strin
 ## Review
 
 - Round 1: 1 finding, fixed. The asset totals and net worth snapshots count every row without a value, debts included (`count(*) FILTER (WHERE current_value_krw IS NULL)` in `backend/src/assets.ts`), so "asset" was wrong there; they now say "item", as the dashboard already does. The allocation note keeps "asset" (it leaves debts out). Tests updated; targeted runs of assets, valuation and net worth history: 43 pass. Lint, typecheck and format pass.
+- Merged `origin/main` to resolve a conflict in `mock-history.test.tsx` (both sides added a test; both kept). A new test from main pinned "Buy 1 shares of Samsung Electronics", the very string #203 fixes; it now expects "Buy 1 share of …". Targeted runs after the merge (mock trading, assets, valuation, net worth, dashboard, entries, format, monthly trend, security search): 192 pass. Lint, typecheck and format pass.
