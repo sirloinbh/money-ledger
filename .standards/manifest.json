@@ -1,5 +1,5 @@
 {
-  "centralSha": "4fb146f93b7f746384851f1b676bb0feaef6b02e",
+  "centralSha": "6d9f613629d131a59f736aefdd02f80ec829817b",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -305,7 +305,7 @@
     },
     "backend/src/standard/openapi.ts": {
       "mode": "full",
-      "sha256": "e9fe812e39f00d8c85ec55c7313fb3674fe02ed086e64e725e2671bef2e8ebc8",
+      "sha256": "9d4c92cf40151d7aa721497d77b22dcdec2e4d8ac730013456319c35e2056c82",
       "source": "templates/app/backend/src/standard/openapi.ts"
     },
     "backend/src/standard/rate-limit.ts": {
