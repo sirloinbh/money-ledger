@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { formatMonthDay } from './quote-format';
 import { SecuritySearch } from './security-search';
 import { findLive, getLive } from './test/live';
+import { renderWithQuery } from './test/query';
 
 const samsung = {
   id: 1,
@@ -72,7 +73,7 @@ test('results show the latest close with its date; a US ticker says the close co
     status: 200,
     body: { securities: [samsung, apple] },
   };
-  render(<SecuritySearch />);
+  renderWithQuery(<SecuritySearch />);
   expect(screen.getByText(/Search US securities by ticker/)).toBeInTheDocument();
   searchFor(' Samsung ');
 
@@ -95,7 +96,7 @@ test('no results, a blank query and an API error read differently', async () => 
     status: 500,
     body: { error: 'A server error occurred' },
   };
-  render(<SecuritySearch />);
+  renderWithQuery(<SecuritySearch />);
 
   searchFor('zzz');
   expect(await screen.findByText('No results for "zzz"')).toHaveAttribute('role', 'status');
@@ -124,7 +125,7 @@ test('a Korean detail shows the close and marks a delayed one', async () => {
       fx: null,
     },
   };
-  render(<SecuritySearch />);
+  renderWithQuery(<SecuritySearch />);
   searchFor('005930');
   fireEvent.click(await screen.findByRole('button', { name: /Samsung Electronics/ }));
 
@@ -151,7 +152,7 @@ test('a US detail shows the close in dollars, the rate, and why a close is missi
       fx: { fxRate: '1384.5000', rateDate: '2026-11-09', stale: true },
     },
   };
-  render(<SecuritySearch />);
+  renderWithQuery(<SecuritySearch />);
   searchFor('AAPL');
   fireEvent.click(await screen.findByRole('button', { name: /AAPL/ }));
   expect(await screen.findByRole('heading', { level: 2, name: 'Apple Inc' })).toBeInTheDocument();
@@ -180,7 +181,7 @@ test.each([
     status: 200,
     body: { security: apple, quote: null, quoteIssue: issue, fx: null },
   };
-  render(<SecuritySearch />);
+  renderWithQuery(<SecuritySearch />);
   searchFor('AAPL');
   fireEvent.click(await screen.findByRole('button', { name: /AAPL/ }));
   expect(await screen.findByText('No quote')).toBeInTheDocument();
@@ -205,7 +206,7 @@ test('past the tracking limit a stored close is shown with the reason it is not 
       fx: null,
     },
   };
-  render(<SecuritySearch />);
+  renderWithQuery(<SecuritySearch />);
   searchFor('AAPL');
   fireEvent.click(await screen.findByRole('button', { name: /AAPL/ }));
   await screen.findByRole('heading', { level: 2, name: 'AAPL' });
@@ -228,7 +229,7 @@ test('a delisted or suspended security says Trading halted next to its last clos
       fx: null,
     },
   };
-  render(<SecuritySearch />);
+  renderWithQuery(<SecuritySearch />);
   searchFor('005930');
   fireEvent.click(await screen.findByRole('button', { name: /Samsung Electronics/ }));
   await screen.findByRole('heading', { level: 2, name: 'Samsung Electronics' });
@@ -242,7 +243,7 @@ test('an active security has no Trading halted mark', async () => {
     status: 200,
     body: { security: samsung, quote: samsung.quote, quoteIssue: null, fx: null },
   };
-  render(<SecuritySearch />);
+  renderWithQuery(<SecuritySearch />);
   searchFor('005930');
   fireEvent.click(await screen.findByRole('button', { name: /Samsung Electronics/ }));
   await screen.findByRole('heading', { level: 2, name: 'Samsung Electronics' });
@@ -255,7 +256,7 @@ test('a detail that fails to load shows the server message', async () => {
     status: 404,
     body: { error: 'Security not found' },
   };
-  render(<SecuritySearch />);
+  renderWithQuery(<SecuritySearch />);
   searchFor('005930');
   fireEvent.click(await screen.findByRole('button', { name: /Samsung Electronics/ }));
   expect(await findLive('alert')).toHaveTextContent('Security not found');
@@ -273,7 +274,7 @@ test('a detail that failed to load can be tried again, by the button or the same
     body: { error: 'The price source is not answering' },
   };
   const views = () => urls.filter((url) => url === '/api/prices/securities/1/view').length;
-  render(<SecuritySearch onOrdered={() => undefined} />);
+  renderWithQuery(<SecuritySearch orders />);
   searchFor('005930');
   const result = await screen.findByRole('button', { name: /Samsung Electronics/ });
   fireEvent.click(result);

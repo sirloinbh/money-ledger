@@ -1,8 +1,10 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { MockAccount } from './mock-account';
+import { mockKey } from './mock-query';
 import { findLive, queryLive } from './test/live';
+import { renderWithQuery, testQueryClient } from './test/query';
 import { unexpectedRequest } from './test/unexpected';
 
 type Account = {
@@ -129,7 +131,7 @@ async function expectStatus(text: string) {
 }
 
 test('without an account the form suggests ₩10,000,000 and creates it', async () => {
-  render(<MockAccount />);
+  renderWithQuery(<MockAccount />);
   const amount = await screen.findByLabelText('Starting amount (KRW)');
   expect(amount).toHaveValue('10,000,000');
   expect(screen.getByText(/not part of the ledger or asset portfolio totals/)).toBeInTheDocument();
@@ -148,7 +150,7 @@ test('without an account the form suggests ₩10,000,000 and creates it', async 
 });
 
 test('a custom starting amount is sent as a won integer', async () => {
-  render(<MockAccount />);
+  renderWithQuery(<MockAccount />);
   fireEvent.change(await screen.findByLabelText('Starting amount (KRW)'), {
     target: { value: '50000000' },
   });
@@ -163,7 +165,7 @@ test.each([
   { value: '1,2,3', message: 'Enter the starting amount as a whole number of won' },
   { value: '10000.5', message: 'Enter the starting amount as a whole number of won' },
 ])('a starting amount of $value is refused before sending', async ({ value, message }) => {
-  render(<MockAccount />);
+  renderWithQuery(<MockAccount />);
   const amount = await screen.findByLabelText('Starting amount (KRW)');
   fireEvent.change(amount, { target: { value } });
   fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
@@ -173,7 +175,7 @@ test.each([
 });
 
 test('a 409 from another tab shows the error and the account the server has', async () => {
-  render(<MockAccount />);
+  renderWithQuery(<MockAccount />);
   await screen.findByLabelText('Starting amount (KRW)');
   failNext = { status: 409, error: 'A mock trading account already exists' };
   open = account(7, 20_000_000);
@@ -188,7 +190,7 @@ test('a 409 from another tab shows the error and the account the server has', as
 
 test('an account that is gone (404) closes the dialog and focuses the create form', async () => {
   open = account(1, 10_000_000);
-  render(<MockAccount />);
+  renderWithQuery(<MockAccount />);
   fireEvent.click(await screen.findByRole('button', { name: 'Reset' }));
   const dialog = await screen.findByRole('dialog');
   failNext = { status: 404, error: 'Mock trading account not found' };
@@ -202,7 +204,7 @@ test('an account that is gone (404) closes the dialog and focuses the create for
 
 test('reset asks first, then keeps the old account and starts again', async () => {
   open = { ...account(1, 10_000_000), cashKrw: 4_000_000 };
-  render(<MockAccount />);
+  renderWithQuery(<MockAccount />);
   const amount = await screen.findByLabelText('New starting amount (KRW)');
   expect(amount).toHaveValue('10,000,000');
   fireEvent.change(amount, { target: { value: '30,000,000' } });
@@ -229,7 +231,7 @@ test('reset asks first, then keeps the old account and starts again', async () =
 
 test('cancelling the reset sends nothing', async () => {
   open = account(1, 10_000_000);
-  render(<MockAccount />);
+  renderWithQuery(<MockAccount />);
   fireEvent.click(await screen.findByRole('button', { name: 'Reset' }));
   const dialog = await screen.findByRole('dialog');
   fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
@@ -239,7 +241,7 @@ test('cancelling the reset sends nothing', async () => {
 
 test('an invalid reset amount is refused without opening the dialog', async () => {
   open = account(1, 10_000_000);
-  render(<MockAccount />);
+  renderWithQuery(<MockAccount />);
   const amount = await screen.findByLabelText('New starting amount (KRW)');
   fireEvent.change(amount, { target: { value: '0' } });
   fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
@@ -250,7 +252,7 @@ test('an invalid reset amount is refused without opening the dialog', async () =
 
 test('an account already reset elsewhere closes the dialog and shows the new account', async () => {
   open = account(1, 10_000_000);
-  render(<MockAccount />);
+  renderWithQuery(<MockAccount />);
   fireEvent.click(await screen.findByRole('button', { name: 'Reset' }));
   const dialog = await screen.findByRole('dialog');
   failNext = {
@@ -270,19 +272,22 @@ test('a failed load is shown as an error instead of the form', async () => {
     'fetch',
     vi.fn(() => json({ error: 'A server error occurred' }, 500)),
   );
-  render(<MockAccount />);
+  renderWithQuery(<MockAccount />);
   expect(await findLive('alert')).toHaveTextContent('A server error occurred');
   expect(screen.queryByRole('button', { name: 'Create account' })).not.toBeInTheDocument();
 });
 
-test('a new refresh key (an order elsewhere on the page) reloads the cash', async () => {
+// An order (or a reset) elsewhere on the page reloads every mock read (#213).
+const mockChanged = () => act(() => testQueryClient().invalidateQueries({ queryKey: mockKey }));
+
+test('an order elsewhere on the page reloads the cash', async () => {
   open = account(1, 10_000_000);
-  const { rerender } = render(<MockAccount refreshKey={0} />);
+  renderWithQuery(<MockAccount />);
   await screen.findByText(/No holdings/);
   // Cash and the initial amount in the account card, and the total of the holdings summary.
   expect(screen.getAllByText('₩10,000,000')).toHaveLength(3);
   open = { ...open, cashKrw: 9_294_000 };
-  rerender(<MockAccount refreshKey={1} />);
+  await mockChanged();
   // The cash and the total both follow the order.
   await vi.waitFor(() => expect(screen.getAllByText('₩9,294,000')).toHaveLength(2));
   const gets = (path: string) => requests.filter((request) => request.url === path);
@@ -293,7 +298,7 @@ test('a new refresh key (an order elsewhere on the page) reloads the cash', asyn
 test('a holding order form left open does not carry over to the account after a reset', async () => {
   open = account(1, 10_000_000);
   heldBy = 1;
-  render(<MockAccount />);
+  renderWithQuery(<MockAccount />);
   fireEvent.click(await screen.findByRole('button', { name: 'Samsung Electronics order' }));
   expect(screen.getByRole('form', { name: 'Samsung Electronics mock order' })).toBeInTheDocument();
 
@@ -309,18 +314,18 @@ test('a holding order form left open does not carry over to the account after a 
 
 test('a typed reset amount survives a reload after an order; a new account fills in its own (#197)', async () => {
   open = account(1, 10_000_000);
-  const { rerender } = render(<MockAccount refreshKey={0} />);
+  renderWithQuery(<MockAccount />);
   const amount = await screen.findByLabelText('New starting amount (KRW)');
   fireEvent.change(amount, { target: { value: '25,000,000' } });
 
   open = { ...open, cashKrw: 9_294_000 };
-  rerender(<MockAccount refreshKey={1} />);
+  await mockChanged();
   await vi.waitFor(() => expect(screen.getAllByText('₩9,294,000')).toHaveLength(2));
   expect(screen.getByLabelText('New starting amount (KRW)')).toHaveValue('25,000,000');
 
   // Another account (opened in another tab, here) brings its own starting amount.
   open = account(2, 50_000_000);
-  rerender(<MockAccount refreshKey={2} />);
+  await mockChanged();
   await vi.waitFor(() =>
     expect(screen.getByLabelText('New starting amount (KRW)')).toHaveValue('50,000,000'),
   );
@@ -342,7 +347,7 @@ function failReloadAfterSave(path: string) {
 }
 
 test('a created account whose reload fails is a note, not an error (#265)', async () => {
-  render(<MockAccount />);
+  renderWithQuery(<MockAccount />);
   await screen.findByLabelText('Starting amount (KRW)');
   failReloadAfterSave('/api/mock/accounts');
   fireEvent.click(screen.getByRole('button', { name: 'Create account' }));

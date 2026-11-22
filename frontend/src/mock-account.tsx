@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
@@ -7,11 +7,14 @@ import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
 import { formatDateTime, formatWon, withoutThousands } from './format';
-import { RequestError, requestJson } from './lib/api';
+import { RequestError } from './lib/api';
+import { type ApiRequest, useApiMutation, useApiQuery } from './lib/query';
 import { useNotice } from './lib/use-notice';
 import { MockHistory } from './mock-history';
 import { MockHoldings } from './mock-holdings';
+import { mockKey, mockKeys } from './mock-query';
 import { MockReturns } from './mock-returns';
+import { useLoadError, useReadsReload } from './query-reads';
 
 // #50 Mock trading account. Virtual won only, never added to the ledger or portfolio totals.
 // One open account; resetting keeps the old one as a closed record (2026-11-03 decision).
@@ -43,14 +46,12 @@ function parseAmount(text: string): { amount: number } | { message: string } {
 const grouped = (amount: number) => new Intl.NumberFormat('en-US').format(amount);
 
 /**
- * `refreshKey` changes after an order elsewhere on the page, so the cash shown is reloaded (#52). `onOrdered`
- * is called after an order from a holding (#53), so the page bumps the key.
+ * The account reloads with every mock change (`mockKey`, #213): an order here or in a security's detail changes its
+ * cash, and creating or resetting the account reloads its cards.
  */
-export function MockAccount({
-  refreshKey = 0,
-  onOrdered = () => undefined,
-}: { refreshKey?: number; onOrdered?: () => void } = {}) {
-  const [state, setState] = useState<State | undefined>(undefined);
+export function MockAccount() {
+  const read = useApiQuery<State>(mockKeys.accounts(), accountsPath);
+  const state = read.data;
   const [createAmount, setCreateAmount] = useState(defaultAmount);
   const [resetAmount, setResetAmount] = useState(defaultAmount);
   const [invalid, setInvalid] = useState<'create' | 'reset' | undefined>(undefined);
@@ -63,23 +64,19 @@ export function MockAccount({
   const refocus = useRef(false);
   const notice = useNotice();
   const { error: showError, status: showStatus } = notice;
+  const explained = useLoadError(read.error, showError, 'Could not load the mock trading account');
+  const reloadMock = useReadsReload(mockKey);
+  // Every mock read loads again; a failure of the account read is left to the caller to word.
+  const load = () => reloadMock<State>(mockKeys.accounts, explained);
+  const write = useApiMutation<unknown, ApiRequest>((request) => request);
 
   // The account the reset amount was filled in for. A reload after an order keeps what was typed (#197);
   // only the first load or another account (a reset, a new account) fills in its starting amount again.
-  const filledFor = useRef<number | undefined>(undefined);
-
-  const load = useCallback(async () => {
-    const data = await requestJson<State>(accountsPath);
-    setState(data);
-    if (data.account && data.account.id !== filledFor.current) {
-      filledFor.current = data.account.id;
-      setResetAmount(grouped(data.account.initialCashKrw));
-    }
-  }, []);
-
-  useEffect(() => {
-    load().catch((cause: unknown) => showError(cause, 'Could not load the mock trading account'));
-  }, [load, showError, refreshKey]);
+  const [filledFor, setFilledFor] = useState<number | undefined>(undefined);
+  if (state?.account && state.account.id !== filledFor) {
+    setFilledFor(state.account.id);
+    setResetAmount(grouped(state.account.initialCashKrw));
+  }
 
   // When a reload removes the focused control (the create button, the reset button), focus goes to what
   // replaced it: the account heading, or the amount field of the create form.
@@ -91,13 +88,12 @@ export function MockAccount({
   }, [state]);
 
   const reload = async (done: string) => {
-    try {
-      await load();
-      showStatus(done);
-    } catch {
-      // The change is saved even when the reload fails, so this is a note, not an error (#265).
-      showStatus(`${done}. The account could not be reloaded; reload the page to see it`);
-    }
+    // The change is saved even when the reload fails, so this is a note, not an error (#265).
+    showStatus(
+      (await load()).ok
+        ? done
+        : `${done}. The account could not be reloaded; reload the page to see it`,
+    );
   };
 
   const create = async (event: FormEvent) => {
@@ -114,15 +110,12 @@ export function MockAccount({
     setBusy(true);
     try {
       try {
-        await requestJson(accountsPath, {
-          method: 'POST',
-          body: { initialCashKrw: result.amount },
-        });
+        await write.mutateAsync({ path: accountsPath, body: { initialCashKrw: result.amount } });
       } catch (cause) {
         showError(cause);
         // Another tab may have created the account already: show what the server has.
         refocus.current = true;
-        await load().catch(() => undefined);
+        await load();
         return;
       }
       refocus.current = true;
@@ -156,8 +149,8 @@ export function MockAccount({
     saving.current = true;
     try {
       try {
-        await requestJson(`${accountsPath}/${account.id}/reset`, {
-          method: 'POST',
+        await write.mutateAsync({
+          path: `${accountsPath}/${account.id}/reset`,
           body: { initialCashKrw: result.amount },
         });
       } catch (cause) {
@@ -167,7 +160,7 @@ export function MockAccount({
           // The dialog was about the old account; closing it keeps a second press from resetting the new one.
           setConfirming(false);
           refocus.current = true;
-          await load().catch(() => undefined);
+          await load();
         }
         throw cause;
       }
@@ -218,12 +211,7 @@ export function MockAccount({
               </div>
             </dl>
             {/* Keyed by account, so an open order form and its state never carry over to a reset account. */}
-            <MockHoldings
-              key={account.id}
-              accountId={account.id}
-              refreshKey={refreshKey}
-              onOrdered={onOrdered}
-            />
+            <MockHoldings key={account.id} accountId={account.id} />
             <section aria-labelledby="mock-reset-title" className="flex flex-col gap-3">
               <h3 id="mock-reset-title" className="text-body font-semibold">
                 Start over
@@ -307,16 +295,8 @@ export function MockAccount({
       {account ? (
         // #54 Only the open account's return and orders are shown; keyed so a reset starts them over.
         <>
-          <MockReturns
-            key={`returns-${account.id}`}
-            accountId={account.id}
-            refreshKey={refreshKey}
-          />
-          <MockHistory
-            key={`history-${account.id}`}
-            accountId={account.id}
-            refreshKey={refreshKey}
-          />
+          <MockReturns key={`returns-${account.id}`} accountId={account.id} />
+          <MockHistory key={`history-${account.id}`} accountId={account.id} />
         </>
       ) : null}
       {state && state.closedAccounts.length > 0 ? (

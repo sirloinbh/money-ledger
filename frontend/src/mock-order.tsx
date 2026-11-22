@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useId, useRef, useState } from 'react';
 
 import { Button } from './components/ui/button';
@@ -8,6 +9,8 @@ import { Notice } from './components/ui/notice';
 import { formatDecimal, formatWon, sharesOf } from './format';
 import { RequestError, requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
+import { mockKey } from './mock-query';
+import { refreshReads } from './query-reads';
 import { formatMonthDay, formatPrice } from './quote-format';
 
 // #52 Market buy and sell of one security in the mock account. The server fills at the latest stored close
@@ -84,15 +87,10 @@ function parseQuantity(text: string): { quantity: string } | { message: string }
   return { quantity: digits };
 }
 
-export function MockOrder({
-  securityId,
-  title,
-  onOrdered,
-}: {
-  securityId: number;
-  title: string;
-  onOrdered: () => void;
-}) {
+/** After an order (or one whose answer was lost) every mock read loads again (`mockKey`, #213). */
+export function MockOrder({ securityId, title }: { securityId: number; title: string }) {
+  const client = useQueryClient();
+  const ordered = () => void refreshReads(client, mockKey);
   const [side, setSide] = useState<Side>('buy');
   const [quantity, setQuantity] = useState('');
   const [invalid, setInvalid] = useState(false);
@@ -183,7 +181,7 @@ export function MockOrder({
       showStatus(
         `${preview.side === 'buy' ? 'Bought' : 'Sold'} ${sharesOf(preview.quantity)} of ${title} at the ${formatMonthDay(placed.order.priceDate)} close. Cash ${formatWon(placed.cashKrw)}`,
       );
-      onOrdered();
+      ordered();
     } catch (cause) {
       // A refusal (409: cash, holdings, price changed) closes the dialog so the reason shows on the screen.
       // A 5xx (for example a proxy timeout) may come after the order committed, so it is treated like a
@@ -199,7 +197,7 @@ export function MockOrder({
       showError(
         `${cause instanceof Error ? cause.message : 'Could not place the order'}. The order may have been filled, so check your account cash`,
       );
-      onOrdered();
+      ordered();
       throw cause;
     }
   };

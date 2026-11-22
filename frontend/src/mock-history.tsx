@@ -1,4 +1,5 @@
-import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { type FormEvent, useCallback, useState } from 'react';
 
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
@@ -6,8 +7,10 @@ import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
 import { formatDateTime, formatDecimal, formatWon, realDate, sharesOf } from './format';
-import { requestJson } from './lib/api';
+import { type RequestError, requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
+import { mockKeys } from './mock-query';
+import { useLoadError } from './query-reads';
 import { formatMonthDay, formatPrice } from './quote-format';
 
 // #54 Orders of the mock account, newest first, 50 at a time (decision 2026-11-10). Filtered by order day
@@ -53,23 +56,18 @@ function filterProblem(filter: Filter) {
 const securityName = (security: { symbol: string; name: string | null }) =>
   security.name ?? security.symbol;
 
-/** `refreshKey` changes after an order on the page, so the list starts again from the newest. */
-export function MockHistory({ accountId, refreshKey }: { accountId: number; refreshKey: number }) {
+/**
+ * The first page reloads with every mock change (`mockKey`, #213); a new first page (an order, new filters) starts
+ * the list again from the newest, so the pages "Load more" added are dropped with it.
+ */
+export function MockHistory({ accountId }: { accountId: number }) {
   const [draft, setDraft] = useState<Filter>(emptyFilter);
   const [filter, setFilter] = useState<Filter>(emptyFilter);
-  // `request` is the load that gave this page: "Load more" only continues the list of the latest load.
-  // `query` is what that load asked for, so a page shown under a newer filter or refresh is known to be old.
-  const [page, setPage] = useState<(Page & { request: number; query: string }) | undefined>(
-    undefined,
-  );
-  // The query whose load failed: the old page stays, but it is no longer "updating".
-  const [failed, setFailed] = useState<string | undefined>(undefined);
   const [invalid, setInvalid] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  // Only the latest request may fill the list.
-  const latest = useRef(0);
   const notice = useNotice();
   const { error: showError, clear } = notice;
+  const client = useQueryClient();
 
   const path = useCallback(
     (applied: Filter, before?: number) => {
@@ -84,26 +82,34 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
     [accountId],
   );
 
-  // What the list should show now. While its load runs, the page of an older query stays on screen but is
-  // marked busy and cannot be continued (#197).
-  const query = `${path(filter)}#${refreshKey}`;
-  const old = page !== undefined && page.query !== query;
-  const updating = old && failed !== query;
+  const firstPath = path(filter);
+  const key = mockKeys.orders(accountId, firstPath);
+  // While the first page of new filters loads, the one before stays on the screen (#197).
+  const read = useQuery<Page, RequestError>({
+    queryKey: key,
+    queryFn: ({ signal }) => requestJson<Page>(firstPath, { signal }),
+    placeholderData: keepPreviousData,
+  });
+  useLoadError(read.error, showError, 'Could not load the trades');
+  // The first page last shown: it stays after the load for new filters failed, no longer "updating".
+  const [lastShown, setLastShown] = useState(read.data);
+  if (read.data !== undefined && read.data !== lastShown) {
+    setLastShown(read.data);
+    clear();
+  }
+  const first = read.data ?? lastShown;
+  // The pages "Load more" added, for the first page they continue.
+  const [more, setMore] = useState<{ after: Page; orders: Order[]; hasMore: boolean }>();
+  const page =
+    first && more?.after === first
+      ? { ...first, orders: [...first.orders, ...more.orders], hasMore: more.hasMore }
+      : first;
 
-  useEffect(() => {
-    const request = ++latest.current;
-    requestJson<Page>(path(filter))
-      .then((loaded) => {
-        if (latest.current !== request) return;
-        clear();
-        setPage({ ...loaded, request, query });
-      })
-      .catch((cause: unknown) => {
-        if (latest.current !== request) return;
-        setFailed(query);
-        showError(cause, 'Could not load the trades');
-      });
-  }, [path, filter, query, showError, clear]);
+  // What is shown is about to be replaced (a load runs) or belongs to other filters (their load failed): it is
+  // marked busy while its load runs and cannot be continued.
+  const updating = page !== undefined && read.isFetching;
+  const old =
+    updating || (page !== undefined && (read.isPlaceholderData || read.data === undefined));
 
   const apply = (event: FormEvent) => {
     event.preventDefault();
@@ -114,29 +120,33 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
       return;
     }
     setInvalid(false);
-    setFailed(undefined);
+    // The same filters after their load failed: Apply tries them again.
+    if (path(draft) === firstPath && read.isError) void read.refetch();
     setFilter({ ...draft });
   };
 
   const reset = () => {
     setInvalid(false);
-    setFailed(undefined);
     setDraft(emptyFilter);
     setFilter(emptyFilter);
   };
 
-  const more = async () => {
+  const loadMore = async () => {
     const last = page?.orders.at(-1);
-    // A new filter or an order on the page is loading: the shown page is about to be replaced, not continued.
-    if (!page || !last || loadingMore || old || page.request !== latest.current) return;
-    const { request } = page;
+    if (!first || !page || !last || loadingMore || old) return;
     setLoadingMore(true);
+    // Only continues the first page it was asked for: a new one (an order, new filters) starts the list again.
+    const current = () => client.getQueryData(key) === first;
     try {
       const next = await requestJson<Page>(path(filter, last.id));
-      if (latest.current !== request) return;
-      setPage({ ...next, orders: [...page.orders, ...next.orders], request, query: page.query });
+      if (!current()) return;
+      setMore({
+        after: first,
+        orders: [...(more?.after === first ? more.orders : []), ...next.orders],
+        hasMore: next.hasMore,
+      });
     } catch (cause) {
-      if (latest.current === request) showError(cause, 'Could not load more trades');
+      if (current()) showError(cause, 'Could not load more trades');
     } finally {
       setLoadingMore(false);
     }
@@ -269,7 +279,7 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
                 variant="outline"
                 aria-busy={loadingMore || undefined}
                 aria-disabled={old || undefined}
-                onClick={() => void more()}
+                onClick={() => void loadMore()}
               >
                 {loadingMore ? 'Loading…' : 'Load more'}
               </Button>
