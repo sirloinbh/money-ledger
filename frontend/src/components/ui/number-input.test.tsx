@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { expect, test, vi } from 'vitest';
 
 import { NumberInput, NumberValueInput } from './number-input';
-import { stepValue } from './number-step';
+import { optionalNumber, stepValue } from './number-step';
 
 function Weight({
   initial = '100',
@@ -110,6 +110,25 @@ test('stepValue rounds to the step, clamps, and treats an empty field as the min
   expect(stepValue('abc', 1)).toBe('1');
 });
 
+// #972: the stepper reads text the way the forms do.
+test('optionalNumber keeps empty as null and refuses text that is not a plain decimal', () => {
+  expect(optionalNumber('')).toBeNull();
+  expect(optionalNumber('  ')).toBeNull();
+  expect(optionalNumber(' 5.02 ')).toBe(5.02);
+  expect(optionalNumber('1.')).toBe(1);
+  expect(optionalNumber('.5')).toBe(0.5);
+  expect(optionalNumber('-1')).toBe(-1);
+  for (const text of ['0x10', '1e3', 'Infinity', '1,000', '1,5', '.', '-', '1..2']) {
+    expect(optionalNumber(text)).toBeNaN();
+  }
+});
+
+test('stepValue treats hex and thousands-separated text as unreadable, like the form reader', () => {
+  expect(stepValue('0x10', 1)).toBe('1');
+  expect(stepValue('1,000', 1)).toBe('1');
+  expect(stepValue('0x10', 1, 5)).toBe('6');
+});
+
 // #105: a set's weight is a number in the editor state.
 function NumericWeight({ initial = 100 }: { initial?: number }) {
   const [value, setValue] = useState(initial);
@@ -171,4 +190,71 @@ test('a value can start with the decimal point', () => {
   fireEvent.change(field(), { target: { value: '.5' } });
   expect(field()).toHaveValue('.5');
   expect(stored()).toBe('0.5');
+});
+
+// #972: a field that may be left empty, like a set's weight before it is typed.
+function OptionalWeight({ initial }: { initial?: number }) {
+  const [value, setValue] = useState<number | undefined>(initial);
+  return (
+    <>
+      <NumberValueInput
+        label="Weight"
+        allowEmpty
+        value={value}
+        onValueChange={setValue}
+        step={2.5}
+        min={0}
+        max={1000}
+      />
+      <output>{value === undefined ? 'empty' : String(value)}</output>
+      <button type="button" onClick={() => setValue(undefined)}>
+        Clear draft
+      </button>
+    </>
+  );
+}
+
+test('with allowEmpty an emptied field stays empty instead of 0', () => {
+  render(<OptionalWeight initial={100} />);
+  fireEvent.change(field(), { target: { value: '' } });
+  expect(field()).toHaveValue('');
+  expect(stored()).toBe('empty');
+});
+
+test('with allowEmpty an empty value shows an empty field that steps from the minimum', () => {
+  render(<OptionalWeight />);
+  expect(field()).toHaveValue('');
+  expect(stored()).toBe('empty');
+  fireEvent.click(up());
+  expect(field()).toHaveValue('2.5');
+  expect(stored()).toBe('2.5');
+  fireEvent.click(screen.getByRole('button', { name: 'Clear draft' }));
+  expect(field()).toHaveValue('');
+});
+
+test('with allowEmpty a partly typed number keeps its text', () => {
+  render(<OptionalWeight />);
+  fireEvent.change(field(), { target: { value: '1.' } });
+  expect(field()).toHaveValue('1.');
+  expect(stored()).toBe('1');
+  fireEvent.change(field(), { target: { value: '1.5' } });
+  expect(stored()).toBe('1.5');
+});
+
+test('a typed number out of range is kept for the form to report, and − brings it back into range', () => {
+  render(<OptionalWeight />);
+  fireEvent.change(field(), { target: { value: '1500' } });
+  expect(field()).toHaveValue('1500');
+  expect(stored()).toBe('1500');
+  expect(up()).toHaveAttribute('aria-disabled', 'true');
+  fireEvent.click(down());
+  expect(stored()).toBe('1000');
+});
+
+test('without allowEmpty the value stays a number', () => {
+  const onValueChange = (value: number) => value;
+  // @ts-expect-error: an empty value needs allowEmpty.
+  void (<NumberValueInput label="Weight" value={undefined} onValueChange={onValueChange} />);
+  // @ts-expect-error: with allowEmpty the callback must accept undefined.
+  void (<NumberValueInput label="Weight" allowEmpty value={1} onValueChange={onValueChange} />);
 });

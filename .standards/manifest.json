@@ -1,5 +1,5 @@
 {
-  "centralSha": "b205088594b7c7295df8eba87cb06a37e0a32e0e",
+  "centralSha": "4fb146f93b7f746384851f1b676bb0feaef6b02e",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -485,7 +485,7 @@
         "engines.node": "24.21.0",
         "engines.npm": "11.19.0",
         "dependencies.@sirloinbh/auth-client": "1.0.0",
-        "dependencies.@sirloinbh/design-tokens": "1.0.0",
+        "dependencies.@sirloinbh/design-tokens": "1.1.0",
         "devDependencies.@sirloinbh/tsconfig": "1.0.0",
         "dependencies.class-variance-authority": "0.7.1",
         "dependencies.clsx": "2.1.1",
@@ -546,7 +546,7 @@
     },
     "frontend/src/components/layout/ai-shell.test.tsx": {
       "mode": "full",
-      "sha256": "885768ab25a241bf7e5407545831063d3690e71558f310a15178c4bfeab0324c",
+      "sha256": "748a648cf6dbde446667f0f2cd556e5d7a3f0d37e7987aba5852d9dfe2f23749",
       "source": "templates/ui/frontend/src/components/layout/ai-shell.test.tsx"
     },
     "frontend/src/components/layout/ai-shell.tsx": {
@@ -761,17 +761,17 @@
     },
     "frontend/src/components/ui/number-input.test.tsx": {
       "mode": "full",
-      "sha256": "50bc669e5e587c77b209aad10a1cdaefd0761477e68533e5e9fb8cbf240840c3",
+      "sha256": "633fe81a1ae8cc234e3d15f0080eae82002b92f40c14b185243d25ae5f7ec9fd",
       "source": "templates/ui/frontend/src/components/ui/number-input.test.tsx"
     },
     "frontend/src/components/ui/number-input.tsx": {
       "mode": "full",
-      "sha256": "661e476761ca336f8d2ec7d0603ebb8c78039703777f5b6d41bccd7b0b564bac",
+      "sha256": "f96ea1d33c8174272f60cb791fdb926b69e77cb3c576de96e722efc816be299c",
       "source": "templates/ui/frontend/src/components/ui/number-input.tsx"
     },
     "frontend/src/components/ui/number-step.ts": {
       "mode": "full",
-      "sha256": "0350690c16567861d31271ebf12080829a88b574c4600c382a82d6cb090b3091",
+      "sha256": "6a1011a4084fda6f24a8df20febd5bd37730acd32a3821f146105513b91ec8f3",
       "source": "templates/ui/frontend/src/components/ui/number-step.ts"
     },
     "frontend/src/components/ui/page-header.test.tsx": {
@@ -1053,7 +1053,7 @@
         "devDependencies.typescript-eslint": "8.71.2",
         "devDependencies.@playwright/test": "1.63.0",
         "devDependencies.@axe-core/playwright": "4.13.0",
-        "devDependencies.@lhci/cli": "0.16.0",
+        "devDependencies.@lhci/cli": "0.16.1",
         "devDependencies.concurrently": "9.2.5"
       },
       "source": "templates/index.json"
@@ -1158,7 +1158,7 @@
     "@sirloinbh/eslint-config": "1.1.0",
     "@sirloinbh/prettier-config": "1.0.0",
     "@sirloinbh/tsconfig": "1.0.0",
-    "@sirloinbh/design-tokens": "1.0.0",
+    "@sirloinbh/design-tokens": "1.1.0",
     "@sirloinbh/auth-client": "1.0.0"
   },
   "registry": {
