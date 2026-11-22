@@ -14,7 +14,8 @@ import { HttpError, parseId } from './standard/http.js';
 // #205 (decision 2026-11-22, database/migrations/026_spending_report_changes.sql): a report follows later entry
 // changes. A trigger logs the date of an expense entry that is added, changed or deleted in a report's period, or
 // in the period before it; the reports the logged dates touch are rebuilt before reports are listed or read, and
-// when new ones are made. Periods that never got a report (before the first entry, or past the catch-up limit) are not filled in.
+// when new ones are made. Periods that never got a report (before the first entry, or past the catch-up limit)
+// are not filled in.
 
 type Period = 'week' | 'month';
 

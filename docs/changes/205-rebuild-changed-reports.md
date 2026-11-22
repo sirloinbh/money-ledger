@@ -58,3 +58,4 @@ Browser check (local API 3195 and Vite 5295, dev DB): an expense entry added on 
 ## Review
 
 - Round 1: changes needed, 1 finding. Marking report rows `stale` from the entry trigger let two transactions writing entries of the same reports in opposite orders deadlock (for example a CSV import and the fixed-cost add on app open). Fixed in "fix: log report changes insert-only so entry writes cannot deadlock (#205)": an insert-only change log replaces the `stale` column, with a regression test.
+- Round 2: approve, no blocking comments. The fix reads and clears the log under the exclusive lock, and the regression test passes. One nit fixed in the same commit as this record: a comment line in `reports.ts` past the line width. Full `npm run check` on the round-1 tree: pass (backend 438/0/0, frontend 473 pass + 3 skipped as before, skills 4, build ok); `npm run knip`: pass.
