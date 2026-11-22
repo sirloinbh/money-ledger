@@ -1,8 +1,9 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { expect, test, vi } from 'vitest';
 
 import { MonthlySummary } from './monthly-summary';
+import { renderWithQuery } from './test/query';
 
 // The chart file cannot be loaded the first time (an old tab after a deploy, offline), then can.
 // The factory runs once and returns the module; reading its export fails the first time (#182). The screen's
@@ -35,7 +36,7 @@ test('a chart file that fails to load leaves the summary and its table, and load
     ),
   );
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
-  render(
+  renderWithQuery(
     <MemoryRouter initialEntries={['/ledger?month=2026-10']}>
       <MonthlySummary />
     </MemoryRouter>,

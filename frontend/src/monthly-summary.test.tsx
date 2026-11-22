@@ -1,8 +1,10 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
+import { ledgerKey } from './ledger-query';
 import { MonthlySummary } from './monthly-summary';
+import { renderWithQuery, testQueryClient } from './test/query';
 
 // The chart itself is checked in category-share-chart.test.tsx; here it only reports what it was given.
 vi.mock('./category-share-chart', () => ({
@@ -55,10 +57,10 @@ function Address() {
   return <output aria-label="Address">{useLocation().search}</output>;
 }
 
-const show = (path = '/ledger', version = 0) =>
-  render(
+const show = (path = '/ledger') =>
+  renderWithQuery(
     <MemoryRouter initialEntries={[path]}>
-      <MonthlySummary version={version} />
+      <MonthlySummary />
       <Address />
     </MemoryRouter>,
   );
@@ -132,16 +134,11 @@ test('a failed load says so and can be retried', async () => {
   expect(screen.queryByText('Could not load the summary.')).not.toBeInTheDocument();
 });
 
-test('a new version (an entry changed elsewhere on the page) reloads the totals', async () => {
-  const view = show();
+test('a ledger change elsewhere on the page (ledgerKey) reloads the totals', async () => {
+  show();
   await screen.findByRole('table');
   answer = () => json({ ...november, income: 3060000, balance: 2960000 });
-  view.rerender(
-    <MemoryRouter initialEntries={['/ledger']}>
-      <MonthlySummary version={1} />
-      <Address />
-    </MemoryRouter>,
-  );
+  await act(() => testQueryClient().invalidateQueries({ queryKey: ledgerKey }));
   await vi.waitFor(() => expect(total('Income')).toBe('₩3,060,000'));
   expect(urls).toHaveLength(2);
 });
@@ -169,11 +166,16 @@ test('an older month that answers last does not replace the month shown', async 
   await screen.findByRole('table');
   fireEvent.click(screen.getByRole('button', { name: 'Summary previous month' }));
   fireEvent.click(screen.getByRole('button', { name: 'Summary next month' }));
-  await vi.waitFor(() => expect(urls.at(-1)).toBe('/api/ledger/summary?month=2026-11'));
-  finishOctober();
+  // November was just loaded, so it shows again from the cache (#213) while October is still on its way; the
+  // October request is cancelled once no screen waits for it, and a late answer changes nothing.
   await screen.findByRole('table');
+  await act(async () => {
+    finishOctober();
+    await Promise.resolve();
+  });
   expect(screen.getByText('November 2026')).toBeInTheDocument();
   expect(total('Income')).toBe('₩3,050,000');
+  expect(urls).toEqual(['/api/ledger/summary?month=2026-11', '/api/ledger/summary?month=2026-10']);
 });
 
 test('a month that fails to load does not show the previous month under its name', async () => {

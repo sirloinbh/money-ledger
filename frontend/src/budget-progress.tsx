@@ -1,5 +1,5 @@
 import { CircleAlert } from 'lucide-react';
-import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { MAX_WON_TEXT } from '../../shared/contract';
@@ -9,7 +9,8 @@ import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
 import { formatWon, serviceToday, withoutThousands, wonFromDigits } from './format';
-import { requestJson } from './lib/api';
+import { ledgerKeys, usePagedRead } from './ledger-query';
+import { useApiMutation } from './lib/query';
 import { useNotice } from './lib/use-notice';
 import { cn } from './lib/utils';
 import { readSummaryMonth } from './summary-month';
@@ -48,47 +49,38 @@ function parseBudget(text: string) {
   return wonFromDigits(digits);
 }
 
-/** `version` changes when entries or categories change elsewhere on the page, so the spending reloads. */
-export function BudgetProgress({ version = 0 }: { version?: number }) {
+/** The spending reloads by itself when entries or categories change elsewhere on the page (`ledgerKey`, #213). */
+export function BudgetProgress() {
   const [searchParams] = useSearchParams();
   const month = readSummaryMonth(searchParams, serviceToday());
-  const [data, setData] = useState<Budgets | undefined>(undefined);
-  const [failed, setFailed] = useState(false);
+  const { query, data, failed } = usePagedRead<Budgets>(
+    ledgerKeys.budgets(month),
+    `/api/ledger/budgets?month=${month}`,
+  );
   const [editing, setEditing] = useState<number | undefined>(undefined);
   const [draft, setDraft] = useState('');
   const [invalid, setInvalid] = useState(false);
-  const [saving, setSaving] = useState(false);
   const notice = useNotice();
   const { error: showError, status: showStatus, clear } = notice;
-  // Only the latest request may fill the list.
-  const latest = useRef(0);
   const title = useRef<HTMLHeadingElement>(null);
   const editButtons = useRef(new Map<number, HTMLButtonElement>());
+  // Saving a budget for a month from then on also changes the later months' rows: every month's budgets reload.
+  // The save stays pending until the month on the screen has reloaded, so focus goes to the row as listed after it.
+  const write = useApiMutation<unknown, { categoryId: number; month: string; amount: number }>(
+    ({ categoryId, ...body }) => ({
+      path: `/api/ledger/budgets/${categoryId}`,
+      method: 'PUT',
+      body,
+    }),
+    { invalidate: [ledgerKeys.budgets()] },
+  );
+  const saving = write.isPending;
 
-  const load = useCallback(async () => {
-    const request = ++latest.current;
-    setFailed(false);
-    try {
-      const next = await requestJson<Budgets>(`/api/ledger/budgets?month=${month}`);
-      if (latest.current === request) setData(next);
-    } catch {
-      if (latest.current === request) setFailed(true);
-    }
-  }, [month]);
-
-  useEffect(() => {
-    void load();
-  }, [load, version]);
-
-  // A save started on one month may finish after the summary moved to another: it must reload the month shown
-  // then, not the one it started on.
-  const loadShown = useRef(load);
   // What is on the screen now, for a save that ends later: the month and the open form.
   const now = useRef({ month, editing });
   useEffect(() => {
-    loadShown.current = load;
     now.current = { month, editing };
-  }, [load, month, editing]);
+  }, [month, editing]);
 
   // Edit opens the form: the amount field takes the focus.
   useEffect(() => {
@@ -127,38 +119,30 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
       showError(`Enter the budget as a whole number of won, from 0 to ${MAX_WON_TEXT}`);
       return;
     }
-    setSaving(true);
     try {
-      await requestJson(`/api/ledger/budgets/${budget.categoryId}`, {
-        method: 'PUT',
-        body: { month, amount },
-      });
+      await write.mutateAsync({ categoryId: budget.categoryId, month, amount });
       showStatus(
         amount === 0
           ? `${budget.name} budget changed to not set from ${monthLabel(month)}`
           : `${budget.name} budget set to ${formatWon(amount)} from ${monthLabel(month)}`,
       );
-      // Reload first, so the focus goes to the row as it is listed after the save. Only this save's own form
-      // closes and takes the focus back: if the user meanwhile opened another row or moved to another month,
-      // that is left as it is.
-      await loadShown.current();
+      // The month shown has reloaded by now, so the focus goes to the row as it is listed after the save. Only
+      // this save's own form closes and takes the focus back: if the user meanwhile opened another row or moved
+      // to another month, that is left as it is.
       if (now.current.month === month && now.current.editing === budget.categoryId) {
         stopEdit(budget.categoryId);
       }
     } catch (cause) {
       showError(cause, 'Could not save the budget');
-    } finally {
-      setSaving(false);
     }
   };
 
   // While another month loads the previous one stays dimmed; if that load fails it is not shown at all.
-  const stale = data !== undefined && data.month !== month;
-  const shown = failed && stale ? undefined : data;
-  const loading = stale && !failed;
+  const shown = data;
+  const loading = data !== undefined && data.month !== month;
   const retry = () => {
     title.current?.focus();
-    void load();
+    void query.refetch();
   };
 
   return (

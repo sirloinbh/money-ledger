@@ -1,9 +1,11 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { shiftMonth } from './entry-filters-state';
+import { ledgerKey } from './ledger-query';
 import { MonthlyTrend } from './monthly-trend';
+import { forgetQueryClient, renderWithQuery, testQueryClient } from './test/query';
 
 // The chart itself is checked in trend-chart.test.tsx; here it only reports what it was given.
 vi.mock('./trend-chart', () => ({
@@ -60,10 +62,10 @@ function Address() {
   return <output aria-label="Address">{useLocation().search}</output>;
 }
 
-const show = (path = '/ledger', version = 0) =>
-  render(
+const show = (path = '/ledger') =>
+  renderWithQuery(
     <MemoryRouter initialEntries={[path]}>
-      <MonthlyTrend version={version} />
+      <MonthlyTrend />
       <Address />
     </MemoryRouter>,
   );
@@ -119,8 +121,9 @@ test('a period from the address, and one that is not a choice falls back to 12 m
   expect(screen.getByRole('button', { name: '24 months' })).toHaveAttribute('aria-pressed', 'true');
   unmount();
 
-  // Not one of the choices (#182): the 12 months are loaded and pressed.
+  // Not one of the choices (#182): the 12 months are loaded and pressed. Each is a new visit with an empty cache.
   for (const trend of ['5', '0', '-6', '12.5', 'abc', '']) {
+    forgetQueryClient();
     urls = [];
     const { unmount: close } = show(`/ledger?trend=${trend}`);
     await screen.findByTestId('chart');
@@ -173,15 +176,10 @@ test('a failure says so, hides the previous period, and Try again loads it again
   expect(screen.queryByText('Could not load the trend.')).not.toBeInTheDocument();
 });
 
-test('a change elsewhere (version) reloads the same period', async () => {
-  const { rerender } = show();
+test('a ledger change elsewhere (ledgerKey) reloads the same period', async () => {
+  show();
   await screen.findByTestId('chart');
-  rerender(
-    <MemoryRouter initialEntries={['/ledger']}>
-      <MonthlyTrend version={1} />
-      <Address />
-    </MemoryRouter>,
-  );
+  await act(() => testQueryClient().invalidateQueries({ queryKey: ledgerKey }));
   await vi.waitFor(() => expect(urls).toHaveLength(2));
   expect(urls[1]).toBe(urls[0]);
 });
