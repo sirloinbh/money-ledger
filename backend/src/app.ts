@@ -56,7 +56,12 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   // Same level as the /api/ limit in frontend/nginx.conf (10 r/s), for requests that skip nginx.
   // Per client IP. CodeQL js/missing-rate-limiting recognizes this middleware (#70).
   apiRateLimit(app, { limitPerMinute: options.requestsPerMinute });
-  // #149: the shared sign-in guards every /api route except /api/health, before any route registers.
+  // Public on purpose and registered before the sign-in, so the health check never depends on it (#178).
+  app.get('/api/health', async (_req, res) => {
+    await pool.query('SELECT 1');
+    res.json({ ok: true, service: 'money-ledger', today: today() });
+  });
+  // #149: the shared sign-in guards every other /api route; it is mounted before any of them registers.
   // After the rate limit, so a flood of unsigned requests does not reach the auth service.
   if (options.auth) app.use('/api', options.auth);
   app.get('/api/me', meHandler);
@@ -64,10 +69,6 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   // Mounted before the app-wide JSON parser: an import of up to 2,000 rows has its own, larger limit (#44).
   app.use('/api/ledger/entries/csv', entryCsvRouter(pool, { today }));
   app.use(express.json({ limit: '256kb' }));
-  app.get('/api/health', async (_req, res) => {
-    await pool.query('SELECT 1');
-    res.json({ ok: true, service: 'money-ledger', today: today() });
-  });
   app.use('/api/ledger/budgets', budgetsRouter(pool));
   app.use('/api/ledger/categories', categoriesRouter(pool));
   app.use('/api/ledger/entries', entriesRouter(pool));
