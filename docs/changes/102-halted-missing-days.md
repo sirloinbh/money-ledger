@@ -20,7 +20,7 @@ User decision (2026-11-23, issue comment): **no trades = missing day.** A row wi
 - `docs/price-source.md`
   - The #97 section has the #102 rule and the evidence.
   - The "not verified with real keys" note is split: KRX is checked (address, real fields, data out the next business day, weekend answers), Eximbank is still not verified.
-- Weekend rows: the ETF endpoint answered 1,183 rows with `BAS_DD=20261031` for Saturday 2026-10-31 (and for Sunday 2026-11-01), but every close, open and volume in them was empty. The stock endpoints answered no rows. `parseKrxDaily` drops rows without a close, so such an answer stores no closes and no market day. The fetch already stores only trading days, so no new issue was filed.
+- Weekend rows: the ETF endpoint answered 1,183 rows with `BAS_DD=20261031` for Saturday 2026-10-31 (and for Sunday 2026-11-01), but every close, open, high, low, volume and traded value in them was empty (checked over all rows). The stock endpoints answered no rows. `parseKrxDaily` drops rows without a close, so such an answer stores no closes and no market day. The fetch already stores only trading days, so no new issue was filed.
 
 ## Verification
 
@@ -52,3 +52,7 @@ Tests:
 
 - A halted day stores no close, so a halted stock's quote keeps its last traded date and shows "Price delayed" after 5 days, which matches reality (no trade).
 - A security that first appears already halted is not created until it trades.
+
+## Review
+
+- Round 1 (PR #274): approve, one nit fixed. The weekend test comment said "every value empty", but codes and names are filled; it now says every price and volume. A recheck of all weekend ETF rows confirmed every price and volume field is empty. `npm run check` and `npm run knip` pass again (backend 464 pass, 0 skipped; frontend 550 passed, 3 skipped).

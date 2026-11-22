@@ -91,7 +91,7 @@ test('a halted KRX row (open 0 and volume 0 at the last close) is a missing day 
 });
 
 test('a KRX weekend answer with rows of empty values reads as a day with no closes', () => {
-  // The ETF endpoint answered 1,183 rows with BAS_DD=20261031 for Saturday 2026-10-31, every value empty.
+  // The ETF endpoint answered 1,183 rows with BAS_DD=20261031 for Saturday 2026-10-31, every price and volume empty.
   const empty = { ...krxItem('069500', 'KODEX 200', ''), BAS_DD: '20261031' };
   assert.deepEqual(
     parseKrxDaily({ OutBlock_1: [{ ...empty, TDD_OPNPRC: '', ACC_TRDVOL: '' }] }),
