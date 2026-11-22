@@ -7,7 +7,7 @@ import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
 import { formatWon, realDate, serviceToday, withoutThousands as digits } from './format';
 import { RequestError, requestJson } from './lib/api';
-import { errorText, useNotice } from './lib/use-notice';
+import { useNotice } from './lib/use-notice';
 
 // #64 Uses of a stored-value prepaid asset (voucher). Add and delete only (decision 2026-11-08); the server
 // refuses a use larger than the balance or after the expiry date. A use is not a ledger expense: the
@@ -15,6 +15,13 @@ import { errorText, useNotice } from './lib/use-notice';
 
 type Usage = { id: number; usedOn: string; amountKrw: number; memo: string };
 type Field = 'usedOn' | 'amount';
+
+/** #192 The field a refusal is about, from the request field the server names (never from its wording). */
+const refusedField = (cause: unknown): Field | undefined => {
+  if (!(cause instanceof RequestError) || cause.status !== 400) return undefined;
+  const paths = cause.fields.map((field) => field.path);
+  return paths.includes('usedOn') ? 'usedOn' : paths.includes('amountKrw') ? 'amount' : undefined;
+};
 
 export function PrepaidUsages({
   assetId,
@@ -97,17 +104,9 @@ export function PrepaidUsages({
           body: { usedOn, amountKrw: Number(plain), memo },
         });
       } catch (cause) {
-        // The balance, expiry and dates are checked on the server; its message says which. A refusal
-        // about the date marks the date field, one about the balance the amount; others mark no field.
-        const text = errorText(cause);
-        const refused = cause instanceof RequestError && cause.status === 400;
-        setInvalid(
-          refused && text.includes('date')
-            ? 'usedOn'
-            : refused && text.includes('balance')
-              ? 'amount'
-              : undefined,
-        );
+        // The balance, expiry and dates are checked on the server; its `fields` name the refused one
+        // (`usedOn` or `amountKrw`). A refusal without them marks no field.
+        setInvalid(refusedField(cause));
         showError(cause);
         return;
       }
