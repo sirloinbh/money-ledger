@@ -42,3 +42,7 @@ Four screen defects from the 2026-11-18 code review:
 ## Limits
 
 - The order key fallback cannot be checked in a real browser on plain HTTP here (the local check runs on 127.0.0.1, a secure context); it is covered by the component tests.
+
+## Review
+
+- Round 1 (PR #248 comment): approve, no blocking comments. One finding (a loaded detail was remounted by another click on its result) was fixed before the PR was opened. No split issues.
