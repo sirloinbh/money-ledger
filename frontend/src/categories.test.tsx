@@ -1,8 +1,10 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { CategoryManager } from './categories';
+import { ledgerKeys } from './ledger-query';
 import { findLive, queryLive } from './test/live';
+import { renderWithQuery, testQueryClient } from './test/query';
 
 type Category = { id: number; kind: 'income' | 'expense'; name: string; hidden: boolean };
 
@@ -57,7 +59,7 @@ beforeEach(() => {
 const list = (name: string) => screen.findByRole('list', { name });
 
 test('expense and income categories are listed separately and hidden ones are marked', async () => {
-  render(<CategoryManager />);
+  renderWithQuery(<CategoryManager />);
   const expense = await list('Expense category');
   const income = screen.getByRole('list', { name: 'Income category' });
   expect(
@@ -71,8 +73,17 @@ test('expense and income categories are listed separately and hidden ones are ma
   expect(screen.getAllByText('1 in use')).toHaveLength(2);
 });
 
+test('a saved change makes every other ledger read stale, so the page shows the new name (#213)', async () => {
+  // A summary the page loaded earlier, for a month no longer on the screen.
+  testQueryClient().setQueryData(ledgerKeys.summary('2026-10'), { month: '2026-10' });
+  renderWithQuery(<CategoryManager />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Hide Food' }));
+  expect(await findLive('status')).toHaveTextContent('Food category hidden');
+  expect(testQueryClient().getQueryState(ledgerKeys.summary('2026-10'))?.isInvalidated).toBe(true);
+});
+
 test('adding a category sends the trimmed name and shows it in its list', async () => {
-  render(<CategoryManager />);
+  renderWithQuery(<CategoryManager />);
   await list('Expense category');
   fireEvent.change(screen.getByLabelText('New expense category'), { target: { value: '  Pets ' } });
   fireEvent.click(screen.getAllByRole('button', { name: 'Add' })[0]);
@@ -89,7 +100,7 @@ test('adding a category sends the trimmed name and shows it in its list', async 
 });
 
 test('a duplicate name shows the server message and keeps the input', async () => {
-  render(<CategoryManager />);
+  renderWithQuery(<CategoryManager />);
   await list('Expense category');
   fireEvent.change(screen.getByLabelText('New expense category'), { target: { value: 'Food' } });
   fireEvent.click(screen.getAllByRole('button', { name: 'Add' })[0]);
@@ -100,14 +111,14 @@ test('a duplicate name shows the server message and keeps the input', async () =
 });
 
 test('the add button is disabled until a name is typed', async () => {
-  render(<CategoryManager />);
+  renderWithQuery(<CategoryManager />);
   await list('Expense category');
   fireEvent.change(screen.getByLabelText('New income category'), { target: { value: '   ' } });
   expect(screen.getAllByRole('button', { name: 'Add' })[1]).toBeDisabled();
 });
 
 test('hiding and showing again change the category through the API', async () => {
-  render(<CategoryManager />);
+  renderWithQuery(<CategoryManager />);
   await list('Expense category');
   fireEvent.click(screen.getByRole('button', { name: 'Hide Food' }));
   expect(await findLive('status')).toHaveTextContent('Food category hidden');
@@ -127,7 +138,7 @@ test('hiding and showing again change the category through the API', async () =>
 });
 
 test('renaming saves the new name and cancelling keeps the old one', async () => {
-  render(<CategoryManager />);
+  renderWithQuery(<CategoryManager />);
   await list('Expense category');
   fireEvent.click(screen.getByRole('button', { name: 'Rename Food' }));
   fireEvent.change(screen.getByLabelText('Food new name'), { target: { value: 'Dining out' } });
@@ -142,7 +153,7 @@ test('renaming saves the new name and cancelling keeps the old one', async () =>
 });
 
 test('Escape cancels a rename and returns focus to its button', async () => {
-  render(<CategoryManager />);
+  renderWithQuery(<CategoryManager />);
   await list('Expense category');
   fireEvent.click(screen.getByRole('button', { name: 'Rename Food' }));
   const input = screen.getByLabelText('Food new name');
@@ -160,7 +171,7 @@ test('Escape cancels a rename and returns focus to its button', async () => {
 });
 
 test('cancel and Escape wait while the rename saves, and a refused name stays in the form', async () => {
-  render(<CategoryManager />);
+  renderWithQuery(<CategoryManager />);
   await list('Expense category');
   // Hold the PATCH until the test releases it, then answer as the server would.
   const api = vi.mocked(fetch);
@@ -204,13 +215,13 @@ test('a failure to load is reported as an alert', async () => {
     'fetch',
     vi.fn(() => Promise.reject(new TypeError('offline'))),
   );
-  render(<CategoryManager />);
+  renderWithQuery(<CategoryManager />);
   expect(await findLive('alert')).toHaveTextContent('Cannot reach the server');
   expect(screen.queryByText('Loading categories')).not.toBeInTheDocument();
 });
 
 test('opening rename again starts from the saved name, and focus returns to the button', async () => {
-  render(<CategoryManager />);
+  renderWithQuery(<CategoryManager />);
   await list('Expense category');
   fireEvent.click(screen.getByRole('button', { name: 'Rename Food' }));
   expect(screen.getByLabelText('Food new name')).toHaveFocus();
@@ -227,7 +238,7 @@ test('opening rename again starts from the saved name, and focus returns to the 
 });
 
 test('a change that saved but could not reload says both as a note and still clears the input (#262)', async () => {
-  render(<CategoryManager />);
+  renderWithQuery(<CategoryManager />);
   await list('Expense category');
   const api = vi.mocked(fetch);
   const saveThenFail = api.getMockImplementation()!;
@@ -246,7 +257,7 @@ test('a change that saved but could not reload says both as a note and still cle
 });
 
 test('a second submit while saving sends nothing', async () => {
-  render(<CategoryManager />);
+  renderWithQuery(<CategoryManager />);
   await list('Expense category');
   fireEvent.change(screen.getByLabelText('New expense category'), { target: { value: 'Pets' } });
   const form = screen.getByLabelText('New expense category').closest('form')!;
@@ -258,7 +269,7 @@ test('a second submit while saving sends nothing', async () => {
 });
 
 test('a name the server would refuse is refused here with its message, before sending (#75)', async () => {
-  render(<CategoryManager />);
+  renderWithQuery(<CategoryManager />);
   await list('Expense category');
   const field = screen.getByLabelText('New expense category');
   // The same limit as the server's schema (shared/contract.ts).
@@ -273,7 +284,7 @@ test('a name the server would refuse is refused here with its message, before se
 });
 
 test('a rename to a reserved name is refused before sending and stays in the form (#75)', async () => {
-  render(<CategoryManager />);
+  renderWithQuery(<CategoryManager />);
   await list('Expense category');
   fireEvent.click(screen.getByRole('button', { name: 'Rename Food' }));
   fireEvent.change(screen.getByLabelText('Food new name'), { target: { value: '미분류' } });
@@ -291,7 +302,7 @@ test('a press while another change saves says why nothing happened (#198)', asyn
     requests.push({ method: 'PATCH', url: String(url), body: JSON.parse(init.body as string) });
     return new Promise<Response>((resolve) => (finish = resolve));
   });
-  render(<CategoryManager />);
+  renderWithQuery(<CategoryManager />);
   await list('Expense category');
   fireEvent.click(screen.getByRole('button', { name: 'Hide Food' }));
   fireEvent.click(screen.getByRole('button', { name: 'Show Transport again' }));

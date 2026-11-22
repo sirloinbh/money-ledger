@@ -55,3 +55,19 @@ Same order as health-log, plan-routine, cert-manager and dev-career-portfolio: i
 - `npm run check` with `TEST_DATABASE_URL` on this worker's test DB: passed. Backend 461 passed, 0 failed, 0 skipped; frontend vitest 79 files, 561 passed, 3 skipped; skills tests 4 passed; build passed.
 - `npm run knip` with the DB URL set: no unused files, exports or dependencies.
 - Browser (local API on 3192 with a scratch DB, Vite on 5292), Ledger page at 390×844 and 1440×900: the summary, budgets and trend load; renaming a category in Categories (still on the counters) renamed it in the summary's table and chart at once (through the `ledgerKey` invalidation); a budget save showed its message, the spending review updated and the focus went back to the row's Edit button; Previous month moved the summary and budgets to October and the address to `?month=2026-10`. No console warnings or errors.
+
+## PR 3: categories, uncategorized entries and rules (`refactor/213-categories-classification-query`)
+
+### Changes
+
+- `ledger-query.ts`: keys for the categories (all, and `'visible'`), the uncategorized entries, the suggestions and the rules, all under `ledgerKey`. `useLedgerList` is a section's own list on the shared `useApiQuery`: a failed load shows in the section's notice as before; after a write the section calls `reload()`, which invalidates `ledgerKey`, waits for the refetch and says whether this list loaded again. When it did not, the section keeps its note "The list could not be reloaded" (#262) and the failure is not shown again as a load error.
+- `CategoryManager`: loads through `useLedgerList`, writes through the shared `useApiMutation`; a saved change reloads every ledger read, so the other sections show the new name.
+- `UncategorizedEntries`, `RuleManager`: no `version` or `categoriesVersion` props and no `useOwnChange` skip logic (#198): the list, the visible categories and the suggestions are queries, and a write reloads them through `ledgerKey`. Suggestions are their own query; a failure there still leaves the list and the form working. Entries classified elsewhere still drop out of the selection.
+- `ledger.tsx`: the three sections take only `onChange`, which now only moves the counters for the sections still on them (fixed costs, entries); a change in those sections also invalidates `ledgerKey`. So each change reloads every section once.
+- Tests: `categories.test.tsx` and `classification.test.tsx` render through the test query client. The version-prop tests now drive a ledger change elsewhere (`invalidateQueries(ledgerKey)`): the rules reload when a category changes, and a list still reloads after its own change (#198). "Loads once, not again for the version bump" is now "a classification loads the list once more, not twice". New: a saved category change makes every other ledger read stale (an earlier month's summary in the cache is invalidated).
+
+### Verification
+
+- `npm run check` with `TEST_DATABASE_URL` on this worker's test DB: passed. Backend 464 passed, 0 failed, 0 skipped; frontend vitest 79 files, 562 passed, 3 skipped; skills tests 4 passed; build passed.
+- `npm run knip` with the DB URL set: clean.
+- Browser at 390×844 and 1440×900 (local API with a scratch DB): two uncategorized Bakery entries classified with "save as a rule": the status said "2 entries classified as Groceries. Saved 1 merchant rule", the list emptied with focus on its heading, the rule "Bakery → Groceries" appeared, the summary's expense rose to ₩22,000, and the entry list (still on a counter) showed both entries as Groceries. Renaming Groceries to Food in Categories renamed it in the rule row and in the rule form's category choices. No console warnings or errors.

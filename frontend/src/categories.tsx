@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import type { z } from 'zod/v4';
 
 import { categoryKind, categoryName } from '../../shared/contract';
@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './com
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
-import { requestJson } from './lib/api';
+import { ledgerKeys, useLedgerList } from './ledger-query';
+import { type ApiRequest, useApiMutation } from './lib/query';
 import { useNotice } from './lib/use-notice';
 
 // #37 Income and expense categories. A category is hidden, never deleted, so entries keep it.
@@ -31,28 +32,30 @@ const kinds: { kind: CategoryKind; title: string }[] = [
   { kind: 'income', title: 'Income category' },
 ];
 
-// Runs one change, then reloads the list. Resolves true when the change itself succeeded.
-type Save = (run: () => Promise<unknown>, done: string) => Promise<boolean>;
+// Sends one change, then reloads the list. Resolves true when the change itself succeeded. `request` may throw
+// (a name the server would refuse); that is shown like a failed save.
+type Save = (request: () => ApiRequest, done: string) => Promise<boolean>;
 
-/** `onChange` runs after each saved change, so other parts of the page can reload categories. */
+/**
+ * A saved change reloads every ledger read (`ledgerKey`, #213), so the other sections show the current names.
+ * `onChange` runs after each saved change, for the sections that still reload on a counter.
+ */
 export function CategoryManager({ onChange }: { onChange?: () => void } = {}) {
-  const [categories, setCategories] = useState<Category[] | undefined>(undefined);
   // One change at a time: a second click or Enter while saving would only add a confusing error.
   // Buttons stay enabled so keyboard focus never drops to the page; the ref ignores the extra press.
   const saving = useRef(false);
   const notice = useNotice();
   const { error: showError, status: showStatus } = notice;
+  const { data, reload } = useLedgerList<{ categories: Category[] }>(
+    ledgerKeys.categories(),
+    categoriesPath,
+    showError,
+    'Could not load the categories',
+  );
+  const categories = data?.categories;
+  const write = useApiMutation<unknown, ApiRequest>((request) => request);
 
-  const load = useCallback(async () => {
-    const data = await requestJson<{ categories: Category[] }>(categoriesPath);
-    setCategories(data.categories);
-  }, []);
-
-  useEffect(() => {
-    load().catch((cause: unknown) => showError(cause, 'Could not load the categories'));
-  }, [load, showError]);
-
-  const save: Save = async (run, done) => {
+  const save: Save = async (request, done) => {
     if (saving.current) {
       // Say why the press did nothing (#198); the change in flight keeps going.
       showStatus('Another change is still saving. Try again in a moment');
@@ -61,19 +64,18 @@ export function CategoryManager({ onChange }: { onChange?: () => void } = {}) {
     saving.current = true;
     try {
       try {
-        await run();
+        await write.mutateAsync(request());
         onChange?.();
       } catch (cause) {
         showError(cause);
         return false;
       }
       // The change is saved even when the reload fails, so this is a note, not an error (#262).
-      try {
-        await load();
-        showStatus(done);
-      } catch {
-        showStatus(`${done}. The list could not be reloaded; reload the page to see it`);
-      }
+      showStatus(
+        (await reload()).ok
+          ? done
+          : `${done}. The list could not be reloaded; reload the page to see it`,
+      );
       return true;
     } finally {
       saving.current = false;
@@ -130,8 +132,7 @@ function KindCard({
     const trimmed = name.trim();
     if (!trimmed) return;
     const added = await save(
-      () =>
-        requestJson(categoriesPath, { method: 'POST', body: { kind, name: checkedName(name) } }),
+      () => ({ path: categoriesPath, body: { kind, name: checkedName(name) } }),
       `${trimmed} category added`,
     );
     if (added) setName('');
@@ -200,7 +201,7 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
     setRenaming(true);
     try {
       const renamed = await save(
-        () => requestJson(path, { method: 'PATCH', body: { name: checkedName(name) } }),
+        () => ({ path, method: 'PATCH', body: { name: checkedName(name) } }),
         `Category renamed to ${trimmed}`,
       );
       if (renamed) setEditing(false);
@@ -215,7 +216,7 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
 
   const toggleHidden = () =>
     save(
-      () => requestJson(path, { method: 'PATCH', body: { hidden: !category.hidden } }),
+      () => ({ path, method: 'PATCH', body: { hidden: !category.hidden } }),
       category.hidden
         ? `${category.name} category is visible again`
         : `${category.name} category hidden`,

@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { useState } from 'react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { RuleManager, UncategorizedEntries } from './classification';
+import { ledgerKey } from './ledger-query';
 import { findLive, queryLive } from './test/live';
+import { renderWithQuery, testQueryClient } from './test/query';
 
 type Entry = {
   id: number;
@@ -174,7 +175,7 @@ const row = (text: string) =>
 
 test('selected entries are classified at once and their merchant is remembered', async () => {
   const onChange = vi.fn();
-  render(<UncategorizedEntries onChange={onChange} />);
+  renderWithQuery(<UncategorizedEntries onChange={onChange} />);
   expect(
     await screen.findByRole('heading', { name: 'Uncategorized entries (4)' }),
   ).toBeInTheDocument();
@@ -202,7 +203,7 @@ test('selected entries are classified at once and their merchant is remembered',
 });
 
 test('without remember no rule is asked for', async () => {
-  render(<UncategorizedEntries />);
+  renderWithQuery(<UncategorizedEntries />);
   await screen.findByRole('option', { name: 'Food' });
   fireEvent.click(within(row('₩3,000')).getByRole('checkbox'));
   fireEvent.click(screen.getByRole('checkbox', { name: /save as a rule/ }));
@@ -222,7 +223,7 @@ test.each([
     message: 'None of the selected entries is the kind of this category',
   },
 ])('classifying with $label is refused before sending', async ({ pick, category, message }) => {
-  render(<UncategorizedEntries />);
+  renderWithQuery(<UncategorizedEntries />);
   await screen.findByRole('option', { name: 'Food' });
   for (const text of pick) fireEvent.click(within(row(text)).getByRole('checkbox'));
   fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: category } });
@@ -232,7 +233,7 @@ test.each([
 });
 
 test('select all picks every uncategorized entry', async () => {
-  render(<UncategorizedEntries />);
+  renderWithQuery(<UncategorizedEntries />);
   await screen.findByRole('heading', { name: 'Uncategorized entries (4)' });
   fireEvent.click(screen.getByRole('checkbox', { name: 'Select all' }));
   expect(screen.getByRole('button', { name: 'Classify 4 selected' })).toBeInTheDocument();
@@ -243,7 +244,7 @@ test('select all picks every uncategorized entry', async () => {
 test('applying rules reports how many were classified and focus survives an emptied list', async () => {
   rules = [{ id: 1, keyword: 'Kimbap', kind: 'expense', categoryId: 1 }];
   entries = [entry(1, 'Kimbap Place')];
-  render(<UncategorizedEntries />);
+  renderWithQuery(<UncategorizedEntries />);
   const apply = await screen.findByRole('button', { name: 'Reclassify with rules' });
   apply.focus();
   fireEvent.click(apply);
@@ -255,13 +256,13 @@ test('applying rules reports how many were classified and focus survives an empt
 });
 
 test('applying rules with nothing to match says so', async () => {
-  render(<UncategorizedEntries />);
+  renderWithQuery(<UncategorizedEntries />);
   fireEvent.click(await screen.findByRole('button', { name: 'Reclassify with rules' }));
   expect(await findLive('status')).toHaveTextContent('No uncategorized entries match the rules');
 });
 
 test('a server refusal of the classification is shown', async () => {
-  render(<UncategorizedEntries />);
+  renderWithQuery(<UncategorizedEntries />);
   await screen.findByRole('option', { name: 'Food' });
   fireEvent.click(within(row('₩1,000')).getByRole('checkbox'));
   fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: '1' } });
@@ -273,7 +274,7 @@ test('a server refusal of the classification is shown', async () => {
 
 test('a rule is added with its category and listed', async () => {
   const onChange = vi.fn();
-  render(<RuleManager onChange={onChange} />);
+  renderWithQuery(<RuleManager onChange={onChange} />);
   expect(await screen.findByText('There are no classification rules yet.')).toBeInTheDocument();
   await screen.findByRole('option', { name: 'Food' });
   fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: ' Starbucks ' } });
@@ -295,7 +296,7 @@ test.each([
 ])(
   'a rule with $field missing is refused before sending',
   async ({ keyword, category, field, message }) => {
-    render(<RuleManager />);
+    renderWithQuery(<RuleManager />);
     await screen.findByRole('option', { name: 'Food' });
     fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: keyword } });
     fireEvent.change(screen.getByLabelText('Category'), { target: { value: category } });
@@ -307,7 +308,7 @@ test.each([
 );
 
 test('a duplicate keyword shows the server message', async () => {
-  render(<RuleManager />);
+  renderWithQuery(<RuleManager />);
   await screen.findByRole('option', { name: 'Food' });
   fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: 'Starbucks' } });
   fireEvent.change(screen.getByLabelText('Category'), { target: { value: '1' } });
@@ -319,7 +320,7 @@ test('a duplicate keyword shows the server message', async () => {
 
 test('deleting a rule asks first and then moves focus to the rules heading', async () => {
   rules = [{ id: 1, keyword: 'Starbucks', kind: 'expense', categoryId: 1 }];
-  render(<RuleManager />);
+  renderWithQuery(<RuleManager />);
   fireEvent.click(await screen.findByRole('button', { name: 'Delete rule Starbucks' }));
   const dialog = await screen.findByRole('dialog', { name: 'Delete this rule?' });
   expect(dialog).toHaveTextContent('Entries already classified stay as they are');
@@ -332,14 +333,12 @@ test('deleting a rule asks first and then moves focus to the rules heading', asy
   );
 });
 
-// Like LedgerPage: a change reported by the list bumps the version it is given.
-function Harness() {
-  const [version, setVersion] = useState(0);
-  return <UncategorizedEntries version={version} onChange={() => setVersion((v) => v + 1)} />;
-}
+// Another section's change reloads every ledger list (#213), as the Ledger page does after a save there.
+const ledgerChangedElsewhere = () =>
+  act(() => testQueryClient().invalidateQueries({ queryKey: ledgerKey }));
 
-test('a classification made here loads the list once, not again for the version bump', async () => {
-  render(<Harness />);
+test('a classification made here loads the list once more, not twice', async () => {
+  renderWithQuery(<UncategorizedEntries onChange={vi.fn()} />);
   await screen.findByRole('option', { name: 'Food' });
   const loads = () =>
     requests.filter((request) => request.url === '/api/ledger/entries?uncategorized=true').length;
@@ -347,8 +346,8 @@ test('a classification made here loads the list once, not again for the version 
   fireEvent.click(within(row('₩1,000')).getByRole('checkbox'));
   fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: '1' } });
   fireEvent.click(screen.getByRole('button', { name: 'Classify 1 selected' }));
-  // The version bump is reported right after the classification, before the list reloads, so a second load
-  // from it would already be counted once the reloaded list is shown (#182: no sleep needed).
+  // onChange is reported right after the classification, before the list reloads, so a second load caused by
+  // it would already be counted once the reloaded list is shown (#182: no sleep needed).
   await screen.findByRole('heading', { name: 'Uncategorized entries (3)' });
   expect(loads()).toBe(2);
 });
@@ -363,7 +362,7 @@ test('updated and skipped counts are reported in words', async () => {
     if (path === '/api/ledger/entries/suggestions') return json({ suggestions: [] });
     return json({ entries: [entry(1, 'Kimbap Place'), entry(2, 'Kimbap Place')] });
   });
-  render(<UncategorizedEntries />);
+  renderWithQuery(<UncategorizedEntries />);
   await screen.findByRole('option', { name: 'Food' });
   fireEvent.click(screen.getByRole('checkbox', { name: 'Select all' }));
   fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: '1' } });
@@ -374,7 +373,7 @@ test('updated and skipped counts are reported in words', async () => {
 });
 
 test('a category of the other kind marks the category field', async () => {
-  render(<UncategorizedEntries />);
+  renderWithQuery(<UncategorizedEntries />);
   await screen.findByRole('option', { name: 'Salary' });
   fireEvent.click(within(row('₩1,000')).getByRole('checkbox'));
   fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: '3' } });
@@ -387,11 +386,12 @@ test('a category of the other kind marks the category field', async () => {
 
 test('the rules reload when categories change, so names and hidden marks are current', async () => {
   rules = [{ id: 1, keyword: 'Starbucks', kind: 'expense', categoryId: 1 }];
-  const { rerender } = render(<RuleManager categoriesVersion={0} />);
+  renderWithQuery(<RuleManager />);
   await screen.findByRole('list', { name: 'Classification rules' });
   const loads = () => requests.filter((request) => request.url === '/api/ledger/rules').length;
   const before = loads();
-  rerender(<RuleManager categoriesVersion={1} />);
+  // A category saved in the Categories section reloads every ledger read.
+  await ledgerChangedElsewhere();
   await vi.waitFor(() => expect(loads()).toBe(before + 1));
 });
 
@@ -401,7 +401,7 @@ test('a suggestion is shown on its entry and used alone, without a rule', async 
     [2, 1],
   ]);
   const onChange = vi.fn();
-  render(<UncategorizedEntries onChange={onChange} />);
+  renderWithQuery(<UncategorizedEntries onChange={onChange} />);
   await screen.findByRole('heading', { name: 'Uncategorized entries (4)' });
   expect(row('₩1,000')).toHaveTextContent('Suggested: Food (from Kimbap Place (earlier))');
   expect(row('₩3,000')).not.toHaveTextContent('Suggested');
@@ -427,7 +427,7 @@ test('every shown suggestion is applied at once and skips are reported', async (
     [1, 1],
     [2, 2],
   ]);
-  render(<UncategorizedEntries />);
+  renderWithQuery(<UncategorizedEntries />);
   await screen.findByRole('heading', { name: 'Uncategorized entries (4)' });
   // Classified elsewhere after the list loaded: the server skips it.
   entries[1].categoryId = 2;
@@ -441,7 +441,7 @@ test('every shown suggestion is applied at once and skips are reported', async (
 
 test('without suggestions, or when they fail to load, the list still works', async () => {
   suggestionsFail = true;
-  render(<UncategorizedEntries />);
+  renderWithQuery(<UncategorizedEntries />);
   expect(
     await screen.findByRole('heading', { name: 'Uncategorized entries (4)' }),
   ).toBeInTheDocument();
@@ -450,9 +450,9 @@ test('without suggestions, or when they fail to load, the list still works', asy
   expect(queryLive('alert')).toBeNull();
 });
 
-test('a classification reported to a parent that does not bump a version does not skip a later reload (#198)', async () => {
+test('after a classification here, a later change elsewhere still reloads the list (#198)', async () => {
   const onChange = vi.fn();
-  const { rerender } = render(<UncategorizedEntries version={0} onChange={onChange} />);
+  renderWithQuery(<UncategorizedEntries onChange={onChange} />);
   await screen.findByRole('option', { name: 'Food' });
   fireEvent.click(within(row('₩1,000')).getByRole('checkbox'));
   fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: '1' } });
@@ -460,15 +460,15 @@ test('a classification reported to a parent that does not bump a version does no
   await screen.findByRole('heading', { name: 'Uncategorized entries (3)' });
   expect(onChange).toHaveBeenCalledTimes(1);
 
-  // Later an entry is added elsewhere on the page, and the parent bumps the version for that.
+  // Later an entry is added elsewhere on the page.
   entries.push(entry(5, 'Bookshop'));
-  rerender(<UncategorizedEntries version={1} onChange={onChange} />);
+  await ledgerChangedElsewhere();
   expect(await screen.findByRole('heading', { name: 'Uncategorized entries (4)' })).toBeVisible();
 });
 
-test('a rule added for a parent that does not bump a version does not skip a later reload (#198)', async () => {
+test('after a rule added here, a later change elsewhere still reloads the rules (#198)', async () => {
   const onChange = vi.fn();
-  const { rerender } = render(<RuleManager version={0} onChange={onChange} />);
+  renderWithQuery(<RuleManager onChange={onChange} />);
   await screen.findByRole('option', { name: 'Food' });
   fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: 'Kimbap' } });
   fireEvent.change(screen.getByLabelText('Category', { selector: '#rule-category' }), {
@@ -478,12 +478,12 @@ test('a rule added for a parent that does not bump a version does not skip a lat
   expect(await findLive('status')).toHaveTextContent("Rule 'Kimbap' added");
 
   rules.push({ id: 9, keyword: 'Bookshop', kind: 'expense', categoryId: 2 });
-  rerender(<RuleManager version={1} onChange={onChange} />);
+  await ledgerChangedElsewhere();
   expect(await screen.findByText('Bookshop')).toBeInTheDocument();
 });
 
 test('a selection with an entry of the other kind classifies the rest and reports the skip (#199)', async () => {
-  render(<UncategorizedEntries />);
+  renderWithQuery(<UncategorizedEntries />);
   await screen.findByRole('option', { name: 'Food' });
   fireEvent.click(within(row('₩1,000')).getByRole('checkbox'));
   fireEvent.click(within(row('₩4,000')).getByRole('checkbox'));
@@ -512,10 +512,10 @@ function failReloadAfterSave(path: string) {
 }
 
 test('a classification or rule saved while its list fails to reload is a note, not an error (#262)', async () => {
-  const { unmount } = render(<UncategorizedEntries />);
+  const { unmount } = renderWithQuery(<UncategorizedEntries />);
   await screen.findByRole('heading', { name: 'Uncategorized entries (4)' });
   await screen.findByRole('option', { name: 'Food' });
-  failReloadAfterSave('/api/ledger/entries');
+  failReloadAfterSave('/api/ledger/entries?uncategorized=true');
   fireEvent.click(within(row('₩1,000')).getByRole('checkbox'));
   fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: '1' } });
   fireEvent.click(screen.getByRole('button', { name: 'Classify 1 selected' }));
@@ -526,7 +526,7 @@ test('a classification or rule saved while its list fails to reload is a note, n
   unmount();
 
   // The classification above saved a merchant rule, so the rule list is not empty.
-  render(<RuleManager />);
+  renderWithQuery(<RuleManager />);
   await screen.findByRole('list', { name: 'Classification rules' });
   await screen.findByRole('option', { name: 'Food' });
   failReloadAfterSave('/api/ledger/rules');
