@@ -29,6 +29,13 @@ change does only the missing part of #179: the notes.
 - Docs only, so no app tests were added. `TEST_DATABASE_URL=<agent3 test DB> npm run check`: exit 0 (backend 412 pass /
   0 skipped, frontend 463 pass / 3 skipped, skills 4 pass, build ok). `npm run knip`: exit 0.
 
+### Review round 1 (PR #240): changes needed, 2 wording fixes
+
+- `docs/project-setup.md` said the deploy "builds" each commit; `remote-deploy.sh` pulls the commit's images from
+  ghcr.io when they exist and builds otherwise. Reworded.
+- `bootstrap-env.sh` runs only on the first deploy (no `.env` yet); both notes now say so.
+- Docs only: `prettier --check` on the changed docs passes; no code changed since the `npm run check` above.
+
 ## Limits
 
 - A local `docker compose up` on 127.0.0.1:8105 was not run: this worker may not bind 8105 (the user's own app port),

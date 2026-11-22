@@ -360,8 +360,9 @@ export default defineConfig({ server: { proxy: { '/api': 'http://127.0.0.1:<api-
 
 Deploy contract (`deploy/remote-deploy.sh`, #179): the `api` and `web` services are tagged
 `<db>-backend:${IMAGE_TAG:-local}` and `<db>-frontend:${IMAGE_TAG:-local}`, and the web port is published as
-`${WEB_BIND:-127.0.0.1}:${WEB_PORT:-<web-port>}`. The deploy builds and starts each commit as its own tag and rolls back
-by starting the previous tag; `deploy/bootstrap-env.sh` writes `WEB_BIND` and `WEB_PORT` into the server `.env`. With
+`${WEB_BIND:-127.0.0.1}:${WEB_PORT:-<web-port>}`. The deploy tags each commit's images with the commit (pulled from
+ghcr.io or built) and rolls back by starting the previous tag without a rebuild; on the first deploy
+`deploy/bootstrap-env.sh` writes `WEB_BIND` and `WEB_PORT` into the new server `.env`. With
 nothing set, a local `docker compose up` builds the `local` tag and serves `127.0.0.1:<web-port>`. Check the result
 with `docker compose config` (image names and `host_ip`/`published` of the web port).
 
