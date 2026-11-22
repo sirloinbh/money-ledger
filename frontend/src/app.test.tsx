@@ -3,35 +3,60 @@ import { expect, test, vi } from 'vitest';
 
 import { App } from './app';
 import { findLive } from './test/live';
+import { unexpectedRequest } from './test/unexpected';
 
-// /api/health answers with `body`; every list (categories, entries, assets, trend months, budgets, fixed costs) is empty and there is no mock account.
+// Every list (categories, entries, assets, trend months, budgets, fixed costs, reports) is empty and there is no
+// mock account. One body serves every listed request; each screen reads only its own keys.
+const empty = {
+  categories: [],
+  entries: [],
+  months: [],
+  snapshots: [],
+  budgets: [],
+  suggestions: [],
+  rules: [],
+  fixedCosts: [],
+  added: 0,
+  assets: [],
+  totals: { assetsKrw: 0, debtsKrw: 0, netKrw: 0, uncounted: 0, fixed: 0, other: 0 },
+  account: null,
+  closedAccounts: [],
+  reports: [],
+  created: [],
+};
+
+// The requests the pages make, by method and path (the query depends on today's date).
+const answered = new Set([
+  'GET /api/ledger/budgets',
+  'GET /api/ledger/categories',
+  'GET /api/ledger/entries',
+  'GET /api/ledger/entries/suggestions',
+  'GET /api/ledger/fixed-costs',
+  'POST /api/ledger/fixed-costs/generate',
+  'GET /api/ledger/rules',
+  'GET /api/ledger/summary',
+  'GET /api/ledger/trend',
+  'GET /api/mock/accounts',
+  'GET /api/portfolio/assets',
+  'GET /api/portfolio/net-worth',
+  'POST /api/portfolio/net-worth',
+  'GET /api/reports',
+  'POST /api/reports/generate',
+]);
+
+// /api/health answers with `body`; any request not listed above fails the test (#183).
 const health = (body: object, status = 200) =>
   vi.stubGlobal(
     'fetch',
-    vi.fn((url: string) =>
-      Promise.resolve(
-        url === '/api/health'
-          ? new Response(JSON.stringify(body), { status })
-          : new Response(
-              JSON.stringify({
-                categories: [],
-                entries: [],
-                months: [],
-                snapshots: [],
-                budgets: [],
-                suggestions: [],
-                fixedCosts: [],
-                added: 0,
-                assets: [],
-                totals: { assetsKrw: 0, debtsKrw: 0, netKrw: 0, uncounted: 0, fixed: 0, other: 0 },
-                account: null,
-                closedAccounts: [],
-                reports: [],
-                created: [],
-              }),
-            ),
-      ),
-    ),
+    vi.fn((url: string, init: RequestInit = {}) => {
+      const method = init.method ?? 'GET';
+      if (url === '/api/health') {
+        return Promise.resolve(new Response(JSON.stringify(body), { status }));
+      }
+      return answered.has(`${method} ${url.split('?')[0]}`)
+        ? Promise.resolve(new Response(JSON.stringify(empty)))
+        : unexpectedRequest(method, url);
+    }),
   );
 
 test('shows the server date from /api/health on the overview', async () => {
