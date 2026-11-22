@@ -27,6 +27,10 @@ Migration 010 left "the uses of a voucher never exceed its amount paid" to the A
 - `frontend/src/prepaid.test.tsx`: the fake server now words its refusals differently from the real one and sends `fields`; the existing balance and expiry tests mark the right field from the path. A new test sends "The balance dated today needs an update before this amount" with `path: 'amountKrw'` and checks that the amount, not the date, is marked, and that a 400 without fields marks nothing. Three tests fail without the `prepaid-usages.tsx` change and pass with it.
 - Commands and results are in the PR body.
 
+## Review
+
+- Round 1 (PR #246 comment): approve, no blocking comments. Confirmed that trade settlement does not run the asset trigger and that the trigger adds no new lock order.
+
 ## Limits
 
 - A production database with a voucher already over its amount stops the deploy's migration step with the error above; it must be fixed by hand. The API has refused such writes since #64.
