@@ -96,9 +96,11 @@ export function mockAccountsRouter(pool: Pool) {
           ? new HttpError(409, 'This account was already reset. Refresh the page and try again')
           : new HttpError(404, 'Mock trading account not found');
       }
+      // The new account keeps the closed one's fee rate (#196): the rate is a setting, not part of the money reset.
       const { rows } = await client.query<Row>(
-        `INSERT INTO mock_accounts (initial_cash_krw, cash_krw) VALUES ($1, $1) RETURNING ${columns}`,
-        [body.initialCashKrw],
+        `INSERT INTO mock_accounts (initial_cash_krw, cash_krw, fee_rate)
+         SELECT $1, $1, fee_rate FROM mock_accounts WHERE id = $2 RETURNING ${columns}`,
+        [body.initialCashKrw, id],
       );
       return rows[0];
     });

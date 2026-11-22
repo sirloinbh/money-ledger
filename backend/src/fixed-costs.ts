@@ -11,6 +11,9 @@ import { HttpError, parseId } from './standard/http.js';
 // when it opens: every due month without a run gets its entry, skipped months included. A variable item's entry
 // is an estimate (the last confirmed amount, or the item's amount the first time) until the user confirms it.
 // Changing an item only affects entries added later.
+// #201: a hidden category is refused for a new choice, like a new entry. An item whose category is hidden later adds
+// no entries while it stays hidden; its months are added once the category is shown again or the item moves to a
+// visible category (every due month without a run gets its entry).
 
 const objectBody = { error: 'The request body must be a JSON object' };
 
@@ -63,6 +66,7 @@ type ItemRow = {
   name: string;
   category_id: number;
   category_name: string;
+  category_hidden: boolean;
   amount: string;
   variable: boolean;
   day_of_month: number;
@@ -75,7 +79,8 @@ type ItemRow = {
 };
 
 const itemSql = `
-  SELECT f.id, f.name, f.category_id, c.name AS category_name, f.amount::text, f.variable,
+  SELECT f.id, f.name, f.category_id, c.name AS category_name, c.hidden AS category_hidden,
+         f.amount::text, f.variable,
          f.day_of_month, to_char(f.start_month, 'YYYY-MM') AS start_month, f.active,
          r.entry_id, e.entry_date, e.amount::text AS entry_amount, r.confirmed
   FROM ledger_fixed_costs f
@@ -88,6 +93,8 @@ const toItem = (row: ItemRow) => ({
   name: row.name,
   categoryId: row.category_id,
   categoryName: row.category_name,
+  // true while the category is hidden: no entries are added until it is shown again or the item moves.
+  categoryHidden: row.category_hidden,
   amount: Number(row.amount),
   variable: row.variable,
   dayOfMonth: row.day_of_month,
@@ -121,11 +128,12 @@ const dueSql = `
            (m::date + (least(f.day_of_month,
                              extract(day FROM m + interval '1 month' - interval '1 day')::int) - 1)) AS entry_date
     FROM ledger_fixed_costs f
+    JOIN ledger_categories c ON c.id = f.category_id
     -- timestamp, not timestamptz: the session time zone must not move a month.
     CROSS JOIN LATERAL generate_series(
       f.start_month::timestamp, date_trunc('month', $1::date::timestamp), interval '1 month'
     ) AS m
-    WHERE f.active
+    WHERE f.active AND NOT c.hidden
   )
   SELECT id, name, category_id, amount::text, variable, month, entry_date
   FROM months
@@ -161,7 +169,7 @@ async function addDueEntries(client: PoolClient, today: string) {
     const estimate = due.variable
       ? await client.query<{ amount: string }>(
           `SELECT e.amount::text FROM ledger_fixed_cost_runs r JOIN ledger_entries e ON e.id = r.entry_id
-           WHERE r.fixed_cost_id = $1 AND r.confirmed AND r.month < $2
+           WHERE r.fixed_cost_id = $1 AND r.confirmed AND r.month < $2 AND e.kind = 'expense'
            ORDER BY r.month DESC LIMIT 1`,
           [due.id, due.month],
         )
@@ -179,6 +187,22 @@ async function addDueEntries(client: PoolClient, today: string) {
   }
   return added;
 }
+
+/**
+ * A new category choice must be a visible expense category. FOR SHARE: it cannot be hidden or change kind until the
+ * write commits.
+ */
+async function checkCategory(client: PoolClient, categoryId: number) {
+  const { rows } = await client.query<{ kind: string; hidden: boolean }>(
+    'SELECT kind, hidden FROM ledger_categories WHERE id = $1 FOR SHARE',
+    [categoryId],
+  );
+  if (rows[0]?.kind !== 'expense') throw new HttpError(422, 'Choose an expense category');
+  if (rows[0].hidden) throw new HttpError(422, 'Choose a category that is not hidden');
+}
+
+const selectItem = (client: Pool | PoolClient, id: number, month: string) =>
+  client.query<ItemRow>(`${itemSql} WHERE f.id = $2`, [month, id]);
 
 /** A category that is missing or not an expense category breaks the (category_id, kind) key. */
 function refuseCategory(error: unknown): never {
@@ -221,29 +245,47 @@ export function fixedCostsRouter(pool: Pool, { today }: { today: () => string })
     if (monthIndex(body.startMonth) < monthIndex(today()) - maxPastMonths) {
       throw new HttpError(422, `The start month can be at most ${maxPastMonths} months ago`);
     }
-    const created = await pool
-      .query<{ id: number }>(
-        `INSERT INTO ledger_fixed_costs (name, category_id, amount, variable, day_of_month, start_month)
-         VALUES ($1, $2, $3, $4, $5, $6::date) RETURNING id`,
-        [
-          body.name,
-          body.categoryId,
-          body.amount,
-          body.variable,
-          body.dayOfMonth,
-          `${body.startMonth}-01`,
-        ],
-      )
-      .catch(refuseCategory);
-    res.status(201).json({ fixedCost: { id: created.rows[0].id, ...body, active: true } });
+    const row = await inTransaction(pool, async (client) => {
+      await checkCategory(client, body.categoryId);
+      const created = await client
+        .query<{ id: number }>(
+          `INSERT INTO ledger_fixed_costs (name, category_id, amount, variable, day_of_month, start_month)
+           VALUES ($1, $2, $3, $4, $5, $6::date) RETURNING id`,
+          [
+            body.name,
+            body.categoryId,
+            body.amount,
+            body.variable,
+            body.dayOfMonth,
+            `${body.startMonth}-01`,
+          ],
+        )
+        .catch(refuseCategory);
+      // The same shape as the list: this month's entry is null until /generate adds it.
+      return (await selectItem(client, created.rows[0].id, thisMonth(today()))).rows[0];
+    });
+    res.status(201).json({ fixedCost: toItem(row) });
   });
 
   router.patch('/:id', async (req, res) => {
     const id = parseId(req.params.id, 'fixed cost');
     const body = updateBody.parse(req.body);
-    const updated = await pool
-      .query(
-        `UPDATE ledger_fixed_costs SET
+    const row = await inTransaction(pool, async (client) => {
+      const current = await client.query<{ category_id: string }>(
+        'SELECT category_id::text FROM ledger_fixed_costs WHERE id = $1 FOR UPDATE',
+        [id],
+      );
+      if (current.rowCount === 0) throw new HttpError(404, 'Fixed cost not found');
+      // The item may keep a category that was hidden after it was chosen; only a new choice is checked.
+      if (
+        body.categoryId !== undefined &&
+        String(body.categoryId) !== current.rows[0].category_id
+      ) {
+        await checkCategory(client, body.categoryId);
+      }
+      await client
+        .query(
+          `UPDATE ledger_fixed_costs SET
            name = coalesce($2, name),
            category_id = coalesce($3, category_id),
            amount = coalesce($4, amount),
@@ -254,24 +296,21 @@ export function fixedCostsRouter(pool: Pool, { today }: { today: () => string })
            active = coalesce($7, active),
            updated_at = now()
          WHERE id = $1`,
-        [
-          id,
-          body.name ?? null,
-          body.categoryId ?? null,
-          body.amount ?? null,
-          body.variable ?? null,
-          body.dayOfMonth ?? null,
-          body.active ?? null,
-          thisMonth(today()),
-        ],
-      )
-      .catch(refuseCategory);
-    if (updated.rowCount === 0) throw new HttpError(404, 'Fixed cost not found');
-    const { rows } = await pool.query<ItemRow>(`${itemSql} WHERE f.id = $2`, [
-      thisMonth(today()),
-      id,
-    ]);
-    res.json({ fixedCost: toItem(rows[0]) });
+          [
+            id,
+            body.name ?? null,
+            body.categoryId ?? null,
+            body.amount ?? null,
+            body.variable ?? null,
+            body.dayOfMonth ?? null,
+            body.active ?? null,
+            thisMonth(today()),
+          ],
+        )
+        .catch(refuseCategory);
+      return (await selectItem(client, id, thisMonth(today()))).rows[0];
+    });
+    res.json({ fixedCost: toItem(row) });
   });
 
   router.post('/generate', async (_req, res) => {

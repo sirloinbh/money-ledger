@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import type { Pool } from 'pg';
 
+import { sameDecimal } from '../src/mock-orders.js';
 import { withApi } from './helpers.js';
 
 // Validation runs before the DB: a pool that fails the test if any query or connection reaches it.
@@ -95,4 +96,31 @@ test('a preview with a bad quantity or side is a 400 before the DB', async () =>
     );
     assert.deepEqual(security.data, { error: 'The security ID is not valid' });
   });
+});
+
+test('a confirmed quote matches the stored numeric by value, not by text (#196)', () => {
+  const same: [string | null, string | null][] = [
+    ['80000.0000', '80000'],
+    ['80000.0000', '80000.0'],
+    ['80000.0000', '080000.00'],
+    ['231.5000', '231.5'],
+    ['0.5000', '0.5'],
+    [null, null],
+  ];
+  for (const [stored, sent] of same)
+    assert.equal(sameDecimal(stored, sent), true, `${stored} ${sent}`);
+  const different: [string | null, string | null][] = [
+    ['80000.0000', '80000.0001'],
+    ['80000.0000', '8000'],
+    ['80000.0000', '8e4'],
+    ['80000.0000', '+80000'],
+    ['80000.0000', ' 80000'],
+    ['80000.0000', ''],
+    ['80000.0000', '.5'],
+    ['80000.0000', null],
+    [null, '80000'],
+  ];
+  for (const [stored, sent] of different) {
+    assert.equal(sameDecimal(stored, sent), false, `${stored} ${sent}`);
+  }
 });
