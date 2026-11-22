@@ -7,7 +7,7 @@ import { inTransaction } from './db.js';
 import { date } from './entries.js';
 import { fetchUsCloses, type PriceLog, tiingoHourlyLimit } from './prices/fetch.js';
 import type { PriceSources } from './prices/sources.js';
-import { HttpError, parseId } from './standard/http.js';
+import { HttpError, parseId, sendError } from './standard/http.js';
 import { tradesRouter } from './trades.js';
 
 // #45 Held assets and debts. Formats follow AGENTS.project.md "Quantity, foreign currency, and exchange rate" (#35):
@@ -406,6 +406,19 @@ const wonText = new Intl.NumberFormat('en-US');
  * The sum is a separate statement: under READ COMMITTED a subquery in the locking statement reads the
  * snapshot from before the lock wait and would miss a use committed meanwhile.
  */
+/**
+ * #192 A refused use that names the request field it is about. The answer carries it in `fields`, so the screen
+ * marks that field from the path, not from words in the message.
+ */
+class UsageRefusal extends Error {
+  constructor(
+    readonly path: 'usedOn' | 'amountKrw',
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 async function lockForUses(client: PoolClient, id: number) {
   const found = await client.query<{
     prepaid_kind: string | null;
@@ -787,36 +800,43 @@ export function assetsRouter(pool: Pool, { today, now, prices, log }: Options) {
   router.post('/:id/usages', async (req, res) => {
     const id = parseId(req.params.id, 'asset');
     const body = usageBody.parse(req.body);
-    const usage = await inTransaction(pool, async (client) => {
-      // Locked so two uses at once cannot both pass the balance check.
-      const asset = await lockForUses(client, id);
-      if (asset.prepaid_kind !== 'amount') {
-        throw new HttpError(400, 'Usage records can only be added to a prepaid voucher');
-      }
-      // A use is something that happened: a later date would count in the balance but not yet in the value.
-      if (body.usedOn > today()) {
-        throw new HttpError(400, 'Usage dated after today cannot be recorded');
-      }
-      if (asset.prepaid_expires_on !== null && body.usedOn > asset.prepaid_expires_on) {
-        throw new HttpError(
-          400,
-          `The expiry date (${asset.prepaid_expires_on}) has passed, so it cannot be used on that date`,
+    let usage: UsageRow;
+    try {
+      usage = await inTransaction(pool, async (client) => {
+        // Locked so two uses at once cannot both pass the balance check.
+        const asset = await lockForUses(client, id);
+        if (asset.prepaid_kind !== 'amount') {
+          throw new HttpError(400, 'Usage records can only be added to a prepaid voucher');
+        }
+        // A use is something that happened: a later date would count in the balance but not yet in the value.
+        if (body.usedOn > today()) {
+          throw new UsageRefusal('usedOn', 'Usage dated after today cannot be recorded');
+        }
+        if (asset.prepaid_expires_on !== null && body.usedOn > asset.prepaid_expires_on) {
+          throw new UsageRefusal(
+            'usedOn',
+            `The expiry date (${asset.prepaid_expires_on}) has passed, so it cannot be used on that date`,
+          );
+        }
+        const left = Number(asset.prepaid_amount_krw) - asset.used;
+        if (body.amountKrw > left) {
+          throw new UsageRefusal(
+            'amountKrw',
+            `Cannot use more than the balance (remaining ₩${wonText.format(left)})`,
+          );
+        }
+        const { rows } = await client.query<UsageRow>(
+          `INSERT INTO portfolio_prepaid_usages (asset_id, used_on, amount_krw, memo)
+           VALUES ($1, $2, $3, $4) RETURNING id, used_on, amount_krw, memo`,
+          [id, body.usedOn, body.amountKrw, body.memo],
         );
-      }
-      const left = Number(asset.prepaid_amount_krw) - asset.used;
-      if (body.amountKrw > left) {
-        throw new HttpError(
-          400,
-          `Cannot use more than the balance (remaining ₩${wonText.format(left)})`,
-        );
-      }
-      const { rows } = await client.query<UsageRow>(
-        `INSERT INTO portfolio_prepaid_usages (asset_id, used_on, amount_krw, memo)
-         VALUES ($1, $2, $3, $4) RETURNING id, used_on, amount_krw, memo`,
-        [id, body.usedOn, body.amountKrw, body.memo],
-      );
-      return rows[0];
-    });
+        return rows[0];
+      });
+    } catch (error) {
+      if (!(error instanceof UsageRefusal)) throw error;
+      sendError(res, 400, error.message, [{ path: error.path, message: error.message }]);
+      return;
+    }
     res.status(201).json({ usage: toUsage(usage) });
   });
 
