@@ -74,3 +74,4 @@ Several screen tests used fakes that answered almost any request: one merged pay
   - The CSV import test follows the #203 copy ("Import 1 entry").
   - Checks after the merges, in parts through the lock: `format:check`, `lint`, `contract:check`, `typecheck` exit 0. Frontend: 75 files, 524 pass, 3 skipped. Backend: 456 pass. `test:skills`: 4 pass. `build` and `knip` pass.
 - Round 2 (PR #263 comment): approve, no findings on the merge resolution.
+- Third merge of `origin/main`, after #262: the #262 reload-note test and the #183 CSV import tests are both kept in `entries.test.tsx`. Then the whole `npm run check` and `npm run knip` ran in one pass through the lock: exit 0. Frontend: 75 files, 526 pass, 3 skipped. Backend: 456 pass. `test:skills`: 4 pass.
