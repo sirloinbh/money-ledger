@@ -105,11 +105,14 @@ export function MockHistory({ accountId }: { accountId: number }) {
       ? { ...first, orders: [...first.orders, ...more.orders], hasMore: more.hasMore }
       : first;
 
-  // What is shown is about to be replaced (a load runs) or belongs to other filters (their load failed): it is
-  // marked busy while its load runs and cannot be continued.
-  const updating = page !== undefined && read.isFetching;
-  const old =
-    updating || (page !== undefined && (read.isPlaceholderData || read.data === undefined));
+  // What is shown is about to be replaced (new filters, or a reload after an order) or belongs to other filters
+  // (their load failed): it is marked busy while its load runs and cannot be continued. A quiet refetch (the window
+  // got focus again) is not announced.
+  const replacing =
+    read.isPlaceholderData ||
+    (read.isFetching && client.getQueryState(key)?.isInvalidated === true);
+  const updating = page !== undefined && replacing;
+  const old = updating || (page !== undefined && read.data === undefined);
 
   const apply = (event: FormEvent) => {
     event.preventDefault();

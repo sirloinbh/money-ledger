@@ -148,6 +148,35 @@ test('an order after Load more starts the list again from the newest (#213)', as
   expect(screen.getByRole('button', { name: 'Load more' })).toBeInTheDocument();
 });
 
+test('a refetch without a change (the window got focus again) is not announced as an update', async () => {
+  answer = () => ({ orders: [order(2), order(1)], hasMore: false, securities });
+  renderWithQuery(<MockHistory accountId={7} />);
+  await screen.findByRole('list');
+  let finish: (response: Response) => void = () => undefined;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string) => {
+      urls.push(url);
+      return new Promise<Response>((resolve) => {
+        finish = resolve;
+      });
+    }),
+  );
+  const refetched = testQueryClient().refetchQueries({ queryKey: mockKey });
+  await vi.waitFor(() => expect(urls).toHaveLength(2));
+  // Let the list render with its load running.
+  await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+  expect(testQueryClient().isFetching({ queryKey: mockKey })).toBe(1);
+  expect(screen.queryByText('Updating trade history')).toBeNull();
+  expect(screen.getByRole('list')).not.toHaveAttribute('aria-busy');
+  await act(async () => {
+    finish(
+      new Response(JSON.stringify({ orders: [order(2), order(1)], hasMore: false, securities })),
+    );
+    await refetched;
+  });
+});
+
 test('Load more while a new filter is loading does not add the old list to the new one', async () => {
   answer = () => ({
     orders: Array.from({ length: 50 }, (_, index) => order(60 - index)),
