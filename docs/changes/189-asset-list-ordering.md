@@ -25,6 +25,10 @@ On the asset screen, `load` ran from the first render, from each save's reload a
 - No browser check at 390×844 and 1440×900: nothing in the layout changed, and the only visible change is the submit button reading "Saving…" while a delete runs. The machine was short on memory during this run (see the PR), so the dev servers were not started.
 - Commands and results are in the PR body.
 
+## Review
+
+- Round 1 (PR #252 comment): approve, no blocking comments.
+
 ## Limits
 
 - None known.
