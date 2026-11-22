@@ -32,6 +32,10 @@
 - Apart from the split commit, every changed line in `backend/` is an `import` line (checked with `git diff -M`).
 - Typecheck, lint, format and the OpenAPI contract check pass; the full check results are in the PR body.
 
+## Review
+
+- Round 1 (PR #259 comment): approve, no blocking comments.
+
 ## Limits
 
 - Open branches of other workers that touch moved files need `origin/main` merged in; git follows the renames.
