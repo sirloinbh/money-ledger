@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './com
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
-import { formatDateTime, formatDecimal, formatWon, realDate } from './format';
+import { formatDateTime, formatDecimal, formatWon, realDate, sharesOf } from './format';
 import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 import { formatMonthDay, formatPrice } from './quote-format';
@@ -222,7 +222,7 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
                       {order.side === 'buy' ? 'Buy' : 'Sell'}
                     </span>
                     <span className="font-medium">
-                      {securityName(order.security)} {formatDecimal(order.quantity)} shares
+                      {securityName(order.security)} {sharesOf(order.quantity)}
                     </span>
                     <span className="text-body-sm text-muted-foreground">
                       {formatDateTime(order.createdAt)}

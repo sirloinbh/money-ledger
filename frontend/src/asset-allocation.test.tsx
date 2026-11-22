@@ -59,7 +59,7 @@ const rowsOf = (table: HTMLElement) =>
 test('by type first: the chart and every type in a table, and how many were left out', async () => {
   render(<AssetAllocation allocation={allocation} typeLabel={typeLabel} />);
   expect(screen.getByRole('heading', { name: 'Asset allocation' })).toBeInTheDocument();
-  expect(screen.getByText(/2 without a quote/)).toBeInTheDocument();
+  expect(screen.getByText(/2 assets without a quote, .* are left out\./)).toBeInTheDocument();
   expect(screen.getByRole('tab', { name: 'By type' })).toHaveAttribute('aria-selected', 'true');
   expect(await screen.findByTestId('chart')).toHaveTextContent(
     'By type:Real estate 75.0,Cash 25.0',
@@ -125,7 +125,7 @@ test('nothing to spread: no tabs, a short note instead', () => {
     />,
   );
   expect(screen.getByText(/No assets to allocate/)).toBeInTheDocument();
-  expect(screen.getByText(/1 without a quote/)).toBeInTheDocument();
+  expect(screen.getByText(/1 asset without a quote, .* is left out\./)).toBeInTheDocument();
   expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
 });
 

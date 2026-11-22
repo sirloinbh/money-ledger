@@ -80,7 +80,7 @@ test('12 months up to this month in Seoul, every month in the chart and in the t
     '2026-01,2026-02,2026-03,2026-04,2026-05,2026-06,2026-07,2026-08,2026-09,2026-10,2026-11,2026-12',
   );
   expect(urls).toEqual(['/api/ledger/trend?from=2026-01&to=2026-12']);
-  expect(screen.getByText('January 2026 ~ December 2026')).toBeInTheDocument();
+  expect(screen.getByText('January 2026 – December 2026')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '12 months' })).toHaveAttribute('aria-pressed', 'true');
 
   // The table, newest first; months without entries are 0, so nothing is missing.
@@ -97,18 +97,18 @@ test('the period buttons: 6 and 24 months in the address, 12 is the default', as
   show('/ledger?month=2026-10&from=2026-11-01');
   await screen.findByTestId('chart');
   fireEvent.click(screen.getByRole('button', { name: '6 months' }));
-  expect(await screen.findByText('July 2026 ~ December 2026')).toBeInTheDocument();
+  expect(await screen.findByText('July 2026 – December 2026')).toBeInTheDocument();
   expect(urls.at(-1)).toBe('/api/ledger/trend?from=2026-07&to=2026-12');
   expect(address()).toBe('?month=2026-10&from=2026-11-01&trend=6');
   expect(screen.getByRole('button', { name: '6 months' })).toHaveAttribute('aria-pressed', 'true');
 
   fireEvent.click(screen.getByRole('button', { name: '24 months' }));
-  await screen.findByText('January 2025 ~ December 2026');
+  await screen.findByText('January 2025 – December 2026');
   expect(urls.at(-1)).toBe('/api/ledger/trend?from=2025-01&to=2026-12');
   await vi.waitFor(() => expect(rows()).toHaveLength(25));
 
   fireEvent.click(screen.getByRole('button', { name: '12 months' }));
-  await screen.findByText('January 2026 ~ December 2026');
+  await screen.findByText('January 2026 – December 2026');
   expect(address()).toBe('?month=2026-10&from=2026-11-01');
 });
 

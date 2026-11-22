@@ -12,7 +12,7 @@ import {
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Notice } from './components/ui/notice';
-import { formatWon, serviceToday } from './format';
+import { countOf, formatWon, serviceToday } from './format';
 import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 import { cn } from './lib/utils';
@@ -130,7 +130,7 @@ export function NetWorthHistory() {
         </div>
         <Notice notice={notice.notice} />
         <p aria-live="polite" className="text-body-sm text-muted-foreground">
-          {from ? `${dayLabel(from)} ~ ${dayLabel(today)}` : `All records ~ ${dayLabel(today)}`}
+          {from ? `${dayLabel(from)} – ${dayLabel(today)}` : `All records – ${dayLabel(today)}`}
         </p>
         {failed ? (
           <div className="flex flex-wrap items-center gap-2">
@@ -172,7 +172,7 @@ export function NetWorthHistory() {
                 </ChartBoundary>
                 <details>
                   <summary className="cursor-pointer text-body-sm font-medium">
-                    Show as a table ({shown.snapshots.length} days)
+                    Show as a table ({countOf(shown.snapshots.length, 'day')})
                   </summary>
                   <SnapshotTable snapshots={shown.snapshots} />
                 </details>
@@ -233,10 +233,10 @@ function SnapshotTable({ snapshots }: { snapshots: Snapshot[] }) {
         {[...snapshots].reverse().map((snapshot) => (
           <tr key={snapshot.date} className="border-b last:border-b-0">
             <th scope="row" className="py-2 pr-2 text-left font-normal whitespace-nowrap">
-              {snapshot.date}
+              {dayLabel(snapshot.date)}
               {snapshot.uncounted > 0 ? (
                 <span className="block text-caption text-muted-foreground">
-                  {snapshot.uncounted} left out
+                  {countOf(snapshot.uncounted, 'asset')} left out
                 </span>
               ) : null}
             </th>

@@ -98,7 +98,7 @@ test('the periods read their own range; the whole history has no start', async (
     `2026-01-02~${today}:2026-01-02=9000000,${today}=12500000`,
   );
   expect(gets().at(-1)).toBe('/api/portfolio/net-worth');
-  expect(screen.getByText(`All records ~ ${dayLabel(today)}`)).toBeInTheDocument();
+  expect(screen.getByText(`All records – ${dayLabel(today)}`)).toBeInTheDocument();
 });
 
 test('the table lists every saved day, newest first, with how many were left out', async () => {
@@ -108,8 +108,8 @@ test('the table lists every saved day, newest first, with how many were left out
   fireEvent.click(toggle);
   const rows = within(screen.getByRole('table')).getAllByRole('row').slice(1);
   expect(rows.map((row) => row.textContent)).toEqual([
-    `${today}1 left out12,500,00013,500,0001,000,000`,
-    '2026-01-029,000,00010,000,0001,000,000',
+    `${dayLabel(today)}1 asset left out12,500,00013,500,0001,000,000`,
+    'Jan 2, 20269,000,00010,000,0001,000,000',
   ]);
 });
 

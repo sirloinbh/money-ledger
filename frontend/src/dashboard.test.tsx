@@ -75,7 +75,7 @@ test('each card shows its area, the same values as its page, and a link to it', 
   );
 
   const netWorth = card('Net worth');
-  expect(await within(netWorth).findByText('Saved on 2026-11-16')).toBeInTheDocument();
+  expect(await within(netWorth).findByText('Saved on Nov 16, 2026')).toBeInTheDocument();
   expect(value(netWorth, 'Net worth')).toBe('₩50,000,000');
   expect(value(netWorth, 'Liabilities')).toBe('₩2,000,000');
   expect(
@@ -104,7 +104,7 @@ test('a card that fails leaves the others shown, and its retry loads it', async 
 
   answers['GET /api/portfolio/net-worth'] = normal()['GET /api/portfolio/net-worth'];
   fireEvent.click(within(netWorth).getByRole('button', { name: 'Retry loading Net worth' }));
-  expect(await within(netWorth).findByText('Saved on 2026-11-16')).toBeInTheDocument();
+  expect(await within(netWorth).findByText('Saved on Nov 16, 2026')).toBeInTheDocument();
 });
 
 test('areas without data say so', async () => {

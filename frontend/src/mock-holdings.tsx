@@ -3,11 +3,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Notice } from './components/ui/notice';
-import { formatDecimal, formatWon, signedPercent } from './format';
+import { formatDecimal, formatWon, sharesOf, signedPercent } from './format';
 import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 import { MockOrder } from './mock-order';
-import { formatMonthDay, formatPrice } from './quote-format';
+import { formatMonthDay, formatPrice, quoteBasis } from './quote-format';
 
 // #53 What the mock account holds and how it has done. Every amount and rate comes from the server
 // (valued at the latest stored close and rate); this screen only formats them.
@@ -158,9 +158,9 @@ export function MockHoldings({
                     {held.security.active ? null : <Badge variant="warning">Trading halted</Badge>}
                   </div>
                   <p className="text-body-sm text-muted-foreground tabular-nums">
-                    {formatDecimal(held.quantity)} shares
+                    {sharesOf(held.quantity)}
                     {held.price !== null && held.priceDate !== null
-                      ? ` · ${held.priceStale ? 'Delayed · ' : ''}${formatMonthDay(held.priceDate)} close ${formatPrice(held.price, held.security.currency)}`
+                      ? ` · ${quoteBasis({ tradeDate: held.priceDate, stale: held.priceStale })} ${formatPrice(held.price, held.security.currency)}`
                       : ' · No close'}
                     {held.fxRate !== null && held.fxDate !== null
                       ? ` · rate ₩${formatDecimal(held.fxRate)} (${formatMonthDay(held.fxDate)})`

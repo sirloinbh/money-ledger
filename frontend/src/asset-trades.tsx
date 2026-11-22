@@ -183,12 +183,13 @@ export function AssetTrades({
     load().catch((cause: unknown) => showError(cause, 'Could not load the trades'));
   }, [load, showError]);
 
+  // The trade is saved even when the reload fails, so this is a note, not an error (#203).
   const refresh = async (done: string) => {
     try {
       await Promise.all([load(), onChanged()]);
       showStatus(done);
     } catch {
-      showError(`${done}. Could not reload the list`);
+      showStatus(`${done}. The list could not be reloaded; reload the page to see it`);
     }
   };
 
@@ -343,7 +344,7 @@ export function AssetTrades({
       ) : null}
       <Notice id={noticeId} notice={notice.notice} />
       <form
-        aria-label={`${assetName} ${editing ? 'Edit trade' : 'Add trade'}`}
+        aria-label={`${editing ? 'Edit a trade of' : 'Add a trade to'} ${assetName}`}
         onSubmit={(event) => void submit(event)}
         className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
       >

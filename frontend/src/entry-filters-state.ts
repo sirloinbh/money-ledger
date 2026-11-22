@@ -106,7 +106,7 @@ export function periodLabel({ from, to }: { from: string; to: string }) {
     if (from === `${month}-01` && to === monthRange(month).to) {
       return monthLabel(month);
     }
-    return `${from} ~ ${to}`;
+    return `${from} – ${to}`;
   }
   if (from) return `From ${from}`;
   if (to) return `Through ${to}`;
