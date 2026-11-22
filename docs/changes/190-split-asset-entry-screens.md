@@ -37,3 +37,8 @@ No component in another worker's area changed; the asset files were last changed
 ## Limits
 
 - `EntryManager` is just under the limit (249 lines). The next change that grows it should move the classification-follow effect into `entry-hooks.ts` as well.
+
+## Review
+
+- Round 1: 1 nit, fixed. The screen's history comment (#45-#64) was in both `asset-model.ts` and `assets.tsx`; it is now only in `assets.tsx`, and the model points to it. Also checked: the effect order in `EntryManager` matches the old one (address filters, listing, own-change, load, categories, classification follow, address cleanup, focus); `bind` keeps the same handlers and marks per field, including the quantity and hand-price hint overrides; the moved list components are byte-for-byte the old ones apart from `export`.
+- Round 2: no findings.

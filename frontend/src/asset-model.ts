@@ -12,15 +12,7 @@ import type { LinkedSecurity } from './security-picker';
 
 // #190 The asset screen's types, constants, and pure helpers (request bodies, value lines), kept apart from
 // the components so they can be unit-tested.
-// #45 Held assets and debts. Won values are numbers, quantities and USD values decimal strings (#35 rules).
-// Trades come with #46.
-// #47 A stock can be linked to a security and is valued at the stored close; an unlinked stock or other asset
-// can take a price entered by hand. USD values are converted with the newest stored USD rate, and assets with
-// trades show their gain against the won cost (decisions 2026-11-10).
-// #63 A depreciating asset is entered as a purchase price, date and useful life; the server returns its
-// current value (straight-line by month, never below the salvage value).
-// #64 A prepaid asset is a stored value (voucher, lowered by uses) or a pass (lowered by the day);
-// the server returns its current value. Paying is a ledger expense, so a use is not recorded as one again.
+// The history of the screen (#45-#64) is at the top of assets.tsx.
 
 export type AssetType =
   'stock' | 'real_estate' | 'cash' | 'debt' | 'depreciable' | 'prepaid' | 'other';
