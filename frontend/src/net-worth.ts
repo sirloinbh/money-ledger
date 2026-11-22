@@ -1,3 +1,4 @@
+import { serviceToday } from './format';
 import { requestJson } from './lib/api';
 
 // #49 Net worth by day (decisions 2026-11-10). The app saves today's values once when it opens; the card on the
@@ -13,18 +14,25 @@ export type Snapshot = {
   uncounted: number;
 };
 
-let todaySave: Promise<void> | undefined;
+let todaySave: { day: string; done: Promise<void> } | undefined;
 
 /**
- * Today's save when the app opens, at most once per page load. The card waits for it before reading the list,
- * so today is in the chart. A failure is quiet: the card's own button saves by hand and shows any error.
+ * Today's save when the app opens, at most once per service day and page load. The card waits for it before
+ * reading the list, so today is in the chart. A failure is quiet (the card's own button saves by hand and shows
+ * any error) and forgotten, so the next caller tries again; a tab still open on a new day saves that day too.
  */
 export function saveTodayOnce() {
-  todaySave ??= requestJson(netWorthPath, { method: 'POST' }).then(
-    () => undefined,
-    () => undefined,
-  );
-  return todaySave;
+  const day = serviceToday();
+  if (todaySave?.day !== day) {
+    const done: Promise<void> = requestJson(netWorthPath, { method: 'POST' }).then(
+      () => undefined,
+      () => {
+        if (todaySave?.done === done) todaySave = undefined;
+      },
+    );
+    todaySave = { day, done };
+  }
+  return todaySave.done;
 }
 
 export type Period = '1m' | '3m' | '1y' | 'all';
