@@ -141,11 +141,13 @@ export function UncategorizedEntries({
     const picked = entries.filter((entry) => selected.has(entry.id));
     const category = categories.find((item) => String(item.id) === categoryId);
     if (picked.length === 0) return showError('Select the entries to classify');
-    if (!category || picked.some((entry) => entry.kind !== category.kind)) {
+    // Entries of the other kind are skipped by the server and counted (#199); only a choice that fits none of
+    // them is refused here.
+    if (!category || picked.every((entry) => entry.kind !== category.kind)) {
       setCategoryInvalid(true);
       return showError(
         category
-          ? 'Some entries are a different kind from the chosen category'
+          ? 'None of the selected entries is the kind of this category'
           : 'Choose a category',
       );
     }
@@ -173,7 +175,9 @@ export function UncategorizedEntries({
         `${result.classified} ${result.classified === 1 ? 'entry' : 'entries'} classified as ${category.name}`,
       ];
       if (result.skipped > 0) {
-        parts.push(`${result.skipped} skipped (already classified or changed)`);
+        parts.push(
+          `${result.skipped} skipped (a different kind, or already classified or changed)`,
+        );
       }
       if (result.rulesAdded > 0)
         parts.push(

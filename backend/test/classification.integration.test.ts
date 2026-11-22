@@ -163,24 +163,21 @@ test('keyword rules and classification against the real database', { skip: !url 
           [a.id, b.id, c.id, income.id].sort(),
         );
 
-        const mixed = await call('/api/ledger/entries/classify', {
-          method: 'POST',
-          body: { entryIds: [a.id, income.id], categoryId: ids['expense/식비'] },
-        });
-        assert.equal(mixed.status, 400);
-        assert.deepEqual(mixed.data, {
-          error: 'Some entries are a different kind from the chosen category',
-        });
-
+        // An income entry in the selection is skipped; the expense entries are still classified (#199).
         const done = await call('/api/ledger/entries/classify', {
           method: 'POST',
           body: {
-            entryIds: [a.id, b.id, c.id, chosen.id, 999999],
+            entryIds: [a.id, b.id, c.id, chosen.id, income.id, 999999],
             categoryId: ids['expense/식비'],
           },
         });
         assert.equal(done.status, 200);
-        assert.deepEqual(done.data, { classified: 3, skipped: 2, rulesAdded: 0, rulesUpdated: 0 });
+        assert.deepEqual(done.data, { classified: 3, skipped: 3, rulesAdded: 0, rulesUpdated: 0 });
+        const left = (await call('/api/ledger/entries?uncategorized=true')).data.entries as Entry[];
+        assert.deepEqual(
+          left.map((entry) => entry.id),
+          [income.id],
+        );
 
         // The entry the user had already categorized keeps its category.
         const { rows } = await pool.query<{ id: string; category_id: string }>(
