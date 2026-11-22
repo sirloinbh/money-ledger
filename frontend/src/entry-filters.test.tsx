@@ -80,7 +80,7 @@ describe('filter helpers', () => {
 
   test('a whole month is named by its month, other periods by their dates', () => {
     expect(periodLabel({ from: '2026-11-01', to: '2026-11-30' })).toBe('November 2026');
-    expect(periodLabel({ from: '2026-11-01', to: '2026-11-15' })).toBe('2026-11-01 ~ 2026-11-15');
+    expect(periodLabel({ from: '2026-11-01', to: '2026-11-15' })).toBe('2026-11-01 – 2026-11-15');
     expect(periodLabel({ from: '2026-11-01', to: '' })).toBe('From 2026-11-01');
     expect(periodLabel({ from: '', to: '' })).toBe('All time');
   });
@@ -203,7 +203,7 @@ test('applied filters go to the address and the request, and survive a reload', 
   expect(screen.getByLabelText('Start date')).toHaveValue('2026-10-15');
   expect(screen.getByLabelText('Search')).toHaveValue('Lunch');
   expect(screen.getByLabelText('Category', { selector: '#filter-category' })).toHaveValue('1');
-  expect(screen.getByText('2026-10-15 ~ 2026-11-15')).toBeInTheDocument();
+  expect(screen.getByText('2026-10-15 – 2026-11-15')).toBeInTheDocument();
   await vi.waitFor(() =>
     expect(lastList()).toContain('from=2026-10-15&to=2026-11-15&kind=expense'),
   );

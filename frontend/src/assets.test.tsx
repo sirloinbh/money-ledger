@@ -139,7 +139,9 @@ test('assets are grouped by type and debts are totalled apart from assets', asyn
   expect(summary('Total liabilities')).toHaveTextContent('₩7,000,000');
   expect(summary('Net worth')).toHaveTextContent('-₩2,000,000');
   expect(
-    screen.getByText(/1 without a quote, exchange rate, or valuation left out of the totals/),
+    screen.getByText(
+      /1 item without a quote, exchange rate, or valuation is left out of the totals\./,
+    ),
   ).toBeInTheDocument();
   const stocks = screen.getByRole('list', { name: 'Stocks (incl. ETFs and funds)' });
   expect(within(stocks).getByText('USD · quantity 1.5 · Overseas')).toBeInTheDocument();

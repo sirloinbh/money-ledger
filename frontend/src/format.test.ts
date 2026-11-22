@@ -1,11 +1,13 @@
 import { expect, test } from 'vitest';
 
 import {
+  countOf,
   formatDateTime,
   formatDecimal,
   formatUsd,
   formatWon,
   serviceToday,
+  sharesOf,
   signedPercent,
   withoutThousands,
 } from './format';
@@ -50,4 +52,16 @@ test('signedPercent shows the sign of a percentage from the API without trailing
   expect(signedPercent('-1.50')).toBe('-1.5%');
   expect(signedPercent('0.00')).toBe('0%');
   expect(signedPercent('-0.00')).toBe('0%');
+});
+
+test('counts take the singular for exactly one (#203)', () => {
+  expect(countOf(1, 'row')).toBe('1 row');
+  expect(countOf(2, 'row')).toBe('2 rows');
+  expect(countOf(0, 'entry', 'entries')).toBe('0 entries');
+  expect(countOf(1234, 'entry', 'entries')).toBe('1,234 entries');
+  expect(sharesOf('1.00000000')).toBe('1 share');
+  expect(sharesOf('1')).toBe('1 share');
+  expect(sharesOf('1.50000000')).toBe('1.5 shares');
+  expect(sharesOf('0.10000000')).toBe('0.1 shares');
+  expect(sharesOf('1200.00000000')).toBe('1,200 shares');
 });
