@@ -1,19 +1,12 @@
-import {
-  Component,
-  lazy,
-  type ReactNode,
-  Suspense,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
+import { ChartBoundary } from './chart-boundary';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
 import { shiftMonth } from './entry-filters-state';
 import { serviceToday } from './format';
+import { lazyChart } from './lazy-chart';
 import { requestJson } from './lib/api';
 import { cn } from './lib/utils';
 import {
@@ -36,11 +29,9 @@ function readPeriod(params: URLSearchParams) {
   return (trendPeriods as readonly number[]).includes(period) ? period : defaultTrendPeriod;
 }
 
-// Recharts loads in its own file with the first chart; `lazy` keeps a failed load, so a failure starts a new one
-// for the next period or retry.
-const loadChart = () =>
-  lazy(() => import('./trend-chart').then((module) => ({ default: module.TrendChart })));
-const chart = { Chart: loadChart() };
+// Recharts loads in its own file with the first chart.
+// After a failed download, ChartBoundary (#202) loads the file again on the next try; a drawing error is logged.
+const chart = lazyChart(() => import('./trend-chart').then((module) => module.TrendChart));
 
 /** `version` changes when entries change elsewhere on the page, so the trend reloads. */
 export function MonthlyTrend({ version = 0 }: { version?: number }) {
@@ -145,12 +136,12 @@ export function MonthlyTrend({ version = 0 }: { version?: number }) {
                 There are no entries in this period.
               </p>
             ) : (
-              <ChartBoundary key={`${from}:${to}:${attempt}`}>
-                <Suspense
-                  fallback={<p className="text-body-sm text-muted-foreground">Loading the chart</p>}
-                >
-                  <chart.Chart months={shown.months} />
-                </Suspense>
+              <ChartBoundary
+                chart={chart}
+                message="Could not load the chart. Check the values in the table under View as table."
+                key={`${from}:${to}:${attempt}`}
+              >
+                <chart.Chart months={shown.months} />
               </ChartBoundary>
             )}
             <details>
@@ -162,29 +153,6 @@ export function MonthlyTrend({ version = 0 }: { version?: number }) {
       )}
     </section>
   );
-}
-
-/** The chart file failing to load must not take the page down: say so in place of the chart. */
-class ChartBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-
-  componentDidCatch() {
-    chart.Chart = loadChart();
-  }
-
-  render() {
-    return this.state.failed ? (
-      <p className="text-body-sm text-muted-foreground">
-        Could not load the chart. Check the values in the table under View as table.
-      </p>
-    ) : (
-      this.props.children
-    );
-  }
 }
 
 const amount = new Intl.NumberFormat('en-US');

@@ -27,3 +27,9 @@ test('the legend names the three lines in a fixed order, in text colors', () => 
     'var(--chart-series-3)',
   ]);
 });
+
+test('an empty list draws nothing instead of failing (#202)', () => {
+  render(<TrendChart months={[]} />);
+  expect(screen.getByText('Nothing to draw yet.')).toBeInTheDocument();
+  expect(screen.queryByRole('img')).toBeNull();
+});

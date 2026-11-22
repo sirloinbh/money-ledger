@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts';
 
+import { EmptyChart } from './chart-boundary';
 import { formatWon } from './format';
 import { dayLabel, dayValue, type Snapshot, timeTicks, wonAxisLabel } from './net-worth';
 
@@ -61,7 +62,8 @@ export function NetWorthChart({
   const end = Math.max(dayValue(to), start + oneDay);
   const axis = timeTicks(start, end);
   const negative = snapshots.some((snapshot) => snapshot.netKrw < 0);
-  const latest = snapshots[snapshots.length - 1];
+  const latest = snapshots.at(-1);
+  if (!latest) return <EmptyChart />;
   return (
     <div
       role="img"

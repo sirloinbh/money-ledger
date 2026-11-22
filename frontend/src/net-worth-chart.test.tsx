@@ -35,3 +35,9 @@ test('one saved day on a one-day axis still renders', () => {
   );
   expect(screen.getByRole('img')).toHaveAccessibleName(/1 day saved; .* is -₩300,000./);
 });
+
+test('an empty list draws nothing instead of failing (#202)', () => {
+  render(<NetWorthChart snapshots={[]} from="2026-11-01" to="2026-11-22" />);
+  expect(screen.getByText('Nothing to draw yet.')).toBeInTheDocument();
+  expect(screen.queryByRole('img')).toBeNull();
+});
