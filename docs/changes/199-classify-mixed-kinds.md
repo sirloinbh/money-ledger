@@ -37,3 +37,7 @@ Browser (Vite 5292 + API 3192 on a local `money_dev` DB, Playwright):
 
 - Digits glued to a name that are really a terminal number ("스타벅스123") now stay in the key, so such a merchant matches only itself or a 3+ character prefix. Card statements usually separate them with a space, which is dropped.
 - "쿠팡" no longer prefix-matches "쿠팡이츠" (two letters). That is the intended trade-off of the issue.
+
+## Review
+
+- Round 1: approve, no blocking comments (posted on PR #245). Checked that the update's kind filter limits writes, that remembered rules come from updated rows only, that the 400 statuses still apply, and that `merchantKey` is used only by `suggester`.
