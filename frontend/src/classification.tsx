@@ -131,7 +131,8 @@ export function UncategorizedEntries({
       showStatus(done);
       if (left.length === 0) title.current?.focus();
     } catch {
-      showError(`${done}. Could not reload the list`);
+      // The change is saved even when the reload fails, so this is a note, not an error (#262).
+      showStatus(`${done}. The list could not be reloaded; reload the page to see it`);
     }
   };
 
@@ -425,7 +426,8 @@ export function RuleManager({
       await load();
       showStatus(done);
     } catch {
-      showError(`${done}. Could not reload the list`);
+      // The change is saved even when the reload fails, so this is a note, not an error (#262).
+      showStatus(`${done}. The list could not be reloaded; reload the page to see it`);
     }
   };
 
