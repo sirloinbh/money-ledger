@@ -380,6 +380,45 @@ test('a save that ends after the summary moved to another month reloads that mon
   ).toBeNull();
 });
 
+test('a month whose first load started during a save is loaded again after it (#213)', async () => {
+  let finishSave: (value: Response) => void = () => undefined;
+  let finishFirstOctober: (value: Response) => void = () => undefined;
+  let octoberLoads = 0;
+  answer = (call) => {
+    if (call.method === 'PUT') {
+      return new Promise<Response>((resolve) => {
+        finishSave = resolve;
+      });
+    }
+    if (call.url.endsWith('2026-11')) return json(november);
+    octoberLoads += 1;
+    // The first October read started before the save was stored, so it answers without it, and last.
+    if (octoberLoads === 1) {
+      return new Promise<Response>((resolve) => {
+        finishFirstOctober = resolve;
+      });
+    }
+    return json(octoberReloaded);
+  };
+  show();
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit Food budget' }));
+  fireEvent.change(screen.getByLabelText('Food budget (KRW)'), { target: { value: '1000' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Go to 2026-10' }));
+  await vi.waitFor(() => expect(octoberLoads).toBe(1));
+
+  finishSave(new Response(JSON.stringify({ budget: {} })));
+  expect(
+    await screen.findByText('Spent ₩5,000 · set a budget to see progress'),
+  ).toBeInTheDocument();
+  await act(async () => {
+    finishFirstOctober(new Response(JSON.stringify({ month: '2026-10', budgets: [] })));
+    await Promise.resolve();
+  });
+  expect(screen.getByText('Spent ₩5,000 · set a budget to see progress')).toBeInTheDocument();
+  expect(octoberLoads).toBe(2);
+});
+
 test('a row that is no longer listed after the save gives the focus to the title', async () => {
   let saved = false;
   answer = (call) => {

@@ -1,4 +1,5 @@
-import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { MAX_WON_TEXT } from '../../shared/contract';
@@ -11,7 +12,9 @@ import { Notice } from './components/ui/notice';
 import { selectClass } from './entry-filters-state';
 import { addDueOnce, fixedCostsPath } from './fixed-costs-api';
 import { formatWon, serviceToday, withoutThousands, wonFromDigits } from './format';
-import { requestJson } from './lib/api';
+import { ledgerKeys, refreshLedger } from './ledger-query';
+import { type RequestError, requestJson } from './lib/api';
+import { type ApiRequest, useApiMutation, useApiQuery } from './lib/query';
 import { useNotice } from './lib/use-notice';
 import { readSummaryMonth } from './summary-month';
 import { monthLabel } from './trend-series';
@@ -71,66 +74,53 @@ type Draft = {
 };
 
 /**
- * `version` changes when entries change elsewhere on the page, so the totals reload. `onChange` runs after this
- * card adds or changes entries, so the other cards reload.
+ * The totals reload with every ledger change (`ledgerKey`, #213), and a change here (which adds or changes entries)
+ * reloads the other sections.
  */
-export function FixedCostManager({
-  version = 0,
-  onChange,
-}: {
-  version?: number;
-  onChange?: () => void;
-}) {
+export function FixedCostManager() {
   const [searchParams] = useSearchParams();
   const month = readSummaryMonth(searchParams, serviceToday());
-  const [data, setData] = useState<FixedCosts | undefined>(undefined);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [failed, setFailed] = useState(false);
+  const client = useQueryClient();
+  // The first load waits for the entries the app adds when it opens (addDueOnce runs once per page load).
+  const list = useQuery<FixedCosts, RequestError>({
+    queryKey: ledgerKeys.fixedCosts(month),
+    queryFn: async ({ signal }) => {
+      await addDueOnce();
+      return requestJson<FixedCosts>(`${fixedCostsPath}?month=${month}`, { signal });
+    },
+  });
+  const cats = useApiQuery<{ categories: Category[] }>(
+    ledgerKeys.categories(),
+    '/api/ledger/categories',
+  );
+  const data = list.data;
+  const categories = (cats.data?.categories ?? []).filter(
+    (category) => category.kind === 'expense',
+  );
+  // Either load failing makes the card say so; Try again loads both again.
+  const failed = (list.isError && !list.isFetching) || (cats.isError && !cats.isFetching);
   // undefined: no form; 'new': the add form; a number: editing that item.
   const [form, setForm] = useState<'new' | number | undefined>(undefined);
   const [confirming, setConfirming] = useState<number | undefined>(undefined);
   const [saving, setSaving] = useState(false);
   const notice = useNotice();
   const { error: showError, status: showStatus, clear } = notice;
-  const latest = useRef(0);
   const title = useRef<HTMLHeadingElement>(null);
+  const write = useApiMutation<unknown, ApiRequest>((request) => request);
 
-  const load = useCallback(async () => {
-    const request = ++latest.current;
-    setFailed(false);
-    try {
-      const [list, cats] = await Promise.all([
-        requestJson<FixedCosts>(`${fixedCostsPath}?month=${month}`),
-        requestJson<{ categories: Category[] }>('/api/ledger/categories'),
-      ]);
-      if (latest.current !== request) return;
-      setData(list);
-      setCategories(cats.categories.filter((category) => category.kind === 'expense'));
-    } catch {
-      if (latest.current === request) setFailed(true);
-    }
-  }, [month]);
-
-  // The first load waits for the entries the app adds when it opens; if any were added, the page reloads too.
-  const onChangeRef = useRef(onChange);
-  useEffect(() => {
-    onChangeRef.current = onChange;
-  }, [onChange]);
+  // If opening the app added entries, every ledger read loads again (the first loads may have run before).
   useEffect(() => {
     void addDueOnce().then((added) => {
-      if (added > 0) onChangeRef.current?.();
+      if (added > 0) void refreshLedger(client);
     });
-  }, []);
-  useEffect(() => {
-    void addDueOnce().then(load);
-  }, [load, version]);
+  }, [client]);
 
-  const run = async (work: () => Promise<unknown>, done: string) => {
+  const run = async (request: ApiRequest, done: string) => {
     if (saving) return false;
     setSaving(true);
     try {
       try {
-        await work();
+        await write.mutateAsync(request);
       } catch (cause) {
         showError(cause, 'Could not save the fixed cost');
         return false;
@@ -138,15 +128,14 @@ export function FixedCostManager({
       // The change is saved now, even if what follows fails: a retry must not add the item twice.
       // Saving may make an item due (a new one, or one started again): add it now, not at the next open.
       try {
-        await requestJson(`${fixedCostsPath}/generate`, { method: 'POST' });
+        await write.mutateAsync({ path: `${fixedCostsPath}/generate` });
         showStatus(done);
       } catch {
         showError(
           `${done}. Could not add its entries yet; they are added the next time the app opens`,
         );
       }
-      onChange?.();
-      await load();
+      await refreshLedger(client);
       return true;
     } finally {
       setSaving(false);
@@ -185,7 +174,8 @@ export function FixedCostManager({
             aria-label="Retry loading fixed costs"
             onClick={() => {
               title.current?.focus();
-              void load();
+              if (list.isError) void list.refetch();
+              if (cats.isError) void cats.refetch();
             }}
           >
             Try again
@@ -222,11 +212,7 @@ export function FixedCostManager({
                         onCancel={closeForm}
                         onSave={async (body) => {
                           const saved = await run(
-                            () =>
-                              requestJson(`${fixedCostsPath}/${item.id}`, {
-                                method: 'PATCH',
-                                body,
-                              }),
+                            { path: `${fixedCostsPath}/${item.id}`, method: 'PATCH', body },
                             `${body.name} updated. It applies to entries added from now on`,
                           );
                           if (saved) closeForm();
@@ -245,11 +231,11 @@ export function FixedCostManager({
                         }}
                         onToggle={() =>
                           void run(
-                            () =>
-                              requestJson(`${fixedCostsPath}/${item.id}`, {
-                                method: 'PATCH',
-                                body: { active: !item.active },
-                              }),
+                            {
+                              path: `${fixedCostsPath}/${item.id}`,
+                              method: 'PATCH',
+                              body: { active: !item.active },
+                            },
                             item.active
                               ? `${item.name} stopped`
                               : `${item.name} started again from this month`,
@@ -263,11 +249,11 @@ export function FixedCostManager({
                         onConfirmCancel={() => setConfirming(undefined)}
                         onConfirm={async (amount) => {
                           const saved = await run(
-                            () =>
-                              requestJson(`${fixedCostsPath}/${item.id}/months/${shown.month}`, {
-                                method: 'PUT',
-                                body: { amount },
-                              }),
+                            {
+                              path: `${fixedCostsPath}/${item.id}/months/${shown.month}`,
+                              method: 'PUT',
+                              body: { amount },
+                            },
                             `${item.name} confirmed at ${formatWon(amount)}`,
                           );
                           if (saved) setConfirming(undefined);
@@ -286,10 +272,7 @@ export function FixedCostManager({
                 saving={saving}
                 onCancel={closeForm}
                 onSave={async (body) => {
-                  const saved = await run(
-                    () => requestJson(fixedCostsPath, { method: 'POST', body }),
-                    `${body.name} added`,
-                  );
+                  const saved = await run({ path: fixedCostsPath, body }, `${body.name} added`);
                   if (saved) closeForm();
                 }}
                 onInvalid={(message) => showError(message)}

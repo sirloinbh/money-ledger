@@ -77,9 +77,9 @@ const asRequest = (request: ApiRequest) => request;
 
 /**
  * Entries without a category: pick some, pick a category, classify them at once. The list reloads with every
- * ledger change (`ledgerKey`, #213); `onChange` reports a classification here to the sections still on a counter.
+ * ledger change (`ledgerKey`, #213), and a classification here reloads the other sections.
  */
-export function UncategorizedEntries({ onChange }: { onChange?: () => void } = {}) {
+export function UncategorizedEntries() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [categoryId, setCategoryId] = useState('');
   const [remember, setRemember] = useState(true);
@@ -166,7 +166,6 @@ export function UncategorizedEntries({ onChange }: { onChange?: () => void } = {
         showError(cause);
         return;
       }
-      onChange?.();
       const parts = [
         `${result.classified} ${result.classified === 1 ? 'entry' : 'entries'} classified as ${category.name}`,
       ];
@@ -206,7 +205,6 @@ export function UncategorizedEntries({ onChange }: { onChange?: () => void } = {
         showError(cause);
         return;
       }
-      if (result.classified > 0) onChange?.();
       await reloadAfter(
         result.classified > 0
           ? `${result.classified} ${result.classified === 1 ? 'entry' : 'entries'} classified by rules`
@@ -234,7 +232,6 @@ export function UncategorizedEntries({ onChange }: { onChange?: () => void } = {
         showError(cause);
         return;
       }
-      if (result.classified > 0) onChange?.();
       const parts = [
         `${result.classified} ${result.classified === 1 ? 'entry' : 'entries'} classified by suggestion`,
       ];
@@ -384,10 +381,9 @@ export function UncategorizedEntries({ onChange }: { onChange?: () => void } = {
 
 /**
  * Keyword rules: add and delete. The list reloads with every ledger change (`ledgerKey`, #213), so a rule saved
- * while classifying, or a renamed or hidden category, shows here. `onChange` reports a change here to the sections
- * still on a counter.
+ * while classifying, or a renamed or hidden category, shows here.
  */
-export function RuleManager({ onChange }: { onChange?: () => void } = {}) {
+export function RuleManager() {
   const [keyword, setKeyword] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [invalid, setInvalid] = useState<'keyword' | 'category' | undefined>(undefined);
@@ -442,7 +438,6 @@ export function RuleManager({ onChange }: { onChange?: () => void } = {}) {
         showError(cause);
         return;
       }
-      onChange?.();
       setKeyword('');
       await reload(`Rule '${text}' added`);
     } finally {
@@ -458,7 +453,6 @@ export function RuleManager({ onChange }: { onChange?: () => void } = {}) {
       showError(cause);
       throw cause; // keeps the dialog open
     }
-    onChange?.();
     afterDelete.current = title.current;
     await reload(`Rule '${rule.keyword}' deleted`);
   };

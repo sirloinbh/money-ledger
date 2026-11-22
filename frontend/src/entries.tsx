@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 
 import { MAX_WON_TEXT } from '../../shared/contract';
@@ -24,9 +25,9 @@ import {
   parseAmount,
 } from './entry-model';
 import { formatWon, serviceToday } from './format';
-import { requestJson } from './lib/api';
+import { ledgerKeys, refreshLedger, useLedgerReload, useLoadError } from './ledger-query';
+import { type ApiRequest, useApiMutation } from './lib/query';
 import { useNotice } from './lib/use-notice';
-import { useOwnChange } from './lib/use-own-change';
 
 // #38 Income and expense entries: add, edit, delete.
 // #39 The list is filtered by period, kind, category and search (kept in the address) and split into pages.
@@ -35,22 +36,14 @@ import { useOwnChange } from './lib/use-own-change';
 // in entry-form.tsx, and the list in entry-list.tsx.
 
 /**
- * `categoriesVersion` changes when categories are edited elsewhere on the page, so the choices reload;
- * `entriesVersion` when entries are classified elsewhere, so the list reloads. `onChange` reports a save or delete.
+ * The list and the category choices reload with every ledger change (`ledgerKey`, #213): an entry classified or a
+ * category renamed elsewhere on the page shows here, and a save here reloads the other sections.
  */
-export function EntryManager({
-  categoriesVersion = 0,
-  entriesVersion = 0,
-  onChange,
-}: {
-  categoriesVersion?: number;
-  entriesVersion?: number;
-  onChange?: () => void;
-}) {
+export function EntryManager() {
   const today = serviceToday();
   const { filters, setSearchParams } = useAddressFilters(today);
   const query = apiQuery(filters, pageSize);
-  const { listing, loadFailed, loadEntries } = useEntryListing(query);
+  const { listing, loadFailed, error: loadError, retry } = useEntryListing(query);
   // While the list for new filters loads, the previous one stays (marked busy) so the page and focus hold.
   const loading = listing !== undefined && listing.query !== query;
   const entries = listing?.entries;
@@ -66,24 +59,18 @@ export function EntryManager({
   const afterDelete = useRef<HTMLElement | null>(null);
   const notice = useNotice();
   const { error: showError, status: showStatus } = notice;
-
-  // A save or delete here reloads the list by itself, so the version bump it reports skips one reload (#198).
-  const { notifyChange, takeSkip } = useOwnChange(
-    onChange,
-    `${categoriesVersion}:${entriesVersion}`,
-  );
-  // The filters the last effect run loaded: new filters always load, even right after an own change.
-  const effectQuery = useRef<string | undefined>(undefined);
-
-  // Also reloads after a category change elsewhere on the page: the list shows category names.
+  const explained = useLoadError(loadError, showError, 'Could not load the entries');
+  const client = useQueryClient();
+  const reloadLedger = useLedgerReload();
+  const write = useApiMutation<unknown, ApiRequest>((request) => request);
+  // The list shown now: a save that ends after the filters changed checks the new list, not the one it started on.
+  const shownQuery = useRef(query);
   useEffect(() => {
-    const newFilters = effectQuery.current !== query;
-    effectQuery.current = query;
-    if (takeSkip() && !newFilters) return;
-    loadEntries().catch((cause: unknown) => showError(cause, 'Could not load the entries'));
-  }, [loadEntries, showError, takeSkip, categoriesVersion, entriesVersion, query]);
+    shownQuery.current = query;
+  }, [query]);
+  const reloadEntries = () => reloadLedger(() => ledgerKeys.entries(shownQuery.current), explained);
 
-  const { categories, loaded: categoriesLoaded } = useEntryCategories(categoriesVersion, showError);
+  const { categories, loaded: categoriesLoaded } = useEntryCategories(showError);
 
   // The entry being edited was classified elsewhere on the page (bulk classification): take over its new
   // category unless the user already picked another one, so saving does not undo the classification.
@@ -159,14 +146,15 @@ export function EntryManager({
     };
     try {
       try {
-        await (editing
-          ? requestJson(`${entriesPath}/${editing.id}`, { method: 'PUT', body })
-          : requestJson(entriesPath, { method: 'POST', body }));
+        await write.mutateAsync(
+          editing
+            ? { path: `${entriesPath}/${editing.id}`, method: 'PUT', body }
+            : { path: entriesPath, body },
+        );
       } catch (cause) {
         showError(cause);
         return;
       }
-      notifyChange();
       const done = editing
         ? 'Entry updated'
         : `${kindLabel[draft.kind]} ${formatWon(amount)} recorded`;
@@ -183,13 +171,12 @@ export function EntryManager({
             : current,
         );
       }
-      try {
-        await loadEntries();
-        showStatus(done);
-      } catch {
-        // The change is saved even when the reload fails, so this is a note, not an error (#262).
-        showStatus(`${done}. The list could not be reloaded; reload the page to see it`);
-      }
+      // The change is saved even when the reload fails, so this is a note, not an error (#262).
+      showStatus(
+        (await reloadEntries()).ok
+          ? done
+          : `${done}. The list could not be reloaded; reload the page to see it`,
+      );
     } finally {
       saving.current = false;
       setBusy(false);
@@ -205,20 +192,18 @@ export function EntryManager({
     saving.current = true;
     try {
       try {
-        await requestJson(`${entriesPath}/${entry.id}`, { method: 'DELETE' });
+        await write.mutateAsync({ path: `${entriesPath}/${entry.id}`, method: 'DELETE' });
       } catch (cause) {
         showError(cause);
         throw cause; // keeps the dialog open
       }
-      notifyChange();
       afterDelete.current = sectionTitle.current;
       if (editing?.id === entry.id) stopEdit();
-      try {
-        await loadEntries();
-        showStatus('Entry deleted');
-      } catch {
-        showStatus('Entry deleted. The list could not be reloaded; reload the page to see it');
-      }
+      showStatus(
+        (await reloadEntries()).ok
+          ? 'Entry deleted'
+          : 'Entry deleted. The list could not be reloaded; reload the page to see it',
+      );
     } finally {
       saving.current = false;
     }
@@ -255,27 +240,14 @@ export function EntryManager({
         today={today}
         onApply={(next) => setSearchParams((prev) => writeFilters(next, prev))}
       />
-      {/* Not notifyChange: the version bump that follows is what reloads this list after an import. */}
-      <EntryCsv
-        filters={filters}
-        onImported={() =>
-          onChange
-            ? onChange()
-            : void loadEntries().catch((cause: unknown) =>
-                showError(cause, 'Could not load the entries'),
-              )
-        }
-      />
+      {/* An import reloads every ledger read; a list that then fails to load says so like any load. */}
+      <EntryCsv filters={filters} onImported={() => void refreshLedger(client)} />
       <EntryList
         entries={entries}
         loading={loading}
         total={listing?.total ?? 0}
         failed={loadFailed}
-        onRetry={() =>
-          void loadEntries().catch((cause: unknown) =>
-            showError(cause, 'Could not load the entries'),
-          )
-        }
+        onRetry={retry}
         page={filters.page}
         onPage={(page) => setSearchParams((prev) => writeFilters({ ...filters, page }, prev))}
         onEdit={startEdit}

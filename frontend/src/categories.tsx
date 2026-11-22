@@ -36,11 +36,8 @@ const kinds: { kind: CategoryKind; title: string }[] = [
 // (a name the server would refuse); that is shown like a failed save.
 type Save = (request: () => ApiRequest, done: string) => Promise<boolean>;
 
-/**
- * A saved change reloads every ledger read (`ledgerKey`, #213), so the other sections show the current names.
- * `onChange` runs after each saved change, for the sections that still reload on a counter.
- */
-export function CategoryManager({ onChange }: { onChange?: () => void } = {}) {
+/** A saved change reloads every ledger read (`ledgerKey`, #213), so the other sections show the current names. */
+export function CategoryManager() {
   // One change at a time: a second click or Enter while saving would only add a confusing error.
   // Buttons stay enabled so keyboard focus never drops to the page; the ref ignores the extra press.
   const saving = useRef(false);
@@ -65,7 +62,6 @@ export function CategoryManager({ onChange }: { onChange?: () => void } = {}) {
     try {
       try {
         await write.mutateAsync(request());
-        onChange?.();
       } catch (cause) {
         showError(cause);
         return false;

@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { CircleAlert } from 'lucide-react';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -9,7 +10,7 @@ import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
 import { formatWon, serviceToday, withoutThousands, wonFromDigits } from './format';
-import { ledgerKeys, usePagedRead } from './ledger-query';
+import { ledgerKeys, refreshLedger, usePagedRead } from './ledger-query';
 import { useApiMutation } from './lib/query';
 import { useNotice } from './lib/use-notice';
 import { cn } from './lib/utils';
@@ -64,17 +65,15 @@ export function BudgetProgress() {
   const { error: showError, status: showStatus, clear } = notice;
   const title = useRef<HTMLHeadingElement>(null);
   const editButtons = useRef(new Map<number, HTMLButtonElement>());
-  // Saving a budget for a month from then on also changes the later months' rows: every month's budgets reload.
-  // The save stays pending until the month on the screen has reloaded, so focus goes to the row as listed after it.
+  const client = useQueryClient();
   const write = useApiMutation<unknown, { categoryId: number; month: string; amount: number }>(
     ({ categoryId, ...body }) => ({
       path: `/api/ledger/budgets/${categoryId}`,
       method: 'PUT',
       body,
     }),
-    { invalidate: [ledgerKeys.budgets()] },
   );
-  const saving = write.isPending;
+  const [saving, setSaving] = useState(false);
 
   // What is on the screen now, for a save that ends later: the month and the open form.
   const now = useRef({ month, editing });
@@ -119,8 +118,13 @@ export function BudgetProgress() {
       showError(`Enter the budget as a whole number of won, from 0 to ${MAX_WON_TEXT}`);
       return;
     }
+    setSaving(true);
     try {
       await write.mutateAsync({ categoryId: budget.categoryId, month, amount });
+      // Saving a budget for a month from then on also changes the later months' rows: every month's budgets
+      // reload (a month opened during the save too), and the save waits for the month on the screen, so focus
+      // goes to the row as listed after it.
+      await refreshLedger(client, ledgerKeys.budgets());
       showStatus(
         amount === 0
           ? `${budget.name} budget changed to not set from ${monthLabel(month)}`
@@ -134,6 +138,8 @@ export function BudgetProgress() {
       }
     } catch (cause) {
       showError(cause, 'Could not save the budget');
+    } finally {
+      setSaving(false);
     }
   };
 

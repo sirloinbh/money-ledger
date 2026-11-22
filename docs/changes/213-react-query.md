@@ -71,3 +71,24 @@ Same order as health-log, plan-routine, cert-manager and dev-career-portfolio: i
 - `npm run check` with `TEST_DATABASE_URL` on this worker's test DB: passed. Backend 464 passed, 0 failed, 0 skipped; frontend vitest 79 files, 562 passed, 3 skipped; skills tests 4 passed; build passed.
 - `npm run knip` with the DB URL set: clean.
 - Browser at 390×844 and 1440×900 (local API with a scratch DB): two uncategorized Bakery entries classified with "save as a rule": the status said "2 entries classified as Groceries. Saved 1 merchant rule", the list emptied with focus on its heading, the rule "Bakery → Groceries" appeared, the summary's expense rose to ₩22,000, and the entry list (still on a counter) showed both entries as Groceries. Renaming Groceries to Food in Categories renamed it in the rule row and in the rule form's category choices. No console warnings or errors.
+
+## PR 4: entries and fixed costs; the Ledger page counters are gone (`refactor/213-entries-fixed-costs-query`)
+
+### Changes
+
+- `ledger.tsx`: no state and no props for its sections. Every section reads under `ledgerKey`, and a change in any section reloads the others.
+- `ledger-query.ts`: `refreshLedger(client, key = ledgerKey)` cancels the reads under the key that are on their way, then invalidates them. A read that started before a write may answer without it; `invalidateQueries` alone does not cancel a read whose list has no data yet (a filter page or month opened during the save) and waits for that old answer, so the list showed the rows from before the save. Found by the existing test "a load started before a save that answers last does not hide the saved entry". `useLoadError` and `useLedgerReload` are split out of `useLedgerList`, so a section with its own query (the entry list) shares them.
+- `entry-hooks.ts`: `useEntryListing` is a query per filter page (`ledgerKeys.entries(query)`) that keeps the previous page while the next loads and, as before, after the next one failed (with its page buttons, so the focus holds). `useEntryCategories` is `useLedgerList` on all categories. No version argument, no request counter.
+- `entries.tsx` (`EntryManager`): no `categoriesVersion`, `entriesVersion` or `onChange`, and no `useOwnChange`. Saves and deletes go through `useApiMutation`, then reload every ledger read and check the list shown now (a save that ends after the filters changed checks the new list). A CSV import reloads every ledger read.
+- `fixed-costs.tsx` (`FixedCostManager`): no `version` or `onChange`. The month's fixed costs are a query whose first load still waits for `addDueOnce`; the categories are their own query (either failing shows the card's Try again, which loads the failed one again). Saves go through `useApiMutation`, then generate the due entries and reload every ledger read. Entries added when the app opens reload every ledger read.
+- `budget-progress.tsx`: a save now uses `refreshLedger(client, ledgerKeys.budgets())` instead of the mutation's `invalidate`, for the same reason (a month opened during the save loads again after it).
+- `categories.tsx`, `classification.tsx`: the `onChange` props are gone (nothing on the page needs them now).
+- `lib/use-own-change.ts` is deleted: no section reloads on a counter any more.
+- `test/query.tsx`: `renderWithQuery` also takes a `wrapper` (the router) and puts it inside the query client.
+- Tests: `entries.test.tsx`, `entry-filters.test.tsx`, `fixed-costs.test.tsx` render through the test client. Version-prop tests now drive a ledger change elsewhere; the CSV import test checks the list loads once more and other ledger reads go stale; the fixed-cost tests check that entries added on open (or a confirmed amount) make other ledger reads stale, and that nothing added leaves them alone. New budget test: a month whose first load started during a save is loaded again after it. Both race tests fail without the cancel in `refreshLedger`. The "older answer arrives last" filter test now checks that this month shows from the cache while October is still on its way.
+
+### Verification
+
+- `npm run check` with `TEST_DATABASE_URL` on this worker's test DB: passed. Backend 464 passed, 0 failed, 0 skipped; frontend vitest 79 files, 563 passed, 3 skipped; skills tests 4 passed; build passed.
+- `npm run knip` with the DB URL set: clean (the deleted `use-own-change.ts` leaves nothing unused).
+- Browser (local API, scratch DB) at 390×844: an uncategorized "Bakery" expense of ₩3,000 was saved; the rule put it in Food, the list showed it at the top and the summary's expense rose to ₩25,000. At 1440×900: adding the Rent fixed cost (₩500,000, day 1) said "Rent added", added its entry to the entry list and the summary (₩525,000), and returned focus to the Fixed costs heading; deleting the ₩3,000 entry said "Entry deleted", lowered the summary to ₩522,000 and put focus on the entries heading. No console warnings or errors.

@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { MemoryRouter, useNavigate } from 'react-router';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { findLive } from './test/live';
+import { renderWithQuery, testQueryClient } from './test/query';
 
 type Item = {
   id: number;
@@ -131,11 +132,11 @@ function MonthLink({ month }: { month: string }) {
   );
 }
 
-const show = (onChange?: () => void) =>
-  render(
+const show = () =>
+  renderWithQuery(
     <MemoryRouter initialEntries={['/ledger?month=2026-11']}>
       <MonthLink month="2026-10" />
-      <FixedCostManager onChange={onChange} />
+      <FixedCostManager />
     </MemoryRouter>,
   );
 const list = () => screen.findByRole('list', { name: 'Fixed costs' });
@@ -154,17 +155,29 @@ test('the month splits fixed costs from other spending and lists each item', asy
   expect(requests[0]).toMatchObject({ method: 'POST', url: '/api/ledger/fixed-costs/generate' });
 });
 
+// A ledger read another section made before the entries were added (#213).
+const otherRead = ['/api/ledger', 'summary', '2026-11'];
+
 test('entries added on open reload the rest of the page', async () => {
   added = 2;
-  const onChange = vi.fn();
-  show(onChange);
+  testQueryClient().setQueryData(otherRead, { month: '2026-11' });
+  show();
   await list();
-  await vi.waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
+  await vi.waitFor(() =>
+    expect(testQueryClient().getQueryState(otherRead)?.isInvalidated).toBe(true),
+  );
+});
+
+test('nothing added on open leaves the rest of the page as it is', async () => {
+  testQueryClient().setQueryData(otherRead, { month: '2026-11' });
+  show();
+  await list();
+  expect(testQueryClient().getQueryState(otherRead)?.isInvalidated).toBe(false);
 });
 
 test('an estimate is confirmed with the actual amount', async () => {
-  const onChange = vi.fn();
-  show(onChange);
+  testQueryClient().setQueryData(otherRead, { month: '2026-11' });
+  show();
   await list();
   fireEvent.click(screen.getByRole('button', { name: 'Confirm Electricity amount' }));
   const actual = screen.getByLabelText('Electricity actual amount (KRW)');
@@ -181,7 +194,8 @@ test('an estimate is confirmed with the actual amount', async () => {
       within(screen.getByRole('list', { name: 'Fixed costs' })).getAllByRole('listitem')[1],
     ).toHaveTextContent('Added ₩61,230 on 2026-11-30'),
   );
-  expect(onChange).toHaveBeenCalled();
+  // The confirmed amount is an entry: the rest of the page reloads too.
+  expect(testQueryClient().getQueryState(otherRead)?.isInvalidated).toBe(true);
 });
 
 test('a preset fills the form and the new item is sent with this month as the start', async () => {
