@@ -2,7 +2,7 @@ import { Router } from 'express';
 import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
-import { readTotals, total } from './assets.js';
+import { readTotals, total } from './asset-valuation.js';
 import { inTransaction } from './db.js';
 import { date } from './entries.js';
 import { HttpError } from './standard/http.js';

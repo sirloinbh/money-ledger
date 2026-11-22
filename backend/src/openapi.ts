@@ -3,7 +3,7 @@
 // when the table and the registered routes differ.
 import { z } from 'zod/v4';
 
-import * as assetsModule from './assets.js';
+import * as assetsModule from './asset-schema.js';
 import * as budgets from './budgets.js';
 import * as categories from './categories.js';
 import * as entries from './entries.js';
