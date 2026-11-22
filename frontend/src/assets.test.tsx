@@ -140,7 +140,7 @@ test('assets are grouped by type and debts are totalled apart from assets', asyn
   expect(summary('Net worth')).toHaveTextContent('-₩2,000,000');
   expect(
     screen.getByText(
-      /1 asset without a quote, exchange rate, or valuation is left out of the totals\./,
+      /1 item without a quote, exchange rate, or valuation is left out of the totals\./,
     ),
   ).toBeInTheDocument();
   const stocks = screen.getByRole('list', { name: 'Stocks (incl. ETFs and funds)' });

@@ -236,7 +236,7 @@ function SnapshotTable({ snapshots }: { snapshots: Snapshot[] }) {
               {dayLabel(snapshot.date)}
               {snapshot.uncounted > 0 ? (
                 <span className="block text-caption text-muted-foreground">
-                  {countOf(snapshot.uncounted, 'asset')} left out
+                  {countOf(snapshot.uncounted, 'item')} left out
                 </span>
               ) : null}
             </th>

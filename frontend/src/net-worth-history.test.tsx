@@ -108,7 +108,7 @@ test('the table lists every saved day, newest first, with how many were left out
   fireEvent.click(toggle);
   const rows = within(screen.getByRole('table')).getAllByRole('row').slice(1);
   expect(rows.map((row) => row.textContent)).toEqual([
-    `${dayLabel(today)}1 asset left out12,500,00013,500,0001,000,000`,
+    `${dayLabel(today)}1 item left out12,500,00013,500,0001,000,000`,
     'Jan 2, 20269,000,00010,000,0001,000,000',
   ]);
 });

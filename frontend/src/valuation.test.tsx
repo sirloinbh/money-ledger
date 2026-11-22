@@ -225,7 +225,7 @@ test('a value shows its price basis, delays, rate, gain and why it is left out',
 
   expect(
     screen.getByText(
-      /2 assets without a quote, exchange rate, or valuation are left out of the totals\./,
+      /2 items without a quote, exchange rate, or valuation are left out of the totals\./,
     ),
   ).toBeInTheDocument();
 });

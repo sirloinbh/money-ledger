@@ -1074,7 +1074,7 @@ function Summary({ totals }: { totals: Totals }) {
       <p className="text-caption text-muted-foreground">
         Liabilities are not added to the asset total; they are only subtracted from net worth.
         {totals.uncounted > 0
-          ? ` ${countOf(totals.uncounted, 'asset')} without a quote, exchange rate, or valuation ${totals.uncounted === 1 ? 'is' : 'are'} left out of the totals.`
+          ? ` ${countOf(totals.uncounted, 'item')} without a quote, exchange rate, or valuation ${totals.uncounted === 1 ? 'is' : 'are'} left out of the totals.`
           : ''}
       </p>
     </section>

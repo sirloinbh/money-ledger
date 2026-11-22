@@ -12,7 +12,7 @@ The code review of 2026-11-18 found broken English on several screens: "1 rows",
 
 - `format.ts`: `countOf(count, one, many?)` ("1 row", "2 rows", "1,234 entries") and `sharesOf(quantity)` ("1 share", "1.5 shares") for decimal strings from the API (no number arithmetic; the singular is found by the text).
 - Counts: CSV import (file too long, columns heading, preview heading, more rows, likely duplicates, Import button, result), mock trading (history, holdings, order status, dialog title, "Selling 3 of the 10 shares held"), security search ("Found 3 securities"), net worth table toggle ("Show as a table (1 day)"), depreciation ("useful life 1 month").
-- Sentences: the allocation and asset totals notes say "2 assets without a quote … are left out"; the net worth table says "1 asset left out"; the trade form is named "Add a trade to Samsung Electronics" / "Edit a trade of …".
+- Sentences: the allocation note says "2 assets without a quote … are left out"; the asset totals and the net worth table say "1 item … is left out" / "1 item left out"; the trade form is named "Add a trade to Samsung Electronics" / "Edit a trade of …".
 - A reload failure after a saved asset or trade is a status note ("… recorded. The list could not be reloaded; reload the page to see it"), not an error.
 - Dates and ranges: the dashboard says "Saved on Nov 16, 2026" and the net worth table rows use `dayLabel`; the entry filter, monthly trend and net worth ranges use an en dash ("2026-10-15 – 2026-11-15").
 - `quoteBasis` takes `{ tradeDate, stale }` and is used by `assets.tsx` and `mock-holdings.tsx` instead of rebuilding "Delayed · Nov 6 close".
@@ -30,3 +30,7 @@ Touched files owned by other workers (assets, mock trading) only for these strin
 
 - Other screens still have counts written by hand with their own singular handling (for example classification); they were already correct and are left as they are.
 - The entries, classification and categories sections still show a failed reload after a save as an error; the issue named only the asset screens. A follow-up can align them.
+
+## Review
+
+- Round 1: 1 finding, fixed. The asset totals and net worth snapshots count every row without a value, debts included (`count(*) FILTER (WHERE current_value_krw IS NULL)` in `backend/src/assets.ts`), so "asset" was wrong there; they now say "item", as the dashboard already does. The allocation note keeps "asset" (it leaves debts out). Tests updated; targeted runs of assets, valuation and net worth history: 43 pass. Lint, typecheck and format pass.
