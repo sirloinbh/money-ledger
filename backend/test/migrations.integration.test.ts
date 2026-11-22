@@ -10,13 +10,15 @@ import {
   type Migration,
   readMigrations,
 } from '../src/standard/migrations.js';
+import { testDatabase } from './test-database.js';
 
 // The runner takes the app's advisory lock key; tests use their own.
 const lockKey = 581_900;
 const migrate = (db: Parameters<typeof runMigrate>[0], files: Migration[]) =>
   runMigrate(db, files, lockKey);
 
-const url = process.env.TEST_DATABASE_URL;
+// #184 This file's own copy of the test DB (undefined without TEST_DATABASE_URL: the DB tests are skipped).
+const url = await testDatabase();
 const dir = fileURLToPath(new URL('../../database/migrations/', import.meta.url));
 
 // #71 Requires a dedicated test DB whose user may create databases. Skipped (not passed) without it. The runner

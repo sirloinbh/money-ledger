@@ -5,8 +5,10 @@ import { Pool } from 'pg';
 
 import { createApp } from '../src/app.js';
 import { listen, runMigration, withApi } from './helpers.js';
+import { testDatabase } from './test-database.js';
 
-const url = process.env.TEST_DATABASE_URL;
+// #184 This file's own copy of the test DB (undefined without TEST_DATABASE_URL: the DB tests are skipped).
+const url = await testDatabase();
 
 type Row = {
   line: number;

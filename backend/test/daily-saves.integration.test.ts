@@ -5,8 +5,10 @@ import { Pool } from 'pg';
 
 import { DAILY_SAVES_QUEUE, dailySavesQueue } from '../src/daily-saves.js';
 import { runMigration } from './helpers.js';
+import { testDatabase } from './test-database.js';
 
-const url = process.env.TEST_DATABASE_URL;
+// #184 This file's own copy of the test DB (undefined without TEST_DATABASE_URL: the DB tests are skipped).
+const url = await testDatabase();
 const info = { id: 'job-1', queue: DAILY_SAVES_QUEUE, attempt: 1, requestId: null };
 
 // #185 The daily job's real steps against the test DB (all migrations applied). Skipped (not passed) without it.

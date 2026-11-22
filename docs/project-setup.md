@@ -525,6 +525,7 @@ server {
 | Browser        | Real dev server + Playwright (MCP) checks at mobile 390px and PC 1440px. It is a manual check before the PR, not a replacement for automatic regression | Record the result in docs/changes |
 
 - Run DB integration tests only on a **dedicated test DB, not the user's DB.** So that parallel work does not interfere, use a DB per branch (issue) or a schema per test.
+- In this repo each backend DB test file copies the test DB with `CREATE DATABASE ... TEMPLATE` and drops the copy at the end (`backend/test/test-database.ts`, #184), so the files run in parallel (`--test-concurrency=4`). The copy fails with a clear message while another session is connected to the test DB.
 - For tests that depend on dates, inject "today" or pin it with a fake `Date`.
 
 ### 7.3 Integrated CI (`.github/workflows/ci.yml`)

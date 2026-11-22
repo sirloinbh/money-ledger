@@ -10,8 +10,10 @@ import { runIfDue } from '../src/prices/scheduler.js';
 import { type PriceSources, SourceError } from '../src/prices/sources.js';
 import { saveKrxDay, trackedUsLimit, trackedUsSecurities } from '../src/prices/store.js';
 import { runMigration, withApi } from './helpers.js';
+import { testDatabase } from './test-database.js';
 
-const url = process.env.TEST_DATABASE_URL;
+// #184 This file's own copy of the test DB (undefined without TEST_DATABASE_URL: the DB tests are skipped).
+const url = await testDatabase();
 
 type Quote = { close: string; currency: string; tradeDate: string; stale: boolean };
 type Found = {
