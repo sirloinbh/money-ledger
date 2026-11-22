@@ -53,6 +53,8 @@ test('prepaid assets against the real database', { skip: !url }, async (t) => {
     await runMigration(pool, '010_prepaid_assets.sql'); // re-running is safe
     await runMigration(pool, '009_prices.sql');
     await runMigration(pool, '016_asset_valuation.sql');
+    await runMigration(pool, '025_prepaid_usage_balance.sql');
+    await runMigration(pool, '025_prepaid_usage_balance.sql'); // re-running is safe
   };
 
   await t.test(
@@ -126,8 +128,15 @@ test('prepaid assets against the real database', { skip: !url }, async (t) => {
 
         const over = await use({ usedOn: '2026-03-02', amountKrw: 50_001 });
         assert.equal(over.status, 400);
+        // #192 The refused field comes as a path, so the screen does not read the message.
         assert.deepEqual(over.data, {
           error: 'Cannot use more than the balance (remaining ₩50,000)',
+          fields: [
+            {
+              path: 'amountKrw',
+              message: 'Cannot use more than the balance (remaining ₩50,000)',
+            },
+          ],
         });
         assert.equal((await use({ usedOn: '2026-03-02', amountKrw: 50_000 })).status, 201); // exactly the rest
 
@@ -187,8 +196,10 @@ test('prepaid assets against the real database', { skip: !url }, async (t) => {
         body: { usedOn: '2026-07-01', amountKrw: 1 },
       });
       assert.equal(late.status, 400);
+      const expired = 'The expiry date (2026-06-30) has passed, so it cannot be used on that date';
       assert.deepEqual(late.data, {
-        error: 'The expiry date (2026-06-30) has passed, so it cannot be used on that date',
+        error: expired,
+        fields: [{ path: 'usedOn', message: expired }],
       });
     });
   });
@@ -337,6 +348,94 @@ test('prepaid assets against the real database', { skip: !url }, async (t) => {
     await assert.rejects(insert('value_krw', "'prepaid', 1"), { code: '23514' });
   });
 
+  await t.test(
+    'the DB refuses uses above the amount paid, however they are written (#192)',
+    async () => {
+      await reset();
+      await withApi(pool, async (call) => {
+        const { data } = await call(path, {
+          method: 'POST',
+          body: { ...salon, prepaid: { kind: 'amount', amountKrw: 10_000 } },
+        });
+        const id = (data.asset as Asset).id;
+        await call(`${path}/${id}/usages`, {
+          method: 'POST',
+          body: { usedOn: '2026-02-01', amountKrw: 6_000 },
+        });
+        const insert = (amount: number) =>
+          pool.query(
+            `INSERT INTO portfolio_prepaid_usages (asset_id, used_on, amount_krw)
+           VALUES ($1, '2026-02-02', $2)`,
+            [id, amount],
+          );
+        // Outside the API: one use past the balance, a raised use, a lowered amount paid, another kind.
+        await assert.rejects(insert(4_001), { code: '23514' });
+        await assert.rejects(
+          pool.query(
+            'UPDATE portfolio_prepaid_usages SET amount_krw = 10_001 WHERE asset_id = $1',
+            [id],
+          ),
+          { code: '23514' },
+        );
+        await assert.rejects(
+          pool.query('UPDATE portfolio_assets SET prepaid_amount_krw = 5_999 WHERE id = $1', [id]),
+          { code: '23514' },
+        );
+        await assert.rejects(
+          pool.query(
+            `UPDATE portfolio_assets SET prepaid_kind = 'period', prepaid_starts_on = '2026-01-01',
+             prepaid_expires_on = '2026-12-31' WHERE id = $1`,
+            [id],
+          ),
+          { code: '23514' },
+        );
+        // Exactly the rest, and an amount paid lowered to what is used, still go through.
+        await insert(4_000);
+        await pool.query('UPDATE portfolio_assets SET prepaid_amount_krw = 10_000 WHERE id = $1', [
+          id,
+        ]);
+        // Two writers outside the API at once: the second one waits and then sees the first.
+        await pool.query('DELETE FROM portfolio_prepaid_usages WHERE amount_krw = 4_000');
+        const results = await Promise.allSettled([insert(4_000), insert(4_000)]);
+        assert.deepEqual(results.map((result) => result.status).sort(), ['fulfilled', 'rejected']);
+      });
+    },
+  );
+
+  await t.test(
+    'the balance migration reports vouchers already over their amount (#192)',
+    async () => {
+      await reset();
+      await withApi(pool, async (call) => {
+        const { data } = await call(path, { method: 'POST', body: salon });
+        const id = (data.asset as Asset).id;
+        await call(`${path}/${id}/usages`, {
+          method: 'POST',
+          body: { usedOn: '2026-02-01', amountKrw: 100_000 },
+        });
+        // A database from before the triggers, where the amount paid was lowered under what was used.
+        await pool.query('DROP TRIGGER portfolio_assets_prepaid_balance ON portfolio_assets');
+        await pool.query('UPDATE portfolio_assets SET prepaid_amount_krw = 50_000 WHERE id = $1', [
+          id,
+        ]);
+        await assert.rejects(
+          runMigration(pool, '025_prepaid_usage_balance.sql'),
+          (error: Error) => {
+            assert.match(
+              error.message,
+              /Prepaid uses above the amount paid: asset \d+ \(used 100000, paid 50000\)/,
+            );
+            return true;
+          },
+        );
+        await pool.query('UPDATE portfolio_assets SET prepaid_amount_krw = 100_000 WHERE id = $1', [
+          id,
+        ]);
+        await runMigration(pool, '025_prepaid_usage_balance.sql');
+      });
+    },
+  );
+
   await t.test('re-running the migrations keeps rows that only a later one allows', async () => {
     await reset();
     await withApi(pool, async (call) => {
@@ -392,7 +491,11 @@ test('prepaid assets against the real database', { skip: !url }, async (t) => {
         assert.equal((await use('2026-02-15')).status, 201); // today
         const later = await use('2026-02-16');
         assert.equal(later.status, 400);
-        assert.deepEqual(later.data, { error: 'Usage dated after today cannot be recorded' });
+        const future = 'Usage dated after today cannot be recorded';
+        assert.deepEqual(later.data, {
+          error: future,
+          fields: [{ path: 'usedOn', message: future }],
+        });
       },
       { today: () => '2026-02-15' },
     );
