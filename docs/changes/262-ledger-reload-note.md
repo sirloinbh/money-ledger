@@ -25,3 +25,7 @@ All five now call `showStatus` with the #203 sentence instead of `showError`. No
 ## Limits
 
 - `prepaid-usages.tsx` (asset screen) and `mock-account.tsx` (mock trading) have the same pattern and are left for their owners; the issue notes them.
+
+## Review
+
+- Round 1: approve, 1 nit left as is. The test helper `failReloadAfterSave` is repeated in `entries.test.tsx` and `classification.test.tsx`; it stays local because the shared frontend test helpers belong to another worker's area and two copies of 12 lines do not justify touching them. Checked: the classification focus move after an emptied list and the first-load "Loading" checks are unchanged; `showError` is still used in each file for other failures.
