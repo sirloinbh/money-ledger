@@ -58,7 +58,12 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
   const [draft, setDraft] = useState<Filter>(emptyFilter);
   const [filter, setFilter] = useState<Filter>(emptyFilter);
   // `request` is the load that gave this page: "Load more" only continues the list of the latest load.
-  const [page, setPage] = useState<(Page & { request: number }) | undefined>(undefined);
+  // `query` is what that load asked for, so a page shown under a newer filter or refresh is known to be old.
+  const [page, setPage] = useState<(Page & { request: number; query: string }) | undefined>(
+    undefined,
+  );
+  // The query whose load failed: the old page stays, but it is no longer "updating".
+  const [failed, setFailed] = useState<string | undefined>(undefined);
   const [invalid, setInvalid] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   // Only the latest request may fill the list.
@@ -79,18 +84,26 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
     [accountId],
   );
 
+  // What the list should show now. While its load runs, the page of an older query stays on screen but is
+  // marked busy and cannot be continued (#197).
+  const query = `${path(filter)}#${refreshKey}`;
+  const old = page !== undefined && page.query !== query;
+  const updating = old && failed !== query;
+
   useEffect(() => {
     const request = ++latest.current;
     requestJson<Page>(path(filter))
       .then((loaded) => {
         if (latest.current !== request) return;
         clear();
-        setPage({ ...loaded, request });
+        setPage({ ...loaded, request, query });
       })
       .catch((cause: unknown) => {
-        if (latest.current === request) showError(cause, 'Could not load the trades');
+        if (latest.current !== request) return;
+        setFailed(query);
+        showError(cause, 'Could not load the trades');
       });
-  }, [path, filter, refreshKey, showError, clear]);
+  }, [path, filter, query, showError, clear]);
 
   const apply = (event: FormEvent) => {
     event.preventDefault();
@@ -101,11 +114,13 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
       return;
     }
     setInvalid(false);
+    setFailed(undefined);
     setFilter({ ...draft });
   };
 
   const reset = () => {
     setInvalid(false);
+    setFailed(undefined);
     setDraft(emptyFilter);
     setFilter(emptyFilter);
   };
@@ -113,13 +128,13 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
   const more = async () => {
     const last = page?.orders.at(-1);
     // A new filter or an order on the page is loading: the shown page is about to be replaced, not continued.
-    if (!page || !last || loadingMore || page.request !== latest.current) return;
+    if (!page || !last || loadingMore || old || page.request !== latest.current) return;
     const { request } = page;
     setLoadingMore(true);
     try {
       const next = await requestJson<Page>(path(filter, last.id));
       if (latest.current !== request) return;
-      setPage({ ...next, orders: [...page.orders, ...next.orders], request });
+      setPage({ ...next, orders: [...page.orders, ...next.orders], request, query: page.query });
     } catch (cause) {
       if (latest.current === request) showError(cause, 'Could not load more trades');
     } finally {
@@ -193,6 +208,11 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
           </div>
         </form>
         <Notice id="mock-history-notice" notice={notice.notice} />
+        {updating ? (
+          <p role="status" className="text-body-sm text-muted-foreground">
+            Updating trade history
+          </p>
+        ) : null}
         {!page ? (
           notice.notice?.kind === 'error' ? null : (
             <p role="status" className="text-body-sm text-muted-foreground">
@@ -207,7 +227,8 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
           <>
             <ul
               aria-labelledby="mock-history-title"
-              className="flex flex-col divide-y rounded-xl border"
+              aria-busy={updating || undefined}
+              className="flex flex-col divide-y rounded-xl border aria-busy:opacity-60"
             >
               {page.orders.map((order) => (
                 <li key={order.id} className="flex flex-col gap-1 px-4 py-3">
@@ -247,6 +268,7 @@ export function MockHistory({ accountId, refreshKey }: { accountId: number; refr
                 type="button"
                 variant="outline"
                 aria-busy={loadingMore || undefined}
+                aria-disabled={old || undefined}
                 onClick={() => void more()}
               >
                 {loadingMore ? 'Loading…' : 'Load more'}

@@ -58,7 +58,15 @@ export function SecuritySearch({ onOrdered }: { onOrdered?: () => void } = {}) {
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState<Search>({ state: 'idle' });
   const [invalid, setInvalid] = useState(false);
-  const [selected, setSelected] = useState<number | undefined>(undefined);
+  // `opened` counts reopenings of the selected result: clicking it again after its detail failed to load
+  // opens the detail afresh (#197). A detail that loaded stays as it is, with any order being typed.
+  const [selection, setSelection] = useState<
+    { id: number; opened: number; failed: boolean } | undefined
+  >(undefined);
+  const selected = selection?.id;
+  const detailFailed = useCallback((id: number) => {
+    setSelection((current) => (current?.id === id ? { ...current, failed: true } : current));
+  }, []);
   // Only the latest search may change the list, whatever order the answers come back in.
   const latest = useRef(0);
 
@@ -161,7 +169,15 @@ export function SecuritySearch({ onOrdered }: { onOrdered?: () => void } = {}) {
                   <button
                     type="button"
                     aria-current={selected === found.id || undefined}
-                    onClick={() => setSelected(found.id)}
+                    onClick={() =>
+                      setSelection((current) =>
+                        current?.id !== found.id
+                          ? { id: found.id, opened: 0, failed: false }
+                          : current.failed
+                            ? { id: found.id, opened: current.opened + 1, failed: false }
+                            : current,
+                      )
+                    }
                     className="flex w-full flex-wrap items-center justify-between gap-2 px-4 py-3 text-left hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none aria-[current]:bg-accent"
                   >
                     <span className="flex min-w-0 flex-col gap-1">
@@ -196,8 +212,14 @@ export function SecuritySearch({ onOrdered }: { onOrdered?: () => void } = {}) {
           ) : null}
         </CardContent>
       </Card>
-      {selected === undefined ? null : (
-        <SecurityDetail key={selected} id={selected} onLoaded={refreshRow} onOrdered={onOrdered} />
+      {selection === undefined ? null : (
+        <SecurityDetail
+          key={`${selection.id}-${selection.opened}`}
+          id={selection.id}
+          onLoaded={refreshRow}
+          onFailed={detailFailed}
+          onOrdered={onOrdered}
+        />
       )}
     </div>
   );
@@ -206,14 +228,18 @@ export function SecuritySearch({ onOrdered }: { onOrdered?: () => void } = {}) {
 function SecurityDetail({
   id,
   onLoaded,
+  onFailed,
   onOrdered,
 }: {
   id: number;
   onLoaded: (detail: Detail) => void;
+  onFailed: (id: number) => void;
   onOrdered?: () => void;
 }) {
   const [detail, setDetail] = useState<Detail | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
+  // Bumped by "Try again" after a failed load, which runs the load again (#197).
+  const [attempt, setAttempt] = useState(0);
   const heading = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -227,12 +253,14 @@ function SecurityDetail({
         onLoaded(data);
       })
       .catch((cause: unknown) => {
-        if (current) setError(errorText(cause, 'Could not load the security quote'));
+        if (!current) return;
+        setError(errorText(cause, 'Could not load the security quote'));
+        onFailed(id);
       });
     return () => {
       current = false;
     };
-  }, [id, onLoaded]);
+  }, [id, onLoaded, onFailed, attempt]);
 
   // The detail replaces nothing on the screen, so focus moves to it once it is there.
   useEffect(() => {
@@ -246,9 +274,24 @@ function SecurityDetail({
           Security quote
         </h2>
         {error ? (
-          <p role="alert" className="text-body-sm text-destructive">
-            {error}
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p role="alert" className="text-body-sm text-destructive">
+              {error}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setError(undefined);
+                setAttempt((count) => count + 1);
+                // The button goes away while loading, so focus stays in the section on its heading.
+                heading.current?.focus();
+              }}
+            >
+              Try again
+            </Button>
+          </div>
         ) : (
           <p role="status" className="text-body-sm text-muted-foreground">
             Loading the quote
