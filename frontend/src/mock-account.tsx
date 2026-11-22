@@ -95,7 +95,8 @@ export function MockAccount({
       await load();
       showStatus(done);
     } catch {
-      showError(`${done}. Could not reload the account`);
+      // The change is saved even when the reload fails, so this is a note, not an error (#265).
+      showStatus(`${done}. The account could not be reloaded; reload the page to see it`);
     }
   };
 

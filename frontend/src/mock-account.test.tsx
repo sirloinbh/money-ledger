@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { MockAccount } from './mock-account';
-import { findLive } from './test/live';
+import { findLive, queryLive } from './test/live';
 
 type Account = {
   id: number;
@@ -313,4 +313,30 @@ test('a typed reset amount survives a reload after an order; a new account fills
   await vi.waitFor(() =>
     expect(screen.getByLabelText('New starting amount (KRW)')).toHaveValue('50,000,000'),
   );
+});
+
+/** After the next change is saved, the reload of `path` fails once (#265). */
+function failReloadAfterSave(path: string) {
+  const api = vi.mocked(fetch).getMockImplementation()!;
+  let saved = false;
+  vi.mocked(fetch).mockImplementation((url: string | URL | Request, init?: RequestInit) => {
+    const method = init?.method ?? 'GET';
+    if (method !== 'GET') saved = true;
+    else if (saved && String(url) === path) {
+      saved = false;
+      return Promise.reject(new TypeError('offline'));
+    }
+    return api(url, init);
+  });
+}
+
+test('a created account whose reload fails is a note, not an error (#265)', async () => {
+  render(<MockAccount />);
+  await screen.findByLabelText('Starting amount (KRW)');
+  failReloadAfterSave('/api/mock/accounts');
+  fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
+  await expectStatus(
+    'Mock trading account created with ₩10,000,000. The account could not be reloaded; reload the page to see it',
+  );
+  expect(queryLive('alert')).toBeNull();
 });
