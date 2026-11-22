@@ -23,7 +23,7 @@ import {
 // and a table; days without a save are not filled in. "Save current values" saves today's totals again.
 
 // Recharts is large: the chart loads in its own file when there is something to draw, not with the app.
-// `lazy` keeps a failed load, so a failure starts a new one for the next period or retry.
+// After a failed download, ChartBoundary (#202) loads the file again on the next try; a drawing error is logged.
 const chart = lazyChart(() => import('./net-worth-chart').then((module) => module.NetWorthChart));
 
 type List = { today: string; snapshots: Snapshot[] };

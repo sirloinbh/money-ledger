@@ -25,7 +25,7 @@ const tabs: { id: Tab; label: string }[] = [
 ];
 
 // Recharts is large: the chart loads in its own file when there is something to draw, not with the app.
-// `lazy` keeps a failed load, so a failure starts a new one the next time the card is shown.
+// After a failed download, ChartBoundary (#202) loads the file again on the next try; a drawing error is logged.
 const chart = lazyChart(() =>
   import('./asset-allocation-chart').then((module) => module.AssetAllocationChart),
 );

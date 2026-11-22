@@ -29,8 +29,8 @@ function readPeriod(params: URLSearchParams) {
   return (trendPeriods as readonly number[]).includes(period) ? period : defaultTrendPeriod;
 }
 
-// Recharts loads in its own file with the first chart; `lazy` keeps a failed load, so a failure starts a new one
-// for the next period or retry.
+// Recharts loads in its own file with the first chart.
+// After a failed download, ChartBoundary (#202) loads the file again on the next try; a drawing error is logged.
 const chart = lazyChart(() => import('./trend-chart').then((module) => module.TrendChart));
 
 /** `version` changes when entries change elsewhere on the page, so the trend reloads. */

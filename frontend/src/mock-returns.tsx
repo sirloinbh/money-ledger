@@ -27,8 +27,8 @@ const periods: { value: Period; label: string; months: number | null }[] = [
   { value: 'all', label: 'All', months: null },
 ];
 
-// Recharts is large: the chart loads in its own file, as in #40. `lazy` keeps a failed load, so a failure
-// starts a new one for the next try.
+// Recharts is large: the chart loads in its own file, as in #40.
+// After a failed download, ChartBoundary (#202) loads the file again on the next try; a drawing error is logged.
 const chart = lazyChart(() =>
   import('./mock-return-chart').then((module) => module.MockReturnChart),
 );

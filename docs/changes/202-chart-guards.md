@@ -58,3 +58,12 @@ Browser check (local API 3195 and Vite 5295, dev DB with expense categories "Tra
 
 - The axis keeps its 88px width on wide screens too; the full names are in the tooltip and the table.
 - The width is estimated per character, not measured; names in very wide Latin letters (many "W" or "M") may be cut a little early or touch the bar.
+
+## Review
+
+- Round 1: approve after one nit fixed in this round. The comments above each screen's `lazyChart(...)` still described the old `lazy` swap; they now point at `ChartBoundary`. Checked:
+  - Each screen keeps its key and its message, and only `mock-returns.tsx` has Try again, as before.
+  - A drawing error no longer downloads the file again and is logged with its component stack.
+  - `reload()` only runs for a `ChartLoadError`.
+  - The empty-list guards come before any value is read, and the chart components have no hooks, so the early return is safe.
+  - `axisName` counts code points, so a surrogate pair is not split.

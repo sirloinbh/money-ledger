@@ -33,7 +33,7 @@ type Summary = {
 };
 
 // Recharts is large: the chart loads in its own file when a month with expense is shown, not with the app.
-// `lazy` keeps a failed load, so a failure starts a new one for the next month or retry.
+// After a failed download, ChartBoundary (#202) loads the file again on the next try; a drawing error is logged.
 const chart = lazyChart(() =>
   import('./category-share-chart').then((module) => module.CategoryShareChart),
 );
