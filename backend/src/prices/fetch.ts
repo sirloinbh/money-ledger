@@ -29,6 +29,7 @@ export const tiingoHourlyLimit = 50;
 export const dailyTiingoLimit = 40;
 
 const notConfigured = 'No quote source is configured';
+/** Shown for a ticker Tiingo does not know. The state's `not_found` flag, not this text, is what is checked (#193). */
 const notFoundNote = 'Not found at Tiingo';
 /**
  * A ticker Tiingo did not know is asked for again 7 days later (#96). The daily run starts at about the same
@@ -41,6 +42,8 @@ const tickersEveryDays = 7;
 
 const messageOf = (error: unknown) =>
   error instanceof SourceError ? error.message : 'Could not get or save the quote';
+/** For the log only (never stored): a DB error's own text helps find the cause and holds no key. */
+const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** Runs every source once. `complete` is false when something should be retried in an hour. */
 export async function runDailyFetch(pool: Pool, sources: PriceSources, now: Date, log: PriceLog) {
@@ -50,11 +53,16 @@ export async function runDailyFetch(pool: Pool, sources: PriceSources, now: Date
   const started = performance.now();
   const clock = () => new Date(now.getTime() + (performance.now() - started));
   let complete = true;
+  // #193 A failure, including a DB error while reading or saving a source's state, stays with that source:
+  // it is logged and the run goes on with the next one. Recording it is best effort, since the DB may be
+  // what failed.
   const failed = async (source: string, scope: string, error: unknown) => {
     const message = messageOf(error);
-    await markFailed(pool, source, scope, message, now);
-    log({ event: 'price_fetch_failed', source, scope, message });
     complete = false;
+    log({ event: 'price_fetch_failed', source, scope, message });
+    await markFailed(pool, source, scope, message, now).catch((cause: unknown) =>
+      log({ event: 'price_state_error', source, scope, message: errorText(cause) }),
+    );
   };
 
   // Korean closes of day D come out around 08:00 of D+1, so the latest date is yesterday.
@@ -63,10 +71,10 @@ export async function runDailyFetch(pool: Pool, sources: PriceSources, now: Date
     log({ event: 'price_source_missing', source: stateSources.krx, message: notConfigured });
   else {
     for (const market of krxMarkets) {
-      const state = await getState(pool, stateSources.krx, market);
       const latest = addDays(today, -1);
-      for (const date of datesToFetch(state.checkedThrough, latest)) {
-        try {
+      try {
+        const state = await getState(pool, stateSources.krx, market);
+        for (const date of datesToFetch(state.checkedThrough, latest)) {
           const rows = await krx.daily(market, date);
           await saveKrxDay(
             pool,
@@ -77,10 +85,10 @@ export async function runDailyFetch(pool: Pool, sources: PriceSources, now: Date
             now,
             checks(date, latest, rows.length),
           );
-        } catch (error) {
-          await failed(stateSources.krx, market, error);
-          break; // the next run starts again from this date
         }
+      } catch (error) {
+        // The next run starts again from the first date not checked.
+        await failed(stateSources.krx, market, error);
       }
     }
   }
@@ -89,15 +97,14 @@ export async function runDailyFetch(pool: Pool, sources: PriceSources, now: Date
   const fx = sources.fx;
   if (!fx) log({ event: 'price_source_missing', source: stateSources.fx, message: notConfigured });
   else {
-    const state = await getState(pool, stateSources.fx, 'USD');
-    for (const date of datesToFetch(state.checkedThrough, today)) {
-      try {
+    try {
+      const state = await getState(pool, stateSources.fx, 'USD');
+      for (const date of datesToFetch(state.checkedThrough, today)) {
         const rate = await fx.usd(date);
         await saveFx(pool, date, rate, fx.name, now, checks(date, today, rate === null ? 0 : 1));
-      } catch (error) {
-        await failed(stateSources.fx, 'USD', error);
-        break;
       }
+    } catch (error) {
+      await failed(stateSources.fx, 'USD', error);
     }
   }
 
@@ -106,16 +113,30 @@ export async function runDailyFetch(pool: Pool, sources: PriceSources, now: Date
     log({ event: 'price_source_missing', source: stateSources.tiingo, message: notConfigured });
     return { complete };
   }
-  const list = await getState(pool, stateSources.tiingo, 'tickers');
-  if (list.checkedThrough === null || list.checkedThrough <= addDays(today, -tickersEveryDays)) {
-    try {
+  try {
+    const list = await getState(pool, stateSources.tiingo, 'tickers');
+    if (list.checkedThrough === null || list.checkedThrough <= addDays(today, -tickersEveryDays)) {
       await saveUsTickers(pool, await tiingo.tickers(), today, clock());
-    } catch (error) {
-      await failed(stateSources.tiingo, 'tickers', error);
     }
+  } catch (error) {
+    await failed(stateSources.tiingo, 'tickers', error);
   }
-  for (const security of await trackedUsSecurities(pool, now)) {
-    const result = await fetchUsCloses(pool, tiingo, security, clock(), dailyTiingoLimit);
+  let tracked: UsSecurity[];
+  try {
+    tracked = await trackedUsSecurities(pool, now);
+  } catch (error) {
+    await failed(stateSources.tiingo, 'tracked', error);
+    return { complete };
+  }
+  for (const security of tracked) {
+    let result: UsFetchResult;
+    try {
+      result = await fetchUsCloses(pool, tiingo, security, clock(), dailyTiingoLimit);
+    } catch (error) {
+      // A DB error outside the call itself (state, call budget): this security waits for the retry.
+      await failed(stateSources.tiingo, security.symbol, error);
+      continue;
+    }
     if (result === 'rate_limited') {
       log({ event: 'price_fetch_limited', source: stateSources.tiingo, scope: security.symbol });
       complete = false;
@@ -172,7 +193,7 @@ export async function fetchUsCloses(
   const since =
     state.lastAttemptAt === null ? Infinity : now.getTime() - state.lastAttemptAt.getTime();
   // Checked before "up to date" so a reopen on the day of the 404 still says the ticker is missing.
-  if (state.lastError === notFoundNote && since < notFoundRetryMs) return 'known_missing';
+  if (state.notFound && since < notFoundRetryMs) return 'known_missing';
   if (dates.length === 0) return 'up_to_date';
   if (since < retryAfterMs) return state.lastError === null ? 'tried_recently' : 'failed_recently';
   if (!(await reserveCall(pool, stateSources.tiingo, limit, now))) return 'rate_limited';
@@ -180,16 +201,10 @@ export async function fetchUsCloses(
     const closes = await tiingo.closes(security.symbol, dates[0], latest);
     if (closes === null) {
       // Not retried: Tiingo does not know the ticker. The date is still checked so the next run moves on.
-      await saveUsCloses(
-        pool,
-        security.id,
-        security.symbol,
-        [],
-        latest,
-        tiingo.name,
-        now,
-        notFoundNote,
-      );
+      await saveUsCloses(pool, security.id, security.symbol, [], latest, tiingo.name, now, {
+        note: notFoundNote,
+        notFound: true,
+      });
       return 'not_found';
     }
     const inRange = closes.filter((close) => close.date >= dates[0] && close.date <= latest);

@@ -18,9 +18,26 @@ const key = (value: string | undefined) => (value?.trim() ? value.trim() : undef
 /**
  * Sources from the environment: PRICE_SOURCE=fake uses the deterministic fake for every source; otherwise
  * each source is used only when its key is set (KRX_API_KEY, TIINGO_API_KEY, KOREAEXIM_API_KEY).
+ * #193 The fake is refused in production, where its closes would be stored as real ones, and any other
+ * PRICE_SOURCE value is logged and ignored.
  */
-export function sourcesFromEnv(env: NodeJS.ProcessEnv = process.env): PriceSources {
-  if (env.PRICE_SOURCE === 'fake') return fakeSources();
+export function sourcesFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+  log: PriceLog = logPriceEvent,
+): PriceSources {
+  const choice = env.PRICE_SOURCE?.trim() ?? '';
+  if (choice === 'fake') {
+    if (env.NODE_ENV === 'production') {
+      throw new Error('PRICE_SOURCE=fake cannot be used in production');
+    }
+    return fakeSources();
+  }
+  if (choice !== '') {
+    log({
+      event: 'price_source_unknown',
+      message: 'Unknown PRICE_SOURCE value; using the real sources',
+    });
+  }
   const krx = key(env.KRX_API_KEY);
   const tiingo = key(env.TIINGO_API_KEY);
   const fx = key(env.KOREAEXIM_API_KEY);
