@@ -62,8 +62,9 @@ function registeredRoutes(app: express.Express) {
   return walk((app as unknown as { router: { stack: Layer[] } }).router.stack, '');
 }
 
-// Routes are only registered here, never called, so no database is needed.
-const app = () => createApp({} as Pool);
+// Routes are only registered here, never called, so no database is needed. The server always passes a jobs status
+// handler (#178), so a stub stands in for it and GET /api/jobs/status is checked like every other route (#181).
+const app = () => createApp({} as Pool, { jobsStatus: (_req, res) => void res.end() });
 
 test('docs/openapi.json is up to date with the operation table', async () => {
   const committed = JSON.parse(
@@ -99,4 +100,51 @@ test('guarded routes document the sign-in, 401 and 429; the public route does no
 
 test('a type JSON Schema cannot express fails instead of being skipped', () => {
   assert.throws(() => schemaOf(z.date()), /Date cannot be represented/);
+});
+
+type Responses = Record<
+  string,
+  Record<string, { responses: Record<string, Record<string, unknown>> }>
+>;
+
+test('every guarded route documents 401, 429 and 503; the health check documents 429 (#181)', () => {
+  const paths = document.paths as Responses;
+  for (const [path, methods] of Object.entries(paths)) {
+    for (const [method, op] of Object.entries(methods)) {
+      const codes = Object.keys(op.responses);
+      const expected = path === '/api/health' ? ['429'] : ['401', '429', '503'];
+      for (const code of expected)
+        assert.ok(codes.includes(code), `${method} ${path} lists ${code}`);
+    }
+  }
+  assert.ok(!('503' in paths['/api/health']!.get!.responses));
+});
+
+test('the drifted routes list what their handlers answer (#181)', () => {
+  const paths = document.paths as Responses;
+  assert.ok('422' in paths['/api/ledger/fixed-costs/{id}']!.patch!.responses);
+  assert.ok('409' in paths['/api/mock/accounts/{accountId}/orders/preview']!.get!.responses);
+  assert.deepEqual(Object.keys(paths['/api/jobs/status']!.get!.responses), [
+    '200',
+    '401',
+    '429',
+    '503',
+  ]);
+  assert.deepEqual(paths['/api/ledger/entries/csv']!.get!.responses['200']!.content, {
+    'text/csv': { schema: { type: 'string' } },
+  });
+});
+
+test('a month path parameter accepts YYYY-MM only', () => {
+  const paths = document.paths as Record<
+    string,
+    Record<string, { parameters: { name: string; schema: { pattern: string } }[] }>
+  >;
+  const month = paths['/api/ledger/fixed-costs/{id}/months/{month}']!.put!.parameters.find(
+    (p) => p.name === 'month',
+  )!;
+  const pattern = new RegExp(month.schema.pattern);
+  assert.ok(pattern.test('2026-11'));
+  assert.ok(!pattern.test('dddd-11'));
+  assert.ok(!pattern.test('2026-13'));
 });
