@@ -2,11 +2,15 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, expect, test, vi } from 'vitest';
 
-import { ReportPage, ReportsPage } from './reports';
+import type * as Reports from './reports';
 
 type Answer = () => Promise<Response>;
 let answers: Record<string, Answer>;
 let calls: string[];
+// Imported afresh for each test (#182): the finished reports are saved once per page load through a module-level
+// promise, so a shared module would send that POST in the first test only.
+let ReportsPage: typeof Reports.ReportsPage;
+let ReportPage: typeof Reports.ReportPage;
 
 const json = (body: unknown, status = 200) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }));
@@ -71,7 +75,9 @@ const month = {
   ],
 };
 
-beforeEach(() => {
+beforeEach(async () => {
+  vi.resetModules();
+  ({ ReportsPage, ReportPage } = await import('./reports'));
   calls = [];
   answers = {
     'POST /api/ledger/fixed-costs/generate': () => json({ added: 0 }),
@@ -105,7 +111,9 @@ const show = (path: string) =>
 test('the list shows each report with its period, kind, spending and whether it is new', async () => {
   show('/reports');
   const list = await screen.findByRole('list', { name: 'Reports' });
-  // The finished periods are saved before the list is read.
+  // The finished periods are saved before the list is read. Both must be there, or indexOf (-1) proves nothing.
+  expect(calls).toContain('POST /api/reports/generate');
+  expect(calls).toContain('GET /api/reports');
   expect(calls.indexOf('POST /api/reports/generate')).toBeLessThan(
     calls.indexOf('GET /api/reports'),
   );

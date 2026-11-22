@@ -113,10 +113,28 @@ test('the period buttons: 6 and 24 months in the address, 12 is the default', as
 });
 
 test('a period from the address, and one that is not a choice falls back to 12 months', async () => {
-  show('/ledger?trend=24');
+  const { unmount } = show('/ledger?trend=24');
   await screen.findByTestId('chart');
   expect(urls).toEqual(['/api/ledger/trend?from=2025-01&to=2026-12']);
-  screen.getByRole('button', { name: '24 months' });
+  expect(screen.getByRole('button', { name: '24 months' })).toHaveAttribute('aria-pressed', 'true');
+  unmount();
+
+  // Not one of the choices (#182): the 12 months are loaded and pressed.
+  for (const trend of ['5', '0', '-6', '12.5', 'abc', '']) {
+    urls = [];
+    const { unmount: close } = show(`/ledger?trend=${trend}`);
+    await screen.findByTestId('chart');
+    expect(urls, trend).toEqual(['/api/ledger/trend?from=2026-01&to=2026-12']);
+    expect(screen.getByRole('button', { name: '12 months' }), trend).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: '24 months' }), trend).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    close();
+  }
 });
 
 test('a period with no entries at all says so instead of a flat chart', async () => {

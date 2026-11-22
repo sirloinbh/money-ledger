@@ -77,7 +77,7 @@ test('a saved value on the first day replaces the 0% start; fewer than two point
     initialCashKrw: 10_000_000,
     snapshots: [day('2026-11-09', 10_000_000, '0.00')],
   };
-  render(<MockReturns accountId={7} refreshKey={0} />);
+  const { rerender } = render(<MockReturns accountId={7} refreshKey={0} />);
   expect(await screen.findByText(/Only one value so far/)).toBeInTheDocument();
   expect(screen.queryByTestId('chart')).toBeNull();
 
@@ -86,9 +86,11 @@ test('a saved value on the first day replaces the 0% start; fewer than two point
     initialCashKrw: 10_000_000,
     snapshots: [day('2026-11-09', 10_000_000, '0.00'), day('2026-11-10', 10_010_000, '0.10')],
   };
-  // An order elsewhere on the page reloads the values.
-  render(<MockReturns accountId={7} refreshKey={1} />);
+  // An order elsewhere on the page reloads the values: the same card, given a new refresh key (#182).
+  rerender(<MockReturns accountId={7} refreshKey={1} />);
   expect(await screen.findByTestId('chart')).toHaveTextContent('2026-11-09,2026-11-10');
+  expect(screen.queryByText(/Only one value so far/)).toBeNull();
+  expect(screen.getAllByRole('table')).toHaveLength(1);
 });
 
 test('no saved value in the period says so; a failed load shows the reason', async () => {
