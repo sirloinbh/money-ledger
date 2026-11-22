@@ -11,7 +11,7 @@ import {
   tiingoHourlyLimit,
 } from './fetch.js';
 import type { PriceSources } from './sources.js';
-import { trackedDays, trackedUsLimit, trackOpened } from './store.js';
+import { trackedDays, trackedUsLimit, trackingRoom, trackOpened } from './store.js';
 
 // #51 Security search and quote API, shared by mock trading and the portfolio (#47).
 // Search reads the DB only. US securities are found by ticker; a US name is saved when the detail is first
@@ -149,7 +149,8 @@ export function pricesRouter(pool: Pool, { sources, today, now, log }: Options) 
   });
 
   // Opening a detail on the screen: a US security off the daily fetch, or one still without any close, is
-  // fetched now, and the security goes on the daily fetch for 30 days, within `trackedUsLimit`.
+  // fetched now, and the security goes on the daily fetch for 30 days, within `trackedUsLimit`. #194 It is
+  // tracked only after an answer that is not "not found", so an unknown ticker never takes a slot.
   router.post('/securities/:id/view', async (req, res) => {
     const id = parseId(req.params.id, 'security');
     const at = now();
@@ -162,11 +163,11 @@ export function pricesRouter(pool: Pool, { sources, today, now, log }: Options) 
     const tiingo = sources.tiingo;
     const security = { id, symbol: row.symbol, name: row.name };
     let hasCloses = row.close !== null;
-    if (!(await trackOpened(pool, id, at))) {
-      // A new US security past the limit: the stored close, if any, without a call.
-      issue = 'tracking_full';
-      log({ event: 'price_tracking_full', symbol: row.symbol, limit: trackedUsLimit });
-    } else if (row.currency === 'USD' && (!tracked || !hasCloses)) {
+    let missing = false;
+    // A new US security past the limit: the stored close, if any, without a call or tracking.
+    const full = (await trackingRoom(pool, id, at)) === 'full';
+    if (full) issue = 'tracking_full';
+    else if (row.currency === 'USD' && (!tracked || !hasCloses)) {
       if (!tiingo) issue = 'not_configured';
       else {
         const result = await fetchUsCloses(
@@ -185,7 +186,13 @@ export function pricesRouter(pool: Pool, { sources, today, now, log }: Options) 
         // No call this time: the last answer stands.
         if (result === 'known_missing') issue = 'not_found';
         if (result === 'failed_recently') issue = 'fetch_failed';
+        missing = result === 'not_found' || result === 'known_missing';
       }
+    }
+    // Another open may have taken the last slot since the check above: then it is shown, not tracked.
+    if (!full && !missing && !(await trackOpened(pool, id, at))) issue = 'tracking_full';
+    if (issue === 'tracking_full') {
+      log({ event: 'price_tracking_full', symbol: row.symbol, limit: trackedUsLimit });
     }
     // The name is fetched on any open while it is missing, but only for a ticker Tiingo has closes for,
     // so an unknown ticker does not spend a call on a sure 404.

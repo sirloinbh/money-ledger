@@ -205,8 +205,10 @@ export async function saveUsTickers(pool: Pool, tickers: UsTicker[], today: stri
         ],
       );
       await client.query(
-        `UPDATE securities SET active = false, updated_at = $2
-         WHERE currency = 'USD' AND active AND symbol <> ALL($1::text[])`,
+        // An anti-join, not `symbol <> ALL($1)`, which compares each row with the whole list (#194).
+        `UPDATE securities s SET active = false, updated_at = $2
+         WHERE s.currency = 'USD' AND s.active
+           AND NOT EXISTS (SELECT 1 FROM unnest($1::text[]) AS t(symbol) WHERE t.symbol = s.symbol)`,
         [symbols, now],
       );
     }
@@ -300,12 +302,40 @@ const trackedUs = `s.currency = 'USD' AND (
  */
 export const trackedUsLimit = 450;
 
+/** How opening a security relates to the tracking limit, read without a lock. */
+export type TrackingRoom = 'not_counted' | 'tracked' | 'room' | 'full';
+
+/**
+ * #194 `not_counted` for a Korean security (the limit is for US ones), `tracked` for a US security already on the
+ * daily fetch, else whether one more fits. A hint only: `trackOpened` decides under its lock.
+ */
+export async function trackingRoom(db: Db, id: number, now: Date): Promise<TrackingRoom> {
+  const { rows } = await db.query<{ usd: boolean; tracked: boolean }>(
+    `SELECT currency = 'USD' AS usd, EXISTS (SELECT 1 FROM securities s WHERE s.id = $3 AND ${trackedUs}) AS tracked
+     FROM securities WHERE id = $3`,
+    [now, trackedDays, id],
+  );
+  const row = rows[0];
+  if (!row?.usd) return 'not_counted';
+  if (row.tracked) return 'tracked';
+  const count = await db.query<{ count: number }>(
+    `SELECT count(*)::int AS count FROM securities s WHERE ${trackedUs}`,
+    [now, trackedDays],
+  );
+  return count.rows[0].count >= trackedUsLimit ? 'full' : 'room';
+}
+
 /**
  * Puts a security opened on a screen on the daily fetch for 30 days. A US security that is not tracked yet is
- * refused (false) once `trackedUsLimit` are; a tracked one is extended. The lock makes concurrent opens count
- * one after another.
+ * refused (false) once `trackedUsLimit` are; a tracked one is extended. #194 Only a new US security takes the lock
+ * and counts, so concurrent new ones count one after another; Korean and already-tracked ones just update.
  */
 export async function trackOpened(pool: Pool, id: number, now: Date) {
+  const room = await trackingRoom(pool, id, now);
+  if (room === 'not_counted' || room === 'tracked') {
+    await pool.query('UPDATE securities SET viewed_at = $2 WHERE id = $1', [id, now]);
+    return true;
+  }
   return inTransaction(pool, async (client) => {
     await client.query("SELECT pg_advisory_xact_lock(hashtext('tracked_us_securities'))");
     const { rows } = await client.query<{ usd: boolean; tracked: boolean; count: number }>(
