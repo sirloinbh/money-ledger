@@ -46,7 +46,8 @@ Tests added or changed:
 Commands (local):
 
 - `vitest run --maxWorkers=2` on the 7 chart, boundary and axis files: 19 pass. On the 5 screens and the two chart-error files: 46 pass.
-- `npm run check` and `npm run knip`: see the PR body.
+- `npm run check` passed whole before main was merged in (frontend 510 pass + 3 skipped).
+- After merging origin/main (#185 and the #188 backend file move), the whole run was stopped by Claude Code for low system memory during lint. As the coordinator asked, it was then rerun in parts, one step at a time through the shared lock: `format:check`, `lint`, `contract:check`, `typecheck`, backend tests (DB on), `npm run test -w frontend -- --maxWorkers=3`, `test:skills`, `build` and `npm run knip`. Every step passed: backend 456 pass / 0 fail / 0 skipped; frontend 78 files, 530 pass + 3 skipped as before; skills 4.
 
 Browser check (local API 3195 and Vite 5295, dev DB with expense categories "Transportation and travel" and "경조사비와선물" and assets "Investment funds account" and "해외주식과국내주식계좌"):
 
