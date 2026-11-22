@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import { serviceToday } from './format';
 import {
   dayLabel,
   dayValue,
@@ -10,7 +9,7 @@ import {
   timeTicks,
   wonAxisLabel,
 } from './net-worth';
-import { NetWorthHistory } from './net-worth-history';
+import type * as History from './net-worth-history';
 import { findLive } from './test/live';
 
 // #49 The "Net worth trend" card against a fake server. The real chart is checked in net-worth-chart.test.tsx and in a
@@ -23,7 +22,11 @@ vi.mock('./net-worth-chart', () => ({
   ),
 }));
 
-const today = serviceToday();
+// A fixed service day (#182): 2026-11-16 in Seoul. The clock is set to it in each test.
+const today = '2026-11-16';
+// Imported afresh for each test (#182): today's save runs once per page load through a module-level promise,
+// so a shared module would send it in the first test only.
+let NetWorthHistory: typeof History.NetWorthHistory;
 const day = (date: string, netKrw: number, uncounted = 0): Snapshot => ({
   date,
   assetsKrw: netKrw + 1_000_000,
@@ -40,7 +43,11 @@ let saveError: string | undefined;
 const json = (body: unknown, status = 200) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }));
 
-beforeEach(() => {
+beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-11-16T03:00:00Z'));
+  vi.resetModules();
+  ({ NetWorthHistory } = await import('./net-worth-history'));
   saved = [day('2026-01-02', 9_000_000), day(today, 12_500_000, 1)];
   requests = [];
   failList = false;
@@ -95,7 +102,7 @@ test('the periods read their own range; the whole history has no start', async (
   fireEvent.click(screen.getByRole('button', { name: 'All' }));
   // The whole history starts at the first save.
   expect(await screen.findByText(/2026-01-02~/)).toHaveTextContent(
-    `2026-01-02~${today}:2026-01-02=9000000,${today}=12500000`,
+    `2026-01-02~${today}:2026-01-02=9000000,${today}=13000000`,
   );
   expect(gets().at(-1)).toBe('/api/portfolio/net-worth');
   expect(screen.getByText(`All records ~ ${dayLabel(today)}`)).toBeInTheDocument();
@@ -116,6 +123,8 @@ test('a failed period switch hides the previous period instead of showing it und
 });
 
 test('the table lists every saved day, newest first, with how many were left out', async () => {
+  // The quiet save on opening is refused, so today keeps the value with an item left out.
+  saveError = 'Not saved in this test';
   render(<NetWorthHistory />);
   fireEvent.click(await screen.findByRole('button', { name: 'All' }));
   const toggle = await screen.findByText('Show as a table (2 days)');
@@ -129,6 +138,8 @@ test('the table lists every saved day, newest first, with how many were left out
 
 test('a period without saves says so instead of a flat chart', async () => {
   saved = [];
+  // The quiet save on opening is refused, so nothing is saved at all.
+  saveError = 'Not saved in this test';
   render(<NetWorthHistory />);
   expect(await screen.findByText('No records in this period.')).toBeInTheDocument();
   expect(screen.queryByTestId('chart')).not.toBeInTheDocument();

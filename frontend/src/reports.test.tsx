@@ -2,11 +2,15 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, expect, test, vi } from 'vitest';
 
-import { ReportPage, ReportsPage } from './reports';
+import type * as Reports from './reports';
 
 type Answer = () => Promise<Response>;
 let answers: Record<string, Answer>;
 let calls: string[];
+// Imported afresh for each test (#182): the finished reports are saved once per page load through a module-level
+// promise, so a shared module would send that POST in the first test only.
+let ReportsPage: typeof Reports.ReportsPage;
+let ReportPage: typeof Reports.ReportPage;
 
 const json = (body: unknown, status = 200) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }));
@@ -17,6 +21,7 @@ const weekItem = {
   startDate: '2026-11-08',
   endDate: '2026-11-14',
   madeOn: '2026-11-16',
+  updatedOn: null,
   seen: false,
   total: 56500,
 };
@@ -26,6 +31,7 @@ const monthItem = {
   startDate: '2026-10-01',
   endDate: '2026-10-31',
   madeOn: '2026-11-16',
+  updatedOn: '2026-11-20',
   seen: true,
   total: 110000,
 };
@@ -71,7 +77,9 @@ const month = {
   ],
 };
 
-beforeEach(() => {
+beforeEach(async () => {
+  vi.resetModules();
+  ({ ReportsPage, ReportPage } = await import('./reports'));
   calls = [];
   answers = {
     'POST /api/ledger/fixed-costs/generate': () => json({ added: 0 }),
@@ -105,7 +113,9 @@ const show = (path: string) =>
 test('the list shows each report with its period, kind, spending and whether it is new', async () => {
   show('/reports');
   const list = await screen.findByRole('list', { name: 'Reports' });
-  // The finished periods are saved before the list is read.
+  // The finished periods are saved before the list is read. Both must be there, or indexOf (-1) proves nothing.
+  expect(calls).toContain('POST /api/reports/generate');
+  expect(calls).toContain('GET /api/reports');
   expect(calls.indexOf('POST /api/reports/generate')).toBeLessThan(
     calls.indexOf('GET /api/reports'),
   );
@@ -144,7 +154,11 @@ test('a weekly report: totals, the change, the top 3 and no overspending; openin
     '3. Uncategorized₩5,000 (8.8%)',
   ]);
   expect(screen.queryByRole('heading', { name: 'Overspending' })).toBeNull();
-  expect(screen.getByText(/Saved on 2026-11-16\. Entries changed after that/)).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      'Saved on 2026-11-16. It is updated when an expense entry in this period, or the one before it, is added, changed or deleted.',
+    ),
+  ).toBeInTheDocument();
   await vi.waitFor(() => expect(calls).toContain('PUT /api/reports/3/seen'));
 });
 
@@ -160,6 +174,10 @@ test('a monthly report lists the categories that reached or passed their budget;
     'Transport: spent ₩70,000 of a ₩50,000 budget, ₩20,000 more (140.0%)',
   ]);
   expect(screen.getByText('₩110,000 more than the month before')).toBeInTheDocument();
+  // Rebuilt after an entry change (#205): the date of the update is shown.
+  expect(
+    screen.getByText(/^Saved on 2026-11-16, updated on 2026-11-20\. It is updated/),
+  ).toBeInTheDocument();
   expect(calls).not.toContain('PUT /api/reports/2/seen');
 });
 

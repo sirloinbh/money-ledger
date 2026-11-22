@@ -4,8 +4,8 @@ import { formatMonthDay } from './quote-format';
 import { monthLabel } from './trend-series';
 
 // #62 Weekly (Sunday to Saturday) and monthly spending reports (decisions 2026-11-16). Opening the app saves the
-// report of each finished period once; a report is a snapshot of when it was made. A new one is announced on the
-// dashboard until it is opened.
+// report of each finished period once, and a new one is announced on the dashboard until it is opened. #205: the
+// server rebuilds a report when an expense entry in its period, or the period before it, changes.
 
 export const reportsPath = '/api/reports';
 
@@ -16,6 +16,8 @@ export type ReportItem = {
   endDate: string;
   /** The service date the report was made on. */
   madeOn: string;
+  /** The service date of the last rebuild after an entry change; null while it is as first made. */
+  updatedOn: string | null;
   seen: boolean;
   total: number;
 };
