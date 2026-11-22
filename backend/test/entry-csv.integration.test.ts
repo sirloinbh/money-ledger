@@ -216,6 +216,45 @@ test('entry CSV export and import against the real database', { skip: !url }, as
     assert.deepEqual(await entries(), before);
   });
 
+  await t.test(
+    'a repeated or out-of-range line number is refused, nothing saved (#200)',
+    async () => {
+      await reset();
+      // Line 2 matches an existing entry; the other row with line 2 does not and must not be dropped.
+      await add('2026-11-02', 'expense', 12500, ids['expense/식비'], '스타벅스');
+      const repeated = [
+        { line: 2, date: '2026-11-02', kind: 'expense', amount: '12500', merchant: '스타벅스' },
+        { line: 2, date: '2026-11-05', kind: 'expense', amount: '700', merchant: '편의점' },
+      ];
+      for (const path of ['/preview', '/import']) {
+        const response = await call(path, { rows: repeated });
+        assert.equal(response.status, 400, path);
+        assert.equal(response.data.error, 'Each row must have its own line number');
+      }
+      const huge = await call('/preview', {
+        rows: [{ line: 2 ** 31, date: '2026-11-05', kind: 'expense', amount: '1' }],
+      });
+      assert.equal(huge.status, 400);
+      assert.equal(huge.data.error, 'A line number must be 2147483647 or less');
+      assert.equal((await entries()).length, 1);
+    },
+  );
+
+  await t.test(
+    'export with uncategorized=true has only entries without a category (#200)',
+    async () => {
+      await reset();
+      await add('2026-11-02', 'expense', 12500, ids['expense/식비'], 'Cafe');
+      await add('2026-11-03', 'expense', 700, null, 'Shop');
+      const lines = (await exported('?uncategorized=true')).text.slice(1).split('\r\n');
+      assert.deepEqual(lines, [
+        'date,kind,amount,category,merchant,memo',
+        '2026-11-03,expense,700,,Shop,',
+        '',
+      ]);
+    },
+  );
+
   await t.test('2,000 rows fit; more are refused', async () => {
     await reset();
     const many = (count: number) =>

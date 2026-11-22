@@ -13,6 +13,7 @@ import { merchantText, ruleCategorySql } from './rules.js';
 // flags it and the user chooses to skip or keep those rows. An empty category lets the keyword rules decide.
 
 const maxImportRows = 2000;
+const maxLine = 2_147_483_647;
 const header = ['date', 'kind', 'amount', 'category', 'merchant', 'memo'];
 
 /** One CSV field: quoted when it has a comma, quote or line break, and never read as a formula by Excel. */
@@ -26,7 +27,12 @@ const unguarded = (value: string) => (/^'[=+\-@\t\r]/.test(value) ? value.slice(
 
 const rowInput = z.object({
   // The line in the user's file, for the messages.
-  line: z.number().int().positive(),
+  // At most the largest `int`: the duplicate check sends the lines as int[] (#200).
+  line: z
+    .number({ error: 'Each row needs its line number' })
+    .int('A line number must be a whole number')
+    .positive('A line number must be 1 or more')
+    .max(maxLine, `A line number must be ${maxLine} or less`),
   date: z.string(),
   kind: z.string(),
   amount: z.string(),
@@ -34,17 +40,23 @@ const rowInput = z.object({
   merchant: z.string().default(''),
   memo: z.string().default(''),
 });
-export const importBody = z.object(
-  {
-    rows: z
-      .array(rowInput, { error: 'Send the rows to import' })
-      .min(1, 'The file has no rows to import')
-      .max(maxImportRows, `Import at most ${maxImportRows} rows at a time`),
-    // Rows flagged as likely duplicates are left out when true.
-    skipDuplicates: z.boolean().default(true),
-  },
-  { error: 'The request body must be a JSON object' },
-);
+export const importBody = z
+  .object(
+    {
+      rows: z
+        .array(rowInput, { error: 'Send the rows to import' })
+        .min(1, 'The file has no rows to import')
+        .max(maxImportRows, `Import at most ${maxImportRows} rows at a time`),
+      // Rows flagged as likely duplicates are left out when true.
+      skipDuplicates: z.boolean().default(true),
+    },
+    { error: 'The request body must be a JSON object' },
+  )
+  .refine(
+    // Duplicates are found by line, so two rows with one line number would both be skipped (#200).
+    (body) => new Set(body.rows.map((row) => row.line)).size === body.rows.length,
+    { error: 'Each row must have its own line number' },
+  );
 type RowInput = z.infer<typeof rowInput>;
 
 type Valid = {
@@ -149,7 +161,10 @@ export function entryCsvRouter(pool: Pool, { today }: { today: () => string }) {
 
   router.get('/', async (req, res) => {
     const query = listQuery.parse(req.query);
-    const { where, params } = listFilter(query);
+    // `uncategorized=true` exports only entries without a category, as it lists them (#200).
+    const { where, params } = listFilter(
+      query.uncategorized ? { ...query, category: 'none' } : query,
+    );
     const { rows } = await pool.query<{
       entry_date: string;
       kind: string;
