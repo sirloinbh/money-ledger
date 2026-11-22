@@ -262,8 +262,9 @@ function ReportBody({ report }: { report: Report }) {
       )}
 
       <p className="text-caption text-muted-foreground lg:col-span-2">
-        Saved on {report.madeOn}. Entries changed after that are not reflected here; the ledger
-        always shows the current numbers.
+        Saved on {report.madeOn}
+        {report.updatedOn ? `, updated on ${report.updatedOn}` : ''}. It is updated when an expense
+        entry in this period, or the one before it, is added, changed or deleted.
       </p>
     </div>
   );
