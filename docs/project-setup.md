@@ -358,6 +358,13 @@ export default defineConfig({ server: { proxy: { '/api': 'http://127.0.0.1:<api-
 
 `compose.yaml`: bind all ports only to `127.0.0.1` (protects an app with no login).
 
+Deploy contract (`deploy/remote-deploy.sh`, #179): the `api` and `web` services are tagged
+`<db>-backend:${IMAGE_TAG:-local}` and `<db>-frontend:${IMAGE_TAG:-local}`, and the web port is published as
+`${WEB_BIND:-127.0.0.1}:${WEB_PORT:-<web-port>}`. The deploy builds and starts each commit as its own tag and rolls back
+by starting the previous tag; `deploy/bootstrap-env.sh` writes `WEB_BIND` and `WEB_PORT` into the server `.env`. With
+nothing set, a local `docker compose up` builds the `local` tag and serves `127.0.0.1:<web-port>`. Check the result
+with `docker compose config` (image names and `host_ip`/`published` of the web port).
+
 ```yaml
 services:
   db:
@@ -378,6 +385,7 @@ services:
       retries: 15
     restart: unless-stopped
   api:
+    image: <db>-backend:${IMAGE_TAG:-local}
     build: ./backend
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-<db>}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-<db>}
@@ -387,8 +395,9 @@ services:
       db: { condition: service_healthy }
     restart: unless-stopped
   web:
+    image: <db>-frontend:${IMAGE_TAG:-local}
     build: ./frontend
-    ports: ['127.0.0.1:<web-port>:80']
+    ports: ['${WEB_BIND:-127.0.0.1}:${WEB_PORT:-<web-port>}:80']
     depends_on: [api]
     restart: unless-stopped
 volumes:
