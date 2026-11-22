@@ -2,10 +2,14 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import { DashboardPage } from './dashboard';
+import type * as Dashboard from './dashboard';
 
 type Answer = () => Promise<Response>;
 let answers: Record<string, Answer>;
+let calls: string[];
+// Imported afresh for each test (#182): the page saves today's net worth and the reports once per page load
+// with module-level promises, so a shared module would send those POSTs in the first test only.
+let DashboardPage: typeof Dashboard.DashboardPage;
 
 const json = (body: unknown, status = 200) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }));
@@ -38,14 +42,21 @@ const normal = (): Record<string, Answer> => ({
   'GET /api/reports': () => json({ reports: [] }),
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-11-16T03:00:00Z'));
   answers = normal();
+  calls = [];
   vi.stubGlobal(
     'fetch',
-    vi.fn((url: string, init: RequestInit = {}) => answers[`${init.method ?? 'GET'} ${url}`]()),
+    vi.fn((url: string, init: RequestInit = {}) => {
+      const call = `${init.method ?? 'GET'} ${url}`;
+      calls.push(call);
+      return answers[call]();
+    }),
   );
+  vi.resetModules();
+  ({ DashboardPage } = await import('./dashboard'));
 });
 
 afterEach(() => {
@@ -65,6 +76,19 @@ const value = (region: HTMLElement, label: string) =>
 
 test('each card shows its area, the same values as its page, and a link to it', async () => {
   show();
+  // Opening saves today's net worth and the finished reports before reading them.
+  await vi.waitFor(() =>
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        'POST /api/portfolio/net-worth',
+        'GET /api/portfolio/net-worth',
+        'POST /api/reports/generate',
+      ]),
+    ),
+  );
+  expect(calls.indexOf('POST /api/portfolio/net-worth')).toBeLessThan(
+    calls.indexOf('GET /api/portfolio/net-worth'),
+  );
   const ledger = card('This month');
   expect(await within(ledger).findByText('₩3,000,000')).toBeInTheDocument();
   expect(value(ledger, 'Expense')).toBe('₩1,250,000');

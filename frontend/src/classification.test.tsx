@@ -343,8 +343,9 @@ test('a classification made here loads the list once, not again for the version 
   fireEvent.click(within(row('₩1,000')).getByRole('checkbox'));
   fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: '1' } });
   fireEvent.click(screen.getByRole('button', { name: 'Classify 1 selected' }));
+  // The version bump is reported right after the classification, before the list reloads, so a second load
+  // from it would already be counted once the reloaded list is shown (#182: no sleep needed).
   await screen.findByRole('heading', { name: 'Uncategorized entries (3)' });
-  await new Promise((resolve) => setTimeout(resolve, 50));
   expect(loads()).toBe(2);
 });
 

@@ -46,6 +46,12 @@ const november = {
   ],
 };
 
+// October as a reload after a save answers it: one row, so a test can see that answer arrive (#182).
+const octoberReloaded = {
+  month: '2026-10',
+  budgets: [{ ...base, categoryId: 1, name: 'Food', spent: 5000, budget: null, budgetMonth: null }],
+};
+
 type Call = { url: string; method: string; body?: unknown };
 let calls: Call[];
 let answer: (call: Call) => Promise<Response>;
@@ -310,12 +316,17 @@ test('a change elsewhere (version) reloads the same month', async () => {
 
 test('a save that ends after the summary moved to another month reloads that month', async () => {
   let finish: (value: Response) => void = () => undefined;
-  answer = (call) =>
-    call.method === 'PUT'
-      ? new Promise<Response>((resolve) => {
-          finish = resolve;
-        })
-      : json(call.url.endsWith('2026-11') ? november : { month: '2026-10', budgets: [] });
+  let octoberLoads = 0;
+  answer = (call) => {
+    if (call.method === 'PUT') {
+      return new Promise<Response>((resolve) => {
+        finish = resolve;
+      });
+    }
+    if (call.url.endsWith('2026-11')) return json(november);
+    octoberLoads += 1;
+    return json(octoberLoads === 1 ? { month: '2026-10', budgets: [] } : octoberReloaded);
+  };
   show();
   fireEvent.click(await screen.findByRole('button', { name: 'Edit Food budget' }));
   fireEvent.change(screen.getByLabelText('Food budget (KRW)'), { target: { value: '1000' } });
@@ -326,9 +337,11 @@ test('a save that ends after the summary moved to another month reloads that mon
   finish(new Response(JSON.stringify({ budget: {} })));
   await vi.waitFor(() => expect(gets()).toHaveLength(3));
   expect(gets()[2]).toBe('/api/ledger/budgets?month=2026-10');
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  // The reloaded October is shown (not November): its own row arrives, with no sleep needed.
+  expect(
+    await screen.findByText('Spent ₩5,000 · set a budget to see progress'),
+  ).toBeInTheDocument();
   expect(screen.getByText('As of October 2026')).toBeInTheDocument();
-  expect(screen.getByText('There are no expense categories.')).toBeInTheDocument();
   expect(
     screen
       .getByRole('heading', { name: 'Budget by category' })
@@ -364,12 +377,26 @@ test('a row that is no longer listed after the save gives the focus to the title
 
 test('a save that ends late leaves another row being edited alone, and the focus where it is', async () => {
   let finish: (value: Response) => void = () => undefined;
-  answer = (call) =>
-    call.method === 'PUT'
-      ? new Promise<Response>((resolve) => {
-          finish = resolve;
-        })
-      : json(november);
+  let put = false;
+  answer = (call) => {
+    if (call.method === 'PUT') {
+      put = true;
+      return new Promise<Response>((resolve) => {
+        finish = resolve;
+      });
+    }
+    // After the save the Food budget is ₩1,000, so the test can see the reload arrive (#182).
+    return json(
+      put
+        ? {
+            ...november,
+            budgets: november.budgets.map((row) =>
+              row.name === 'Food' ? { ...row, budget: 1000 } : row,
+            ),
+          }
+        : november,
+    );
+  };
   show();
   fireEvent.click(await screen.findByRole('button', { name: 'Edit Food budget' }));
   fireEvent.change(screen.getByLabelText('Food budget (KRW)'), { target: { value: '1000' } });
@@ -385,19 +412,24 @@ test('a save that ends late leaves another row being edited alone, and the focus
     await screen.findByText('Food budget set to ₩1,000 from November 2026'),
   ).toBeInTheDocument();
   await vi.waitFor(() => expect(gets()).toHaveLength(2));
-  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(await screen.findByText('/ ₩1,000')).toBeInTheDocument();
   expect(screen.getByLabelText('Housing budget (KRW)')).toHaveValue('90000');
   expect(screen.getByLabelText('Housing budget (KRW)')).toHaveFocus();
 });
 
 test('a save that ends after a month change leaves the focus on what was pressed', async () => {
   let finish: (value: Response) => void = () => undefined;
-  answer = (call) =>
-    call.method === 'PUT'
-      ? new Promise<Response>((resolve) => {
-          finish = resolve;
-        })
-      : json(call.url.endsWith('2026-11') ? november : { month: '2026-10', budgets: [] });
+  let octoberLoads = 0;
+  answer = (call) => {
+    if (call.method === 'PUT') {
+      return new Promise<Response>((resolve) => {
+        finish = resolve;
+      });
+    }
+    if (call.url.endsWith('2026-11')) return json(november);
+    octoberLoads += 1;
+    return json(octoberLoads === 1 ? { month: '2026-10', budgets: [] } : octoberReloaded);
+  };
   show();
   fireEvent.click(await screen.findByRole('button', { name: 'Edit Food budget' }));
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -407,7 +439,10 @@ test('a save that ends after a month change leaves the focus on what was pressed
   await screen.findByText('There are no expense categories.');
   finish(new Response(JSON.stringify({ budget: {} })));
   await vi.waitFor(() => expect(gets()).toHaveLength(3));
-  await new Promise((resolve) => setTimeout(resolve, 20));
+  // The reload has arrived (its row is shown) and the focus did not move.
+  expect(
+    await screen.findByText('Spent ₩5,000 · set a budget to see progress'),
+  ).toBeInTheDocument();
   expect(monthButton).toHaveFocus();
 });
 
