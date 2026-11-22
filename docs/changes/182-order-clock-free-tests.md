@@ -37,3 +37,7 @@ Only test files change; no app code and no shared test helper changed.
 ## Limits
 
 - `vi.resetModules()` re-imports the app modules for each test in those three files. It does not reset `node_modules` packages (React stays one instance).
+
+## Review
+
+- Round 1 (PR #254 comment): approve, no blocking comments. One problem outside this PR was filed as #255 (the frontend tests do not load the managed `standard-setup.ts`), a sub-issue of #207.
