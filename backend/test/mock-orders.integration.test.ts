@@ -4,7 +4,7 @@ import { test } from 'node:test';
 
 import { Pool } from 'pg';
 
-import { saveSnapshot, snapshotOpenAccount } from '../src/mock-snapshots.js';
+import { saveSnapshot, snapshotOpenAccount } from '../src/mock/snapshots.js';
 import { runMigration, withApi } from './helpers.js';
 
 const url = process.env.TEST_DATABASE_URL;

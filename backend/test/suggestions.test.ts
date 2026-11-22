@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { type HistoryRow, merchantKey, suggest } from '../src/suggestions.js';
+import { type HistoryRow, merchantKey, suggest } from '../src/ledger/suggestions.js';
 
 const row = (merchant: string, categoryId: number, more: Partial<HistoryRow> = {}): HistoryRow => ({
   kind: 'expense',

@@ -2,7 +2,7 @@ import express, { Router } from 'express';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod/v4';
 
-import { inTransaction } from './db.js';
+import { inTransaction } from '../db.js';
 import { date, listFilter, listQuery } from './entries.js';
 import { merchantText, ruleCategorySql } from './rules.js';
 
