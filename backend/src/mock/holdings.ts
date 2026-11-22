@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Pool, PoolClient } from 'pg';
 
-import { HttpError, parseId } from './standard/http.js';
+import { HttpError, parseId } from '../standard/http.js';
 
 // #53 What a mock account holds and how it has done.
 // - A holding is valued at the latest stored close, and a US holding at the latest stored USD deal base rate:

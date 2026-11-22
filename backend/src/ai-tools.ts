@@ -3,7 +3,7 @@
 import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
-import { date, listEntries } from './entries.js';
+import { date, listEntries } from './ledger/entries.js';
 import { defineTool } from './standard/tools.js';
 
 type Db = Pick<Pool, 'query'>;
