@@ -10,6 +10,7 @@ import { Notice } from './components/ui/notice';
 import { formatWon } from './format';
 import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
+import { useOwnChange } from './lib/use-own-change';
 
 // #60 Uncategorized entries, bulk classification and keyword rules. Rules match the merchant only and fill
 // entries saved without a category; a category the user chose is never replaced (2026-11-05 decisions).
@@ -66,21 +67,6 @@ function useCategories(version: number, onError: (cause: unknown, fallback?: str
 }
 
 /**
- * Reports a change made here. The component reloads by itself for its status message, so the version bump
- * that comes back skips one reload (`skipReload`) instead of loading the same list twice. Contract: the
- * parent passes the version it bumps back to this component (LedgerPage does), which clears the flag.
- */
-function useOwnChange(onChange: (() => void) | undefined) {
-  const skipReload = useRef(false);
-  const notifyChange = () => {
-    if (!onChange) return;
-    skipReload.current = true;
-    onChange();
-  };
-  return { skipReload, notifyChange };
-}
-
-/**
  * Entries without a category: pick some, pick a category, classify them at once. `version` changes when
  * entries or rules change elsewhere on the page; `onChange` reports a classification here.
  */
@@ -123,14 +109,12 @@ export function UncategorizedEntries({
     return data.entries;
   }, []);
 
-  const { skipReload, notifyChange } = useOwnChange(onChange);
+  // A change here reloads by itself, so the version bump it reports skips one reload (#198).
+  const { notifyChange, takeSkip } = useOwnChange(onChange, String(version));
   useEffect(() => {
-    if (skipReload.current) {
-      skipReload.current = false;
-      return;
-    }
+    if (takeSkip()) return;
     load().catch((cause: unknown) => showError(cause, 'Could not load the uncategorized entries'));
-  }, [load, showError, version, skipReload]);
+  }, [load, showError, takeSkip, version]);
 
   const toggle = (id: number) =>
     setSelected((current) => {
@@ -424,15 +408,13 @@ export function RuleManager({
     setRules(data.rules);
   }, []);
 
-  const { skipReload, notifyChange } = useOwnChange(onChange);
+  // A change here reloads by itself, so the version bump it reports skips one reload (#198).
+  const { notifyChange, takeSkip } = useOwnChange(onChange, `${version}:${categoriesVersion}`);
   useEffect(() => {
-    if (skipReload.current) {
-      skipReload.current = false;
-      return;
-    }
+    if (takeSkip()) return;
     load().catch((cause: unknown) => showError(cause, 'Could not load the classification rules'));
     // categoriesVersion too: a rule shows its category's current name and hidden state.
-  }, [load, showError, version, categoriesVersion, skipReload]);
+  }, [load, showError, takeSkip, version, categoriesVersion]);
 
   const reload = async (done: string) => {
     try {

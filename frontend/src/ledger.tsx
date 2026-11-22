@@ -13,7 +13,8 @@ import { Page } from './page';
 export function LedgerPage({ health }: { health: Health }) {
   // Bumped when a category changes, so the entry form offers the current categories.
   const [categoriesVersion, setCategoriesVersion] = useState(0);
-  // Bumped when entries or rules change, so the entry list, the uncategorized list and the rules reload.
+  // Bumped when entries, rules or fixed costs change, so every section built on entries reloads: the summary,
+  // budgets, trend, fixed costs, the entry list, the uncategorized list and the rules.
   const [ledgerVersion, setLedgerVersion] = useState(0);
   const ledgerChanged = () => setLedgerVersion((version) => version + 1);
   return (

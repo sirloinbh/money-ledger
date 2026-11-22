@@ -477,3 +477,46 @@ test('while categories have not loaded, a chosen category is not flagged', async
     ),
   ).toBeNull();
 });
+
+test('a save reported to a parent that does not bump a version does not skip a later reload (#198)', async () => {
+  const onChange = vi.fn();
+  const { rerender } = render(<EntryManager entriesVersion={0} onChange={onChange} />, {
+    wrapper: Router,
+  });
+  await screen.findByRole('option', { name: 'Food' });
+  fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '3000' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
+  expect(await findLive('status')).toHaveTextContent('Expense ₩3,000 recorded');
+  expect(onChange).toHaveBeenCalledTimes(1);
+
+  // Later an entry is classified elsewhere on the page, and the parent bumps the version for that.
+  stored = stored.map((entry) => ({ ...entry, memo: 'Classified elsewhere' }));
+  rerender(<EntryManager entriesVersion={1} onChange={onChange} />);
+  expect(await screen.findAllByText('Classified elsewhere')).not.toHaveLength(0);
+});
+
+test('a delete blocks a save until it is done (#198)', async () => {
+  let finishDelete: (response: Response) => void = () => undefined;
+  const api = vi.mocked(fetch).getMockImplementation()!;
+  vi.mocked(fetch).mockImplementation((url: string | URL | Request, init?: RequestInit) =>
+    init?.method === 'DELETE'
+      ? new Promise<Response>((resolve) => {
+          requests.push({ method: 'DELETE', url: String(url), body: undefined });
+          finishDelete = resolve;
+        })
+      : api(url, init),
+  );
+  await ready();
+  fireEvent.click(screen.getByRole('button', { name: 'Delete 2026-11-01 Leisure ₩5,000' }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
+  await vi.waitFor(() => expect(requests.some((r) => r.method === 'DELETE')).toBe(true));
+
+  fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '3000' } });
+  // The dialog is still open while the delete runs, so the form behind it is hidden from the tree.
+  fireEvent.click(screen.getByRole('button', { name: 'Add entry', hidden: true }));
+  expect(requests.filter((r) => r.method === 'POST')).toHaveLength(0);
+
+  stored = [];
+  finishDelete(new Response(null, { status: 204 }));
+  expect(await screen.findByText('Entry deleted')).toBeInTheDocument();
+});

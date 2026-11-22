@@ -53,7 +53,11 @@ export function CategoryManager({ onChange }: { onChange?: () => void } = {}) {
   }, [load, showError]);
 
   const save: Save = async (run, done) => {
-    if (saving.current) return false;
+    if (saving.current) {
+      // Say why the press did nothing (#198); the change in flight keeps going.
+      showStatus('Another change is still saving. Try again in a moment');
+      return false;
+    }
     saving.current = true;
     try {
       try {
