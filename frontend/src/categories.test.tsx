@@ -281,3 +281,25 @@ test('a rename to a reserved name is refused before sending and stays in the for
   expect(screen.getByLabelText('Food new name')).toHaveValue('미분류');
   expect(requests.filter((request) => request.method !== 'GET')).toEqual([]);
 });
+
+test('a press while another change saves says why nothing happened (#198)', async () => {
+  let finish: (response: Response) => void = () => undefined;
+  const api = vi.mocked(fetch).getMockImplementation()!;
+  vi.mocked(fetch).mockImplementation((url: string | URL | Request, init?: RequestInit) => {
+    if (init?.method !== 'PATCH') return api(url, init);
+    requests.push({ method: 'PATCH', url: String(url), body: JSON.parse(init.body as string) });
+    return new Promise<Response>((resolve) => (finish = resolve));
+  });
+  render(<CategoryManager />);
+  await list('Expense category');
+  fireEvent.click(screen.getByRole('button', { name: 'Hide Food' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Show Transport again' }));
+  expect(await findLive('status')).toHaveTextContent(
+    'Another change is still saving. Try again in a moment',
+  );
+  expect(requests.filter((request) => request.method === 'PATCH')).toHaveLength(1);
+
+  stored = stored.map((category) => (category.id === 1 ? { ...category, hidden: true } : category));
+  finish(new Response(JSON.stringify({ category: stored[0] }), { status: 200 }));
+  expect(await screen.findByText('Food category hidden')).toBeInTheDocument();
+});

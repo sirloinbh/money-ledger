@@ -45,7 +45,8 @@ export function EntryFilters({
     setDraft((current) => ({ ...current, ...patch }));
   };
   const apply = (next: Filters) => onApply({ ...next, page: 1 });
-  const goMonth = (month: string) => apply({ ...draft, ...monthRange(month) });
+  // Only the month changes: kind, category and search text typed but not applied stay unapplied (#198).
+  const goMonth = (month: string) => apply({ ...filters, ...monthRange(month) });
   // The address may already hold these values, so the form clears what is typed itself.
   const reset = () => {
     const defaults: Filters = {

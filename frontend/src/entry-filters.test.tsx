@@ -491,3 +491,15 @@ test('changing the summary month (#40) keeps what is typed in the filter form', 
   // The list does not reload for a key that is not a filter.
   expect(listUrls.length).toBe(loads);
 });
+
+test('a month button applies only the month, not what is typed but not applied (#198)', async () => {
+  await show('/ledger?from=2026-01-01&to=2026-01-31&kind=income');
+  fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'Lunch' } });
+  fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'expense' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
+  await screen.findByText('December 2025');
+  expect(lastList()).toBe(
+    '/api/ledger/entries?from=2025-12-01&to=2025-12-31&kind=income&page=1&size=50',
+  );
+  expect(address()).toBe('?from=2025-12-01&to=2025-12-31&kind=income');
+});

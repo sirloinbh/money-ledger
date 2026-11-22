@@ -36,6 +36,11 @@ type Preview = {
 };
 
 const today = () => '2026-11-09';
+// A clock that turns to the next day after its first reading, as at KST midnight during an order.
+const midnight = () => {
+  let calls = 0;
+  return () => (calls++ === 0 ? '2026-11-09' : '2026-11-10');
+};
 
 // Requires a dedicated test DB with database/migrations applied. Skipped (not passed) without it.
 test('mock trading market orders against the real database', { skip: !url }, async (t) => {
@@ -53,6 +58,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
       '005_mock_accounts.sql',
       '009_prices.sql',
       '012_krx_listing.sql',
+      '024_price_fetch_not_found.sql',
       '015_mock_orders.sql',
       '004_portfolio_assets.sql',
       '007_depreciable_assets.sql',
@@ -201,6 +207,22 @@ test('mock trading market orders against the real database', { skip: !url }, asy
           const again = await call(path(), { method: 'POST', body: order });
           assert.equal(again.status, 200);
           assert.equal(await orderCount(), 1);
+
+          // A replay after another order answers with the first fill's balance, not today's cash (#196).
+          const firstFill = (first.data as Placed).order;
+          const later = await call(path(), {
+            method: 'POST',
+            body: await body('005930', 'buy', '2'),
+          });
+          assert.equal(later.status, 201);
+          const replay = await call(path(), { method: 'POST', body: order });
+          assert.equal(replay.status, 200);
+          assert.deepEqual(
+            [(replay.data as Placed).cashKrw, (replay.data as Placed).order.cashAfterKrw],
+            [firstFill.cashAfterKrw, firstFill.cashAfterKrw],
+          );
+          assert.equal(firstFill.cashAfterKrw, 10_000_000 - 70_600);
+          assert.equal(await cashOf(), 10_000_000 - 3 * 70_600);
 
           const changed = await call(path(), { method: 'POST', body: { ...order, quantity: '2' } });
           assert.deepEqual(
@@ -465,6 +487,81 @@ test('mock trading market orders against the real database', { skip: !url }, asy
         assert.equal((again.data as Placed).order.fxRate, '1390.0000');
       },
       { today },
+    );
+  });
+
+  await t.test('the confirmed close and rate are compared as numbers (#196)', async () => {
+    await reset();
+    await addRate();
+    await withApi(
+      pool,
+      async (call) => {
+        const changed = 'The quote changed. Review the order again';
+        // The stored close is "70600.0000"; the same number written without the fraction fills.
+        const krw = await call(path(), {
+          method: 'POST',
+          body: { ...(await body('005930', 'buy', '1')), expectedPrice: '70600' },
+        });
+        assert.equal(krw.status, 201);
+        // The stored US close and rate are "231.5000" and "1384.5000".
+        const us = await call(path(), {
+          method: 'POST',
+          body: {
+            ...(await body('AAPL', 'buy', '1')),
+            expectedPrice: '231.5',
+            expectedFxRate: '1384.50',
+          },
+        });
+        assert.equal(us.status, 201);
+
+        // A different number, or text that is not a plain decimal, still counts as a changed quote.
+        for (const [expectedPrice, expectedFxRate] of [
+          ['70600.0001', null],
+          ['7.06e4', null],
+          ['', null],
+        ] as const) {
+          const refused = await call(path(), {
+            method: 'POST',
+            body: { ...(await body('005930', 'buy', '1')), expectedPrice, expectedFxRate },
+          });
+          assert.deepEqual(
+            [refused.status, refused.data],
+            [409, { error: changed }],
+            expectedPrice,
+          );
+        }
+        const wrongRate = await call(path(), {
+          method: 'POST',
+          body: { ...(await body('AAPL', 'buy', '1')), expectedFxRate: '1384.51' },
+        });
+        assert.deepEqual([wrongRate.status, wrongRate.data], [409, { error: changed }]);
+        assert.equal(await orderCount(), 2);
+      },
+      { today },
+    );
+  });
+
+  await t.test('an order reads the service date once (#196)', async () => {
+    await reset();
+    await withApi(
+      pool,
+      async (call) => {
+        const placed = await call(path(), {
+          method: 'POST',
+          body: await body('005930', 'buy', '1'),
+        });
+        assert.equal(placed.status, 201);
+        // The clock crossed midnight while the order ran: every part of it still uses the first date.
+        const days = await pool.query<{ snapshot_date: string }>(
+          'SELECT snapshot_date::text FROM mock_snapshots WHERE account_id = $1',
+          [accountId],
+        );
+        assert.deepEqual(
+          days.rows.map((row) => row.snapshot_date),
+          ['2026-11-09'],
+        );
+      },
+      { today: midnight() },
     );
   });
 

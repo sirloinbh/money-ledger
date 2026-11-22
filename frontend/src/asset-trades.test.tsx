@@ -316,6 +316,43 @@ test('a trade can be edited and, after confirming, deleted', async () => {
   );
 });
 
+test('editing a USD trade keeps its rate and currency, whatever the asset shows (#191)', async () => {
+  // A dollar trade listed under a won asset, as a row written before migration 023 could be.
+  trades[2] = [
+    {
+      id: 8,
+      side: 'buy',
+      tradedOn: '2026-01-05',
+      quantity: '2.00000000',
+      currency: 'USD',
+      price: '100.5000',
+      fxRate: '1300.0000',
+      amountKrw: 261300,
+      feeKrw: 0,
+      taxKrw: 0,
+      memo: '',
+      quantityAfter: '2.00000000',
+      realizedKrw: null,
+    },
+  ];
+  await ready();
+  const panel = await openTrades('Samsung Electronics');
+  fireEvent.click(within(panel).getByRole('button', { name: 'Edit 2026-01-05 Buy 2 × $100.5' }));
+  expect(within(panel).getByLabelText('Unit price (USD)')).toHaveValue('100.5');
+  expect(within(panel).getByLabelText('Exchange rate (KRW per USD)')).toHaveValue('1300');
+  fireEvent.change(within(panel).getByLabelText('Quantity'), { target: { value: '3' } });
+  fireEvent.click(within(panel).getByRole('button', { name: 'Save changes' }));
+  expect(await findLive('status', panel)).toHaveTextContent('2026-01-05 Buy updated');
+  expect(requests.find((request) => request.method === 'PUT')?.body).toMatchObject({
+    quantity: '3',
+    price: '100.5',
+    fxRate: '1300',
+  });
+  // Back to a new trade: the asset's own currency again.
+  expect(within(panel).getByLabelText('Unit price (KRW)')).toBeInTheDocument();
+  expect(within(panel).queryByLabelText('Exchange rate (KRW per USD)')).not.toBeInTheDocument();
+});
+
 test('an asset with trades shows its quantity read-only in the edit form', async () => {
   await ready();
   fireEvent.click(screen.getByRole('button', { name: 'Edit Samsung Electronics' }));

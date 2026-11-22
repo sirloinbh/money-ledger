@@ -39,18 +39,26 @@ export const orderBody = z.object(
     requestKey: z.uuid({ error: 'The order key is not valid' }),
     // What the confirmation showed. The fill still uses the server's latest close and rate; these are only
     // compared with them, so an order never fills at a price the person did not see (#52 review).
+    // The price and rate are compared as numbers (#196): "80000" matches "80000.0000".
     expectedPrice: z
       .string({ error: 'No confirmed quote. Review the order again' })
       .max(30, 'The confirmed quote is not valid')
-      .nullable(),
+      .nullable()
+      .describe(
+        'The close the confirmation showed, as a plain decimal string such as "70600.0000" or "70600". Compared with the stored close as a number.',
+      ),
     expectedPriceDate: z
       .string({ error: 'No confirmed quote. Review the order again' })
       .max(10, 'The confirmed quote is not valid')
-      .nullable(),
+      .nullable()
+      .describe('The trade date of that close, YYYY-MM-DD.'),
     expectedFxRate: z
       .string({ error: 'No confirmed quote. Review the order again' })
       .max(30, 'The confirmed quote is not valid')
-      .nullable(),
+      .nullable()
+      .describe(
+        'The USD rate the confirmation showed, as a plain decimal string such as "1384.5000"; null for a won security. Compared as a number.',
+      ),
   },
   { error: 'The request body must be a JSON object' },
 );
@@ -158,6 +166,27 @@ function problemOf(account: Account, row: QuoteRow, side: Side, quantity: string
     if (cash + amount - fee > maxWon) return 'The account cash limit would be exceeded';
   }
   return null;
+}
+
+const plainDecimal = /^(\d+)(?:\.(\d+))?$/;
+
+/** A plain decimal string without leading zeros in the whole part or trailing zeros in the fraction, or null. */
+function canonicalDecimal(text: string) {
+  const match = plainDecimal.exec(text);
+  if (!match) return null;
+  const whole = match[1].replace(/^0+(?=\d)/, '');
+  const fraction = (match[2] ?? '').replace(/0+$/, '');
+  return fraction ? `${whole}.${fraction}` : whole;
+}
+
+/**
+ * Whether a stored numeric and a value the screen sent name the same number (#196), so `"80000"` matches
+ * `"80000.0000"`. Exact on the digits, never through a JS number. Text that is not a plain decimal never matches.
+ */
+export function sameDecimal(stored: string | null, sent: string | null) {
+  if (stored === null || sent === null) return stored === sent;
+  const canonical = canonicalDecimal(sent);
+  return canonical !== null && canonical === canonicalDecimal(stored);
 }
 
 /** What the account's cash changes by: minus the amount and fee for a buy, plus the amount less fee for a sale. */
@@ -293,6 +322,8 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
   router.post('/', async (req, res) => {
     const accountId = parseId((req.params as { accountId?: string }).accountId, 'mock account');
     const body = orderBody.parse(req.body);
+    // One service date for the whole order, so an order at KST midnight never mixes two days (#196).
+    const day = today();
     const result = await inTransaction(pool, async (client) => {
       // The account row lock puts orders of one account in a line, so a repeated request sees the first one.
       const found = await account(client, accountId, true);
@@ -309,16 +340,17 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
           first.side === body.side &&
           BigInt(first.quantity.split('.')[0]) === BigInt(body.quantity);
         if (!same) throw new HttpError(409, 'A different order was sent with the same order key');
-        return { order: first, cashKrw: found.cash_krw, created: false };
+        // A replay answers with what the first fill left, not the cash after later orders (#196).
+        return { order: first, cashKrw: first.cash_after_krw, created: false };
       }
 
-      const row = await quote(client, found, body.securityId, body.quantity, today());
+      const row = await quote(client, found, body.securityId, body.quantity, day);
       const problem = problemOf(found, row, body.side, body.quantity);
       if (problem !== null) throw new HttpError(409, problem);
       if (
-        row.close !== body.expectedPrice ||
+        !sameDecimal(row.close, body.expectedPrice) ||
         row.trade_date !== body.expectedPriceDate ||
-        row.fx_rate !== body.expectedFxRate
+        !sameDecimal(row.fx_rate, body.expectedFxRate)
       ) {
         throw new HttpError(409, 'The quote changed. Review the order again');
       }
@@ -372,7 +404,7 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
         ],
       );
       // The day's value for the return chart (#54), in the same transaction as the order.
-      await saveSnapshot(client, accountId, today(), today());
+      await saveSnapshot(client, accountId, day, day);
       const order = await client.query<OrderRow>(
         `SELECT ${orderColumns} FROM mock_orders o JOIN securities s ON s.id = o.security_id WHERE o.id = $1`,
         [inserted.rows[0].id],

@@ -26,6 +26,8 @@ type FixedCost = {
   name: string;
   categoryId: number;
   categoryName: string;
+  /** No entries are added while the category is hidden. */
+  categoryHidden: boolean;
   amount: number;
   variable: boolean;
   dayOfMonth: number;
@@ -39,7 +41,10 @@ type FixedCosts = {
   totals: { fixed: number; other: number };
 };
 
-/** The five items the user keeps, as presets for the form. The category is matched by its default name. */
+/**
+ * The five items the user keeps, as presets for the form. The category is matched by its default name; when that
+ * category was renamed or hidden, the form asks the user to choose one.
+ */
 const presets: { name: string; category: string; variable: boolean }[] = [
   { name: 'Rent', category: '주거', variable: false },
   { name: 'Date savings account', category: '여가', variable: false },
@@ -156,7 +161,9 @@ export function FixedCostManager({
     requestAnimationFrame(() => title.current?.focus());
   };
 
-  const shown = data;
+  // Only this month's data: while another month loads, or after its load failed, the old month is not shown under
+  // the new month's name.
+  const shown = data?.month === month ? data : undefined;
   return (
     <section aria-labelledby="fixed-costs-title" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -361,12 +368,19 @@ function FixedCostRow({
             {item.name}
             {item.variable ? <Badge variant="outline">Variable</Badge> : null}
             {item.active ? null : <Badge variant="secondary">Stopped</Badge>}
+            {item.categoryHidden ? <Badge variant="secondary">Category hidden</Badge> : null}
           </p>
           <p className="text-body-sm text-muted-foreground">
             {item.categoryName} · {dayText(item.dayOfMonth)} ·{' '}
             <span className="tabular-nums">{formatWon(item.amount)}</span>
             {item.variable ? ' first estimate' : ''}
           </p>
+          {item.categoryHidden && item.active ? (
+            <p className="text-body-sm text-muted-foreground">
+              No entries are added while {item.categoryName} is hidden. Choose another category or
+              show it again.
+            </p>
+          ) : null}
           <p className="text-body-sm">
             {entry === null ? (
               <span className="text-muted-foreground">No entry this month</span>
@@ -487,6 +501,8 @@ function FixedCostForm({
     startMonth: item?.startMonth ?? month,
   }));
   const [invalid, setInvalid] = useState<keyof Draft | undefined>(undefined);
+  // The preset whose default category is not there (renamed or hidden).
+  const [unmatched, setUnmatched] = useState<string | undefined>(undefined);
   const prefix = item ? `fixed-cost-${item.id}` : 'fixed-cost-new';
   const change = (next: Partial<Draft>) => {
     setInvalid(undefined);
@@ -548,10 +564,12 @@ function FixedCostForm({
                   const category = categories.find(
                     (choice) => choice.name === preset.category && !choice.hidden,
                   );
+                  // No match: clear the category, so an earlier choice is not kept without the user noticing.
+                  setUnmatched(category ? undefined : preset.category);
                   change({
                     name: preset.name,
                     variable: preset.variable,
-                    categoryId: category ? String(category.id) : draft.categoryId,
+                    categoryId: category ? String(category.id) : '',
                   });
                 }}
               >
@@ -559,6 +577,11 @@ function FixedCostForm({
               </Button>
             ))}
           </div>
+          {unmatched ? (
+            <p id={`${prefix}-preset-hint`} className="text-caption text-muted-foreground">
+              There is no category named {unmatched}. Choose a category below.
+            </p>
+          ) : null}
         </div>
       )}
       <div className="grid gap-3 sm:grid-cols-2">
@@ -581,8 +604,15 @@ function FixedCostForm({
             className={selectClass}
             value={draft.categoryId}
             aria-invalid={invalid === 'categoryId' || undefined}
-            aria-describedby={described('categoryId')}
-            onChange={(event) => change({ categoryId: event.target.value })}
+            aria-describedby={
+              [unmatched ? `${prefix}-preset-hint` : '', described('categoryId') ?? '']
+                .join(' ')
+                .trim() || undefined
+            }
+            onChange={(event) => {
+              setUnmatched(undefined);
+              change({ categoryId: event.target.value });
+            }}
           >
             <option value="">Choose</option>
             {choices.map((category) => (

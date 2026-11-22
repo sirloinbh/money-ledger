@@ -10,6 +10,9 @@ const url = process.env.TEST_DATABASE_URL;
 type Item = {
   id: number;
   name: string;
+  categoryId: number;
+  categoryName: string;
+  categoryHidden: boolean;
   amount: number;
   variable: boolean;
   dayOfMonth: number;
@@ -229,6 +232,118 @@ test('fixed costs against the real database', { skip: !url }, async (t) => {
     assert.deepEqual(totals, { fixed: 500_000, other: 15_000 });
     assert.equal(fixedCosts[0].entry!.date, '2026-11-01');
     assert.deepEqual((await list('2026-10')).totals, { fixed: 0, other: 0 });
+  });
+
+  await t.test('create answers the same item shape as the list', async () => {
+    await reset();
+    const response = await call('/api/ledger/fixed-costs', {
+      method: 'POST',
+      body: {
+        name: 'Rent',
+        categoryId: ids['expense/주거'],
+        amount: 500_000,
+        variable: false,
+        dayOfMonth: 25,
+        startMonth: '2026-11',
+      },
+    });
+    assert.equal(response.status, 201, JSON.stringify(response.data));
+    const created = response.data.fixedCost as Item;
+    assert.deepEqual(created, (await list('2026-11')).fixedCosts[0]);
+    assert.equal(created.categoryName, '주거');
+    assert.equal(created.categoryHidden, false);
+    assert.equal(created.entry, null);
+  });
+
+  await t.test('a hidden category is refused and gets no new entries', async () => {
+    await reset();
+    const hide = (name: string, hidden: boolean) =>
+      pool.query('UPDATE ledger_categories SET hidden = $2 WHERE id = $1', [
+        ids[`expense/${name}`],
+        hidden,
+      ]);
+    await hide('통신', true);
+    const refused = await call('/api/ledger/fixed-costs', {
+      method: 'POST',
+      body: {
+        name: 'Phone',
+        categoryId: ids['expense/통신'],
+        amount: 60_000,
+        variable: false,
+        dayOfMonth: 1,
+        startMonth: '2026-11',
+      },
+    });
+    assert.deepEqual(
+      [refused.status, refused.data.error],
+      [422, 'Choose a category that is not hidden'],
+    );
+
+    const rent = await create({
+      name: 'Rent',
+      amount: 500_000,
+      dayOfMonth: 1,
+      startMonth: '2026-10',
+    });
+    const moved = await call(`/api/ledger/fixed-costs/${rent}`, {
+      method: 'PATCH',
+      body: { categoryId: ids['expense/통신'] },
+    });
+    assert.deepEqual(
+      [moved.status, moved.data.error],
+      [422, 'Choose a category that is not hidden'],
+    );
+
+    // The item's own category is hidden after it was chosen: it keeps it, other changes still save, and no entry
+    // goes into the hidden category.
+    await hide('주거', true);
+    const renamed = await call(`/api/ledger/fixed-costs/${rent}`, {
+      method: 'PATCH',
+      body: { name: 'Monthly rent', categoryId: ids['expense/주거'] },
+    });
+    assert.equal(renamed.status, 200, JSON.stringify(renamed.data));
+    assert.equal((renamed.data.fixedCost as Item).categoryHidden, true);
+    assert.equal(await generate('2026-11-15'), 0);
+    assert.deepEqual(await entries(), []);
+    assert.equal((await list('2026-11')).fixedCosts[0].categoryHidden, true);
+
+    // Shown again: the months it missed are added.
+    await hide('주거', false);
+    assert.equal(await generate('2026-11-15'), 2);
+    assert.deepEqual(await entries(), [
+      '2026-10-01 Monthly rent 500000',
+      '2026-11-01 Monthly rent 500000',
+    ]);
+  });
+
+  await t.test('the estimate skips a confirmed entry that was changed to income', async () => {
+    await reset();
+    const gas = await create({
+      name: 'Gas',
+      amount: 30_000,
+      variable: true,
+      dayOfMonth: 5,
+      startMonth: '2026-09',
+    });
+    await generate('2026-10-15');
+    for (const [month, amount] of [
+      ['2026-09', 41_000],
+      ['2026-10', 45_000],
+    ] as const) {
+      const confirm = await call(`/api/ledger/fixed-costs/${gas}/months/${month}`, {
+        method: 'PUT',
+        body: { amount },
+      });
+      assert.equal(confirm.status, 200, JSON.stringify(confirm.data));
+    }
+    // October's entry is turned into income: November starts from September's amount.
+    const october = (await list('2026-10')).fixedCosts[0].entry!;
+    await pool.query(`UPDATE ledger_entries SET kind = 'income', category_id = $2 WHERE id = $1`, [
+      october.id,
+      ids['income/급여'],
+    ]);
+    await generate('2026-11-15');
+    assert.equal((await list('2026-11')).fixedCosts[0].entry!.amount, 41_000);
   });
 
   await t.test('input is checked: category kind, day, name, and an empty change', async () => {

@@ -204,6 +204,10 @@ export function AssetTrades({
     );
   }, [prefillFx, editing]);
 
+  // #191 An edited trade keeps its own currency, so its rate is never dropped; it equals the asset's (the
+  // database refuses a trade in another currency, and an asset currency change while it has trades).
+  const formCurrency = editing?.currency ?? currency;
+
   const change = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
   const fieldProps = (field: Field) => ({
     'aria-invalid': invalid === field || undefined,
@@ -244,7 +248,7 @@ export function AssetTrades({
       showError('Saving in progress. Try again in a moment');
       return;
     }
-    const result = toBody(draft, currency);
+    const result = toBody(draft, formCurrency);
     if ('field' in result) {
       setInvalid(result.field);
       showError(result.message);
@@ -296,7 +300,7 @@ export function AssetTrades({
     await refresh(`${trade.tradedOn} ${sideLabels[trade.side]} record deleted`);
   };
 
-  const unit = currency === 'USD' ? 'USD' : 'KRW';
+  const unit = formCurrency === 'USD' ? 'USD' : 'KRW';
   return (
     <section
       aria-labelledby={`${prefix}-title`}
@@ -390,15 +394,15 @@ export function AssetTrades({
           <Label htmlFor={`${prefix}-price`}>Unit price ({unit})</Label>
           <Input
             id={`${prefix}-price`}
-            inputMode={currency === 'USD' ? 'decimal' : 'numeric'}
+            inputMode={formCurrency === 'USD' ? 'decimal' : 'numeric'}
             autoComplete="off"
-            placeholder={currency === 'USD' ? 'e.g. 123.45' : 'e.g. 71000'}
+            placeholder={formCurrency === 'USD' ? 'e.g. 123.45' : 'e.g. 71000'}
             value={draft.price}
             {...fieldProps('price')}
             onChange={(event) => change({ price: event.target.value })}
           />
         </div>
-        {currency === 'USD' ? (
+        {formCurrency === 'USD' ? (
           <div className="flex flex-col gap-1">
             <Label htmlFor={`${prefix}-fx`}>Exchange rate (KRW per USD)</Label>
             <Input

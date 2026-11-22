@@ -51,6 +51,8 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
       '013_asset_trades.sql', // re-running is safe
       '009_prices.sql',
       '016_asset_valuation.sql',
+      '023_trade_currency_fk.sql',
+      '023_trade_currency_fk.sql', // re-running is safe
     ]) {
       await runMigration(pool, file);
     }
@@ -447,11 +449,42 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
       });
       await assert.rejects(insert("'buy', '2026-08-01', 1, 'KRW', 1, 1300, 1"), { code: '23514' });
       await assert.rejects(insert("'buy', '2026-08-01', 1, 'USD', 1, NULL, 1"), { code: '23514' });
+      // #191 A trade in another currency than its asset's, and an asset currency change under its trades.
+      await assert.rejects(insert("'buy', '2026-08-01', 1, 'USD', 1, 1300, 1300"), {
+        code: '23503',
+      });
+      await assert.rejects(
+        pool.query("UPDATE portfolio_assets SET currency = 'USD' WHERE id = $1", [id]),
+        { code: '23503' },
+      );
       assert.equal((await call(`${assets}/${id}`, { method: 'DELETE' })).status, 204);
       const left = await pool.query<{ n: number }>(
         'SELECT count(*)::int AS n FROM portfolio_trades',
       );
       assert.equal(left.rows[0].n, 0);
+    });
+  });
+
+  await t.test('migration 023 reports existing trades in another currency (#191)', async () => {
+    await reset();
+    await withApi(pool, async (call) => {
+      const id = await create(call, samsung);
+      await trade(call, id, { side: 'buy', tradedOn: '2026-08-01', quantity: '1', price: '1000' });
+      // A row written before the key existed, as an older database could hold.
+      await pool.query(
+        'ALTER TABLE portfolio_trades DROP CONSTRAINT portfolio_trades_asset_currency_fkey',
+      );
+      await pool.query("UPDATE portfolio_assets SET currency = 'USD' WHERE id = $1", [id]);
+      await assert.rejects(runMigration(pool, '023_trade_currency_fk.sql'), (error: Error) => {
+        assert.match(error.message, /Trades whose currency differs from their asset: trade \d+/);
+        return true;
+      });
+      await pool.query("UPDATE portfolio_assets SET currency = 'KRW' WHERE id = $1", [id]);
+      await runMigration(pool, '023_trade_currency_fk.sql');
+      await assert.rejects(
+        pool.query("UPDATE portfolio_assets SET currency = 'USD' WHERE id = $1", [id]),
+        { code: '23503' },
+      );
     });
   });
 

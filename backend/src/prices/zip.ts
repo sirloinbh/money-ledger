@@ -30,8 +30,14 @@ export function firstZipEntry(archive: Buffer): Buffer {
     throw new Error('Could not read the ZIP file header');
   }
   const start = local + 30 + archive.readUInt16LE(local + 26) + archive.readUInt16LE(local + 28);
+  // #193 A cut-off download must fail, not return the part that arrived as the whole file.
+  if (start + compressedSize > archive.length) throw new Error('The ZIP file is cut off');
   const data = archive.subarray(start, start + compressedSize);
-  if (method === 0) return Buffer.from(data);
-  if (method === 8) return inflateRawSync(data, { maxOutputLength: maxBytes });
-  throw new Error('Unsupported ZIP compression method');
+  let content: Buffer;
+  if (method === 0) content = Buffer.from(data);
+  else if (method === 8) content = inflateRawSync(data, { maxOutputLength: maxBytes });
+  else throw new Error('Unsupported ZIP compression method');
+  if (content.length !== size)
+    throw new Error('A file inside the ZIP is not the size it should be');
+  return content;
 }

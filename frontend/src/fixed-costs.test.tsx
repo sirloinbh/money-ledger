@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, useNavigate } from 'react-router';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { findLive } from './test/live';
@@ -9,6 +9,7 @@ type Item = {
   name: string;
   categoryId: number;
   categoryName: string;
+  categoryHidden: boolean;
   amount: number;
   variable: boolean;
   dayOfMonth: number;
@@ -20,6 +21,10 @@ type Item = {
 let items: Item[];
 let added: number;
 let requests: { method: string; url: string; body: unknown }[];
+let categories: { id: number; kind: string; name: string; hidden: boolean }[];
+/** Months whose list load fails; another month's load waits while `held` is set. */
+let failing: Set<string>;
+let held: Promise<void> | undefined;
 
 const json = (body: unknown, status = 200) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }));
@@ -29,6 +34,7 @@ const rent: Item = {
   name: 'Rent',
   categoryId: 3,
   categoryName: '주거',
+  categoryHidden: false,
   amount: 500_000,
   variable: false,
   dayOfMonth: 1,
@@ -41,6 +47,7 @@ const power: Item = {
   name: 'Electricity',
   categoryId: 3,
   categoryName: '주거',
+  categoryHidden: false,
   amount: 40_000,
   variable: true,
   dayOfMonth: 31,
@@ -58,24 +65,24 @@ function fakeApi() {
       const body: unknown = init.body ? JSON.parse(init.body as string) : undefined;
       requests.push({ method, url, body });
       if (url === '/api/ledger/categories') {
-        return json({
-          categories: [
-            { id: 3, kind: 'expense', name: '주거', hidden: false },
-            { id: 4, kind: 'expense', name: '통신', hidden: false },
-            { id: 9, kind: 'income', name: '급여', hidden: false },
-          ],
-        });
+        return json({ categories });
       }
       if (url.endsWith('/generate')) return json({ added });
       if (method === 'GET') {
+        const month = new URL(url, 'http://localhost').searchParams.get('month')!;
         const fixed = items.reduce((sum, item) => sum + (item.entry?.amount ?? 0), 0);
-        return json({ month: '2026-11', fixedCosts: items, totals: { fixed, other: 123_000 } });
+        const answer = () =>
+          failing.has(month)
+            ? json({ error: 'down' }, 500)
+            : json({ month, fixedCosts: items, totals: { fixed, other: 123_000 } });
+        return month !== '2026-11' && held ? held.then(answer) : answer();
       }
       if (method === 'POST') {
         const created = {
           ...(body as Item),
           id: 3,
           categoryName: '통신',
+          categoryHidden: false,
           active: true,
           entry: null,
         };
@@ -102,14 +109,32 @@ beforeEach(async () => {
   items = [rent, power];
   added = 0;
   requests = [];
+  categories = [
+    { id: 3, kind: 'expense', name: '주거', hidden: false },
+    { id: 4, kind: 'expense', name: '통신', hidden: false },
+    { id: 9, kind: 'income', name: '급여', hidden: false },
+  ];
+  failing = new Set();
+  held = undefined;
   fakeApi();
   vi.resetModules();
   ({ FixedCostManager } = await import('./fixed-costs'));
 });
 
+/** Moves the page to another month, like the month picker does. */
+function MonthLink({ month }: { month: string }) {
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => void navigate(`/ledger?month=${month}`)}>
+      Go to {month}
+    </button>
+  );
+}
+
 const show = (onChange?: () => void) =>
   render(
     <MemoryRouter initialEntries={['/ledger?month=2026-11']}>
+      <MonthLink month="2026-10" />
       <FixedCostManager onChange={onChange} />
     </MemoryRouter>,
   );
@@ -266,5 +291,57 @@ test('closing a form puts the focus on the section title', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   await vi.waitFor(() =>
     expect(screen.getByRole('heading', { level: 2, name: 'Fixed costs' })).toHaveFocus(),
+  );
+});
+
+test('another month never shows the previous month, while it loads or after it fails', async () => {
+  let release = () => {};
+  held = new Promise((resolve) => {
+    release = resolve;
+  });
+  failing.add('2026-10');
+  show();
+  await list();
+  fireEvent.click(screen.getByRole('button', { name: 'Go to 2026-10' }));
+  // Loading October: November's items are not shown under October's name.
+  expect(await screen.findByText('Loading fixed costs')).toBeInTheDocument();
+  expect(screen.queryByRole('list', { name: 'Fixed costs' })).not.toBeInTheDocument();
+  release();
+  expect(await screen.findByText('Could not load the fixed costs.')).toBeInTheDocument();
+  expect(screen.queryByRole('list', { name: 'Fixed costs' })).not.toBeInTheDocument();
+  expect(screen.queryByText(/Fixed costs ₩/)).not.toBeInTheDocument();
+});
+
+test('a preset whose category was renamed asks for a category', async () => {
+  categories = categories.map((category) =>
+    category.id === 3 ? { ...category, name: 'Home' } : category,
+  );
+  show();
+  await list();
+  fireEvent.click(screen.getByRole('button', { name: 'Add fixed cost' }));
+  const form = screen.getByRole('form', { name: 'New fixed cost' });
+  // Phone matches 통신 first, then Rent finds no 주거: the earlier choice is cleared, not kept.
+  fireEvent.click(within(form).getByRole('button', { name: 'Phone' }));
+  expect(within(form).getByLabelText('Category')).toHaveValue('4');
+  fireEvent.click(within(form).getByRole('button', { name: 'Rent' }));
+  const category = within(form).getByLabelText('Category');
+  expect(category).toHaveValue('');
+  expect(
+    within(form).getByText('There is no category named 주거. Choose a category below.'),
+  ).toBeInTheDocument();
+  expect(category).toHaveAccessibleDescription(
+    'There is no category named 주거. Choose a category below.',
+  );
+  fireEvent.change(category, { target: { value: '3' } });
+  expect(within(form).queryByText(/There is no category named/)).not.toBeInTheDocument();
+});
+
+test('an item in a hidden category says no entries are added', async () => {
+  items = [{ ...rent, categoryHidden: true, entry: null }];
+  show();
+  const [item] = within(await list()).getAllByRole('listitem');
+  expect(item).toHaveTextContent('Category hidden');
+  expect(item).toHaveTextContent(
+    'No entries are added while 주거 is hidden. Choose another category or show it again.',
   );
 });
