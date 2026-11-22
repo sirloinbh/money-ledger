@@ -57,7 +57,7 @@ type Depreciation = {
   usefulLifeMonths: number;
   salvageValueKrw: number;
 };
-type Asset = {
+export type Asset = {
   id: number;
   name: string;
   type: AssetType;
@@ -100,6 +100,8 @@ type Totals = {
   netKrw: number | null;
   uncounted: number;
 };
+/** GET /api/portfolio/assets */
+export type AssetsAnswer = { assets: Asset[]; totals: Totals; allocation: Allocation };
 type Draft = {
   name: string;
   type: AssetType;
@@ -502,7 +504,7 @@ export function AssetManager({ afterAllocation }: { afterAllocation?: ReactNode 
   const latestLoad = useRef(0);
   const load = useCallback(async () => {
     const request = ++latestLoad.current;
-    let data: { assets: Asset[]; totals: Totals; allocation: Allocation };
+    let data: AssetsAnswer;
     try {
       data = await requestJson(assetsPath);
     } catch (cause) {

@@ -24,7 +24,7 @@ import { formatMonthDay } from './quote-format';
 
 type Side = 'buy' | 'sell';
 type Currency = 'KRW' | 'USD';
-type Trade = {
+export type Trade = {
   id: number;
   side: Side;
   tradedOn: string;
@@ -45,6 +45,8 @@ type Position = {
   costKrw: number;
   realizedKrw: number;
 };
+/** GET /api/portfolio/assets/:id/trades */
+export type TradesAnswer = { trades: Trade[]; position: Position };
 type Draft = {
   side: Side;
   tradedOn: string;
@@ -174,7 +176,7 @@ export function AssetTrades({
   const noticeId = `${prefix}-notice`;
 
   const load = useCallback(async () => {
-    const data = await requestJson<{ trades: Trade[]; position: Position }>(path);
+    const data = await requestJson<TradesAnswer>(path);
     setTrades(data.trades);
     setPosition(data.position);
   }, [path]);

@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import type * as Dashboard from './dashboard';
+import { unexpectedRequest } from './test/unexpected';
 
 type Answer = () => Promise<Response>;
 let answers: Record<string, Answer>;
@@ -50,9 +51,12 @@ beforeEach(async () => {
   vi.stubGlobal(
     'fetch',
     vi.fn((url: string, init: RequestInit = {}) => {
-      const call = `${init.method ?? 'GET'} ${url}`;
+      const method = init.method ?? 'GET';
+      const call = `${method} ${url}`;
       calls.push(call);
-      return answers[call]();
+      // A request the test does not list fails the test (#183), not the card.
+      const answer = answers[call];
+      return answer ? answer() : unexpectedRequest(method, url);
     }),
   );
   vi.resetModules();

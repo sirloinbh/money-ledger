@@ -4,6 +4,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 import { AssetManager } from './assets';
 import { serviceToday } from './format';
 import { findLive, getLive } from './test/live';
+import { unexpectedRequest } from './test/unexpected';
 
 // #47 Current prices on the asset screen against a fake server. The server works out every value; the fake
 // returns fixed ones so the screen's wording (price basis, delays, rate, gain) and its requests can be checked.
@@ -147,7 +148,8 @@ beforeEach(() => {
       const method = init.method ?? 'GET';
       const body = init.body ? (JSON.parse(init.body as string) as object) : undefined;
       requests.push({ method, url, body });
-      if (url.startsWith('/api/prices/securities')) {
+      const path = url.split('?')[0];
+      if (method === 'GET' && path === '/api/prices/securities') {
         return json({
           securities: [
             {
@@ -165,18 +167,23 @@ beforeEach(() => {
           ],
         });
       }
-      if (url.includes('/trades')) {
+      if (method === 'GET' && /^\/api\/portfolio\/assets\/\d+\/trades$/.test(path)) {
         return json({
           trades: [],
           position: { quantity: null, averagePrice: null, costKrw: 0, realizedKrw: 0 },
         });
       }
-      if (method === 'GET') {
+      if (method === 'GET' && path === '/api/portfolio/assets') {
         return json({
           assets: stored,
           totals: { assetsKrw: 5_823_810, debtsKrw: 0, netKrw: 5_823_810, uncounted: 2 },
         });
       }
+      const saving =
+        (method === 'POST' && path === '/api/portfolio/assets') ||
+        (method === 'PUT' && /^\/api\/portfolio\/assets\/\d+$/.test(path));
+      // Any other request fails the test (#183).
+      if (!saving) return unexpectedRequest(method, url);
       const saved = { ...base, ...body, id: method === 'POST' ? 99 : Number(url.split('/').pop()) };
       return json({ asset: saved }, method === 'POST' ? 201 : 200);
     }),
@@ -187,8 +194,14 @@ const ready = async () => {
   render(<AssetManager />);
   await screen.findByRole('heading', { name: 'Stocks (incl. ETFs and funds)' });
 };
-const row = (name: string) =>
-  screen.getByText(name, { selector: 'span.font-medium' }).closest('li')!;
+// The asset's row: the one list item with its own "Edit <name>" button (found by role, not by styling, #183).
+const row = (name: string) => {
+  const rows = screen
+    .getAllByRole('listitem')
+    .filter((item) => within(item).queryByRole('button', { name: `Edit ${name}` }));
+  expect(rows).toHaveLength(1);
+  return rows[0];
+};
 
 test('a value shows its price basis, delays, rate, gain and why it is left out', async () => {
   await ready();
