@@ -233,11 +233,11 @@ function depreciationBody(
       message: 'Enter the purchase price as a whole number of won, up to ₩1 quadrillion',
     };
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.purchasedOn)) {
+  if (draft.purchasedOn.trim() === '') {
     return { field: 'purchasedOn', message: 'Enter the purchase date' };
   }
-  // Same range as the server (and the date input's min/max).
-  if (draft.purchasedOn < minDate || draft.purchasedOn > maxDate) {
+  // #189 A real calendar date in the server's range (and the date input's min/max): 2026-02-30 is refused.
+  if (!realDate(draft.purchasedOn)) {
     return { field: 'purchasedOn', message: 'Enter a purchase date between 1900 and 2100' };
   }
   const lifeText = draft.lifeMonths.trim();
@@ -497,10 +497,20 @@ export function AssetManager({ afterAllocation }: { afterAllocation?: ReactNode 
   const notice = useNotice();
   const { error: showError, status: showStatus } = notice;
 
+  // #189 Loads overlap (a save's reload, a voucher use's reload): only the newest request's answer is shown,
+  // so an older response that arrives last cannot put stale rows back.
+  const latestLoad = useRef(0);
   const load = useCallback(async () => {
-    const data = await requestJson<{ assets: Asset[]; totals: Totals; allocation: Allocation }>(
-      assetsPath,
-    );
+    const request = ++latestLoad.current;
+    let data: { assets: Asset[]; totals: Totals; allocation: Allocation };
+    try {
+      data = await requestJson(assetsPath);
+    } catch (cause) {
+      // A superseded load's failure says nothing about the list shown now.
+      if (request !== latestLoad.current) return;
+      throw cause;
+    }
+    if (request !== latestLoad.current) return;
     setAssets(data.assets);
     setTotals(data.totals);
     setAllocation(data.allocation);
@@ -637,15 +647,23 @@ export function AssetManager({ afterAllocation }: { afterAllocation?: ReactNode 
       showError('Saving in progress. Try again in a moment');
       throw new Error('saving'); // keeps the dialog open
     }
+    // #189 A delete holds the same guard as a save, so the form cannot submit while it runs.
+    saving.current = true;
+    setBusy(true);
     try {
-      await requestJson(`${assetsPath}/${asset.id}`, { method: 'DELETE' });
-    } catch (cause) {
-      showError(cause);
-      throw cause;
+      try {
+        await requestJson(`${assetsPath}/${asset.id}`, { method: 'DELETE' });
+      } catch (cause) {
+        showError(cause);
+        throw cause;
+      }
+      afterDelete.current = listTitle.current;
+      if (editing?.id === asset.id) stopEdit();
+      await reload(`${asset.name} deleted`);
+    } finally {
+      saving.current = false;
+      setBusy(false);
     }
-    afterDelete.current = listTitle.current;
-    if (editing?.id === asset.id) stopEdit();
-    await reload(`${asset.name} deleted`);
   };
 
   return (
