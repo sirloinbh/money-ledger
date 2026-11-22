@@ -37,13 +37,15 @@ Browser (Vite 5292 + API 3192 on a local `money_dev` DB, Playwright):
 - 390×844: added an entry (status "Expense ₩4,500 recorded", entry listed); typed "zzz" in Search without applying and pressed the entry filter's "Previous month": address became `from=2026-10-01&to=2026-10-31&kind=expense` with no `q`, and the form shows the applied filters. Two quick Hide presses in Categories: "Another change is still saving. Try again in a moment", then "식비 category hidden". No horizontal overflow (scroll width 375).
 - 1440×900: the same Categories double press shows the same status, then the hide result; no overflow.
 
-Commands: see the PR body for `npm run check` and `npm run knip` results.
+Commands (fix commit):
+
+- `npm run check` with `TEST_DATABASE_URL` on the agent2 test DB: pass. Backend `node --test`: 411 pass, 0 fail, 0 skipped (DB integration tests ran). Frontend Vitest: 70 files, 462 passed, 3 skipped (the managed `skipIf` tests for a dark-only theme or app count, unrelated). Build passes.
+- `npm run knip`: pass (3 configuration hints, no unused files or exports).
 
 ## Limits
 
 - If a parent bumps a version only later (not in the same batch as `onChange`), the section loads the list twice. That is harmless and was already the case before.
 
-### Commands (fix commit)
+## Review
 
-- `npm run check` with `TEST_DATABASE_URL` on the agent2 test DB: pass. Backend `node --test`: 411 pass, 0 fail, 0 skipped (DB integration tests ran). Frontend Vitest: 70 files, 462 passed, 3 skipped (the managed `skipIf` tests for a dark-only theme or app count, unrelated). Build passes.
-- `npm run knip`: pass (3 configuration hints, no unused files or exports).
+- Round 1: approve with one nit. The change record had its command results under "Limits"; moved them to "Verification". No code change.
