@@ -31,6 +31,15 @@ export function formatDecimal(text: string) {
   return trimmed ? `${grouped}.${trimmed}` : grouped;
 }
 
+/** "1 row", "2 rows", "1,234 entries": a count and its noun in the right number (#203). */
+export function countOf(count: number, one: string, many = `${one}s`) {
+  return `${count.toLocaleString('en-US')} ${count === 1 ? one : many}`;
+}
+
+/** "1 share", "1.5 shares", "1,200 shares": a decimal quantity string from the API with its noun (#203). */
+export const sharesOf = (quantity: string) =>
+  `${formatDecimal(quantity)} ${/^0*1(\.0*)?$/.test(quantity) ? 'share' : 'shares'}`;
+
 /** "1234.5000" → "$1,234.5" */
 export function formatUsd(text: string) {
   return `$${formatDecimal(text)}`;

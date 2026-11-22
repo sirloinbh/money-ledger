@@ -220,7 +220,7 @@ test('on plain HTTP (no crypto.randomUUID) the order key still comes from crypto
   vi.stubGlobal('crypto', { getRandomValues: getRandomValues.bind(crypto) });
   render(<MockOrder securityId={1} title="Samsung Electronics" onOrdered={() => undefined} />);
   orderFor('1');
-  const dialog = await screen.findByRole('dialog', { name: 'Buy 1 shares of Samsung Electronics' });
+  const dialog = await screen.findByRole('dialog', { name: 'Buy 1 share of Samsung Electronics' });
   fireEvent.click(within(dialog).getByRole('button', { name: 'Buy' }));
   await vi.waitFor(() => expect(posts()).toHaveLength(1));
   expect(posts()[0].body!.requestKey).toMatch(

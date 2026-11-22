@@ -95,13 +95,13 @@ test('a statement is mapped, checked, and imported with duplicates skipped', asy
       memo: '',
     },
   ]);
-  expect(screen.getByText(/1 rows look like entries you already have/)).toHaveTextContent('row 3');
+  expect(screen.getByText(/1 row looks like an entry you already have/)).toHaveTextContent('row 3');
   expect(screen.getByRole('checkbox', { name: 'Skip these rows' })).toBeChecked();
 
   answers[importPath] = () => json({ imported: 1, skipped: 1 });
-  fireEvent.click(screen.getByRole('button', { name: 'Import 1 entries' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Import 1 entry' }));
   expect(await findLive('status')).toHaveTextContent(
-    'Imported 1 entries and skipped 1 likely duplicates',
+    'Imported 1 entry and skipped 1 likely duplicate',
   );
   expect(sent[1].body.skipDuplicates).toBe(true);
   expect(onImported).toHaveBeenCalledOnce();
@@ -166,7 +166,7 @@ test('a file that is not UTF-8, empty, or too long is refused before sending', a
   await refuse('date,amount\n', 'The file has no rows under its header');
   await refuse(
     `date,amount\n${'2026-11-01,1\n'.repeat(2001)}`,
-    'The file has 2001 rows. Import at most 2000',
+    'The file has 2,001 rows. Import at most 2000',
   );
   expect(screen.queryByRole('group')).not.toBeInTheDocument();
   expect(sent).toHaveLength(0);
@@ -243,7 +243,7 @@ test('a second file after an import starts from the default choices (#200)', asy
   await checked({ rows: 1, valid: 1, problems: [], duplicates: [2] });
   fireEvent.click(screen.getByRole('checkbox', { name: 'Skip these rows' }));
   answers[importPath] = () => json({ imported: 1, skipped: 0 });
-  fireEvent.click(screen.getByRole('button', { name: 'Import 1 entries' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Import 1 entry' }));
   await findLive('status');
 
   await choose('date,amount\n2026-11-02,2\n', 'second.csv');
@@ -279,4 +279,27 @@ test('an import that finishes after a column change still clears the imported fi
   answer(new Response(JSON.stringify({ imported: 2, skipped: 0 })));
   expect(await findLive('status')).toHaveTextContent('Imported 2 entries');
   expect(screen.queryByRole('group')).not.toBeInTheDocument();
+});
+
+test('counts read "1 row", "2 rows" and "1 entry" (#203)', async () => {
+  show();
+  await choose('date,amount\n2026-11-01,1\n', 'one.csv');
+  expect(screen.getByRole('group', { name: 'Columns of one.csv (1 row)' })).toBeInTheDocument();
+  const heading = await checked({ rows: 1, valid: 1, problems: [], duplicates: [2] });
+  expect(heading).toHaveTextContent('The 1 row can be imported');
+  expect(screen.getByText(/^1 row looks like an entry you already have/)).toHaveTextContent(
+    'row 2.',
+  );
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Skip these rows' }));
+  expect(screen.getByRole('button', { name: 'Import 1 entry' })).toBeInTheDocument();
+
+  await choose(statement, 'two.csv');
+  expect(screen.getByRole('group', { name: 'Columns of two.csv (2 rows)' })).toBeInTheDocument();
+  const two = await checked({
+    rows: 2,
+    valid: 1,
+    problems: [{ line: 3, message: 'Bad' }],
+    duplicates: [],
+  });
+  expect(two).toHaveTextContent('1 of 2 rows cannot be imported');
 });

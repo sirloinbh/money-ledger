@@ -17,6 +17,7 @@ import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
 import {
+  countOf,
   formatDecimal,
   formatUsd,
   formatWon,
@@ -27,7 +28,7 @@ import {
 import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 import { PrepaidUsages } from './prepaid-usages';
-import { formatMonthDay, formatPrice, securityText } from './quote-format';
+import { formatMonthDay, formatPrice, quoteBasis, securityText } from './quote-format';
 import { type LinkedSecurity, SecurityPicker } from './security-picker';
 
 // #45 Held assets and debts. Won values are numbers, quantities and USD values decimal strings (#35 rules).
@@ -427,7 +428,7 @@ function valuationLines(asset: Asset) {
   if (price) {
     lines.push(
       price.source === 'close'
-        ? `${formatPrice(price.price, price.currency)} · ${price.stale ? 'Delayed · ' : ''}${formatMonthDay(price.date)} close`
+        ? `${formatPrice(price.price, price.currency)} · ${quoteBasis({ tradeDate: price.date, stale: price.stale })}`
         : `${formatPrice(price.price, price.currency)} · Entered by hand · ${formatMonthDay(price.date)}`,
     );
   }
@@ -465,7 +466,7 @@ function depreciationText(depreciation: Depreciation) {
     depreciation.salvageValueKrw > 0
       ? ` · salvage value ${formatWon(depreciation.salvageValueKrw)}`
       : '';
-  return `Purchase price ${formatWon(depreciation.purchasePriceKrw)} · purchased ${depreciation.purchasedOn} · useful life ${depreciation.usefulLifeMonths} months${salvage}`;
+  return `Purchase price ${formatWon(depreciation.purchasePriceKrw)} · purchased ${depreciation.purchasedOn} · useful life ${countOf(depreciation.usefulLifeMonths, 'month')}${salvage}`;
 }
 
 /** "Voucher · loaded ₩300,000 · used ₩50,000 · expires 2026-12-31" or "Pass · paid … · 2026-01-01~2026-03-31". */
@@ -602,12 +603,13 @@ export function AssetManager({ afterAllocation }: { afterAllocation?: ReactNode 
     setDraft(emptyDraft());
   };
 
+  // The change is saved even when the reload fails, so this is a note, not an error (#203).
   const reload = async (done: string) => {
     try {
       await load();
       showStatus(done);
     } catch {
-      showError(`${done}. Could not reload the list`);
+      showStatus(`${done}. The list could not be reloaded; reload the page to see it`);
     }
   };
 
@@ -1090,7 +1092,7 @@ function Summary({ totals }: { totals: Totals }) {
       <p className="text-caption text-muted-foreground">
         Liabilities are not added to the asset total; they are only subtracted from net worth.
         {totals.uncounted > 0
-          ? ` ${totals.uncounted} without a quote, exchange rate, or valuation left out of the totals.`
+          ? ` ${countOf(totals.uncounted, 'item')} without a quote, exchange rate, or valuation ${totals.uncounted === 1 ? 'is' : 'are'} left out of the totals.`
           : ''}
       </p>
     </section>

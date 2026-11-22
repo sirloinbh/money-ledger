@@ -187,3 +187,15 @@ test('while a new filter loads, the old list is marked busy and cannot be contin
   expect(screen.getByRole('list')).not.toHaveAttribute('aria-busy');
   expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
 });
+
+test('one share is "1 share", not "1 shares" (#203)', async () => {
+  answer = () => ({
+    orders: [{ ...order(4), quantity: '1.00000000' }],
+    hasMore: false,
+    securities,
+  });
+  render(<MockHistory accountId={7} refreshKey={0} />);
+  const list = await screen.findByRole('list', { name: 'Trade history' });
+  expect(within(list).getByRole('listitem')).toHaveTextContent('BuySamsung Electronics 1 share');
+  expect(within(list).getByRole('listitem')).not.toHaveTextContent('1 shares');
+});

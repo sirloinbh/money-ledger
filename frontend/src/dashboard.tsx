@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './com
 import { formatWon, serviceToday, signedPercent } from './format';
 import type { Health } from './health';
 import { requestJson } from './lib/api';
-import { netWorthPath, saveTodayOnce, type Snapshot } from './net-worth';
+import { dayLabel, netWorthPath, saveTodayOnce, type Snapshot } from './net-worth';
 import { Page } from './page';
 import { makeReportsOnce, periodLabel, type ReportItem, reportsPath } from './reports-api';
 import { monthLabel } from './trend-series';
@@ -232,7 +232,7 @@ function NetWorthCard() {
     <SummaryCard
       id="dashboard-net-worth"
       title="Net worth"
-      description={latest ? `Saved on ${latest.date}` : 'Real assets minus liabilities'}
+      description={latest ? `Saved on ${dayLabel(latest.date)}` : 'Real assets minus liabilities'}
       to="/portfolio"
       linkText="Open the portfolio"
       failed={failed}

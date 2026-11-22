@@ -5,7 +5,7 @@ import { ConfirmDialog } from './components/ui/confirm-dialog';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
-import { formatDecimal, formatWon } from './format';
+import { formatDecimal, formatWon, sharesOf } from './format';
 import { RequestError, requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 import { formatMonthDay, formatPrice } from './quote-format';
@@ -181,7 +181,7 @@ export function MockOrder({
       setPreview(undefined);
       setQuantity('');
       showStatus(
-        `${preview.side === 'buy' ? 'Bought' : 'Sold'} ${formatDecimal(preview.quantity)} shares of ${title} at the ${formatMonthDay(placed.order.priceDate)} close. Cash ${formatWon(placed.cashKrw)}`,
+        `${preview.side === 'buy' ? 'Bought' : 'Sold'} ${sharesOf(preview.quantity)} of ${title} at the ${formatMonthDay(placed.order.priceDate)} close. Cash ${formatWon(placed.cashKrw)}`,
       );
       onOrdered();
     } catch (cause) {
@@ -220,8 +220,7 @@ export function MockOrder({
       ) : null}
       {preview?.side === 'sell' ? (
         <span>
-          Selling {formatDecimal(preview.quantity)} of the {formatDecimal(ready.heldQuantity)}{' '}
-          shares held.
+          Selling {formatDecimal(preview.quantity)} of the {sharesOf(ready.heldQuantity)} held.
         </span>
       ) : null}
       <span>
@@ -284,7 +283,7 @@ export function MockOrder({
       <ConfirmDialog
         title={
           preview
-            ? `${sideNames[preview.side]} ${formatDecimal(preview.quantity)} shares of ${title}`
+            ? `${sideNames[preview.side]} ${sharesOf(preview.quantity)} of ${title}`
             : 'Review order'
         }
         description={description}
