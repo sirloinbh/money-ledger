@@ -1,7 +1,7 @@
 import { z } from 'zod/v4';
 
-import { date } from './entries.js';
-import { HttpError } from './standard/http.js';
+import { date } from '../ledger/entries.js';
+import { HttpError } from '../standard/http.js';
 
 // Request schemas of the asset API (#45, #46, #47, #63, #64). Formats follow AGENTS.project.md "Quantity,
 // foreign currency, and exchange rate" (#35): won amounts are JSON numbers, quantities and USD amounts are

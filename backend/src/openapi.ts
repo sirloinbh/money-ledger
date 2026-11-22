@@ -3,21 +3,21 @@
 // when the table and the registered routes differ.
 import { z } from 'zod/v4';
 
-import * as assetsModule from './asset-schema.js';
-import * as budgets from './budgets.js';
-import * as categories from './categories.js';
-import * as entries from './entries.js';
-import * as csv from './entry-csv.js';
-import * as fixedCosts from './fixed-costs.js';
-import * as accountsModule from './mock-accounts.js';
-import * as orders from './mock-orders.js';
-import * as netWorth from './net-worth.js';
+import * as budgets from './ledger/budgets.js';
+import * as categories from './ledger/categories.js';
+import * as entries from './ledger/entries.js';
+import * as csv from './ledger/entry-csv.js';
+import * as fixedCosts from './ledger/fixed-costs.js';
+import * as rules from './ledger/rules.js';
+import * as summary from './ledger/summary.js';
+import * as trend from './ledger/trend.js';
+import * as accountsModule from './mock/accounts.js';
+import * as orders from './mock/orders.js';
+import * as assetsModule from './portfolio/asset-schema.js';
+import * as netWorth from './portfolio/net-worth.js';
+import * as trades from './portfolio/trades.js';
 import * as prices from './prices/router.js';
-import * as rules from './rules.js';
 import { buildOpenApi, type Operation } from './standard/openapi.js';
-import * as summary from './summary.js';
-import * as trades from './trades.js';
-import * as trend from './trend.js';
 
 const accounts = '/api/mock/accounts';
 const assets = '/api/portfolio/assets';

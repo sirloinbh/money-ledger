@@ -111,7 +111,7 @@ This is a user decision from 2026-11-08.
 - You cannot order a ticker that has no stored close. Korea fetches all tickers, so this only applies on about the first day of a new listing. For the US, the close is fetched on the spot when the detail is opened.
 - If there is no stored exchange rate, you cannot order US stocks, because a USD trade row cannot be stored without an exchange rate (AGENTS.project.md `CHECK ((currency = 'KRW') = (fx_rate IS NULL))`).
 - You can order with a close whose base date is old. The order screen shows the base date.
-- There is no separate dollar cash (user decision on 2026-11-08, #52). Buying and selling use the account's single KRW cash balance, and for US stocks `amount_krw = round(quantity × fill price × fx_rate)` is computed in SQL `numeric` using the latest basic rate at order time. The fee rate is an account setting (default 0), and tax is not included. Quantity is a whole number of shares. The implementation is `backend/src/mock-orders.ts`.
+- There is no separate dollar cash (user decision on 2026-11-08, #52). Buying and selling use the account's single KRW cash balance, and for US stocks `amount_krw = round(quantity × fill price × fx_rate)` is computed in SQL `numeric` using the latest basic rate at order time. The fee rate is an account setting (default 0), and tax is not included. Quantity is a whole number of shares. The implementation is `backend/src/mock/orders.ts`.
 
 ## Storing API keys
 

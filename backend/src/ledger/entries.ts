@@ -2,9 +2,9 @@ import { Router } from 'express';
 import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
-import { inTransaction } from './db.js';
+import { inTransaction } from '../db.js';
+import { HttpError, parseId } from '../standard/http.js';
 import { merchantText, ruleCategorySql } from './rules.js';
-import { HttpError, parseId } from './standard/http.js';
 import { loadHistory, suggester } from './suggestions.js';
 
 // #38 Income and expense entries: whole-won amounts, a date in the service calendar, a category of the same kind.
