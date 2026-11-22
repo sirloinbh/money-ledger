@@ -3,7 +3,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 
 import { AssetManager } from './assets';
 import { serviceToday } from './format';
-import { findLive, getLive } from './test/live';
+import { findLive, getLive, queryLive } from './test/live';
 
 // #64 Prepaid assets on the asset screen, against a fake server that keeps the same rules.
 
@@ -366,4 +366,37 @@ test('editing a prepaid asset fills its kind, amount and dates', async () => {
   expect(screen.getByRole('radio', { name: 'Voucher' })).toBeChecked();
   expect(screen.getByLabelText('Amount loaded (KRW)')).toHaveValue('300000');
   expect(screen.getByLabelText('Expiry date (optional)')).toHaveValue('2026-12-31');
+});
+
+/** After the next change is saved, the reload of `path` fails once (#265). */
+function failReloadAfterSave(path: string) {
+  const api = vi.mocked(fetch).getMockImplementation()!;
+  let saved = false;
+  vi.mocked(fetch).mockImplementation((url: string | URL | Request, init?: RequestInit) => {
+    const method = init?.method ?? 'GET';
+    if (method !== 'GET') saved = true;
+    else if (saved && String(url) === path) {
+      saved = false;
+      return Promise.reject(new TypeError('offline'));
+    }
+    return api(url, init);
+  });
+}
+
+test('a saved use whose list fails to reload is a note, not an error (#265)', async () => {
+  stored.push(salon);
+  await ready();
+  fireEvent.click(screen.getByRole('button', { name: 'Salon membership usage records' }));
+  const panel = screen.getByRole('region', { name: 'Salon membership usage records' });
+  await within(panel).findByText('No usage records yet.');
+  failReloadAfterSave('/api/portfolio/assets/6/usages');
+  fireEvent.change(within(panel).getByLabelText('Date used'), { target: { value: '2026-02-01' } });
+  fireEvent.change(within(panel).getByLabelText('Amount used (KRW)'), {
+    target: { value: '50000' },
+  });
+  fireEvent.click(within(panel).getByRole('button', { name: 'Add usage' }));
+  expect(await findLive('status', panel)).toHaveTextContent(
+    '₩50,000 use recorded. The list could not be reloaded; reload the page to see it',
+  );
+  expect(queryLive('alert', panel)).toBeNull();
 });
