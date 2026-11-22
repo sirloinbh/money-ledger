@@ -39,14 +39,30 @@ test('the latest US date is the New York date after 18:00 there, whatever daylig
   assert.equal(seoulHour(new Date('2026-11-10T15:00:00Z')), 0);
 });
 
+/** A KRX item as the real answer has it (#102): every value a string. */
+const krxItem = (
+  code: string,
+  name: string,
+  close: string,
+  { open = '100', volume = '1,000' }: { open?: string; volume?: string } = {},
+) => ({
+  BAS_DD: '20261106',
+  ISU_CD: code,
+  ISU_NM: name,
+  TDD_CLSPRC: close,
+  TDD_OPNPRC: open,
+  ACC_TRDVOL: volume,
+});
+
 test('KRX rows keep the code, name and whole-won close and drop rows without a trade', () => {
   const rows = parseKrxDaily({
     OutBlock_1: [
-      { BAS_DD: '20261106', ISU_CD: '005930', ISU_NM: '삼성전자', TDD_CLSPRC: '71,000' },
-      { ISU_SRT_CD: '0001a0', ISU_CD: 'KR70001A0000', ISU_NM: ' 새종목 ', TDD_CLSPRC: '5000' },
-      { ISU_CD: '000020', ISU_NM: '거래없음', TDD_CLSPRC: '-' },
-      { ISU_CD: '000030', ISU_NM: '영원', TDD_CLSPRC: '0' },
-      { ISU_CD: 'BAD', ISU_NM: '코드오류', TDD_CLSPRC: '100' },
+      krxItem('005930', '삼성전자', '71,000'),
+      krxItem('0001a0', ' 새종목 ', '5000'),
+      krxItem('000020', '거래없음', '-'),
+      krxItem('000030', '영원', '0'),
+      krxItem('KR7000660001', '긴코드', '100'),
+      krxItem('BAD', '코드오류', '100'),
     ],
   });
   assert.deepEqual(rows, [
@@ -57,24 +73,47 @@ test('KRX rows keep the code, name and whole-won close and drop rows without a t
   assert.throws(() => parseKrxDaily({ error: 'x' }), SourceError);
 });
 
+test('a halted KRX row (open 0 and volume 0 at the last close) is a missing day (#102)', () => {
+  const rows = parseKrxDaily({
+    OutBlock_1: [
+      // As KRX answered for DH오토넥스 on 2026-11-13 and 2026-11-19.
+      krxItem('000300', 'DH오토넥스', '4200', { open: '0', volume: '0' }),
+      // Traded: an open of 0 alone or a volume of 0 alone is not the rule.
+      krxItem('005930', '삼성전자', '71,000'),
+      krxItem('000660', 'SK하이닉스', '180,000', { open: '0', volume: '12' }),
+      krxItem('069500', 'KODEX 200', '35,000', { open: '35,100', volume: '0' }),
+    ],
+  });
+  assert.deepEqual(
+    rows.map((row) => row.symbol),
+    ['005930', '000660', '069500'],
+  );
+});
+
+test('a KRX weekend answer with rows of empty values reads as a day with no closes', () => {
+  // The ETF endpoint answered 1,183 rows with BAS_DD=20261031 for Saturday 2026-10-31, every price and volume empty.
+  const empty = { ...krxItem('069500', 'KODEX 200', ''), BAS_DD: '20261031' };
+  assert.deepEqual(
+    parseKrxDaily({ OutBlock_1: [{ ...empty, TDD_OPNPRC: '', ACC_TRDVOL: '' }] }),
+    [],
+  );
+});
+
 test('a KRX answer whose items lack the expected fields fails instead of reading as a holiday (#193)', () => {
-  const missing = /KRX quote response is missing the code, name or close fields/;
+  const missing = /KRX quote response is missing the code, name, close, open or volume fields/;
   // Renamed fields, as a changed response format would bring.
   assert.throws(
     () => parseKrxDaily({ OutBlock_1: [{ CODE: '005930', NAME: '삼성전자', CLOSE: '71000' }] }),
     missing,
   );
-  // One item without a close field among good ones, and an item that is not an object.
+  // One item without a close field among good ones, and one without the volume a halt is read from.
+  const { TDD_CLSPRC: _close, ...noClose } = krxItem('000660', 'SK하이닉스', '180,000');
+  const { ACC_TRDVOL: _volume, ...noVolume } = krxItem('000300', 'DH오토넥스', '4200');
   assert.throws(
-    () =>
-      parseKrxDaily({
-        OutBlock_1: [
-          { ISU_CD: '005930', ISU_NM: '삼성전자', TDD_CLSPRC: '71,000' },
-          { ISU_CD: '000660', ISU_NM: 'SK하이닉스' },
-        ],
-      }),
+    () => parseKrxDaily({ OutBlock_1: [krxItem('005930', '삼성전자', '71,000'), noClose] }),
     missing,
   );
+  assert.throws(() => parseKrxDaily({ OutBlock_1: [noVolume] }), missing);
   assert.throws(() => parseKrxDaily({ OutBlock_1: ['005930'] }), SourceError);
 });
 
