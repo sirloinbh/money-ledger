@@ -51,8 +51,8 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
       '013_asset_trades.sql', // re-running is safe
       '009_prices.sql',
       '016_asset_valuation.sql',
-      '027_trade_currency_fk.sql',
-      '027_trade_currency_fk.sql', // re-running is safe
+      '023_trade_currency_fk.sql',
+      '023_trade_currency_fk.sql', // re-running is safe
     ]) {
       await runMigration(pool, file);
     }
@@ -465,7 +465,7 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
     });
   });
 
-  await t.test('migration 027 reports existing trades in another currency (#191)', async () => {
+  await t.test('migration 023 reports existing trades in another currency (#191)', async () => {
     await reset();
     await withApi(pool, async (call) => {
       const id = await create(call, samsung);
@@ -475,12 +475,12 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
         'ALTER TABLE portfolio_trades DROP CONSTRAINT portfolio_trades_asset_currency_fkey',
       );
       await pool.query("UPDATE portfolio_assets SET currency = 'USD' WHERE id = $1", [id]);
-      await assert.rejects(runMigration(pool, '027_trade_currency_fk.sql'), (error: Error) => {
+      await assert.rejects(runMigration(pool, '023_trade_currency_fk.sql'), (error: Error) => {
         assert.match(error.message, /Trades whose currency differs from their asset: trade \d+/);
         return true;
       });
       await pool.query("UPDATE portfolio_assets SET currency = 'KRW' WHERE id = $1", [id]);
-      await runMigration(pool, '027_trade_currency_fk.sql');
+      await runMigration(pool, '023_trade_currency_fk.sql');
       await assert.rejects(
         pool.query("UPDATE portfolio_assets SET currency = 'USD' WHERE id = $1", [id]),
         { code: '23503' },

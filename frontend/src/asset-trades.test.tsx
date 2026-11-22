@@ -317,7 +317,7 @@ test('a trade can be edited and, after confirming, deleted', async () => {
 });
 
 test('editing a USD trade keeps its rate and currency, whatever the asset shows (#191)', async () => {
-  // A dollar trade listed under a won asset, as a row written before migration 027 could be.
+  // A dollar trade listed under a won asset, as a row written before migration 023 could be.
   trades[2] = [
     {
       id: 8,

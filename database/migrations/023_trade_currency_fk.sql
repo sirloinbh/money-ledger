@@ -13,7 +13,7 @@ BEGIN
   FROM portfolio_trades t JOIN portfolio_assets a ON a.id = t.asset_id
   WHERE t.currency <> a.currency;
   IF mismatched IS NOT NULL THEN
-    RAISE EXCEPTION 'Trades whose currency differs from their asset: %. Fix them before applying 027.',
+    RAISE EXCEPTION 'Trades whose currency differs from their asset: %. Fix them before applying 023.',
       mismatched;
   END IF;
 
