@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import type { Pool } from 'pg';
 
-import { sameDecimal } from '../src/mock-orders.js';
+import { sameDecimal } from '../src/mock/orders.js';
 import { withApi } from './helpers.js';
 
 // Validation runs before the DB: a pool that fails the test if any query or connection reaches it.

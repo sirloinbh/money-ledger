@@ -2,8 +2,8 @@ import { Router } from 'express';
 import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
-import { categoryKind, categoryName } from './contract.js';
-import { HttpError, parseId } from './standard/http.js';
+import { categoryKind, categoryName } from '../contract.js';
+import { HttpError, parseId } from '../standard/http.js';
 
 // #37 Income and expense categories. Categories are hidden instead of deleted, so entries keep them.
 

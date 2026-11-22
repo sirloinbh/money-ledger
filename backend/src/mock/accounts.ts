@@ -2,8 +2,8 @@ import { Router } from 'express';
 import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
-import { inTransaction } from './db.js';
-import { HttpError, parseId } from './standard/http.js';
+import { inTransaction } from '../db.js';
+import { HttpError, parseId } from '../standard/http.js';
 
 // #50 Mock trading account: virtual won kept apart from the ledger and the portfolio.
 // One open account at a time. Resetting closes it and opens a new one in one transaction; closed accounts

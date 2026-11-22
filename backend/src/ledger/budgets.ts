@@ -2,8 +2,8 @@ import { Router } from 'express';
 import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
+import { HttpError, parseId } from '../standard/http.js';
 import { monthField, won } from './month.js';
-import { HttpError, parseId } from './standard/http.js';
 
 // #42 Monthly budgets of expense categories and how much of each is spent. A month uses its own budget row or
 // else the latest earlier one (nothing is copied); an amount of 0 means no budget. Sums, the rest, the excess

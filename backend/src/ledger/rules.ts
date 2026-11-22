@@ -2,7 +2,7 @@ import { Router } from 'express';
 import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
-import { HttpError, parseId } from './standard/http.js';
+import { HttpError, parseId } from '../standard/http.js';
 
 // #60 Keyword rules: a merchant that contains the keyword (ignoring letter case) gets the rule's category.
 // Rules fill only entries saved without a category; a category the user chose is never replaced.
