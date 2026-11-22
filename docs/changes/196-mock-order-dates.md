@@ -44,3 +44,7 @@ Four defects from the 2026-11-18 code review of `backend/src/mock-orders.ts` and
 
 - The preview already read `today()` once; it is unchanged.
 - No frontend change: the screen already sends the strings the preview returned.
+
+## Review
+
+- Round 1 (PR #239 comment): approve, no blocking comments. No fix commits, no split issues.
