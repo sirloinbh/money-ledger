@@ -2,8 +2,9 @@ import express, { Router } from 'express';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod/v4';
 
+import { MAX_WON, MAX_WON_TEXT, serviceDate as date } from '../contract.js';
 import { inTransaction } from '../db.js';
-import { date, listFilter, listQuery } from './entries.js';
+import { listFilter, listQuery } from './entries.js';
 import { merchantText, ruleCategorySql } from './rules.js';
 
 // #44 Entries as CSV (decisions 2026-11-16). Export: the entry list's filters, oldest first, UTF-8 with a BOM so
@@ -96,8 +97,8 @@ async function check(db: Pool | PoolClient, rows: RowInput[], lock = false) {
       continue;
     }
     const digits = row.amount.trim();
-    if (!/^\d{1,16}$/.test(digits) || !Number.isSafeInteger(Number(digits))) {
-      fail(`Amount "${row.amount}" is not a whole number of won, 0 or more`);
+    if (!/^\d{1,16}$/.test(digits) || Number(digits) > MAX_WON) {
+      fail(`Amount "${row.amount}" is not a whole number of won from 0 to ${MAX_WON_TEXT}`);
       continue;
     }
     const shop = merchant.safeParse(unguarded(row.merchant.trim()));

@@ -1,5 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 
+import { MAX_WON } from '../contract.js';
+import { won } from '../money.js';
 import type { assetTypes } from './asset-schema.js';
 
 // The value of held assets on a reference date (#45, #47, #63, #64, migration 016), their totals, and the asset
@@ -60,7 +62,7 @@ const staleAfterDays = 5;
  * - An asset whose quantity comes from trades and that holds nothing: 0.
  * - Otherwise the value entered by hand.
  * - USD: converted with the newest USD rate on or before $1, so round(quantity × price × rate) once.
- * - A value over 1 quadrillion (won or dollars) is not counted, like the values entered by hand are capped.
+ * - A value over the one won cap, MAX_WON (won or dollars), is not counted, like the values entered by hand (#186).
  *
  * $1 picks the close, rate, hand price and depreciated or prepaid value of that date; the quantity and the
  * trade cost are the current ones (a past quantity comes with the net worth history, #49).
@@ -116,7 +118,7 @@ export const assetQuery = (where: string) => `
     FROM priced
   ), valued AS (
     SELECT converted.*,
-      CASE WHEN krw_raw <= 1e15 AND coalesce(local_value, 0) <= 1e15 THEN round(krw_raw)::bigint END
+      CASE WHEN krw_raw <= ${MAX_WON} AND coalesce(local_value, 0) <= ${MAX_WON} THEN round(krw_raw)::bigint END
         AS value_now
     FROM converted
   )
@@ -128,10 +130,10 @@ export const assetQuery = (where: string) => `
     CASE WHEN security_id IS NOT NULL THEN close_date ELSE manual_price_on END AS price_date,
     CASE WHEN security_id IS NOT NULL THEN ($1::date - close_date) > ${staleAfterDays} END AS price_stale,
     fx_rate, fx_date, ($1::date - fx_date) > ${staleAfterDays} AS fx_stale,
-    CASE WHEN currency = 'USD' AND local_value <= 1e15 THEN round(local_value, 4) END AS current_value_foreign,
+    CASE WHEN currency = 'USD' AND local_value <= ${MAX_WON} THEN round(local_value, 4) END AS current_value_foreign,
     CASE
       WHEN value_now IS NOT NULL THEN NULL
-      WHEN krw_raw > 1e15 OR local_value > 1e15 THEN 'too_large'
+      WHEN krw_raw > ${MAX_WON} OR local_value > ${MAX_WON} THEN 'too_large'
       WHEN local_value IS NULL THEN 'no_price'
       ELSE 'no_fx'
     END AS value_issue,
@@ -143,12 +145,6 @@ export const assetQuery = (where: string) => `
   FROM valued`;
 
 // pg returns bigint as a string; won amounts stay exact as long as they are safe integers.
-export function won(value: string) {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed)) throw new Error(`won amount out of safe range: ${value}`);
-  return parsed;
-}
-
 /**
  * The asset screen's totals on `asOf` as exact decimal strings: assets, debts, net (assets − debts) and how many
  * were left out (no price, no USD rate, too large). #49 saves the same values as the day's net worth.

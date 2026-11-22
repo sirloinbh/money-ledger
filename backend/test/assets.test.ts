@@ -37,9 +37,9 @@ const invalid = [
     error: 'The valuation must be 0 or more',
   },
   {
-    label: 'a value over ₩1 quadrillion',
-    body: { ...cash, valueKrw: 1_000_000_000_000_001 },
-    error: 'Enter a valuation of ₩1 quadrillion or less',
+    label: 'a value over ₩1 trillion (#186)',
+    body: { ...cash, valueKrw: 1_000_000_000_001 },
+    error: 'Enter a valuation of ₩1 trillion or less',
   },
   {
     label: 'a USD value on a won asset',
@@ -113,9 +113,9 @@ const invalid = [
     error: 'The purchase price must be ₩0 or more',
   },
   {
-    label: 'a purchase price over ₩1 quadrillion',
-    body: { ...bed, depreciation: { ...schedule, purchasePriceKrw: 1_000_000_000_000_001 } },
-    error: 'Enter a purchase price of ₩1 quadrillion or less',
+    label: 'a purchase price over ₩1 trillion (#186)',
+    body: { ...bed, depreciation: { ...schedule, purchasePriceKrw: 1_000_000_000_001 } },
+    error: 'Enter a purchase price of ₩1 trillion or less',
   },
   {
     label: 'a missing purchase date',

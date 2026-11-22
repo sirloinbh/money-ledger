@@ -609,14 +609,14 @@ test('mock trading market orders against the real database', { skip: !url }, asy
   );
 
   await t.test(
-    'a buy that would take a holding cost over the ₩1 quadrillion ceiling is refused',
+    'a buy that would take a holding cost over the ₩1 trillion cap is refused (#186)',
     async () => {
       await reset();
-      await pool.query('UPDATE mock_accounts SET cash_krw = 1000000000000000 WHERE id = $1', [
+      await pool.query('UPDATE mock_accounts SET cash_krw = 1000000000000 WHERE id = $1', [
         accountId,
       ]);
       await pool.query(
-        'INSERT INTO mock_holdings (account_id, security_id, quantity, cost_krw) VALUES ($1, $2, 1, 999999999999000)',
+        'INSERT INTO mock_holdings (account_id, security_id, quantity, cost_krw) VALUES ($1, $2, 1, 999999999000)',
         [accountId, ids['005930']],
       );
       await withApi(

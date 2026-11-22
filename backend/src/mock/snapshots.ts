@@ -2,8 +2,9 @@ import { Router } from 'express';
 import type { Pool, PoolClient } from 'pg';
 
 import { inTransaction } from '../db.js';
+import { won } from '../money.js';
 import { HttpError, parseId, serviceDate, serviceTimeZone } from '../standard/http.js';
-import { accountValue, won } from './holdings.js';
+import { accountValue } from './holdings.js';
 
 // #54 Daily value of the mock account, for the return chart (decisions 2026-11-10, issue comment):
 // - One row per account and KST day, saved when the daily price fetch finishes and when an order fills. A later

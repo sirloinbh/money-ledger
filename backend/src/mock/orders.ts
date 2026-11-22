@@ -2,8 +2,9 @@ import { Router } from 'express';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod/v4';
 
+import { MAX_WON, serviceDate as date } from '../contract.js';
 import { inTransaction } from '../db.js';
-import { date } from '../ledger/entries.js';
+import { won } from '../money.js';
 import { HttpError, parseId, serviceTimeZone } from '../standard/http.js';
 import { saveSnapshot } from './snapshots.js';
 
@@ -17,7 +18,8 @@ import { saveSnapshot } from './snapshots.js';
 // - A request key from the screen makes a repeated request return the first order instead of a second fill.
 
 const maxQuantity = 1_000_000;
-const maxWon = 1_000_000_000_000_000n; // the CHECK ceiling of cash and amounts in 015
+// The one won cap (#186); the CHECK ceiling of cash and amounts in 015 (10^15) stays as a backstop.
+const maxWon = BigInt(MAX_WON);
 
 const quantityField = z
   .string({ error: 'Enter the quantity' })
@@ -155,7 +157,7 @@ function problemOf(account: Account, row: QuoteRow, side: Side, quantity: string
   const cash = BigInt(account.cash_krw);
   if (amount > maxWon) return 'The order amount is too large';
   if (side === 'buy' && amount + fee > cash) return 'Not enough cash';
-  // The cost of a holding has the same ₩1 quadrillion ceiling as cash (015).
+  // The cost of a holding has the same ceiling as cash.
   if (side === 'buy' && BigInt(row.held_cost ?? '0') + amount + fee > maxWon) {
     return 'The order amount is too large';
   }
@@ -219,7 +221,7 @@ type OrderRow = {
 const orderColumns = `o.id, o.account_id, o.security_id, o.request_key, o.side, o.quantity, o.price, o.currency,
   o.price_date, o.fx_rate, o.fx_date, o.amount_krw, o.fee_krw, o.cash_after_krw, o.created_at, s.symbol, s.name`;
 
-// Won amounts stay within the ₩1 quadrillion CHECK of 015, so they are exact as JSON numbers.
+// Won amounts stay within MAX_WON (and the 10^15 CHECK of 015), so they are exact as JSON numbers.
 const toOrder = (row: OrderRow) => ({
   id: row.id,
   accountId: row.account_id,
@@ -231,9 +233,9 @@ const toOrder = (row: OrderRow) => ({
   priceDate: row.price_date,
   fxRate: row.fx_rate,
   fxDate: row.fx_date,
-  amountKrw: Number(row.amount_krw),
-  feeKrw: Number(row.fee_krw),
-  cashAfterKrw: Number(row.cash_after_krw),
+  amountKrw: won(row.amount_krw),
+  feeKrw: won(row.fee_krw),
+  cashAfterKrw: won(row.cash_after_krw),
   createdAt: row.created_at.toISOString(),
 });
 
@@ -310,8 +312,8 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
       priceStale: row.stale === true,
       fxRate: row.fx_rate,
       fxDate: row.rate_date,
-      amountKrw: row.amount_krw === null ? null : Number(row.amount_krw),
-      feeKrw: row.fee_krw === null ? null : Number(row.fee_krw),
+      amountKrw: won(row.amount_krw),
+      feeKrw: won(row.fee_krw),
       cashKrw: Number(found.cash_krw),
       cashAfterKrw: change === null ? null : Number(BigInt(found.cash_krw) + change),
       heldQuantity: row.held ?? '0',

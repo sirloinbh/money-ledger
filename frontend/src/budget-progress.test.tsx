@@ -262,7 +262,7 @@ test('a budget that is not a whole number is refused before any request', async 
     fireEvent.change(input, { target: { value } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(getLive('alert')).toHaveTextContent(
-      'Enter the budget as a whole number of won, 0 or more',
+      'Enter the budget as a whole number of won, from 0 to ₩1 trillion',
     );
     expect(input).toHaveAttribute('aria-invalid', 'true');
   }
@@ -472,11 +472,11 @@ test('an error about a form goes away with the form when the month changes', asy
   fireEvent.change(screen.getByLabelText('Food budget (KRW)'), { target: { value: 'abc' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   expect(getLive('alert')).toHaveTextContent(
-    'Enter the budget as a whole number of won, 0 or more',
+    'Enter the budget as a whole number of won, from 0 to ₩1 trillion',
   );
   fireEvent.click(screen.getByRole('button', { name: 'Go to 2026-10' }));
   await screen.findByText('There are no expense categories.');
   expect(
-    screen.queryByText('Enter the budget as a whole number of won, 0 or more'),
+    screen.queryByText('Enter the budget as a whole number of won, from 0 to ₩1 trillion'),
   ).not.toBeInTheDocument();
 });

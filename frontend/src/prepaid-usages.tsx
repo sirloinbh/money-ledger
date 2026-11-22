@@ -1,11 +1,18 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 
+import { MAX_WON_TEXT } from '../../shared/contract';
 import { Button } from './components/ui/button';
 import { ConfirmDialog } from './components/ui/confirm-dialog';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
-import { formatWon, realDate, serviceToday, withoutThousands as digits } from './format';
+import {
+  formatWon,
+  realDate,
+  serviceToday,
+  withoutThousands as digits,
+  wonFromDigits,
+} from './format';
 import { RequestError, requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 
@@ -90,9 +97,10 @@ export function PrepaidUsages({
       return;
     }
     const plain = digits(amount);
-    if (!/^\d{1,16}$/.test(plain) || Number(plain) < 1 || Number(plain) > 1e15) {
+    const used = wonFromDigits(plain);
+    if (used === undefined || used < 1) {
       setInvalid('amount');
-      showError('Enter the amount used as a whole number of won, at least ₩1');
+      showError(`Enter the amount used as a whole number of won, from ₩1 to ${MAX_WON_TEXT}`);
       return;
     }
     setInvalid(undefined);

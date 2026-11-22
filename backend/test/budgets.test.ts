@@ -42,7 +42,13 @@ const invalidSaves = [
   {
     path: '1',
     body: { month: '2026-11', amount: Number.MAX_SAFE_INTEGER + 2 },
-    error: 'The budget is too large',
+    error: 'Enter a budget of ₩1 trillion or less',
+  },
+  {
+    // #109 #186 The one won cap: one won over ₩1 trillion.
+    path: '1',
+    body: { month: '2026-11', amount: 1_000_000_000_001 },
+    error: 'Enter a budget of ₩1 trillion or less',
   },
   {
     path: 'abc',

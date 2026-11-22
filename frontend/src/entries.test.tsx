@@ -191,18 +191,21 @@ test('recording sends whole won, keeps the date and kind, and lists the entry', 
   expect(first).toHaveTextContent('-₩12,500');
 });
 
-test.each(['-1', '1.5', 'abc', ''])('the amount "%s" is refused before sending', async (amount) => {
-  await ready();
-  fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: amount } });
-  fireEvent.change(screen.getByLabelText('Category', { selector: '#entry-category' }), {
-    target: { value: '1' },
-  });
-  fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
-  expect(getLive('alert')).toHaveTextContent(
-    'Enter the amount as a whole number of won, 0 or more',
-  );
-  expect(requests.some((request) => request.method === 'POST')).toBe(false);
-});
+test.each(['-1', '1.5', 'abc', '', '1,000,000,000,001'])(
+  'the amount "%s" is refused before sending',
+  async (amount) => {
+    await ready();
+    fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: amount } });
+    fireEvent.change(screen.getByLabelText('Category', { selector: '#entry-category' }), {
+      target: { value: '1' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
+    expect(getLive('alert')).toHaveTextContent(
+      'Enter the amount as a whole number of won, from 0 to ₩1 trillion',
+    );
+    expect(requests.some((request) => request.method === 'POST')).toBe(false);
+  },
+);
 
 test('an entry without a category is sent as Uncategorized with its merchant', async () => {
   await ready();
@@ -320,7 +323,7 @@ test('a refused field is marked invalid and points at the message', async () => 
   const amount = screen.getByLabelText('Amount (KRW)');
   expect(amount).toHaveAttribute('aria-invalid', 'true');
   expect(amount).toHaveAccessibleDescription(
-    'Enter the amount as a whole number of won, 0 or more',
+    'Enter the amount as a whole number of won, from 0 to ₩1 trillion',
   );
   fireEvent.change(amount, { target: { value: '5' } });
   expect(amount).not.toHaveAttribute('aria-invalid');

@@ -1,5 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 
+import { MAX_WON_TEXT } from '../../shared/contract';
 import { Button } from './components/ui/button';
 import { ConfirmDialog } from './components/ui/confirm-dialog';
 import { Input } from './components/ui/input';
@@ -12,6 +13,7 @@ import {
   realDate,
   serviceToday,
   withoutThousands as digits,
+  wonFromDigits,
 } from './format';
 import { RequestError, requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
@@ -115,14 +117,20 @@ function toBody(
   }
   const wonOf = (text: string) => {
     const plain = digits(text) || '0';
-    return /^\d{1,16}$/.test(plain) && Number(plain) <= 1e15 ? Number(plain) : undefined;
+    return wonFromDigits(plain);
   };
   const feeKrw = wonOf(draft.fee);
   if (feeKrw === undefined)
-    return { field: 'fee', message: 'Enter the fee as a whole number of won, 0 or more' };
+    return {
+      field: 'fee',
+      message: `Enter the fee as a whole number of won, from 0 to ${MAX_WON_TEXT}`,
+    };
   const taxKrw = wonOf(draft.tax);
   if (taxKrw === undefined)
-    return { field: 'tax', message: 'Enter the tax as a whole number of won, 0 or more' };
+    return {
+      field: 'tax',
+      message: `Enter the tax as a whole number of won, from 0 to ${MAX_WON_TEXT}`,
+    };
   return {
     body: {
       side: draft.side,

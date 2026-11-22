@@ -18,6 +18,9 @@ test('parseAmount takes whole won with or without separators and nothing else', 
   expect(parseAmount('12a')).toBeUndefined();
   expect(parseAmount('')).toBeUndefined();
   expect(parseAmount('99999999999999999')).toBeUndefined();
+  // #109 #186 The one won cap, the same as the server's.
+  expect(parseAmount('1,000,000,000,000')).toBe(1_000_000_000_000);
+  expect(parseAmount('1000000000001')).toBeUndefined();
 });
 
 test('draftFromEntry and entryLabel show an uncategorized entry as such', () => {

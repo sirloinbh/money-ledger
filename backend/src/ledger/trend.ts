@@ -2,7 +2,8 @@ import { Router } from 'express';
 import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
-import { monthField, won } from './month.js';
+import { won } from '../money.js';
+import { monthField } from './month.js';
 
 // #41 Income, expense and balance for each month of a period, oldest first. A month without entries is a row of
 // zeros, so the trend has no gaps. Sums are computed in SQL (numeric), never with JavaScript floats.

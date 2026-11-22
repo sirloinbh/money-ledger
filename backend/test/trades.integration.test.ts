@@ -398,7 +398,7 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
           [
             won,
             { ...base, quantity: '999999999999', price: '9999999999' },
-            'The trade amount exceeds ₩1 quadrillion',
+            'The trade amount exceeds ₩1 trillion',
           ],
         ];
         for (const [id, body, error] of cases) {
@@ -581,39 +581,46 @@ test('asset trades against the real database', { skip: !url }, async (t) => {
     },
   );
 
-  await t.test('one sell whose realized profit no JSON number holds is refused', async () => {
+  await t.test('a sell whose realized loss is beyond the won cap is refused (#186)', async () => {
     await reset();
     await withApi(pool, async (call) => {
       const id = await create(call, samsung);
-      const max = 1_000_000_000_000_000;
-      // Two sells of about +₩1 quadrillion each keep the total of realized profit in range later on.
-      await trade(call, id, { side: 'buy', tradedOn: '2026-10-01', quantity: '2', price: '1' });
-      for (const day of ['2026-10-02', '2026-10-03']) {
-        await trade(call, id, { side: 'sell', tradedOn: day, quantity: '1', price: String(max) });
-      }
-      // A won cost of ₩9 quadrillion (three buys of ₩1 quadrillion each with as much in fees and taxes).
-      for (let n = 0; n < 3; n += 1) {
-        await trade(call, id, {
-          side: 'buy',
-          tradedOn: '2026-10-04',
-          quantity: '1',
-          price: String(max),
-          feeKrw: max,
-          taxKrw: max,
-        });
-      }
-      // Selling them for 1 won with a ₩1 quadrillion fee: about −₩10 quadrillion on this one sell, while the total stays
-      // about −₩8 quadrillion.
+      // A cost of exactly ₩1 trillion (the cap, MAX_WON): ₩500 billion plus as much in fees.
+      const half = 500_000_000_000;
+      const buy = await trade(call, id, {
+        side: 'buy',
+        tradedOn: '2026-10-01',
+        quantity: '1',
+        price: String(half),
+        feeKrw: half,
+      });
+      assert.equal(buy.status, 201);
+      // Selling it for ₩1 with a ₩1 trillion fee: a realized loss of about ₩2 trillion on this one sell.
       const sell = await trade(call, id, {
         side: 'sell',
-        tradedOn: '2026-10-05',
-        quantity: '3',
+        tradedOn: '2026-10-02',
+        quantity: '1',
         price: '1',
-        feeKrw: max,
+        feeKrw: 1_000_000_000_000,
       });
       assert.equal(sell.status, 400);
       assert.deepEqual(sell.data, { error: 'The quantity held or the amount is too large' });
       assert.equal((await call(`${assets}/${id}/trades`)).status, 200);
+    });
+  });
+
+  await t.test('a position whose won cost goes past ₩1 trillion is refused (#186)', async () => {
+    await reset();
+    await withApi(pool, async (call) => {
+      const id = await create(call, samsung);
+      const body = { side: 'buy', quantity: '1', price: '600000000000' };
+      assert.equal((await trade(call, id, { ...body, tradedOn: '2026-10-01' })).status, 201);
+      // Each buy is within the cap; together they hold ₩1.2 trillion of cost.
+      const second = await trade(call, id, { ...body, tradedOn: '2026-10-02' });
+      assert.equal(second.status, 400);
+      assert.deepEqual(second.data, { error: 'The quantity held or the amount is too large' });
+      const { data } = await call(`${assets}/${id}/trades`);
+      assert.equal((data.trades as unknown[]).length, 1, 'the refused buy was rolled back');
     });
   });
 });

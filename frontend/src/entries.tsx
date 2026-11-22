@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 
+import { MAX_WON_TEXT } from '../../shared/contract';
 import { Notice } from './components/ui/notice';
 import { EntryCsv } from './entry-csv';
 import { EntryFilters } from './entry-filters';
@@ -136,7 +137,7 @@ export function EntryManager({
     if (saving.current) return;
     if (amount === undefined) {
       setInvalid('amount');
-      showError('Enter the amount as a whole number of won, 0 or more');
+      showError(`Enter the amount as a whole number of won, from 0 to ${MAX_WON_TEXT}`);
       return;
     }
     if (stale) {

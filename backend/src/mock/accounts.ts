@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
 import { inTransaction } from '../db.js';
+import { won } from '../money.js';
 import { HttpError, parseId } from '../standard/http.js';
 
 // #50 Mock trading account: virtual won kept apart from the ledger and the portfolio.
@@ -37,8 +38,8 @@ const columns = 'id, initial_cash_krw, cash_krw, created_at, closed_at';
 const toAccount = (row: Row) => ({
   id: row.id,
   // Both are bigint within the CHECK ranges of 005, so they are exact as JSON numbers.
-  initialCashKrw: Number(row.initial_cash_krw),
-  cashKrw: Number(row.cash_krw),
+  initialCashKrw: won(row.initial_cash_krw),
+  cashKrw: won(row.cash_krw),
   createdAt: row.created_at.toISOString(),
   closedAt: row.closed_at === null ? null : row.closed_at.toISOString(),
 });

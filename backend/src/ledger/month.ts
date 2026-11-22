@@ -22,8 +22,3 @@ export const monthField = (label: string) =>
     );
 
 /** A sum of whole-won amounts from SQL (numeric as text); exact as long as it is a safe integer. */
-export function won(value: string) {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed)) throw new Error(`sum out of safe range: ${value}`);
-  return parsed;
-}

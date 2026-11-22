@@ -2,9 +2,9 @@ import { Router } from 'express';
 import type { Pool, PoolClient } from 'pg';
 
 import { inTransaction } from '../db.js';
+import { won } from '../money.js';
 import { HttpError, parseId } from '../standard/http.js';
 import { budgetListSql } from './budgets.js';
-import { won } from './month.js';
 
 // #62 Weekly and monthly spending reports (decisions 2026-11-16, database/migrations/021_spending_reports.sql).
 // Opening the app calls POST /generate, which saves the report of each finished week (Sunday to Saturday) and

@@ -58,13 +58,16 @@ describe('toBody', () => {
     });
   });
 
-  test('names the wrong field: no name, no valuation, a won valuation with decimals or above ₩1 quadrillion', () => {
+  test('names the wrong field: no name, no valuation, a won valuation with decimals or above ₩1 trillion', () => {
     expect(toBody(draft({ name: ' ' }))).toEqual({ field: 'name', message: 'Enter an asset name' });
     expect(toBody(draft({}))).toMatchObject({ field: 'value' });
     expect(toBody(draft({ value: '1.5' }))).toMatchObject({ field: 'value' });
-    expect(toBody(draft({ value: '1000000000000001' }))).toMatchObject({
+    expect(toBody(draft({ value: '1000000000001' }))).toMatchObject({
       field: 'value',
-      message: 'Enter a valuation of ₩1 quadrillion or less',
+      message: 'Enter a valuation of ₩1 trillion or less',
+    });
+    expect(toBody(draft({ value: '1,000,000,000,000' }))).toMatchObject({
+      body: { valueKrw: 1_000_000_000_000 },
     });
   });
 

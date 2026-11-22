@@ -140,10 +140,10 @@ test.each([
     message: 'Enter the valuation in won as a whole number, 0 or more',
   },
   {
-    label: 'a value over ₩1 quadrillion',
-    fill: { name: 'Cash', value: '1000000000000001' },
+    label: 'a value over ₩1 trillion',
+    fill: { name: 'Cash', value: '1000000000001' },
     field: 'Valuation (KRW)',
-    message: 'Enter a valuation of ₩1 quadrillion or less',
+    message: 'Enter a valuation of ₩1 trillion or less',
   },
   {
     label: 'a zero quantity',
@@ -302,7 +302,7 @@ test.each([
     label: 'no purchase price',
     fill: { date: '2026-01-01', months: '60' },
     field: 'Purchase price (KRW)',
-    message: 'Enter the purchase price as a whole number of won, up to ₩1 quadrillion',
+    message: 'Enter the purchase price as a whole number of won, up to ₩1 trillion',
   },
   {
     label: 'no purchase date',

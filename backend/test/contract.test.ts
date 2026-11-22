@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 // #75 The source, not a copy: `npm run contract:check` keeps the copies equal to it.
-import { categoryKind, categoryName } from '../../shared/contract.js';
+import {
+  categoryKind,
+  categoryName,
+  MAX_WON,
+  MAX_WON_TEXT,
+  serviceDate,
+} from '../../shared/contract.js';
 
 const message = (value: unknown) => categoryName.safeParse(value).error?.issues[0].message;
 
@@ -34,4 +40,22 @@ test('a category kind is income or expense', () => {
     categoryKind.safeParse('saving').error?.issues[0].message,
     'Choose income or expense as the kind',
   );
+});
+
+test('the one won cap is ₩1 trillion and reads that way in messages (#109, #186)', () => {
+  assert.equal(MAX_WON, 1_000_000_000_000);
+  assert.equal(MAX_WON_TEXT, '₩1 trillion');
+  // Thousands of capped amounts still add up to an exact JS number.
+  assert.ok(Number.isSafeInteger(MAX_WON * 9000));
+});
+
+test('a service date is a real YYYY-MM-DD date between 1900 and 2100 (#186)', () => {
+  const issue = (value: unknown) => serviceDate.safeParse(value).error?.issues[0].message;
+  assert.equal(serviceDate.parse('2026-11-22'), '2026-11-22');
+  assert.equal(serviceDate.parse('2024-02-29'), '2024-02-29');
+  assert.equal(issue('2026-02-30'), 'That date does not exist');
+  assert.equal(issue('1899-12-31'), 'Enter a date between 1900 and 2100');
+  assert.equal(issue('2101-01-01'), 'Enter a date between 1900 and 2100');
+  assert.equal(issue('2026-1-5'), 'Enter the date as YYYY-MM-DD');
+  assert.equal(issue(20261122), 'Enter the date as YYYY-MM-DD');
 });

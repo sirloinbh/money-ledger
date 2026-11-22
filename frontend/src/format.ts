@@ -1,4 +1,6 @@
 // Shared display and date helpers for the ledger screens.
+import { MAX_WON, serviceDate } from '../../shared/contract';
+
 // "Today" in the service time zone (Asia/Seoul), not the browser's zone or UTC.
 export function serviceToday(now = new Date()) {
   return new Intl.DateTimeFormat('en-CA', {
@@ -11,9 +13,18 @@ export function serviceToday(now = new Date()) {
 
 /** A real YYYY-MM-DD date between 1900 and 2100, the range the server accepts ("2026-02-30" is not one). */
 export function realDate(text: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(text) || text < '1900-01-01' || text > '2100-12-31') return false;
-  const parsed = new Date(`${text}T00:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === text;
+  // The same rule as the server (#186): shared/contract.ts.
+  return serviceDate.safeParse(text).success;
+}
+
+/**
+ * #186 Whole won from plain digits (thousands commas already removed), or undefined when it is not 0 to MAX_WON,
+ * the one won cap the server also checks.
+ */
+export function wonFromDigits(digits: string) {
+  if (!/^\d{1,16}$/.test(digits)) return undefined;
+  const value = Number(digits);
+  return value <= MAX_WON ? value : undefined;
 }
 
 const won = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'KRW' });
