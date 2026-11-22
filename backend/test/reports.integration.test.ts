@@ -48,7 +48,7 @@ test('spending reports against the real database', { skip: !url }, async (t) => 
   /** `history`: an income entry long before every period, so each period counts as after the first entry. */
   const reset = async ({ history = true } = {}) => {
     await pool.query('TRUNCATE ledger_categories RESTART IDENTITY CASCADE');
-    await pool.query('DROP TABLE IF EXISTS spending_reports');
+    await pool.query('DROP TABLE IF EXISTS spending_reports, spending_report_changes');
     await runMigration(pool, '002_ledger_categories.sql');
     await runMigration(pool, '017_ledger_budgets.sql');
     await runMigration(pool, '021_spending_reports.sql');
@@ -202,12 +202,12 @@ test('spending reports against the real database', { skip: !url }, async (t) => 
       const created = await generate('2026-11-16');
       const weekId = created.find((item) => item.period === 'week')!.id;
       const octoberId = created.find((item) => item.period === 'month')!.id;
-      const stale = async () =>
-        (
-          await pool.query<{ id: string }>(
-            'SELECT id FROM spending_reports WHERE stale ORDER BY id',
-          )
-        ).rows.map((row) => Number(row.id));
+      // The logged entry changes not yet rebuilt into a report.
+      const pending = async () =>
+        Number(
+          (await pool.query<{ n: string }>('SELECT count(*) AS n FROM spending_report_changes'))
+            .rows[0].n,
+        );
 
       // Added: the week's report and the list follow, and say when they were updated.
       const added = await pool.query<{ id: string }>(
@@ -215,7 +215,7 @@ test('spending reports against the real database', { skip: !url }, async (t) => 
        VALUES ('2026-11-10', 'expense', 1000, $1) RETURNING id`,
         [ids['expense/교통']],
       );
-      assert.deepEqual(await stale(), [weekId]); // October is not touched
+      assert.equal(await pending(), 1);
       let week = await report(weekId);
       assert.equal(week.total, 31000);
       assert.deepEqual(
@@ -227,7 +227,7 @@ test('spending reports against the real database', { skip: !url }, async (t) => 
       );
       assert.match(week.updatedOn!, /^\d{4}-\d{2}-\d{2}$/);
       assert.equal((await report(octoberId)).updatedOn, null);
-      assert.deepEqual(await stale(), []);
+      assert.equal(await pending(), 0);
 
       // Changed, then deleted.
       const entryId = added.rows[0].id;
@@ -241,25 +241,57 @@ test('spending reports against the real database', { skip: !url }, async (t) => 
       week = await report(weekId);
       assert.deepEqual([week.previousTotal, week.change], [2000, 28000]);
 
-      // Neither income, a memo, nor an entry outside the periods marks a report.
+      // Neither income, a memo, nor an entry outside every report's periods is logged.
       await spend('2026-11-11', 'income/급여', 3000000, 'income');
       await pool.query("UPDATE ledger_entries SET memo = 'lunch' WHERE entry_date = '2026-11-09'");
       await spend('2026-11-20', 'expense/식비', 7000);
-      assert.deepEqual(await stale(), []);
+      assert.equal(await pending(), 0);
 
       // An entry moved from income to expense counts.
       await pool.query(
         "UPDATE ledger_entries SET kind = 'expense', category_id = $1 WHERE kind = 'income' AND entry_date = '2026-11-11'",
         [ids['expense/식비']],
       );
-      assert.deepEqual(await stale(), [weekId]);
+      assert.equal(await pending(), 1);
 
       // Opening the app rebuilds it too, and the report keeps whether it was seen.
       await call('2026-11-16', `/api/reports/${weekId}/seen`, 'PUT');
       await generate('2026-11-16');
-      assert.deepEqual(await stale(), []);
+      assert.equal(await pending(), 0);
       const listed = (await list()).find((item) => item.id === weekId)!;
       assert.deepEqual([listed.total, listed.seen], [3030000, true]);
+    },
+  );
+
+  await t.test(
+    'two transactions changing entries of the same reports never wait on each other',
+    async () => {
+      await reset();
+      await spend('2026-11-09', 'expense/식비', 1000);
+      await generate('2026-11-16'); // the week of 11-08 and October
+      const [first, second] = [await pool.connect(), await pool.connect()];
+      const insert = (client: typeof first, date: string) =>
+        client.query(
+          "INSERT INTO ledger_entries (entry_date, kind, amount) VALUES ($1, 'expense', 100)",
+          [date],
+        );
+      try {
+        await first.query('BEGIN');
+        await second.query('BEGIN');
+        // Opposite orders: marking report rows here would lock them crosswise and deadlock one of the two.
+        await insert(first, '2026-11-10');
+        await insert(second, '2026-10-10');
+        await Promise.all([insert(first, '2026-10-11'), insert(second, '2026-11-11')]);
+        await Promise.all([first.query('COMMIT'), second.query('COMMIT')]);
+      } finally {
+        first.release();
+        second.release();
+      }
+      const totals = (await list()).map((item) => [item.period, item.total]);
+      assert.deepEqual(totals, [
+        ['week', 1200],
+        ['month', 200],
+      ]);
     },
   );
 

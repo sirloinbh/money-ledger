@@ -12,9 +12,9 @@ import { HttpError, parseId } from './standard/http.js';
 // passed their budget (#61); budgets are monthly, so the weekly one does not. Sums, changes and shares are computed
 // in SQL, never with JavaScript floats.
 // #205 (decision 2026-11-22, database/migrations/026_spending_report_changes.sql): a report follows later entry
-// changes. A trigger marks a report stale when an expense entry in its period, or in the period before it, is
-// added, changed or deleted; the stale reports are rebuilt before reports are listed or read, and when new ones are
-// made. Periods that never got a report (before the first entry, or past the catch-up limit) are not filled in.
+// changes. A trigger logs the date of an expense entry that is added, changed or deleted in a report's period, or
+// in the period before it; the reports the logged dates touch are rebuilt before reports are listed or read, and
+// when new ones are made. Periods that never got a report (before the first entry, or past the catch-up limit) are not filled in.
 
 type Period = 'week' | 'month';
 
@@ -158,35 +158,45 @@ const withReportsLock = <T>(pool: Pool, work: (client: PoolClient) => Promise<T>
     return work(client);
   });
 
-/** Rebuilds every report whose entries changed since it was built (#205). Returns how many. */
-async function rebuildStale(client: PoolClient) {
+/**
+ * Rebuilds every report that a logged entry change touches (its period or the period before it, #205), then clears
+ * the log. Run under the exclusive lock: no change can be logged in between, so clearing the whole log loses none.
+ */
+async function rebuildChanged(client: PoolClient) {
   const { rows } = await client.query<{ id: number; period: Period; start: string }>(
-    `SELECT id, period, to_char(start_date, 'YYYY-MM-DD') AS start
-     FROM spending_reports WHERE stale ORDER BY start_date, id`,
+    `SELECT r.id, r.period, to_char(r.start_date, 'YYYY-MM-DD') AS start
+     FROM spending_reports r
+     WHERE EXISTS (
+       SELECT 1 FROM spending_report_changes c
+       WHERE c.entry_date BETWEEN (r.start_date - CASE r.period WHEN 'week' THEN interval '7 days'
+                                                               ELSE interval '1 month' END)::date
+                              AND r.end_date
+     )
+     ORDER BY r.start_date, r.id`,
   );
   for (const report of rows) {
     await client.query(
-      `UPDATE spending_reports SET content = $2::jsonb, stale = false, rebuilt_at = now() WHERE id = $1`,
+      'UPDATE spending_reports SET content = $2::jsonb, rebuilt_at = now() WHERE id = $1',
       [report.id, JSON.stringify(await content(client, report.period, report.start))],
     );
   }
-  return rows.length;
+  await client.query('DELETE FROM spending_report_changes');
 }
 
-/** Rebuilds the stale reports, when there are any, so a list or a report read next is current. */
+/** Rebuilds the changed reports, when there are any, so a list or a report read next is current. */
 async function refresh(pool: Pool) {
-  const { rowCount } = await pool.query('SELECT 1 FROM spending_reports WHERE stale LIMIT 1');
-  if (rowCount) await withReportsLock(pool, rebuildStale);
+  const { rowCount } = await pool.query('SELECT 1 FROM spending_report_changes LIMIT 1');
+  if (rowCount) await withReportsLock(pool, rebuildChanged);
 }
 
 /**
- * Rebuilds the stale reports, then makes the reports of the finished periods that have none yet, as of the service
+ * Rebuilds the changed reports, then makes the reports of the finished periods that have none yet, as of the service
  * date `today`. Two runs at once wait for each other, and the unique (period, start_date) key keeps a period to one
  * report either way. Returns the reports made.
  */
 const generateReports = (pool: Pool, today: string) =>
   withReportsLock(pool, async (client) => {
-    await rebuildStale(client);
+    await rebuildChanged(client);
     const made = [];
     for (const period of ['week', 'month'] as const) {
       const starts = await client.query<{ start: string }>(startsSql(period), [today]);
