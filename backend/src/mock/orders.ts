@@ -4,6 +4,7 @@ import { z } from 'zod/v4';
 
 import { MAX_WON, serviceDate as date } from '../contract.js';
 import { inTransaction } from '../db.js';
+import { won } from '../money.js';
 import { HttpError, parseId, serviceTimeZone } from '../standard/http.js';
 import { saveSnapshot } from './snapshots.js';
 
@@ -232,9 +233,9 @@ const toOrder = (row: OrderRow) => ({
   priceDate: row.price_date,
   fxRate: row.fx_rate,
   fxDate: row.fx_date,
-  amountKrw: Number(row.amount_krw),
-  feeKrw: Number(row.fee_krw),
-  cashAfterKrw: Number(row.cash_after_krw),
+  amountKrw: won(row.amount_krw),
+  feeKrw: won(row.fee_krw),
+  cashAfterKrw: won(row.cash_after_krw),
   createdAt: row.created_at.toISOString(),
 });
 
@@ -311,8 +312,8 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
       priceStale: row.stale === true,
       fxRate: row.fx_rate,
       fxDate: row.rate_date,
-      amountKrw: row.amount_krw === null ? null : Number(row.amount_krw),
-      feeKrw: row.fee_krw === null ? null : Number(row.fee_krw),
+      amountKrw: won(row.amount_krw),
+      feeKrw: won(row.fee_krw),
       cashKrw: Number(found.cash_krw),
       cashAfterKrw: change === null ? null : Number(BigInt(found.cash_krw) + change),
       heldQuantity: row.held ?? '0',

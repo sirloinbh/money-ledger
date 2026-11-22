@@ -4,6 +4,7 @@ import { z } from 'zod/v4';
 
 import { serviceDate as date } from '../contract.js';
 import { inTransaction } from '../db.js';
+import { won } from '../money.js';
 import { HttpError } from '../standard/http.js';
 import { readTotals, total } from './asset-valuation.js';
 
@@ -31,9 +32,9 @@ const columns = 'snapshot_date, assets_krw::text, debts_krw::text, net_krw::text
 
 const toSnapshot = (row: Row) => ({
   date: row.snapshot_date,
-  assetsKrw: Number(row.assets_krw),
-  debtsKrw: Number(row.debts_krw),
-  netKrw: Number(row.net_krw),
+  assetsKrw: won(row.assets_krw),
+  debtsKrw: won(row.debts_krw),
+  netKrw: won(row.net_krw),
   uncounted: row.uncounted,
 });
 

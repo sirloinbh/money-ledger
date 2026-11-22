@@ -13,7 +13,7 @@ Won amounts had four different upper limits: `Number.MAX_SAFE_INTEGER` for entri
 - `shared/contract.ts` (copied to `backend/src/contract.ts` by `npm run contract:sync`):
   - `MAX_WON = 1_000_000_000_000` and `MAX_WON_TEXT = '₩1 trillion'` for messages. Thousands of capped amounts still total to a safe integer (about 9 × 10^15).
   - `serviceDate`: the Zod date rule (YYYY-MM-DD, a real date, years 1900–2100), moved from `ledger/entries.ts`. Every backend date field imports it from the contract, and the screen's `realDate()` now calls it.
-- `backend/src/money.ts`: the one `won()`. The copies in `ledger/entries.ts`, `ledger/month.ts`, `mock/holdings.ts`, `portfolio/asset-valuation.ts` and `portfolio/trades.ts` are gone; the other routes import it.
+- `backend/src/money.ts`: the one `won()`. The copies in `ledger/entries.ts`, `ledger/month.ts`, `mock/holdings.ts`, `portfolio/asset-valuation.ts` and `portfolio/trades.ts` are gone; the other routes import it. Review round 1: fixed costs, mock accounts, mock orders and net worth snapshots also used a plain `Number(...)` on bigint text; they now use `won()` as well.
 - The server applies `MAX_WON` to:
   - entries, budgets, fixed costs (Zod `max` first with `abort`, so a huge number gets only the "₩1 trillion or less" message) and the CSV import;
   - asset values, purchase prices, salvage values, prepaid amounts and prepaid uses;
@@ -57,6 +57,8 @@ ORDER BY 1, 2;
 - Browser check on the ledger screen (local API and Vite, a throwaway DB): at 390×844 an amount of 1,000,000,000,001 shows "Enter the amount as a whole number of won, from 0 to ₩1 trillion" under the form, wrapping on two lines with no overflow; at 1440×900 an amount of exactly 1,000,000,000,000 saves ("Expense ₩1,000,000,000,000 recorded"). Layouts are unchanged; only messages and limits changed.
 
 ## Review
+
+- Round 1 (PR #269 comment): one finding, fixed in a follow-up commit: four routes still turned bigint text into JSON numbers with `Number(...)` instead of `won()`.
 
 ## Limits
 

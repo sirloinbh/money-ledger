@@ -97,7 +97,7 @@ const toItem = (row: ItemRow) => ({
   categoryName: row.category_name,
   // true while the category is hidden: no entries are added until it is shown again or the item moves.
   categoryHidden: row.category_hidden,
-  amount: Number(row.amount),
+  amount: won(row.amount),
   variable: row.variable,
   dayOfMonth: row.day_of_month,
   startMonth: row.start_month,
@@ -109,7 +109,7 @@ const toItem = (row: ItemRow) => ({
       : {
           id: row.entry_id,
           date: row.entry_date!,
-          amount: Number(row.entry_amount),
+          amount: won(row.entry_amount),
           // true while a variable amount is still the estimate.
           estimated: row.confirmed === false,
         },
