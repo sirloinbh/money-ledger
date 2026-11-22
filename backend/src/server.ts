@@ -3,7 +3,7 @@ import { PgBoss } from 'pg-boss';
 
 import { createApp } from './app.js';
 import { dailySavesQueue } from './daily-saves.js';
-import { snapshotOpenAccount } from './mock-snapshots.js';
+import { snapshotOpenAccount } from './mock/snapshots.js';
 import { logPriceEvent, PRICE_QUEUE, priceQueue, sourcesFromEnv } from './prices/index.js';
 import { backgroundJobs, shutdownOnce } from './runtime.js';
 import { listenHost, sharedAuth } from './standard/auth.js';
