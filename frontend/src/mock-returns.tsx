@@ -1,9 +1,11 @@
-import { Component, lazy, type ReactNode, Suspense, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
+import { ChartBoundary } from './chart-boundary';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Notice } from './components/ui/notice';
 import { formatWon, serviceToday, signedPercent } from './format';
+import { lazyChart } from './lazy-chart';
 import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 import type { ReturnPoint } from './mock-return-chart';
@@ -27,9 +29,9 @@ const periods: { value: Period; label: string; months: number | null }[] = [
 
 // Recharts is large: the chart loads in its own file, as in #40. `lazy` keeps a failed load, so a failure
 // starts a new one for the next try.
-const loadChart = () =>
-  lazy(() => import('./mock-return-chart').then((module) => ({ default: module.MockReturnChart })));
-const chart = { Chart: loadChart() };
+const chart = lazyChart(() =>
+  import('./mock-return-chart').then((module) => module.MockReturnChart),
+);
 
 /** "2026-11-10" minus `months` months, as YYYY-MM-DD (the day is clamped, so 3-31 minus 1 is 2-28). */
 function monthsBefore(date: string, months: number) {
@@ -126,12 +128,13 @@ export function MockReturns({ accountId, refreshKey }: { accountId: number; refr
           </p>
         ) : (
           <>
-            <ChartBoundary key={`${period}:${attempt}`} onRetry={() => setAttempt((n) => n + 1)}>
-              <Suspense
-                fallback={<p className="text-body-sm text-muted-foreground">Loading the chart</p>}
-              >
-                <chart.Chart points={points} />
-              </Suspense>
+            <ChartBoundary
+              chart={chart}
+              message="Could not load the chart. Check the values in the table below."
+              key={`${period}:${attempt}`}
+              onRetry={() => setAttempt((n) => n + 1)}
+            >
+              <chart.Chart points={points} />
             </ChartBoundary>
             <details className="rounded-xl border px-4 py-3">
               <summary className="cursor-pointer text-body-sm font-medium">View as table</summary>
@@ -177,38 +180,4 @@ export function MockReturns({ accountId, refreshKey }: { accountId: number; refr
       </CardContent>
     </Card>
   );
-}
-
-/**
- * The chart file failing to load (an old tab after a deploy, offline) must not take the page down: say so in
- * place of the chart, with a retry. The table still has every value.
- */
-class ChartBoundary extends Component<
-  { children: ReactNode; onRetry: () => void },
-  { failed: boolean }
-> {
-  state = { failed: false };
-
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-
-  componentDidCatch() {
-    chart.Chart = loadChart();
-  }
-
-  render() {
-    return this.state.failed ? (
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="text-body-sm text-muted-foreground">
-          Could not load the chart. Check the values in the table below.
-        </p>
-        <Button type="button" variant="outline" size="sm" onClick={this.props.onRetry}>
-          Try again
-        </Button>
-      </div>
-    ) : (
-      this.props.children
-    );
-  }
 }

@@ -1,18 +1,11 @@
-import {
-  Component,
-  lazy,
-  type ReactNode,
-  Suspense,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { ChartBoundary } from './chart-boundary';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Notice } from './components/ui/notice';
 import { countOf, formatWon, serviceToday } from './format';
+import { lazyChart } from './lazy-chart';
 import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 import { cn } from './lib/utils';
@@ -31,9 +24,7 @@ import {
 
 // Recharts is large: the chart loads in its own file when there is something to draw, not with the app.
 // `lazy` keeps a failed load, so a failure starts a new one for the next period or retry.
-const loadChart = () =>
-  lazy(() => import('./net-worth-chart').then((module) => ({ default: module.NetWorthChart })));
-const chart = { Chart: loadChart() };
+const chart = lazyChart(() => import('./net-worth-chart').then((module) => module.NetWorthChart));
 
 type List = { today: string; snapshots: Snapshot[] };
 
@@ -163,14 +154,12 @@ export function NetWorthHistory() {
               <p className="text-body-sm text-muted-foreground">No records in this period.</p>
             ) : (
               <>
-                <ChartBoundary key={`${period}:${attempt}`}>
-                  <Suspense
-                    fallback={
-                      <p className="text-body-sm text-muted-foreground">Loading the chart</p>
-                    }
-                  >
-                    <chart.Chart snapshots={shown.snapshots} from={axisFrom} to={today} />
-                  </Suspense>
+                <ChartBoundary
+                  chart={chart}
+                  message="Could not load the chart. Check the values in the table below."
+                  key={`${period}:${attempt}`}
+                >
+                  <chart.Chart snapshots={shown.snapshots} from={axisFrom} to={today} />
                 </ChartBoundary>
                 <details>
                   <summary className="cursor-pointer text-body-sm font-medium">
@@ -185,29 +174,6 @@ export function NetWorthHistory() {
       </CardContent>
     </Card>
   );
-}
-
-/** The chart file failing to load must not take the page down: say so in place of the chart. */
-class ChartBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-
-  componentDidCatch() {
-    chart.Chart = loadChart();
-  }
-
-  render() {
-    return this.state.failed ? (
-      <p className="text-body-sm text-muted-foreground">
-        Could not load the chart. Check the values in the table below.
-      </p>
-    ) : (
-      this.props.children
-    );
-  }
 }
 
 /** Every saved day, newest first. The unit is in the column headings so four columns fit on a phone. */

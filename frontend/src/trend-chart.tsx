@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts';
 
+import { EmptyChart } from './chart-boundary';
 import { formatWon } from './format';
 import { monthLabel, type TrendMonth, trendSeries } from './trend-series';
 
@@ -49,8 +50,9 @@ function TrendTooltip({ active, payload }: TooltipContentProps) {
 }
 
 export function TrendChart({ months }: { months: TrendMonth[] }) {
-  const first = months[0].month;
-  const last = months[months.length - 1].month;
+  const first = months[0]?.month;
+  const last = months.at(-1)?.month;
+  if (!first || !last) return <EmptyChart />;
   // Markers help find each month on a short period; on 24 months they crowd, so only the hovered one shows.
   const dots = months.length <= 12;
   const negative = months.some((month) => month.balance < 0);

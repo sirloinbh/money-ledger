@@ -17,3 +17,9 @@ test('the chart is one image named by its period and last return, pointing at th
     'Return by date line chart. From Nov 1 to Nov 9, the latest return is +1.94%. All values are in the table below.',
   );
 });
+
+test('an empty list draws nothing instead of failing (#202)', () => {
+  render(<MockReturnChart points={[]} />);
+  expect(screen.getByText('Nothing to draw yet.')).toBeInTheDocument();
+  expect(screen.queryByRole('img')).toBeNull();
+});

@@ -1,17 +1,10 @@
-import {
-  Component,
-  type KeyboardEvent,
-  lazy,
-  type ReactNode,
-  Suspense,
-  useId,
-  useRef,
-  useState,
-} from 'react';
+import { type KeyboardEvent, useId, useRef, useState } from 'react';
 
 import type { AllocationBar } from './asset-allocation-chart';
+import { ChartBoundary } from './chart-boundary';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { countOf, formatWon } from './format';
+import { lazyChart } from './lazy-chart';
 
 // #48 How the asset total is spread, by type and by asset (decisions 2026-11-10, server: allocation.ts).
 // Debts and assets without a won value are left out; the shares add up to exactly 100.0%. The chart shows the
@@ -33,13 +26,9 @@ const tabs: { id: Tab; label: string }[] = [
 
 // Recharts is large: the chart loads in its own file when there is something to draw, not with the app.
 // `lazy` keeps a failed load, so a failure starts a new one the next time the card is shown.
-const loadChart = () =>
-  lazy(() =>
-    import('./asset-allocation-chart').then((module) => ({
-      default: module.AssetAllocationChart,
-    })),
-  );
-const chart = { Chart: loadChart() };
+const chart = lazyChart(() =>
+  import('./asset-allocation-chart').then((module) => module.AssetAllocationChart),
+);
 
 /**
  * Bars except 0 won lines (those are only in the table). The bar length is the share, so a line whose amount is
@@ -169,14 +158,12 @@ export function AssetAllocation({
                   Every asset is ₩0, so there is nothing to draw in the chart.
                 </p>
               ) : (
-                <ChartBoundary key={tab}>
-                  <Suspense
-                    fallback={
-                      <p className="text-body-sm text-muted-foreground">Loading the chart</p>
-                    }
-                  >
-                    <chart.Chart bars={bars} title={title} />
-                  </Suspense>
+                <ChartBoundary
+                  chart={chart}
+                  message="Could not load the chart. Check the values in the table below."
+                  key={tab}
+                >
+                  <chart.Chart bars={bars} title={title} />
                 </ChartBoundary>
               )}
               {tab === 'type' ? (
@@ -209,32 +196,6 @@ export function AssetAllocation({
       </CardContent>
     </Card>
   );
-}
-
-/**
- * The chart file failing to load (an old tab after a deploy, offline) must not take the page down: say so in
- * place of the chart. The table under it still has every value.
- */
-class ChartBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-
-  componentDidCatch() {
-    chart.Chart = loadChart();
-  }
-
-  render() {
-    return this.state.failed ? (
-      <p className="text-body-sm text-muted-foreground">
-        Could not load the chart. Check the values in the table below.
-      </p>
-    ) : (
-      this.props.children
-    );
-  }
 }
 
 /** The won amount, or "-" when it is too large to show exactly. */
