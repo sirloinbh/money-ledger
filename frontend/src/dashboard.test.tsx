@@ -82,13 +82,13 @@ test('each card shows its area, the same values as its page, and a link to it', 
     expect(calls).toEqual(
       expect.arrayContaining([
         'POST /api/portfolio/net-worth',
-        'GET /api/portfolio/net-worth',
+        'GET /api/portfolio/net-worth?latest=true',
         'POST /api/reports/generate',
       ]),
     ),
   );
   expect(calls.indexOf('POST /api/portfolio/net-worth')).toBeLessThan(
-    calls.indexOf('GET /api/portfolio/net-worth'),
+    calls.indexOf('GET /api/portfolio/net-worth?latest=true'),
   );
   const ledger = card('This month');
   expect(await within(ledger).findByText('₩3,000,000')).toBeInTheDocument();
