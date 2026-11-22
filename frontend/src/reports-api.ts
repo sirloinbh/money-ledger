@@ -1,4 +1,4 @@
-import { addDueOnce } from './fixed-costs-api';
+import { addDue } from './fixed-costs-api';
 import { requestJson } from './lib/api';
 import { formatMonthDay } from './quote-format';
 import { monthLabel } from './trend-series';
@@ -51,10 +51,11 @@ let making: Promise<void> | undefined;
 
 /**
  * Saves the reports of finished periods, at most once per page load. It waits for the due fixed-cost entries
- * first, since they count as spending. A failure is forgotten, so the next caller tries again.
+ * first, since they count as spending: when adding them failed, no report is made, so none is saved without them
+ * (#204). A failure is forgotten, so the next caller tries again.
  */
 export function makeReportsOnce() {
-  making ??= addDueOnce()
+  making ??= addDue()
     .then(() => requestJson(`${reportsPath}/generate`, { method: 'POST' }))
     .then(
       () => undefined,

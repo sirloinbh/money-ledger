@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Pool, PoolClient } from 'pg';
 
-import { budgetListSql, type BudgetRow } from './budgets.js';
+import { budgetListSql } from './budgets.js';
 import { inTransaction } from './db.js';
 import { won } from './month.js';
 import { HttpError, parseId } from './standard/http.js';
@@ -42,9 +42,21 @@ const startsSql = (period: Period) => `
       interval '${step[period]}'
     ) s`;
 
-// One statement, so every number comes from the same snapshot. $1 and $2 are the period's first and last days,
-// $3 the previous period's first day ($1 - 1 is its last). Expense only; uncategorized spending is one row.
-const contentSql = `
+// One statement, so every number comes from the same snapshot, the monthly overspending list included (#204: it
+// was a second statement, which under READ COMMITTED could see entries the totals did not). $1 and $2 are the
+// period's first and last days, $3 the previous period's first day ($1 - 1 is its last). Expense only;
+// uncategorized spending is one row. Budgets are monthly, so a weekly report has no overspending list (NULL).
+const overspendingSql: Record<Period, string> = {
+  week: 'NULL::json',
+  month: `(SELECT coalesce(json_agg(json_build_object(
+              'categoryId', b.category_id, 'name', b.name, 'hidden', b.hidden, 'spent', b.spent,
+              'budget', coalesce(b.budget, '0'), 'over', coalesce(b.over, '0'),
+              'percent', coalesce(b.percent, '0'), 'status', b.status)
+            ORDER BY b.category_id), '[]'::json)
+          FROM (${budgetListSql}) b WHERE b.status IN ('reached', 'over'))`,
+};
+
+const contentSql = (period: Period) => `
   WITH cur AS (
     SELECT amount, category_id FROM ledger_entries
     WHERE kind = 'expense' AND entry_date BETWEEN $1::date AND $2::date
@@ -68,7 +80,8 @@ const contentSql = `
           'amount', b.amount::text, 'share', round(b.amount * 100 / nullif(t.total, 0), 1)::text)
         ORDER BY b.amount DESC, b.name NULLS LAST)
        FROM top b),
-      '[]'::json) AS top
+      '[]'::json) AS top,
+    ${overspendingSql[period]} AS overspending
   FROM totals t`;
 
 type Stored = {
@@ -110,26 +123,8 @@ async function makeReport(client: PoolClient, period: Period, start: string) {
     [end],
   );
   if (started.rowCount === 0) return null;
-  const content = (
-    await client.query<Omit<Stored, 'overspending'>>(contentSql, [start, end, previousStart])
-  ).rows[0];
-  let overspending: Stored['overspending'] = null;
-  if (period === 'month') {
-    const budgets = await client.query<BudgetRow>(budgetListSql, [start]);
-    overspending = budgets.rows
-      .filter((row) => row.status === 'reached' || row.status === 'over')
-      .map((row) => ({
-        categoryId: row.category_id,
-        name: row.name,
-        hidden: row.hidden,
-        spent: row.spent,
-        budget: row.budget ?? '0',
-        over: row.over ?? '0',
-        percent: row.percent ?? '0',
-        status: row.status as 'reached' | 'over',
-      }));
-  }
-  const stored: Stored = { ...content, overspending };
+  const stored = (await client.query<Stored>(contentSql(period), [start, end, previousStart]))
+    .rows[0];
   const saved = await client.query<{ id: number }>(
     `INSERT INTO spending_reports (period, start_date, end_date, content)
      VALUES ($1, $2::date, $3::date, $4::jsonb)

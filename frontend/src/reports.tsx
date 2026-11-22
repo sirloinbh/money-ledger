@@ -7,7 +7,7 @@ import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { formatWon } from './format';
 import type { Health } from './health';
-import { requestJson } from './lib/api';
+import { RequestError, requestJson } from './lib/api';
 import { Page } from './page';
 import {
   makeReportsOnce,
@@ -20,20 +20,27 @@ import {
 // #62 The saved weekly and monthly spending reports, and one report. Opening a report clears its notice on the
 // dashboard (PUT .../seen); reading the list does not.
 
-/** undefined while loading; `failed` after an error, with `retry` to ask again. */
+/**
+ * undefined while loading; `failed` after an error, with `retry` to ask again. `missing` when the server answered
+ * 404, which a retry cannot fix.
+ */
 function useLoad<T>(load: () => Promise<T>) {
   const [data, setData] = useState<T>();
   const [failed, setFailed] = useState(false);
+  const [missing, setMissing] = useState(false);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let current = true;
     setFailed(false);
+    setMissing(false);
     load().then(
       (value) => {
         if (current) setData(value);
       },
-      () => {
-        if (current) setFailed(true);
+      (cause: unknown) => {
+        if (!current) return;
+        if (cause instanceof RequestError && cause.status === 404) setMissing(true);
+        else setFailed(true);
       },
     );
     return () => {
@@ -41,7 +48,7 @@ function useLoad<T>(load: () => Promise<T>) {
     };
   }, [load, attempt]);
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
-  return { data, failed, retry };
+  return { data, failed, missing, retry };
 }
 
 const Muted = ({ children }: { children: ReactNode }) => (
@@ -116,14 +123,22 @@ function changeText(report: Report) {
     : `${formatWon(-report.change)} less than ${before}`;
 }
 
+/** A report id in the address, as the server accepts it (`ID_PATTERN`): `/reports/abc` is not sent. */
+const reportId = /^[1-9]\d{0,14}$/;
+
 export function ReportPage({ health }: { health: Health }) {
-  const { id } = useParams();
+  const { id = '' } = useParams();
+  const valid = reportId.test(id);
   const load = useCallback(
-    () => requestJson<{ report: Report }>(`${reportsPath}/${id ?? ''}`),
-    [id],
+    () =>
+      valid
+        ? requestJson<{ report: Report }>(`${reportsPath}/${id}`)
+        : Promise.reject(new RequestError('Report not found', 404)),
+    [id, valid],
   );
-  const { data, failed, retry } = useLoad(load);
-  const report = data?.report;
+  const { data, failed, missing, retry } = useLoad(load);
+  // The loaded report belongs to this address: after a move to another id, the old one is not shown.
+  const report = data?.report.id === Number(id) && !missing ? data.report : undefined;
 
   // Opened: its dashboard notice goes away. Not worth an error on screen if it fails; it is tried next time.
   useEffect(() => {
@@ -145,7 +160,9 @@ export function ReportPage({ health }: { health: Health }) {
           <Link to="/reports">All reports</Link>
         </Button>
       </div>
-      {failed ? (
+      {missing ? (
+        <Muted>Report not found. It may have been removed, or the address is wrong.</Muted>
+      ) : failed ? (
         <Failed what="this report" onRetry={retry} />
       ) : report === undefined ? (
         <p role="status" className="text-body-sm text-muted-foreground">
