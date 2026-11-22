@@ -2,8 +2,10 @@ import { Router } from 'express';
 import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
+import { MAX_WON, MAX_WON_TEXT } from '../contract.js';
+import { won } from '../money.js';
 import { HttpError, parseId } from '../standard/http.js';
-import { monthField, won } from './month.js';
+import { monthField } from './month.js';
 
 // #42 Monthly budgets of expense categories and how much of each is spent. A month uses its own budget row or
 // else the latest earlier one (nothing is copied); an amount of 0 means no budget. Sums, the rest, the excess
@@ -20,7 +22,7 @@ export const saveBody = z.object(
     amount: z
       .number({ error: 'Enter the budget as a number' })
       // First: a number past the safe range is not a safe integer either, and only "too large" is useful.
-      .max(Number.MAX_SAFE_INTEGER, { error: 'The budget is too large', abort: true })
+      .max(MAX_WON, { error: `Enter a budget of ${MAX_WON_TEXT} or less`, abort: true })
       .int('Enter the budget as a whole number of won')
       .min(0, 'The budget must be ₩0 or more'),
   },

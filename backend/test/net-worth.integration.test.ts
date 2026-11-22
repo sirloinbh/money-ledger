@@ -233,9 +233,11 @@ test('net worth snapshots against the real database', { skip: !url }, async (t) 
     async () => {
       await reset();
       await api(async (call) => {
-        // Ten of 10^15 won: 10^16 is past 2^53.
-        for (let i = 1; i <= 10; i++)
-          await add(call, cash(`Big account ${i}`, 1_000_000_000_000_000));
+        // 10,000 of ₩1 trillion (the cap, #186): 10^16 is past 2^53. Many rows, so straight into the table.
+        await pool.query(
+          `INSERT INTO portfolio_assets (name, asset_type, currency, value_krw)
+           SELECT 'Big account ' || n, 'cash', 'KRW', 1000000000000 FROM generate_series(1, 10000) n`,
+        );
         const { status, data } = await save(call);
         assert.equal(status, 422);
         assert.equal(data.error, 'The totals are too large to save the net worth');

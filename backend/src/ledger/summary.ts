@@ -2,7 +2,8 @@ import { Router } from 'express';
 import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
-import { monthField, won } from './month.js';
+import { won } from '../money.js';
+import { monthField } from './month.js';
 
 // #40 One month of the ledger: income, expense, the balance between them and the expense by category.
 // Sums and shares are computed in SQL (numeric), never with JavaScript floats.

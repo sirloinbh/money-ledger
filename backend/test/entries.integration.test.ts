@@ -87,20 +87,42 @@ test('ledger entries against the real database', { skip: !url }, async (t) => {
     });
   });
 
-  await t.test('the largest safe amount round-trips exactly', async () => {
+  await t.test('₩1 trillion round-trips exactly and one won more is refused (#109)', async () => {
     await reset();
     const ids = await categoryIds();
     await withApi(pool, async (call) => {
+      const body = { date: '2026-11-03', kind: 'income', categoryId: ids['income/기타'] };
       const { data } = await call('/api/ledger/entries', {
         method: 'POST',
-        body: {
-          date: '2026-11-03',
-          kind: 'income',
-          amount: Number.MAX_SAFE_INTEGER,
-          categoryId: ids['income/기타'],
-        },
+        body: { ...body, amount: 1_000_000_000_000 },
       });
-      assert.equal((data.entry as Entry).amount, Number.MAX_SAFE_INTEGER);
+      assert.equal((data.entry as Entry).amount, 1_000_000_000_000);
+      for (const amount of [1_000_000_000_001, Number.MAX_SAFE_INTEGER]) {
+        const refused = await call('/api/ledger/entries', {
+          method: 'POST',
+          body: { ...body, amount },
+        });
+        assert.equal(refused.status, 400);
+        assert.equal(refused.data.error, 'Enter an amount of ₩1 trillion or less');
+      }
+      const { rows } = await pool.query('SELECT count(*)::int AS n FROM ledger_entries');
+      assert.equal(rows[0].n, 1, 'nothing above the cap was saved');
+    });
+  });
+
+  await t.test('a month full of entries at the cap still has an exact summary (#109)', async () => {
+    await reset();
+    const ids = await categoryIds();
+    // 30 expenses of ₩1 trillion: ₩30 trillion, far below the safe integer limit (about ₩9 quadrillion).
+    await pool.query(
+      `INSERT INTO ledger_entries (entry_date, kind, amount, category_id)
+       SELECT '2026-11-01'::date + (n % 28), 'expense', 1000000000000, $1 FROM generate_series(1, 30) n`,
+      [ids['expense/식비']],
+    );
+    await withApi(pool, async (call) => {
+      const { status, data } = await call('/api/ledger/summary?month=2026-11');
+      assert.equal(status, 200);
+      assert.equal(data.expense, 30_000_000_000_000);
     });
   });
 

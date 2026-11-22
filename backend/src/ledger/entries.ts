@@ -2,7 +2,9 @@ import { Router } from 'express';
 import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
+import { MAX_WON, MAX_WON_TEXT, serviceDate as date } from '../contract.js';
 import { inTransaction } from '../db.js';
+import { won } from '../money.js';
 import { HttpError, parseId } from '../standard/http.js';
 import { merchantText, ruleCategorySql } from './rules.js';
 import { loadHistory, suggester } from './suggestions.js';
@@ -11,27 +13,12 @@ import { loadHistory, suggester } from './suggestions.js';
 // #60 An entry may have a merchant and may be uncategorized (category NULL, "Uncategorized"). Saved without a
 // category, it gets the category of the matching keyword rule if there is one; a chosen category is kept.
 
-export const date = z
-  .string({ error: 'Enter the date as YYYY-MM-DD' })
-  .regex(/^\d{4}-\d{2}-\d{2}$/, { error: 'Enter the date as YYYY-MM-DD', abort: true })
-  // PostgreSQL has no year 0, and far-off years are typos: keep dates in a range a ledger can mean.
-  .refine(
-    (value) => {
-      const year = Number(value.slice(0, 4));
-      return year >= 1900 && year <= 2100;
-    },
-    { error: 'Enter a date between 1900 and 2100', abort: true },
-  )
-  .refine((value) => {
-    const parsed = new Date(`${value}T00:00:00Z`);
-    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
-  }, 'That date does not exist');
-
 const amount = z
   .number({ error: 'Enter the amount as a number' })
+  // First: a number past the safe range is not a safe integer either, and only "too large" is useful.
+  .max(MAX_WON, { error: `Enter an amount of ${MAX_WON_TEXT} or less`, abort: true })
   .int('Enter the amount as a whole number of won')
-  .min(0, 'The amount must be ₩0 or more')
-  .max(Number.MAX_SAFE_INTEGER, 'The amount is too large');
+  .min(0, 'The amount must be ₩0 or more');
 
 const categoryId = z
   .number({ error: 'Choose a category' })
@@ -154,12 +141,6 @@ const select = `SELECT e.id, e.entry_date, e.kind, e.amount, e.category_id, c.na
   FROM ledger_entries e LEFT JOIN ledger_categories c ON c.id = e.category_id`;
 
 // pg returns bigint as a string; amounts stay exact as long as they are safe integers.
-function won(value: string) {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed)) throw new Error(`amount out of safe range: ${value}`);
-  return parsed;
-}
-
 const toEntry = (row: Row) => ({
   id: row.id,
   date: row.entry_date,

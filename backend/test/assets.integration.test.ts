@@ -103,10 +103,11 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
           name: '아파트',
           type: 'real_estate',
           currency: 'KRW',
-          valueKrw: 1_000_000_000_000_000,
+          valueKrw: 1_000_000_000_000,
         },
       });
-      assert.equal((big.data.asset as Asset).valueKrw, 1_000_000_000_000_000);
+      // The one won cap (#186) round-trips exactly.
+      assert.equal((big.data.asset as Asset).valueKrw, 1_000_000_000_000);
     });
   });
 
@@ -186,10 +187,10 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
     'totals too large for a JSON number come back as null and the list still loads',
     async () => {
       await reset();
-      // 10,000 rows of ₩1 quadrillion: each is allowed, their sum is not a safe integer.
+      // 10,000 rows of ₩1 trillion (the cap, #186): each is allowed, their sum (10^16) is not a safe integer.
       await pool.query(
         `INSERT INTO portfolio_assets (name, asset_type, value_krw)
-       SELECT 'a' || n, 'real_estate', 1000000000000000 FROM generate_series(1, 10000) AS n`,
+       SELECT 'a' || n, 'real_estate', 1000000000000 FROM generate_series(1, 10000) AS n`,
       );
       await pool.query(
         "INSERT INTO portfolio_assets (name, asset_type, value_krw) VALUES ('b', 'debt', 1)",

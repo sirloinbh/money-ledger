@@ -1,13 +1,11 @@
 import { z } from 'zod/v4';
 
-import { date } from '../ledger/entries.js';
+import { MAX_WON, MAX_WON_TEXT, serviceDate as date } from '../contract.js';
 import { HttpError } from '../standard/http.js';
 
 // Request schemas of the asset API (#45, #46, #47, #63, #64). Formats follow AGENTS.project.md "Quantity,
 // foreign currency, and exchange rate" (#35): won amounts are JSON numbers, quantities and USD amounts are
 // decimal strings. The routes are in assets.ts, the valuation query in asset-valuation.ts.
-
-const maxWon = 1_000_000_000_000_000;
 
 export const assetTypes = [
   'stock',
@@ -29,7 +27,7 @@ const wonAmount = (label: string) => {
     .number({ error: `Enter the ${label} as a number` })
     .int(`Enter the ${label} as a whole number of won`)
     .min(0, `The ${label} must be ₩0 or more`)
-    .max(maxWon, `Enter a ${label} of ₩1 quadrillion or less`);
+    .max(MAX_WON, `Enter a ${label} of ${MAX_WON_TEXT} or less`);
 };
 
 const depreciation = z.object(
@@ -82,7 +80,7 @@ export const usageBody = z.object(
       .number({ error: 'Enter the amount used as a number' })
       .int('Enter the amount used as a whole number of won')
       .min(1, 'The amount used must be at least ₩1')
-      .max(maxWon, 'Enter an amount used of ₩1 quadrillion or less'),
+      .max(MAX_WON, `Enter an amount used of ${MAX_WON_TEXT} or less`),
     memo: z
       .string({ error: 'The note must be text' })
       .trim()
@@ -119,9 +117,9 @@ export const assetBody = z
         .number({ error: 'Enter the valuation as a number' })
         .int('Enter the valuation in won as a whole number')
         .min(0, 'The valuation must be 0 or more')
-        // ₩1 quadrillion: far above any household asset, and low enough that thousands of them still total
-        // to a safe integer. Totals that still overflow are reported as null rather than failing the list.
-        .max(maxWon, 'Enter a valuation of ₩1 quadrillion or less')
+        // The one won cap (#186): far above any household asset, and low enough that thousands of them still
+        // total to a safe integer. Totals that still overflow are reported as null rather than failing the list.
+        .max(MAX_WON, `Enter a valuation of ${MAX_WON_TEXT} or less`)
         .nullable()
         .default(null),
       valueForeign: z

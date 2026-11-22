@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Pool, PoolClient } from 'pg';
 
+import { won } from '../money.js';
 import { HttpError, parseId } from '../standard/http.js';
 
 // #53 What a mock account holds and how it has done.
@@ -42,15 +43,6 @@ type AccountRow = {
 };
 
 /** A won amount from SQL as a JSON number; refuses one past the exact integer range instead of rounding it. */
-export function won(text: string): number;
-export function won(text: string | null): number | null;
-export function won(text: string | null) {
-  if (text === null) return null;
-  const amount = Number(text);
-  if (!Number.isSafeInteger(amount)) throw new Error(`won amount out of range: ${text}`);
-  return amount;
-}
-
 /**
  * What an account holds and is worth now (rules at the top), or undefined if there is no such account. The
  * daily snapshots (#54) save its summary. One statement, so the holdings and the account cash come from the

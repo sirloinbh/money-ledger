@@ -6,10 +6,12 @@ import {
   formatDecimal,
   formatUsd,
   formatWon,
+  realDate,
   serviceToday,
   sharesOf,
   signedPercent,
   withoutThousands,
+  wonFromDigits,
 } from './format';
 
 test('commas are dropped only when they separate thousands', () => {
@@ -64,4 +66,22 @@ test('counts take the singular for exactly one (#203)', () => {
   expect(sharesOf('1.50000000')).toBe('1.5 shares');
   expect(sharesOf('0.10000000')).toBe('0.1 shares');
   expect(sharesOf('1200.00000000')).toBe('1,200 shares');
+});
+
+test('whole won is 0 to ₩1 trillion, the cap the server checks (#186)', () => {
+  expect(wonFromDigits('0')).toBe(0);
+  expect(wonFromDigits('1000000000000')).toBe(1_000_000_000_000);
+  expect(wonFromDigits('1000000000001')).toBeUndefined();
+  expect(wonFromDigits('99999999999999999')).toBeUndefined();
+  expect(wonFromDigits('1.5')).toBeUndefined();
+  expect(wonFromDigits('-1')).toBeUndefined();
+  expect(wonFromDigits('')).toBeUndefined();
+});
+
+test('a real date uses the same rule as the server (#186)', () => {
+  expect(realDate('2024-02-29')).toBe(true);
+  expect(realDate('2026-02-30')).toBe(false);
+  expect(realDate('1899-12-31')).toBe(false);
+  expect(realDate('2101-01-01')).toBe(false);
+  expect(realDate('2026-1-5')).toBe(false);
 });

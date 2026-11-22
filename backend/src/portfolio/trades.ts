@@ -2,8 +2,9 @@ import { Router } from 'express';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod/v4';
 
+import { MAX_WON, MAX_WON_TEXT, serviceDate as date } from '../contract.js';
 import { inTransaction } from '../db.js';
-import { date } from '../ledger/entries.js';
+import { won } from '../money.js';
 import { HttpError, parseId } from '../standard/http.js';
 
 // #46 Buy and sell records of a held asset. The position (quantity, moving-average cost, realized profit)
@@ -14,7 +15,6 @@ import { HttpError, parseId } from '../standard/http.js';
 // that leaves the quantity negative at any point in date order is refused; same-date trades in entry order.
 // Mounted at /api/portfolio/assets/:id/trades.
 
-const maxWon = 1_000_000_000_000_000;
 const tradeableTypes = ['stock', 'other'];
 
 const wonCost = (label: string) => {
@@ -22,7 +22,7 @@ const wonCost = (label: string) => {
     .number({ error: `Enter the ${label} as a number` })
     .int(`Enter the ${label} as a whole number of won`)
     .min(0, `The ${label} must be ₩0 or more`)
-    .max(maxWon, `Enter a ${label} of ₩1 quadrillion or less`)
+    .max(MAX_WON, `Enter a ${label} of ${MAX_WON_TEXT} or less`)
     .default(0);
 };
 
@@ -90,12 +90,6 @@ type PositionRow = {
   cost_krw: string;
   realized_krw: string;
 };
-
-function won(value: string) {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed)) throw new Error(`won amount out of safe range: ${value}`);
-  return parsed;
-}
 
 const toTrade = (row: TradeRow) => ({
   id: row.id,
@@ -169,9 +163,9 @@ async function amountFor(client: PoolClient, body: TradeBody, currency: 'KRW' | 
   const { rows } = await client.query<{ amount: string; too_big: boolean }>(
     `SELECT a::text AS amount, a > $4::numeric AS too_big
      FROM (SELECT round($1::numeric * $2::numeric * coalesce($3::numeric, 1)) AS a) x`,
-    [body.quantity, body.price, body.fxRate, maxWon],
+    [body.quantity, body.price, body.fxRate, MAX_WON],
   );
-  if (rows[0].too_big) throw new HttpError(400, 'The trade amount exceeds ₩1 quadrillion');
+  if (rows[0].too_big) throw new HttpError(400, `The trade amount exceeds ${MAX_WON_TEXT}`);
   return rows[0].amount;
 }
 
@@ -204,7 +198,8 @@ async function settle(client: PoolClient, assetId: number) {
                         OR abs(sum(realized_krw)) > $2::numeric
                         OR max(abs(realized_krw)) > $2::numeric
                       FROM p WHERE NOT oversold), false) AS too_big`,
-    [assetId, Number.MAX_SAFE_INTEGER],
+    // The one won cap (#186), the same as a single amount: a position cannot outgrow it either.
+    [assetId, MAX_WON],
   );
   const result = rows[0];
   if (result.oversold_on !== null) {

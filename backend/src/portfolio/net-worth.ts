@@ -2,8 +2,8 @@ import { Router } from 'express';
 import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
+import { serviceDate as date } from '../contract.js';
 import { inTransaction } from '../db.js';
-import { date } from '../ledger/entries.js';
 import { HttpError } from '../standard/http.js';
 import { readTotals, total } from './asset-valuation.js';
 

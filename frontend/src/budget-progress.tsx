@@ -2,12 +2,13 @@ import { CircleAlert } from 'lucide-react';
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
+import { MAX_WON_TEXT } from '../../shared/contract';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
-import { formatWon, serviceToday, withoutThousands } from './format';
+import { formatWon, serviceToday, withoutThousands, wonFromDigits } from './format';
 import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 import { cn } from './lib/utils';
@@ -44,9 +45,7 @@ type Budgets = { month: string; budgets: Budget[] };
 function parseBudget(text: string) {
   const digits = withoutThousands(text);
   if (digits === '') return 0;
-  if (!/^\d{1,16}$/.test(digits)) return undefined;
-  const value = Number(digits);
-  return Number.isSafeInteger(value) ? value : undefined;
+  return wonFromDigits(digits);
 }
 
 /** `version` changes when entries or categories change elsewhere on the page, so the spending reloads. */
@@ -125,7 +124,7 @@ export function BudgetProgress({ version = 0 }: { version?: number }) {
     const amount = parseBudget(draft);
     if (amount === undefined) {
       setInvalid(true);
-      showError('Enter the budget as a whole number of won, 0 or more');
+      showError(`Enter the budget as a whole number of won, from 0 to ${MAX_WON_TEXT}`);
       return;
     }
     setSaving(true);

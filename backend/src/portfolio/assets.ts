@@ -3,6 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 import type { z } from 'zod/v4';
 
 import { inTransaction } from '../db.js';
+import { won } from '../money.js';
 import { fetchUsCloses, type PriceLog, tiingoHourlyLimit } from '../prices/fetch.js';
 import type { PriceSources } from '../prices/sources.js';
 import { HttpError, parseId, sendError } from '../standard/http.js';
@@ -22,7 +23,6 @@ import {
   sumTotals,
   toAsset,
   total,
-  won,
 } from './asset-valuation.js';
 import { tradesRouter } from './trades.js';
 

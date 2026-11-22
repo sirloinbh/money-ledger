@@ -144,15 +144,15 @@ test('asset allocation against the real database', { skip: !url }, async (t) => 
     });
   });
 
-  await t.test('shares stay exact and add up to 100.0% past 10^17 won in all', async () => {
+  await t.test('shares stay exact and add up to 100.0% past 10^14 won in all', async () => {
     await reset();
-    // Every share sits just below a whole tenth (each 10^15 asset is 9.99999999999999999… tenths). div/mod keep
-    // the quotient exact at any size; a plain division only rounds it up past about 20 digits (10^20 won).
-    // Many rows, so straight into the table: 99 × 10^15, 9 × 10^14, 10^14 and 1 (10^17 + 1 in all).
+    // Every share sits just below a whole tenth (each 10^12 asset is 9.99999999999999… tenths). div/mod keep
+    // the quotient exact at any size. Assets are capped at ₩1 trillion (MAX_WON, #186).
+    // Many rows, so straight into the table: 99 × 10^12, 9 × 10^11, 10^11 and 1 (10^14 + 1 in all).
     await pool.query(
       `INSERT INTO portfolio_assets (name, asset_type, currency, value_krw)
-       SELECT '큰 자산 ' || i, 'cash', 'KRW', 1000000000000000 FROM generate_series(1, 99) i
-       UNION ALL VALUES ('중간', 'cash', 'KRW', 900000000000000), ('작은', 'cash', 'KRW', 100000000000000),
+       SELECT '큰 자산 ' || i, 'cash', 'KRW', 1000000000000 FROM generate_series(1, 99) i
+       UNION ALL VALUES ('중간', 'cash', 'KRW', 900000000000), ('작은', 'cash', 'KRW', 100000000000),
          ('1원', 'cash', 'KRW', 1)`,
     );
     await api(async (call) => {

@@ -2,9 +2,11 @@ import { Router } from 'express';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod/v4';
 
+import { MAX_WON, MAX_WON_TEXT } from '../contract.js';
 import { inTransaction } from '../db.js';
+import { won } from '../money.js';
 import { HttpError, parseId } from '../standard/http.js';
-import { monthField, won } from './month.js';
+import { monthField } from './month.js';
 
 // #43 Fixed costs (decisions 2026-11-15, database/migrations/020_ledger_fixed_costs.sql). Each item adds one
 // expense entry a month on its day (a day past the month's end means the last day). The app calls POST /generate
@@ -25,7 +27,7 @@ const name = z
 const amount = z
   .number({ error: 'Enter the amount as a number' })
   // First: a number past the safe range is not a safe integer either, and only "too large" is useful.
-  .max(Number.MAX_SAFE_INTEGER, { error: 'The amount is too large', abort: true })
+  .max(MAX_WON, { error: `Enter an amount of ${MAX_WON_TEXT} or less`, abort: true })
   .int('Enter the amount as a whole number of won')
   .min(0, 'The amount must be ₩0 or more');
 const categoryId = z

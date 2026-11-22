@@ -1,6 +1,7 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
+import { MAX_WON_TEXT } from '../../shared/contract';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
@@ -9,7 +10,7 @@ import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
 import { selectClass } from './entry-filters-state';
 import { addDueOnce, fixedCostsPath } from './fixed-costs-api';
-import { formatWon, serviceToday, withoutThousands } from './format';
+import { formatWon, serviceToday, withoutThousands, wonFromDigits } from './format';
 import { requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 import { readSummaryMonth } from './summary-month';
@@ -55,10 +56,7 @@ const presets: { name: string; category: string; variable: boolean }[] = [
 
 /** Digits with optional thousands commas → whole won; undefined when it is not one. */
 function parseWon(text: string) {
-  const digits = withoutThousands(text);
-  if (!/^\d{1,16}$/.test(digits)) return undefined;
-  const value = Number(digits);
-  return Number.isSafeInteger(value) ? value : undefined;
+  return wonFromDigits(withoutThousands(text));
 }
 
 const dayText = (day: number) => (day >= 29 ? `day ${day} (or the last day)` : `day ${day}`);
@@ -354,7 +352,7 @@ function FixedCostRow({
     const amount = parseWon(draft);
     if (amount === undefined) {
       setInvalid(true);
-      onInvalid('Enter the actual amount as a whole number of won');
+      onInvalid(`Enter the actual amount as a whole number of won, up to ${MAX_WON_TEXT}`);
       return;
     }
     await onConfirm(amount);
@@ -524,7 +522,8 @@ function FixedCostForm({
     if (!name) return refuse('name', 'Enter a name');
     if (!draft.categoryId) return refuse('categoryId', 'Choose an expense category');
     const amount = parseWon(draft.amount);
-    if (amount === undefined) return refuse('amount', 'Enter the amount as a whole number of won');
+    if (amount === undefined)
+      return refuse('amount', `Enter the amount as a whole number of won, up to ${MAX_WON_TEXT}`);
     const day = Number(draft.dayOfMonth);
     if (!/^\d{1,2}$/.test(draft.dayOfMonth) || day < 1 || day > 31) {
       return refuse('dayOfMonth', 'Enter a day between 1 and 31');

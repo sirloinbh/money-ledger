@@ -354,7 +354,7 @@ test('a use of 0 won is refused before sending', async () => {
   fireEvent.change(within(panel).getByLabelText('Amount used (KRW)'), { target: { value: '0' } });
   fireEvent.click(within(panel).getByRole('button', { name: 'Add usage' }));
   expect(getLive('alert', panel)).toHaveTextContent(
-    'Enter the amount used as a whole number of won, at least ₩1',
+    'Enter the amount used as a whole number of won, from ₩1 to ₩1 trillion',
   );
   expect(requests.some((request) => request.method === 'POST')).toBe(false);
 });

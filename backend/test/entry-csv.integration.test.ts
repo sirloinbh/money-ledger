@@ -119,19 +119,25 @@ test('entry CSV export and import against the real database', { skip: !url }, as
         merchant: 'x'.repeat(51),
       },
       { line: 10, date: '2026-11-02', kind: 'expense', amount: '12500', merchant: '이마트' },
+      // #186 One won over the cap.
+      { line: 11, date: '2026-11-03', kind: 'expense', amount: '1,000,000,000,001' },
     ];
     const preview = await call('/preview', { rows });
     assert.equal(preview.status, 200, JSON.stringify(preview.data));
     assert.deepEqual(
       (preview.data.problems as { line: number }[]).map((problem) => problem.line),
-      [3, 4, 5, 6, 7, 8, 9],
+      [3, 4, 5, 6, 7, 8, 9, 11],
     );
     assert.match(
       (preview.data.problems as { message: string }[])[0].message,
       /Date "2026-02-30": That date does not exist/,
     );
     assert.deepEqual(preview.data.duplicates, [2]);
-    assert.deepEqual([preview.data.rows, preview.data.valid], [9, 2]);
+    assert.match(
+      (preview.data.problems as { message: string }[]).at(-1)!.message,
+      /Amount "1,000,000,000,001" is not a whole number of won from 0 to ₩1 trillion/,
+    );
+    assert.deepEqual([preview.data.rows, preview.data.valid], [10, 2]);
   });
 
   await t.test('import: one bad row saves nothing', async () => {

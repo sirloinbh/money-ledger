@@ -1,5 +1,5 @@
 import type { FilterCategory, Kind } from './entry-filters-state';
-import { formatWon, serviceToday } from './format';
+import { formatWon, serviceToday, wonFromDigits } from './format';
 
 // #190 The entries screen's types and pure helpers, kept apart from the components so they can be unit-tested.
 
@@ -49,10 +49,7 @@ export const draftFromEntry = (entry: Entry): Draft => ({
 
 /** "12,500" or "12500" → 12500; anything else (sign, decimals, letters) → undefined. */
 export function parseAmount(text: string) {
-  const digits = text.replaceAll(',', '').trim();
-  if (!/^\d{1,16}$/.test(digits)) return undefined;
-  const value = Number(digits);
-  return Number.isSafeInteger(value) ? value : undefined;
+  return wonFromDigits(text.replaceAll(',', '').trim());
 }
 
 /**

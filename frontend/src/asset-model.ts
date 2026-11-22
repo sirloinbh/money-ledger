@@ -1,3 +1,4 @@
+import { MAX_WON, MAX_WON_TEXT } from '../../shared/contract';
 import {
   countOf,
   formatDecimal,
@@ -6,6 +7,7 @@ import {
   realDate,
   serviceToday,
   withoutThousands as digits,
+  wonFromDigits,
 } from './format';
 import { formatMonthDay, formatPrice, quoteBasis } from './quote-format';
 import type { LinkedSecurity } from './security-picker';
@@ -161,7 +163,7 @@ export function prepaidBody(draft: Draft): { prepaid: object } | { field: Field;
   if (amountKrw === undefined) {
     return {
       field: 'prepaidAmount',
-      message: 'Enter the amount paid as a whole number of won, up to ₩1 quadrillion',
+      message: `Enter the amount paid as a whole number of won, up to ${MAX_WON_TEXT}`,
     };
   }
   if (draft.prepaidKind === 'period') {
@@ -191,11 +193,9 @@ export function prepaidBody(draft: Draft): { prepaid: object } | { field: Field;
   };
 }
 
-/** A whole-won amount up to ₩1 quadrillion, or undefined when the text is not one. */
+/** A whole-won amount up to MAX_WON, or undefined when the text is not one. */
 function wonValue(text: string) {
-  const plain = digits(text);
-  if (!/^\d{1,16}$/.test(plain) || Number(plain) > 1e15) return undefined;
-  return Number(plain);
+  return wonFromDigits(digits(text));
 }
 
 export function depreciationBody(
@@ -205,7 +205,7 @@ export function depreciationBody(
   if (purchasePriceKrw === undefined) {
     return {
       field: 'purchasePrice',
-      message: 'Enter the purchase price as a whole number of won, up to ₩1 quadrillion',
+      message: `Enter the purchase price as a whole number of won, up to ${MAX_WON_TEXT}`,
     };
   }
   if (draft.purchasedOn.trim() === '') {
@@ -224,7 +224,10 @@ export function depreciationBody(
   }
   const salvageValueKrw = draft.salvage.trim() === '' ? 0 : wonValue(draft.salvage);
   if (salvageValueKrw === undefined) {
-    return { field: 'salvage', message: 'Enter the salvage value as a whole number of won' };
+    return {
+      field: 'salvage',
+      message: `Enter the salvage value as a whole number of won, up to ${MAX_WON_TEXT}`,
+    };
   }
   if (salvageValueKrw > purchasePriceKrw) {
     return {
@@ -306,8 +309,8 @@ export function toBody(
     if (!/^\d{1,16}$/.test(valueText)) {
       return { field: 'value', message: 'Enter the valuation in won as a whole number, 0 or more' };
     }
-    if (Number(valueText) > 1e15) {
-      return { field: 'value', message: 'Enter a valuation of ₩1 quadrillion or less' };
+    if (Number(valueText) > MAX_WON) {
+      return { field: 'value', message: `Enter a valuation of ${MAX_WON_TEXT} or less` };
     }
     valueKrw = Number(valueText);
   }
