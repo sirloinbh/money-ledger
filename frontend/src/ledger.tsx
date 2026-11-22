@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { BudgetProgress } from './budget-progress';
@@ -6,17 +7,29 @@ import { RuleManager, UncategorizedEntries } from './classification';
 import { EntryManager } from './entries';
 import { FixedCostManager } from './fixed-costs';
 import type { Health } from './health';
+import { ledgerKey } from './ledger-query';
 import { MonthlySummary } from './monthly-summary';
 import { MonthlyTrend } from './monthly-trend';
 import { Page } from './page';
 
 export function LedgerPage({ health }: { health: Health }) {
+  const client = useQueryClient();
+  // #213 Sections on the shared query layer reload through `ledgerKey`; the counters below are for the sections
+  // that still load by hand, until they move over too.
+  const invalidateLedger = () => void client.invalidateQueries({ queryKey: ledgerKey });
   // Bumped when a category changes, so the entry form offers the current categories.
   const [categoriesVersion, setCategoriesVersion] = useState(0);
-  // Bumped when entries, rules or fixed costs change, so every section built on entries reloads: the summary,
-  // budgets, trend, fixed costs, the entry list, the uncategorized list and the rules.
+  // Bumped when entries, rules or fixed costs change, so every section built on entries reloads: the fixed costs,
+  // the entry list, the uncategorized list and the rules.
   const [ledgerVersion, setLedgerVersion] = useState(0);
-  const ledgerChanged = () => setLedgerVersion((version) => version + 1);
+  const ledgerChanged = () => {
+    setLedgerVersion((version) => version + 1);
+    invalidateLedger();
+  };
+  const categoriesChanged = () => {
+    setCategoriesVersion((version) => version + 1);
+    invalidateLedger();
+  };
   return (
     <Page
       title="Ledger"
@@ -24,10 +37,10 @@ export function LedgerPage({ health }: { health: Health }) {
       health={health}
     >
       <div className="flex flex-col gap-10">
+        <MonthlySummary />
+        <BudgetProgress />
+        <MonthlyTrend />
         {/* Both counters only grow, so their sum changes whenever entries or category names do. */}
-        <MonthlySummary version={ledgerVersion + categoriesVersion} />
-        <BudgetProgress version={ledgerVersion + categoriesVersion} />
-        <MonthlyTrend version={ledgerVersion} />
         <FixedCostManager version={ledgerVersion + categoriesVersion} onChange={ledgerChanged} />
         <EntryManager
           categoriesVersion={categoriesVersion}
@@ -44,7 +57,7 @@ export function LedgerPage({ health }: { health: Health }) {
           version={ledgerVersion}
           onChange={ledgerChanged}
         />
-        <CategoryManager onChange={() => setCategoriesVersion((version) => version + 1)} />
+        <CategoryManager onChange={categoriesChanged} />
       </div>
     </Page>
   );

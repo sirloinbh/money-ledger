@@ -1,9 +1,11 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import { MemoryRouter, useNavigate } from 'react-router';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { BudgetProgress } from './budget-progress';
+import { ledgerKey } from './ledger-query';
 import { findLive, getLive } from './test/live';
+import { forgetQueryClient, renderWithQuery, testQueryClient } from './test/query';
 
 const base = { hidden: false, remaining: null, over: null, percent: null, status: 'unset' };
 const november = {
@@ -94,10 +96,10 @@ function GoMonth({ to }: { to: string }) {
   );
 }
 
-const show = (path = '/ledger', version = 0) =>
-  render(
+const show = (path = '/ledger') =>
+  renderWithQuery(
     <MemoryRouter initialEntries={[path]}>
-      <BudgetProgress version={version} />
+      <BudgetProgress />
       <GoMonth to="2026-10" />
     </MemoryRouter>,
   );
@@ -189,6 +191,8 @@ test('the spending review says when nothing reached its budget, or when no budge
   ).toBeInTheDocument();
   expect(screen.queryByRole('list', { name: 'Overspending' })).toBeNull();
   unmount();
+  // Another visit: the app opens again with an empty cache.
+  forgetQueryClient();
 
   answer = () => json({ ...november, budgets: november.budgets.slice(2) });
   show();
@@ -237,6 +241,37 @@ test('Edit saves the budget from this month on, with thousands commas, then relo
   await vi.waitFor(() =>
     expect(screen.getByRole('button', { name: 'Edit Food budget' })).toHaveFocus(),
   );
+});
+
+test('a save also refreshes a month seen before, since a budget carries on to later months (#213)', async () => {
+  let octoberLoads = 0;
+  answer = (call) => {
+    if (call.method === 'PUT') return json({ budget: call.body });
+    if (call.url.endsWith('2026-11')) return json(november);
+    octoberLoads += 1;
+    return json(octoberLoads === 1 ? { month: '2026-10', budgets: [] } : octoberReloaded);
+  };
+  renderWithQuery(
+    <MemoryRouter initialEntries={['/ledger']}>
+      <BudgetProgress />
+      <GoMonth to="2026-10" />
+      <GoMonth to="2026-11" />
+    </MemoryRouter>,
+  );
+  await screen.findByRole('button', { name: 'Edit Food budget' });
+  // October is seen once, so its rows are in the cache; back on November they show from the cache too.
+  fireEvent.click(screen.getByRole('button', { name: 'Go to 2026-10' }));
+  await screen.findByText('There are no expense categories.');
+  fireEvent.click(screen.getByRole('button', { name: 'Go to 2026-11' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit Food budget' }));
+  fireEvent.change(screen.getByLabelText('Food budget (KRW)'), { target: { value: '1000' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await screen.findByText('Food budget set to ₩1,000 from November 2026');
+
+  // The save made every month's budgets stale: October loads again instead of showing its old rows.
+  fireEvent.click(screen.getByRole('button', { name: 'Go to 2026-10' }));
+  expect(await screen.findByRole('button', { name: 'Edit Food budget' })).toBeInTheDocument();
+  expect(octoberLoads).toBe(2);
 });
 
 test('an empty field saves 0: no budget from this month on', async () => {
@@ -301,15 +336,10 @@ test('a failed load says so, and Try again loads it again', async () => {
   expect(await screen.findByRole('button', { name: 'Edit Food budget' })).toBeInTheDocument();
 });
 
-test('a change elsewhere (version) reloads the same month', async () => {
-  const { rerender } = show();
+test('a ledger change elsewhere (ledgerKey) reloads the same month', async () => {
+  show();
   await screen.findByRole('button', { name: 'Edit Food budget' });
-  rerender(
-    <MemoryRouter initialEntries={['/ledger']}>
-      <BudgetProgress version={1} />
-      <GoMonth to="2026-10" />
-    </MemoryRouter>,
-  );
+  await act(() => testQueryClient().invalidateQueries({ queryKey: ledgerKey }));
   await vi.waitFor(() => expect(gets()).toHaveLength(2));
   expect(gets()[1]).toBe(gets()[0]);
 });

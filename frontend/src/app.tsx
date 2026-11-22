@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { type QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ChartPie, FileText, LayoutDashboard, Settings2, TrendingUp, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
@@ -9,6 +9,7 @@ import { DashboardPage } from './dashboard';
 import { addDueOnce } from './fixed-costs-api';
 import type { Health } from './health';
 import { LedgerPage } from './ledger';
+import { createQueryClient } from './lib/query';
 import { MockTradingPage } from './mock-trading';
 import { saveTodayOnce } from './net-worth';
 import { Page } from './page';
@@ -97,10 +98,10 @@ function Workspace() {
   );
 }
 
-export function App() {
-  // #213 One query client for the app's lifetime (kept in state, so a re-render does not drop the cache). It uses
-  // React Query's defaults until the shared createQueryClient() (lib/query.ts) arrives with the central sync.
-  const [queryClient] = useState(() => new QueryClient());
+/** `queryClient` is for tests that start with their own client; the app makes its own (#213). */
+export function App({ queryClient: given }: { queryClient?: QueryClient } = {}) {
+  // One query client for the app's lifetime (kept in state, so a re-render does not drop the cache).
+  const [queryClient] = useState(() => given ?? createQueryClient());
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { ChartBoundary } from './chart-boundary';
@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
 import { shiftMonth } from './entry-filters-state';
 import { serviceToday } from './format';
 import { lazyChart } from './lazy-chart';
-import { requestJson } from './lib/api';
+import { ledgerKeys, usePagedRead } from './ledger-query';
 import { cn } from './lib/utils';
 import {
   defaultTrendPeriod,
@@ -33,34 +33,20 @@ function readPeriod(params: URLSearchParams) {
 // After a failed download, ChartBoundary (#202) loads the file again on the next try; a drawing error is logged.
 const chart = lazyChart(() => import('./trend-chart').then((module) => module.TrendChart));
 
-/** `version` changes when entries change elsewhere on the page, so the trend reloads. */
-export function MonthlyTrend({ version = 0 }: { version?: number }) {
+/** The trend reloads by itself when entries change elsewhere on the page (`ledgerKey`, #213). */
+export function MonthlyTrend() {
   const [searchParams, setSearchParams] = useSearchParams();
   const period = readPeriod(searchParams);
   const to = serviceToday().slice(0, 7);
   const from = shiftMonth(to, -(period - 1));
-  const [trend, setTrend] = useState<Trend | undefined>(undefined);
-  const [failed, setFailed] = useState(false);
+  const {
+    query,
+    data: trend,
+    failed,
+  } = usePagedRead<Trend>(ledgerKeys.trend(from, to), `/api/ledger/trend?from=${from}&to=${to}`);
   // Bumped by Try again so a chart that failed to load is tried again.
   const [attempt, setAttempt] = useState(0);
-  // Only the latest request may fill the trend.
-  const latest = useRef(0);
   const title = useRef<HTMLHeadingElement>(null);
-
-  const load = useCallback(async () => {
-    const request = ++latest.current;
-    setFailed(false);
-    try {
-      const data = await requestJson<Trend>(`/api/ledger/trend?from=${from}&to=${to}`);
-      if (latest.current === request) setTrend(data);
-    } catch {
-      if (latest.current === request) setFailed(true);
-    }
-  }, [from, to]);
-
-  useEffect(() => {
-    void load();
-  }, [load, version]);
 
   const choose = (next: number) =>
     setSearchParams((prev) => {
@@ -72,15 +58,14 @@ export function MonthlyTrend({ version = 0 }: { version?: number }) {
 
   // As in the monthly summary: another period loading keeps the previous one dimmed; if that load fails, the
   // previous period is not shown under the new one's name.
-  const stale = trend !== undefined && (trend.from !== from || trend.to !== to);
-  const shown = failed && stale ? undefined : trend;
-  const loading = stale && !failed;
+  const shown = trend;
+  const loading = trend !== undefined && (trend.from !== from || trend.to !== to);
   const empty = shown?.months.every((month) => month.income === 0 && month.expense === 0);
   const retry = () => {
     // The retry button goes away at once: focus the section title instead of losing it.
     title.current?.focus();
     setAttempt((count) => count + 1);
-    void load();
+    void query.refetch();
   };
 
   return (

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { ChartBoundary } from './chart-boundary';
@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
 import { shiftMonth } from './entry-filters-state';
 import { formatWon, serviceToday } from './format';
 import { lazyChart } from './lazy-chart';
-import { requestJson } from './lib/api';
+import { ledgerKeys, usePagedRead } from './ledger-query';
 import { cn } from './lib/utils';
 import { readSummaryMonth } from './summary-month';
 import { monthLabel } from './trend-series';
@@ -38,33 +38,19 @@ const chart = lazyChart(() =>
   import('./category-share-chart').then((module) => module.CategoryShareChart),
 );
 
-/** `version` changes when entries change elsewhere on the page, so the totals reload. */
-export function MonthlySummary({ version = 0 }: { version?: number }) {
+/** The totals reload by themselves when entries or categories change elsewhere on the page (`ledgerKey`, #213). */
+export function MonthlySummary() {
   const [searchParams, setSearchParams] = useSearchParams();
   const today = serviceToday();
   const month = readSummaryMonth(searchParams, today);
-  const [summary, setSummary] = useState<Summary | undefined>(undefined);
-  const [failed, setFailed] = useState(false);
+  const {
+    query,
+    data: summary,
+    failed,
+  } = usePagedRead<Summary>(ledgerKeys.summary(month), `/api/ledger/summary?month=${month}`);
   // Bumped by Try again so a chart that failed to load is tried again.
   const [attempt, setAttempt] = useState(0);
-  // Only the latest request may fill the summary.
-  const latest = useRef(0);
   const title = useRef<HTMLHeadingElement>(null);
-
-  const load = useCallback(async () => {
-    const request = ++latest.current;
-    setFailed(false);
-    try {
-      const data = await requestJson<Summary>(`/api/ledger/summary?month=${month}`);
-      if (latest.current === request) setSummary(data);
-    } catch {
-      if (latest.current === request) setFailed(true);
-    }
-  }, [month]);
-
-  useEffect(() => {
-    void load();
-  }, [load, version]);
 
   const goMonth = (next: string) =>
     setSearchParams((prev) => {
@@ -76,14 +62,13 @@ export function MonthlySummary({ version = 0 }: { version?: number }) {
 
   // While another month loads, the previous one stays dimmed so the buttons and focus hold. If that load
   // fails, the previous month is not shown at all: under the new month's name it would read as its numbers.
-  const stale = summary !== undefined && summary.month !== month;
-  const shown = failed && stale ? undefined : summary;
-  const loading = stale && !failed;
+  const shown = summary;
+  const loading = summary !== undefined && summary.month !== month;
   const retry = () => {
     // The retry button goes away at once: focus the section title instead of losing it.
     title.current?.focus();
     setAttempt((count) => count + 1);
-    void load();
+    void query.refetch();
   };
 
   return (

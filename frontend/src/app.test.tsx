@@ -3,6 +3,7 @@ import { expect, test, vi } from 'vitest';
 
 import { App } from './app';
 import { findLive } from './test/live';
+import { testQueryClient } from './test/query';
 import { unexpectedRequest } from './test/unexpected';
 
 // Every list (categories, entries, assets, trend months, budgets, fixed costs, reports) is empty and there is no
@@ -61,20 +62,20 @@ const health = (body: object, status = 200) =>
 
 test('shows the server date from /api/health on the overview', async () => {
   health({ today: '2026-10-26' });
-  render(<App />);
+  render(<App queryClient={testQueryClient()} />);
   expect(screen.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeInTheDocument();
   expect(await screen.findByText('Server connected · 2026-10-26')).toBeInTheDocument();
 });
 
 test('reports a server error as an alert', async () => {
   health({ error: 'Cannot connect to the database' }, 503);
-  render(<App />);
+  render(<App queryClient={testQueryClient()} />);
   expect(await findLive('alert')).toHaveTextContent('Cannot connect to the database');
 });
 
 test('each page has its own address and is marked in the main menu', async () => {
   health({ today: '2026-10-26' });
-  render(<App />);
+  render(<App queryClient={testQueryClient()} />);
   const menu = screen.getByRole('navigation', { name: 'Main menu' });
   fireEvent.click(within(menu).getByRole('link', { name: 'Settings' }));
   expect(window.location.pathname).toBe('/settings');
@@ -94,7 +95,7 @@ const areas = [
 test.each(areas)('the main menu opens the $label page', async ({ label, path, content }) => {
   health({ today: '2026-10-26' });
   window.history.replaceState(null, '', '/');
-  render(<App />);
+  render(<App queryClient={testQueryClient()} />);
   const menu = screen.getByRole('navigation', { name: 'Main menu' });
   fireEvent.click(within(menu).getByRole('link', { name: label }));
   expect(window.location.pathname).toBe(path);
@@ -106,7 +107,7 @@ test.each(areas)('the main menu opens the $label page', async ({ label, path, co
 test.each(areas)('opening $path directly shows the $label page', async ({ label, path }) => {
   health({ today: '2026-10-26' });
   window.history.replaceState(null, '', path);
-  render(<App />);
+  render(<App queryClient={testQueryClient()} />);
   expect(await screen.findByRole('heading', { level: 1, name: label })).toBeInTheDocument();
   expect(window.location.pathname).toBe(path);
 });
@@ -114,14 +115,14 @@ test.each(areas)('opening $path directly shows the $label page', async ({ label,
 test('an area page reports a server error as an alert', async () => {
   health({ error: 'Cannot connect to the database' }, 503);
   window.history.replaceState(null, '', '/ledger');
-  render(<App />);
+  render(<App queryClient={testQueryClient()} />);
   expect(await findLive('alert')).toHaveTextContent('Cannot connect to the database');
 });
 
 test('an unknown address falls back to the overview', async () => {
   health({ today: '2026-10-26' });
   window.history.replaceState(null, '', '/no-such-page');
-  render(<App />);
+  render(<App queryClient={testQueryClient()} />);
   expect(await screen.findByRole('heading', { level: 1, name: 'Dashboard' })).toBeInTheDocument();
   expect(window.location.pathname).toBe('/');
 });
@@ -168,7 +169,7 @@ test('opening the app adds the due fixed-cost entries once (#43)', async () => {
 test('the main menu opens the Reports page (#62)', async () => {
   health({ today: '2026-10-26' });
   window.history.replaceState(null, '', '/');
-  render(<App />);
+  render(<App queryClient={testQueryClient()} />);
   const menu = screen.getByRole('navigation', { name: 'Main menu' });
   fireEvent.click(within(menu).getByRole('link', { name: 'Reports' }));
   expect(window.location.pathname).toBe('/reports');
