@@ -78,7 +78,13 @@ const position: TradesAnswer['position'] = {
   realizedKrw: 1602,
 };
 
-function tradeApi(fake: AssetFake, method: string, assetId: number, tradeId: number | undefined) {
+function tradeApi(
+  fake: AssetFake,
+  method: string,
+  body: unknown,
+  assetId: number,
+  tradeId: number | undefined,
+) {
   const list = (fake.trades[assetId] ??= []);
   if (method === 'GET' && tradeId === undefined) {
     return json({ trades: list, position } satisfies TradesAnswer);
@@ -90,20 +96,20 @@ function tradeApi(fake: AssetFake, method: string, assetId: number, tradeId: num
   const saving =
     (method === 'POST' && tradeId === undefined) || (method === 'PUT' && tradeId !== undefined);
   if (!saving) return undefined;
-  const body = fake.requests.at(-1)!.body as Omit<Trade, 'id' | 'currency' | 'amountKrw'>;
-  if (body.side === 'sell' && body.quantity === '100') {
+  const trade = body as Omit<Trade, 'id' | 'currency' | 'amountKrw'>;
+  if (trade.side === 'sell' && trade.quantity === '100') {
     return json(
       { error: '2026-01-10 sell quantity is more than the quantity held then (15)' },
       400,
     );
   }
   const saved: Trade = {
-    ...body,
+    ...trade,
     id: tradeId ?? 100 + list.length,
     currency: fake.stored.find((asset) => asset.id === assetId)!.currency,
     amountKrw: 7500,
     quantityAfter: '15.00000000',
-    realizedKrw: body.side === 'sell' ? 1602 : null,
+    realizedKrw: trade.side === 'sell' ? 1602 : null,
   };
   fake.trades[assetId] =
     tradeId !== undefined
@@ -118,8 +124,8 @@ function tradeApi(fake: AssetFake, method: string, assetId: number, tradeId: num
   return json({ trade: saved }, tradeId !== undefined ? 200 : 201);
 }
 
-function assetApi(fake: AssetFake, method: string, id: number | undefined) {
-  const body = fake.requests.at(-1)!.body as Omit<StoredAsset, 'id'>;
+function assetApi(fake: AssetFake, method: string, sent: unknown, id: number | undefined) {
+  const body = sent as Omit<StoredAsset, 'id'>;
   if (id === undefined) {
     if (method === 'GET') return json(assetsAnswer(fake.stored));
     if (method !== 'POST') return undefined;
@@ -152,8 +158,8 @@ export function fakeAssetApi(start: Partial<Omit<AssetFake, 'requests'>>): Asset
       const answer = !match
         ? undefined
         : trades
-          ? tradeApi(fake, method, Number(assetId), tradeId ? Number(tradeId) : undefined)
-          : assetApi(fake, method, assetId ? Number(assetId) : undefined);
+          ? tradeApi(fake, method, body, Number(assetId), tradeId ? Number(tradeId) : undefined)
+          : assetApi(fake, method, body, assetId ? Number(assetId) : undefined);
       return answer ?? unexpectedRequest(method, url);
     }),
   );

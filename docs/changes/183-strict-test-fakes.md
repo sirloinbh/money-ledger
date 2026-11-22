@@ -64,3 +64,7 @@ Several screen tests used fakes that answered almost any request: one merged pay
 ## Limits
 
 - `entry-csv.test.tsx` and other files outside the issue keep their fakes. Some of them answer by URL alone. They can move to `unexpectedRequest` when they are next changed.
+
+## Review
+
+- Round 1 (PR #263 comment): approve after one nit, fixed. The shared asset fake's handlers now take the request body as a parameter instead of reading back the last recorded request. The asset tests (38) pass, and the type check and lint pass. No split issues.
