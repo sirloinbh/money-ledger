@@ -571,7 +571,7 @@ const importOneRow = async () => {
   fireEvent.change(screen.getByLabelText('CSV file to import'), { target: { files: [file] } });
   await screen.findByRole('group', { name: /Columns of card\.csv/ });
   fireEvent.click(screen.getByRole('button', { name: 'Check the rows' }));
-  fireEvent.click(await screen.findByRole('button', { name: 'Import 1 entries' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Import 1 entry' }));
 };
 
 test('a CSV import is reported to the parent, which reloads the list', async () => {

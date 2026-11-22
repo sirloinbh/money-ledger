@@ -188,6 +188,10 @@ async function addDueEntries(client: PoolClient, today: string) {
   return added;
 }
 
+/** Adds the entries due by `today` in one transaction (the app on open and the daily job, #185). */
+export const addDueFixedCosts = (pool: Pool, today: string) =>
+  inTransaction(pool, (client) => addDueEntries(client, today));
+
 /**
  * A new category choice must be a visible expense category. FOR SHARE: it cannot be hidden or change kind until the
  * write commits.
@@ -314,7 +318,7 @@ export function fixedCostsRouter(pool: Pool, { today }: { today: () => string })
   });
 
   router.post('/generate', async (_req, res) => {
-    const added = await inTransaction(pool, (client) => addDueEntries(client, today()));
+    const added = await addDueFixedCosts(pool, today());
     res.json({ added });
   });
 

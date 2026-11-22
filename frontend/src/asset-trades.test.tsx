@@ -3,7 +3,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 
 import { AssetManager } from './assets';
 import { type AssetFake, fakeAssetApi } from './test/asset-api';
-import { findLive, getLive } from './test/live';
+import { findLive, getLive, queryLive } from './test/live';
 
 // #46 Trades on the asset screen against the shared fake asset server (test/asset-api.ts). The position numbers
 // come from the server; the fake returns fixed ones so the screen's display and requests can be checked.
@@ -185,7 +185,7 @@ test('a won price with decimals and a future date are refused before sending', a
   );
   fireEvent.change(within(panel).getByLabelText('Unit price (KRW)'), { target: { value: '1000' } });
   fireEvent.change(within(panel).getByLabelText('Trade date'), { target: { value: '2099-01-01' } });
-  fireEvent.submit(within(panel).getByRole('form', { name: 'Samsung Electronics Add trade' }));
+  fireEvent.submit(within(panel).getByRole('form', { name: 'Add a trade to Samsung Electronics' }));
   expect(getLive('alert', panel)).toHaveTextContent('Trades dated after today cannot be recorded');
   expect(api.requests.some((request) => request.method === 'POST')).toBe(false);
 });
@@ -317,4 +317,29 @@ test('an asset deleted elsewhere closes its open edit form on the next reload', 
   fireEvent.click(within(panel).getByRole('button', { name: 'Add trade' }));
   expect(await screen.findByRole('heading', { name: 'New asset' })).toBeInTheDocument();
   expect(screen.getByText('Apple was already deleted, so the edit was closed')).toBeInTheDocument();
+});
+
+test('a saved trade whose list fails to reload is a note, not an error (#203)', async () => {
+  await ready();
+  const panel = await openTrades('Samsung Electronics');
+  // Only the reload right after the save fails.
+  const api = vi.mocked(fetch).getMockImplementation()!;
+  let saved = false;
+  vi.mocked(fetch).mockImplementation((url: string | URL | Request, init?: RequestInit) => {
+    const method = init?.method ?? 'GET';
+    if (String(url).includes('/trades') && method === 'POST') saved = true;
+    else if (saved && String(url).includes('/trades') && method === 'GET') {
+      saved = false;
+      return Promise.resolve(new Response(JSON.stringify({ error: 'down' }), { status: 500 }));
+    }
+    return api(url, init);
+  });
+  fireEvent.change(within(panel).getByLabelText('Trade date'), { target: { value: '2026-01-02' } });
+  fireEvent.change(within(panel).getByLabelText('Quantity'), { target: { value: '10' } });
+  fireEvent.change(within(panel).getByLabelText('Unit price (KRW)'), { target: { value: '1000' } });
+  fireEvent.click(within(panel).getByRole('button', { name: 'Add trade' }));
+  expect(await findLive('status', panel)).toHaveTextContent(
+    '2026-01-02 Buy recorded. The list could not be reloaded; reload the page to see it',
+  );
+  expect(queryLive('alert', panel)).toBeNull();
 });

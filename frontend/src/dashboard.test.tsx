@@ -35,7 +35,8 @@ const holdings = {
 const normal = (): Record<string, Answer> => ({
   'GET /api/ledger/summary?month=2026-11': () => json({ ...summary, categories: [] }),
   'POST /api/portfolio/net-worth': () => json({ snapshot: snapshots[1] }),
-  'GET /api/portfolio/net-worth': () => json({ today: '2026-11-16', snapshots }),
+  'GET /api/portfolio/net-worth?latest=true': () =>
+    json({ today: '2026-11-16', snapshots: snapshots.slice(-1) }),
   'GET /api/mock/accounts': () => json({ account: { id: 7 }, closedAccounts: [] }),
   'GET /api/mock/accounts/7/holdings': () => json(holdings),
   'POST /api/ledger/fixed-costs/generate': () => json({ added: 0 }),
@@ -85,13 +86,13 @@ test('each card shows its area, the same values as its page, and a link to it', 
     expect(calls).toEqual(
       expect.arrayContaining([
         'POST /api/portfolio/net-worth',
-        'GET /api/portfolio/net-worth',
+        'GET /api/portfolio/net-worth?latest=true',
         'POST /api/reports/generate',
       ]),
     ),
   );
   expect(calls.indexOf('POST /api/portfolio/net-worth')).toBeLessThan(
-    calls.indexOf('GET /api/portfolio/net-worth'),
+    calls.indexOf('GET /api/portfolio/net-worth?latest=true'),
   );
   const ledger = card('This month');
   expect(await within(ledger).findByText('₩3,000,000')).toBeInTheDocument();
@@ -103,7 +104,7 @@ test('each card shows its area, the same values as its page, and a link to it', 
   );
 
   const netWorth = card('Net worth');
-  expect(await within(netWorth).findByText('Saved on 2026-11-16')).toBeInTheDocument();
+  expect(await within(netWorth).findByText('Saved on Nov 16, 2026')).toBeInTheDocument();
   expect(value(netWorth, 'Net worth')).toBe('₩50,000,000');
   expect(value(netWorth, 'Liabilities')).toBe('₩2,000,000');
   expect(
@@ -123,22 +124,24 @@ test('each card shows its area, the same values as its page, and a link to it', 
 });
 
 test('a card that fails leaves the others shown, and its retry loads it', async () => {
-  answers['GET /api/portfolio/net-worth'] = fail;
+  answers['GET /api/portfolio/net-worth?latest=true'] = fail;
   show();
   const netWorth = card('Net worth');
   expect(await within(netWorth).findByText('Could not load this card.')).toBeInTheDocument();
   expect(await within(card('This month')).findByText('₩3,000,000')).toBeInTheDocument();
   expect(await within(card('Mock trading')).findByText('₩10,500,000')).toBeInTheDocument();
 
-  answers['GET /api/portfolio/net-worth'] = normal()['GET /api/portfolio/net-worth'];
+  answers['GET /api/portfolio/net-worth?latest=true'] =
+    normal()['GET /api/portfolio/net-worth?latest=true'];
   fireEvent.click(within(netWorth).getByRole('button', { name: 'Retry loading Net worth' }));
-  expect(await within(netWorth).findByText('Saved on 2026-11-16')).toBeInTheDocument();
+  expect(await within(netWorth).findByText('Saved on Nov 16, 2026')).toBeInTheDocument();
 });
 
 test('areas without data say so', async () => {
   answers['GET /api/ledger/summary?month=2026-11'] = () =>
     json({ month: '2026-11', income: 0, expense: 0, balance: 0, categories: [] });
-  answers['GET /api/portfolio/net-worth'] = () => json({ today: '2026-11-16', snapshots: [] });
+  answers['GET /api/portfolio/net-worth?latest=true'] = () =>
+    json({ today: '2026-11-16', snapshots: [] });
   answers['GET /api/mock/accounts'] = () => json({ account: null, closedAccounts: [] });
   show();
   expect(

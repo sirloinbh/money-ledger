@@ -105,7 +105,21 @@ test('the periods read their own range; the whole history has no start', async (
     `2026-01-02~${today}:2026-01-02=9000000,${today}=13000000`,
   );
   expect(gets().at(-1)).toBe('/api/portfolio/net-worth');
-  expect(screen.getByText(`All records ~ ${dayLabel(today)}`)).toBeInTheDocument();
+  expect(screen.getByText(`All records – ${dayLabel(today)}`)).toBeInTheDocument();
+});
+
+test('a failed period switch hides the previous period instead of showing it under the new dates', async () => {
+  render(<NetWorthHistory />);
+  await screen.findByTestId('chart');
+  failList = true;
+  fireEvent.click(screen.getByRole('button', { name: '1 year' }));
+  expect(await screen.findByText('Could not load the net worth records.')).toBeInTheDocument();
+  expect(screen.queryByTestId('chart')).not.toBeInTheDocument();
+  expect(screen.queryByRole('group', { name: 'Net worth period' })).toBeInTheDocument();
+  // Try again with the server back: the chosen period is shown.
+  failList = false;
+  fireEvent.click(screen.getByRole('button', { name: 'Try loading the net worth records again' }));
+  expect(await screen.findByTestId('chart')).toHaveTextContent(`${periodStart(today, '1y')}~`);
 });
 
 test('the table lists every saved day, newest first, with how many were left out', async () => {
@@ -117,8 +131,8 @@ test('the table lists every saved day, newest first, with how many were left out
   fireEvent.click(toggle);
   const rows = within(screen.getByRole('table')).getAllByRole('row').slice(1);
   expect(rows.map((row) => row.textContent)).toEqual([
-    `${today}1 left out12,500,00013,500,0001,000,000`,
-    '2026-01-029,000,00010,000,0001,000,000',
+    `${dayLabel(today)}1 item left out12,500,00013,500,0001,000,000`,
+    'Jan 2, 20269,000,00010,000,0001,000,000',
   ]);
 });
 

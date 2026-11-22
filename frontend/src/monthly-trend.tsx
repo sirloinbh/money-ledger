@@ -114,7 +114,7 @@ export function MonthlyTrend({ version = 0 }: { version?: number }) {
         </div>
       </div>
       <p aria-live="polite" className="text-body-sm text-muted-foreground">
-        {monthLabel(from)} ~ {monthLabel(to)}
+        {monthLabel(from)} – {monthLabel(to)}
       </p>
       {failed ? (
         <div className="flex flex-wrap items-center gap-2">

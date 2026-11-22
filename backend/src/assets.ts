@@ -454,7 +454,12 @@ function won(value: string) {
  * were left out (no price, no USD rate, too large). #49 saves the same values as the day's net worth.
  */
 export async function readTotals(client: PoolClient, asOf: string) {
-  const { rows } = await client.query<{
+  return sumTotals(client, assetQuery('true'), [asOf]);
+}
+
+/** The totals of `valued`: a query (run with `params`) of assets with asset_type and current_value_krw. */
+async function sumTotals(db: Pool | PoolClient, valued: string, params: unknown[]) {
+  const { rows } = await db.query<{
     assets: string;
     debts: string;
     net: string;
@@ -465,11 +470,26 @@ export async function readTotals(client: PoolClient, asOf: string) {
             coalesce(sum(CASE WHEN asset_type = 'debt' THEN -current_value_krw ELSE current_value_krw END), 0)
               AS net,
             count(*) FILTER (WHERE current_value_krw IS NULL)::int AS uncounted
-     FROM (${assetQuery('true')}) valued`,
-    [asOf],
+     FROM (${valued}) valued`,
+    params,
   );
   return rows[0];
 }
+
+/**
+ * #187 The listed rows as a query again, so the totals and the allocation reuse the list's values instead of
+ * running the valuation (every trade replayed) once more each. Won values go back as exact numeric text.
+ */
+const listedRows = `SELECT * FROM unnest($1::bigint[], $2::text[], $3::text[], $4::text[], $5::text[], $6::numeric[])
+  AS listed(id, name, asset_type, security_name, security_symbol, current_value_krw)`;
+const listedParams = (rows: Row[]) => [
+  rows.map((row) => row.id),
+  rows.map((row) => row.name),
+  rows.map((row) => row.asset_type),
+  rows.map((row) => row.security_name),
+  rows.map((row) => row.security_symbol),
+  rows.map((row) => row.current_value_krw),
+];
 
 /** A won total as a JS number, or null when it is too large to be exact. */
 export function total(value: string) {
@@ -550,9 +570,16 @@ const toAsset = (row: Row) => ({
   returnPercent: row.return_percent,
 });
 
-type Options = { today: () => string; now: () => Date; prices: PriceSources; log: PriceLog };
+type Options = {
+  today: () => string;
+  now: () => Date;
+  prices: PriceSources;
+  log: PriceLog;
+  // #187 Takes work that runs after the answer was sent (the fetch on link). It never rejects.
+  background: (task: Promise<void>) => void;
+};
 
-export function assetsRouter(pool: Pool, { today, now, prices, log }: Options) {
+export function assetsRouter(pool: Pool, { today, now, prices, log, background }: Options) {
   const router = Router();
 
   const readAsset = async (db: Pool | PoolClient, id: number) =>
@@ -561,16 +588,19 @@ export function assetsRouter(pool: Pool, { today, now, prices, log }: Options) {
   // Totals add up current won values (see assetQuery) on `asOf`, by default today in the service time zone.
   // `uncounted` says how many were left out: no price, no USD rate, or too large. Debts are kept apart.
   // #48 `allocation` spreads the asset total by type and by asset (allocation.ts).
-  // All come from one snapshot, so the list, the totals and the allocation always agree.
+  // #187 The valuation runs once: the totals and the allocation are computed from the listed rows, so the
+  // list, the totals and the allocation always agree.
   router.get('/', async (req, res) => {
     const asOf = listQuery.parse(req.query).asOf ?? today();
-    const { assets, sums, allocation } = await inTransaction(pool, async (client) => {
-      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
-      const list = await client.query<Row>(`${assetQuery('true')} ORDER BY asset_type, id`, [asOf]);
-      const sums = await readTotals(client, asOf);
-      const allocation = await readAllocation(client, assetQuery('true'), asOf);
-      return { assets: list.rows, sums, allocation };
-    });
+    const { rows: assets } = await pool.query<Row>(
+      `${assetQuery('true')} ORDER BY asset_type, id`,
+      [asOf],
+    );
+    const params = listedParams(assets);
+    const [sums, allocation] = await Promise.all([
+      sumTotals(pool, listedRows, params),
+      readAllocation(pool, listedRows, params),
+    ]);
     res.json({
       asOf,
       assets: assets.map(toAsset),
@@ -659,7 +689,9 @@ export function assetsRouter(pool: Pool, { today, now, prices, log }: Options) {
   /**
    * A US security linked without any stored close is fetched once right away (decision 2026-11-10), within the
    * same hourly limit as opening its detail. From then on the daily fetch covers it while the asset holds it.
-   * Best effort: a failure leaves the asset without a price ("No quote") and is logged.
+   * #187 It runs after the save is answered, so a slow Tiingo never holds up a save that already committed;
+   * the next list load shows the price. Best effort: a failure leaves the asset without a price ("No quote")
+   * and is logged, never thrown.
    */
   const fetchIfMissing = async (security: Awaited<ReturnType<typeof checkSecurity>>) => {
     if (!security || security.currency !== 'USD' || !prices.tiingo) return;
@@ -692,8 +724,8 @@ export function assetsRouter(pool: Pool, { today, now, prices, log }: Options) {
       values(body),
     );
     const id = rows[0].id;
-    await fetchIfMissing(security);
     res.status(201).json({ asset: toAsset(await readAsset(pool, id)) });
+    background(fetchIfMissing(security));
   });
 
   router.put('/:id', async (req, res) => {
@@ -766,8 +798,8 @@ export function assetsRouter(pool: Pool, { today, now, prices, log }: Options) {
       );
       return linked;
     });
-    await fetchIfMissing(security);
     res.json({ asset: toAsset(await readAsset(pool, id)) });
+    background(fetchIfMissing(security));
   });
 
   router.delete('/:id', async (req, res) => {

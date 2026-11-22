@@ -60,7 +60,8 @@ function Workspace() {
   const health = useHealth();
   // #49 Opening the app saves today's net worth once (decision 2026-11-10), whichever page opens first.
   // #43 It also adds the fixed-cost entries that are due (decision 2026-11-15), and #62 then saves the reports
-  // of the weeks and months that have finished (decision 2026-11-16).
+  // of the weeks and months that have finished (decision 2026-11-16). #185 The server's daily job
+  // (backend/src/daily-saves.ts) does the same three; these calls stay as the fallback and are safe to repeat.
   useEffect(() => {
     void saveTodayOnce();
     void addDueOnce();

@@ -1,4 +1,4 @@
-import type { PoolClient } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
 // #48 How the asset total is spread: by asset type and by asset (decisions 2026-11-10).
 // - Assets only: debts are left out, so the shares add up to the "Total assets" amount. Assets without a won value
@@ -54,16 +54,16 @@ const withShares = (items: string) => `
   FROM ranked`;
 
 /**
- * The allocation on the reference date ($1), from `valued`: a query of assets with id, name, asset_type,
- * security_name, security_symbol and current_value_krw (assets.ts assetQuery). One statement, so it reads the
- * same rows as the list and totals in the caller's snapshot, and the valuation runs once.
+ * The allocation of `valued`: a query, run with `params`, of assets with id, name, asset_type, security_name,
+ * security_symbol and current_value_krw. The asset list passes its own valued rows back (assets.ts
+ * listedRows, #187), so the allocation adds up exactly the listed values and no valuation runs here.
  */
-export async function readAllocation(client: PoolClient, valued: string, asOf: string) {
+export async function readAllocation(db: Pool | PoolClient, valued: string, params: unknown[]) {
   // The chart counts only assets above 0 won (0 won ones are in the table only). A place past the 8th goes into
   // the rest, unless it would be the only one there. 0 won assets never take a missing tenth (their remainder is
   // 0), so the drawn shares still add up to 100.0%.
   const grouped = `CASE WHEN drawn_position <= ${chartAssets} OR drawn_count = ${chartAssets + 1} THEN key ELSE 'rest' END`;
-  const { rows } = await client.query<ShareRow | (Omit<ShareRow, 'kind'> & { kind: 'excluded' })>(
+  const { rows } = await db.query<ShareRow | (Omit<ShareRow, 'kind'> & { kind: 'excluded' })>(
     `WITH valued AS MATERIALIZED (${valued}),
      counted AS (SELECT * FROM valued WHERE asset_type <> 'debt' AND current_value_krw IS NOT NULL),
      per_asset AS MATERIALIZED (${withShares(
@@ -101,7 +101,7 @@ export async function readAllocation(client: PoolClient, valued: string, asOf: s
             (SELECT count(*)::int FROM valued WHERE asset_type <> 'debt' AND current_value_krw IS NULL),
             NULL, 0
      ORDER BY kind, position`,
-    [asOf],
+    params,
   );
   const of = (kind: ShareRow['kind']) => rows.filter((row): row is ShareRow => row.kind === kind);
   return {

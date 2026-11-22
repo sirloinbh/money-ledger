@@ -1,7 +1,8 @@
 import { vi } from 'vitest';
 
+import type { Asset } from '../asset-model';
 import type { Trade, TradesAnswer } from '../asset-trades';
-import type { Asset, AssetsAnswer } from '../assets';
+import type { AssetsAnswer } from '../assets';
 import { unexpectedRequest } from './unexpected';
 
 // #183 One fake asset server for the asset screen tests (assets, trades). Its answers are typed against the

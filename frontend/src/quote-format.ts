@@ -36,8 +36,8 @@ export const formatPrice = (price: string, currency: 'KRW' | 'USD') =>
 /** The close in its own currency. */
 export const formatClose = (quote: Quote) => formatPrice(quote.close, quote.currency);
 
-/** "Nov 6 close", or "Delayed · Nov 6 close" for a close more than 5 days old. */
-export const quoteBasis = (quote: Quote) =>
+/** "Nov 6 close", or "Delayed · Nov 6 close" for a close more than 5 days old. The one place this phrase is made. */
+export const quoteBasis = (quote: Pick<Quote, 'tradeDate' | 'stale'>) =>
   `${quote.stale ? 'Delayed · ' : ''}${formatMonthDay(quote.tradeDate)} close`;
 
 export const marketNames: Record<string, string> = {

@@ -2,6 +2,7 @@ import { Pool } from 'pg';
 import { PgBoss } from 'pg-boss';
 
 import { createApp } from './app.js';
+import { dailySavesQueue } from './daily-saves.js';
 import { snapshotOpenAccount } from './mock-snapshots.js';
 import { logPriceEvent, PRICE_QUEUE, priceQueue, sourcesFromEnv } from './prices/index.js';
 import { backgroundJobs, shutdownOnce } from './runtime.js';
@@ -35,7 +36,11 @@ void jobs.start(
     startJobs(
       boss,
       // After each daily fetch the open mock account's value is saved for the return chart (#54).
-      [priceQueue(pool, prices, logPriceEvent, (now) => snapshotOpenAccount(pool, now))],
+      [
+        priceQueue(pool, prices, logPriceEvent, (now) => snapshotOpenAccount(pool, now)),
+        // #185 Fixed costs, finished reports and net worth once a day; the app's on-open calls stay as a fallback.
+        dailySavesQueue(pool),
+      ],
       { mode },
     ),
   // A server that was off at 12:00 fetches once when it starts; the handler skips it when nothing is due.
