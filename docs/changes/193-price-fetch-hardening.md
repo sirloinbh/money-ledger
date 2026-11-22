@@ -34,6 +34,10 @@ The daily fetch stopped at the first DB error, read a changed KRX format as holi
 - Without the `src` changes, the new tests fail (7 failures including the #96 flag assertion); with them, `prices.integration`, `prices` and `jobs.integration` pass 44/44 three times in a row.
 - Commands and results are in the PR body.
 
+## Review
+
+- Round 1 (PR #242 comment): approve, no blocking comments. Confirmed that `tiingo.tickers()` wraps the ZIP errors in a `SourceError`, so stored messages stay plain.
+
 ## Limits
 
 - The real KRX response shape is still unverified until the key from #85 arrives; the field check uses the names from the secondary sources.
