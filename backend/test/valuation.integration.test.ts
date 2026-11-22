@@ -52,6 +52,7 @@ test('asset valuation against the real database', { skip: !url }, async (t) => {
       '013_asset_trades.sql',
       '009_prices.sql',
       '012_krx_listing.sql',
+      '024_price_fetch_not_found.sql',
       '016_asset_valuation.sql',
       '016_asset_valuation.sql', // re-running is safe
       // The daily fetch also reads mock trading holdings (#53).

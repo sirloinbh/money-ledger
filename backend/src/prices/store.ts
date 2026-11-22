@@ -26,21 +26,29 @@ export type FetchState = {
   checkedThrough: string | null;
   lastAttemptAt: Date | null;
   lastError: string | null;
+  /** The last answer said the source does not know the scope (a Tiingo 404), #193. */
+  notFound: boolean;
 };
+
+/** A note kept with a checked date: its text, and whether it means "not found" (#193). */
+export type CheckedNote = { note: string; notFound: boolean };
 
 export async function getState(db: Db, source: string, scope: string): Promise<FetchState> {
   const { rows } = await db.query<{
     checked_through: string | null;
     last_attempt_at: Date | null;
     last_error: string | null;
+    not_found: boolean;
   }>(
-    'SELECT checked_through, last_attempt_at, last_error FROM price_fetch_state WHERE source = $1 AND scope = $2',
+    `SELECT checked_through, last_attempt_at, last_error, not_found
+     FROM price_fetch_state WHERE source = $1 AND scope = $2`,
     [source, scope],
   );
   return {
     checkedThrough: rows[0]?.checked_through ?? null,
     lastAttemptAt: rows[0]?.last_attempt_at ?? null,
     lastError: rows[0]?.last_error ?? null,
+    notFound: rows[0]?.not_found ?? false,
   };
 }
 
@@ -59,17 +67,19 @@ export async function markChecked(
   scope: string,
   date: string,
   now: Date,
-  note: string | null = null,
+  note: CheckedNote | null = null,
 ) {
   await db.query(
-    `INSERT INTO price_fetch_state (source, scope, checked_through, last_attempt_at, last_success_at, last_error)
-     VALUES ($1, $2, $3, $4, $4, $5)
+    `INSERT INTO price_fetch_state (source, scope, checked_through, last_attempt_at, last_success_at, last_error,
+                                    not_found)
+     VALUES ($1, $2, $3, $4, $4, $5, $6)
      ON CONFLICT (source, scope) DO UPDATE SET
        checked_through = GREATEST(price_fetch_state.checked_through, EXCLUDED.checked_through),
        last_attempt_at = EXCLUDED.last_attempt_at,
        last_success_at = EXCLUDED.last_success_at,
-       last_error = EXCLUDED.last_error`,
-    [source, scope, date, now, note],
+       last_error = EXCLUDED.last_error,
+       not_found = EXCLUDED.not_found`,
+    [source, scope, date, now, note?.note ?? null, note?.notFound ?? false],
   );
 }
 
@@ -83,7 +93,7 @@ export async function markFailed(
   await db.query(
     `INSERT INTO price_fetch_state (source, scope, last_attempt_at, last_error) VALUES ($1, $2, $3, $4)
      ON CONFLICT (source, scope) DO UPDATE SET
-       last_attempt_at = EXCLUDED.last_attempt_at, last_error = EXCLUDED.last_error`,
+       last_attempt_at = EXCLUDED.last_attempt_at, last_error = EXCLUDED.last_error, not_found = false`,
     [source, scope, now, message.slice(0, 500)],
   );
 }
@@ -213,7 +223,7 @@ export async function saveUsCloses(
   checkedThrough: string,
   sourceName: string,
   now: Date,
-  note: string | null = null,
+  note: CheckedNote | null = null,
 ) {
   await inTransaction(pool, async (client) => {
     if (closes.length > 0) {

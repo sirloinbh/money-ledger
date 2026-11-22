@@ -16,11 +16,45 @@ const lastRetryHour = 18;
 /** Called after each run of the daily fetch, with the run's time (#54: the mock account's daily value). */
 export type AfterFetch = (now: Date) => Promise<void>;
 
+/** Held for a whole run, so the due check and the run cannot interleave with another caller's (#193). */
+const runLock = "hashtext('daily_price_fetch')";
+
 /**
  * Runs the daily fetch if it is due at `now`. Returns whether it ran. Safe to call twice: the state table says
- * "done today" and "tried this hour". Two servers never run it together because the queue is a `singleton` (jobs.ts).
+ * "done today" and "tried this hour". A session advisory lock makes a second caller that arrives during a run
+ * return false instead of starting a parallel one, whatever queue policy calls it (#193).
  */
 export async function runIfDue(
+  pool: Pool,
+  sources: PriceSources,
+  now: Date,
+  log: PriceLog,
+  afterFetch?: AfterFetch,
+) {
+  const lock = await pool.connect();
+  let released = false;
+  try {
+    const { rows } = await lock.query<{ locked: boolean }>(
+      `SELECT pg_try_advisory_lock(${runLock}) AS locked`,
+    );
+    if (!rows[0].locked) return false;
+    try {
+      return await runLocked(pool, sources, now, log, afterFetch);
+    } finally {
+      try {
+        await lock.query(`SELECT pg_advisory_unlock(${runLock})`);
+      } catch (error) {
+        // A connection that could not unlock is closed, which ends its session lock.
+        lock.release(error instanceof Error ? error : true);
+        released = true;
+      }
+    }
+  } finally {
+    if (!released) lock.release();
+  }
+}
+
+async function runLocked(
   pool: Pool,
   sources: PriceSources,
   now: Date,
