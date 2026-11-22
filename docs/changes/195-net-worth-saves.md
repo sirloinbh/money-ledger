@@ -32,7 +32,7 @@ Commands (local, test DB `postgres:17-alpine` with every migration applied, `TES
 
 - `tsx --test test/net-worth.integration.test.ts`: 9 pass, 0 fail, 0 skipped.
 - `vitest run --maxWorkers=2 src/net-worth.test.ts src/net-worth-history.test.tsx src/dashboard.test.tsx src/app.test.tsx`: 35 pass.
-- `npm run check` and `npm run knip`: see the PR body.
+- `npm run check` on the final tree (after merging origin/main with #253 and #256): pass (backend 451/0/0, frontend 494 pass + 3 skipped as before, skills 4, build ok); `npm run knip`: pass. A first run failed on a `dashboard.test.tsx` assertion that origin/main had added with the old URL; fixed in "test: expect the latest-only net worth request after merging main".
 
 Browser check (local API 3195 and Vite 5295, dev DB with one ₩2,500,000 bank account):
 
@@ -42,4 +42,9 @@ Browser check (local API 3195 and Vite 5295, dev DB with one ₩2,500,000 bank a
 ## Limits
 
 - After 3 serialization failures in a row the save still answers 500; with one user and saves on open and by hand this is not expected.
+- A tab left open past midnight saves the new day the next time a net worth card loads (opening a page, switching the period, Try again), not on a timer.
 - The screens look the same as before on success; only the failure states changed, which the component tests cover rather than the browser check.
+
+## Review
+
+- Round 1: approve, no blocking comments. Checked the retry (only `40001`, a fresh transaction each run, the 422 not retried), the per-day cache (the failure handler only clears its own promise), the failed-switch state, and the `latest` query (ignores `from`, refuses other values). Non-blocking: a tab past midnight saves the new day on the next card load, not on a timer; added under Limits.
