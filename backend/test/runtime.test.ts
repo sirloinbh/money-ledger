@@ -54,7 +54,8 @@ test('/api/health answers 200 even when the sign-in rejects every request', asyn
 
 test('when the job runner fails to start, the failure is logged and the API still serves', async () => {
   const logged: Record<string, unknown>[] = [];
-  const jobs = backgroundJobs('all', (line) => logged.push(line));
+  // No retries here; the retry tests are below (#235).
+  const jobs = backgroundJobs('all', (line) => logged.push(line), []);
   await serve({ jobsStatus: jobs.status }, async (base) => {
     // The API is already listening here, before the jobs start (server.ts order).
     assert.equal((await fetch(`${base}/health`)).status, 200);
@@ -70,7 +71,7 @@ test('when the job runner fails to start, the failure is logged and the API stil
       },
     };
     await jobs.start(
-      boss,
+      () => boss,
       () => Promise.reject(new Error('connect ECONNREFUSED 127.0.0.1:5432')),
       async () => {
         sent = true;
@@ -84,6 +85,8 @@ test('when the job runner fails to start, the failure is logged and the API stil
       {
         level: 'error',
         event: 'jobs_start_failed',
+        attempt: 1,
+        final: true,
         message: 'connect ECONNREFUSED 127.0.0.1:5432',
       },
     ]);
@@ -99,10 +102,13 @@ test('when the job runner fails to start, the failure is logged and the API stil
 test('with jobs off the status route says so instead of answering 500', async () => {
   const jobs = backgroundJobs('off', () => assert.fail('nothing to log'));
   let opened = false;
-  await jobs.start(idleBoss, async () => {
-    opened = true;
-    return fakeJobs();
-  });
+  await jobs.start(
+    () => idleBoss,
+    async () => {
+      opened = true;
+      return fakeJobs();
+    },
+  );
   assert.equal(opened, false);
   await serve({ jobsStatus: jobs.status }, async (base) => {
     const status = await fetch(`${base}/jobs/status`);
@@ -115,7 +121,7 @@ test('running jobs answer the shared status view; a failed first send is only lo
   const logged: Record<string, unknown>[] = [];
   const jobs = backgroundJobs('all', (line) => logged.push(line));
   await jobs.start(
-    idleBoss,
+    () => idleBoss,
     async () => fakeJobs(),
     () => Promise.reject(new Error('queue is busy')),
   );
@@ -143,7 +149,7 @@ test('shutdown waits for a pending start, survives a failing jobs.stop, and runs
   const jobs = backgroundJobs('all', log);
   let finishStart: (value: Jobs) => void = () => {};
   void jobs.start(
-    idleBoss,
+    () => idleBoss,
     () =>
       new Promise<Jobs>((resolve) => {
         finishStart = resolve;
@@ -178,6 +184,153 @@ test('shutdown waits for a pending start, survives a failing jobs.stop, and runs
   assert.deepEqual(logged, [
     { level: 'error', event: 'jobs_stop_failed', message: 'stop timed out' },
   ]);
+});
+
+function failingBoss(stops: string[], name: string) {
+  return {
+    name,
+    stop: async () => {
+      stops.push(name);
+    },
+  };
+}
+
+test('a failed start is retried with a new boss, and a later success runs the jobs (#235)', async () => {
+  const logged: Record<string, unknown>[] = [];
+  const jobs = backgroundJobs('all', (line) => logged.push(line), [1, 1]);
+  const stops: string[] = [];
+  const opened: string[] = [];
+  let made = 0;
+  let sent = 0;
+  // The second attempt waits on this gate, so the test sees the 'retrying' state without racing a timer.
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const started = jobs.start(
+    () => failingBoss(stops, `boss-${(made += 1)}`),
+    async (boss) => {
+      opened.push(boss.name);
+      if (boss.name === 'boss-1') throw new Error('the database system is starting up');
+      await gate;
+      return fakeJobs();
+    },
+    async () => {
+      sent += 1;
+    },
+  );
+  await serve({ jobsStatus: jobs.status }, async (base) => {
+    while (opened.length < 2) await new Promise((resolve) => setTimeout(resolve, 1));
+    assert.equal(jobs.state(), 'retrying');
+    const waiting = await fetch(`${base}/jobs/status`);
+    assert.equal(waiting.status, 503);
+    assert.deepEqual(await waiting.json(), {
+      error: 'Background jobs failed to start and will try again; see the server log',
+    });
+    release();
+    await started;
+    assert.equal(jobs.state(), 'running');
+    assert.equal((await fetch(`${base}/jobs/status`)).status, 200);
+  });
+  assert.deepEqual(opened, ['boss-1', 'boss-2']);
+  assert.deepEqual(stops, ['boss-1'], 'only the failed boss is stopped');
+  assert.equal(sent, 1, 'the first send runs once, after the successful start');
+  assert.deepEqual(logged, [
+    {
+      level: 'error',
+      event: 'jobs_start_failed',
+      attempt: 1,
+      retryInSeconds: 0.001,
+      message: 'the database system is starting up',
+    },
+  ]);
+});
+
+test('after the last retry the jobs stay off and the failure is final (#235)', async () => {
+  const logged: Record<string, unknown>[] = [];
+  const jobs = backgroundJobs('all', (line) => logged.push(line), [1, 1]);
+  const stops: string[] = [];
+  let made = 0;
+  await jobs.start(
+    () => failingBoss(stops, `boss-${(made += 1)}`),
+    () => Promise.reject(new Error('password authentication failed')),
+  );
+  assert.equal(jobs.state(), 'failed');
+  assert.deepEqual(stops, ['boss-1', 'boss-2', 'boss-3']);
+  assert.deepEqual(
+    logged.map(({ attempt, retryInSeconds, final }) => ({ attempt, retryInSeconds, final })),
+    [
+      { attempt: 1, retryInSeconds: 0.001, final: undefined },
+      { attempt: 2, retryInSeconds: 0.001, final: undefined },
+      { attempt: 3, retryInSeconds: undefined, final: true },
+    ],
+  );
+});
+
+test('a stop signal cancels a waiting retry at once (#235)', async () => {
+  const jobs = backgroundJobs('all', () => undefined, [60_000]);
+  const stops: string[] = [];
+  let made = 0;
+  void jobs.start(
+    () => failingBoss(stops, `boss-${(made += 1)}`),
+    () => Promise.reject(new Error('connect ECONNREFUSED')),
+  );
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(jobs.state(), 'retrying');
+  const before = Date.now();
+  await jobs.stop();
+  assert.ok(Date.now() - before < 1000, 'stop does not wait out the 60 s retry delay');
+  assert.equal(jobs.state(), 'failed');
+  assert.equal(made, 1, 'no new boss after the stop');
+});
+
+test('a boss constructor that throws is a failed attempt, not an unhandled rejection (#235)', async () => {
+  const logged: Record<string, unknown>[] = [];
+  const jobs = backgroundJobs('all', (line) => logged.push(line), []);
+  await jobs.start(
+    () => {
+      throw new Error('bad connection string');
+    },
+    async () => fakeJobs(),
+  );
+  assert.equal(jobs.state(), 'failed');
+  assert.deepEqual(logged, [
+    {
+      level: 'error',
+      event: 'jobs_start_failed',
+      attempt: 1,
+      final: true,
+      message: 'bad connection string',
+    },
+  ]);
+});
+
+test('a start that finishes after the stop signal sends nothing and is stopped (#235)', async () => {
+  const jobs = backgroundJobs('all', () => undefined, []);
+  let finish: (value: Jobs) => void = () => {};
+  let sent = false;
+  let stopped = false;
+  void jobs.start(
+    () => idleBoss,
+    () =>
+      new Promise<Jobs>((resolve) => {
+        finish = resolve;
+      }),
+    async () => {
+      sent = true;
+    },
+  );
+  const stopping = jobs.stop();
+  finish(
+    fakeJobs({
+      stop: async () => {
+        stopped = true;
+      },
+    }),
+  );
+  await stopping;
+  assert.equal(sent, false);
+  assert.equal(stopped, true);
 });
 
 test('the server pool (createPool) survives an idle-client error instead of crashing the process', () => {

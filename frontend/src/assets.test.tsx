@@ -440,6 +440,77 @@ test('a purchase date outside 1900–2100 is not sent', async () => {
   expect(requests.some((request) => request.method === 'POST')).toBe(false);
 });
 
+test('a purchase date that is not on the calendar is not sent (#189)', async () => {
+  await ready();
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Bed' } });
+  fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'depreciable' } });
+  fireEvent.change(screen.getByLabelText('Purchase price (KRW)'), { target: { value: '1000' } });
+  fireEvent.change(screen.getByLabelText('Useful life (months)'), { target: { value: '60' } });
+  const date = screen.getByLabelText<HTMLInputElement>('Purchase date');
+  // A browser without a date picker shows a text box, which keeps a day that does not exist.
+  date.type = 'text';
+  fireEvent.change(date, { target: { value: '2026-02-30' } });
+  fireEvent.submit(screen.getByRole('form', { name: 'New asset' }));
+  expect(getLive('alert')).toHaveTextContent('Enter a purchase date between 1900 and 2100');
+  expect(date).toHaveAttribute('aria-invalid', 'true');
+  expect(requests.some((request) => request.method === 'POST')).toBe(false);
+});
+
+test('an older list answer that arrives last does not replace a newer one (#189)', async () => {
+  // The first load is held back; the reload after a save answers first, with the new asset.
+  const answer = vi.mocked(fetch).getMockImplementation()!;
+  let release = () => {};
+  vi.mocked(fetch).mockImplementationOnce((url, init) => {
+    const stale = answer(url, init);
+    return new Promise((resolve) => {
+      release = () => resolve(stale);
+    });
+  });
+  render(<AssetManager />);
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Apartment' } });
+  fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'real_estate' } });
+  fireEvent.change(screen.getByLabelText('Valuation (KRW)'), { target: { value: '300000000' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+  expect(await findLive('status')).toHaveTextContent('Apartment added');
+  expect(summary('Total assets')).toHaveTextContent('₩305,000,000');
+
+  // The first answer, from before the save, arrives now and is ignored.
+  release();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(summary('Total assets')).toHaveTextContent('₩305,000,000');
+  expect(screen.getByText('Apartment')).toBeInTheDocument();
+});
+
+test('a save waits while a delete is running (#189)', async () => {
+  await ready();
+  const answer = vi.mocked(fetch).getMockImplementation()!;
+  let release = () => {};
+  vi.mocked(fetch).mockImplementationOnce((url, init) => {
+    const deleted = answer(url, init);
+    return new Promise((resolve) => {
+      release = () => resolve(deleted);
+    });
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Delete Lease deposit loan' }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
+  await vi.waitFor(() =>
+    expect(requests.some((request) => request.method === 'DELETE')).toBe(true),
+  );
+
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Apartment' } });
+  fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'real_estate' } });
+  fireEvent.change(screen.getByLabelText('Valuation (KRW)'), { target: { value: '300000000' } });
+  // The open delete dialog hides the page from the accessibility tree; a submit there is ignored.
+  fireEvent.submit(screen.getByRole('form', { name: 'New asset', hidden: true }));
+  expect(requests.some((request) => request.method === 'POST')).toBe(false);
+
+  release();
+  expect(await screen.findByText('Lease deposit loan deleted')).toBeInTheDocument();
+  // Once the delete is done, the same submit goes through.
+  fireEvent.submit(screen.getByRole('form', { name: 'New asset' }));
+  expect(await findLive('status')).toHaveTextContent('Apartment added');
+});
+
 test('editing a #45 depreciable row offers its value as the purchase price', async () => {
   stored.push({
     id: 5,
