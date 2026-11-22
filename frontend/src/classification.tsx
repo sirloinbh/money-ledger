@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useMemo, useRef, useState } from 'react';
 
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
@@ -8,9 +8,9 @@ import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
 import { formatWon } from './format';
-import { requestJson } from './lib/api';
+import { ledgerKeys, useLedgerList } from './ledger-query';
+import { type ApiRequest, useApiMutation, useApiQuery } from './lib/query';
 import { useNotice } from './lib/use-notice';
-import { useOwnChange } from './lib/use-own-change';
 
 // #60 Uncategorized entries, bulk classification and keyword rules. Rules match the merchant only and fill
 // entries saved without a category; a category the user chose is never replaced (2026-11-05 decisions).
@@ -56,31 +56,30 @@ function CategoryOptions({ categories }: { categories: Category[] }) {
   ));
 }
 
-function useCategories(version: number, onError: (cause: unknown, fallback?: string) => void) {
-  const [categories, setCategories] = useState<Category[]>([]);
-  useEffect(() => {
-    requestJson<{ categories: Category[] }>('/api/ledger/categories?visible=true')
-      .then((data) => setCategories(data.categories))
-      .catch((cause: unknown) => onError(cause, 'Could not load the categories'));
-  }, [version, onError]);
-  return categories;
+/** The categories in use, for the <select>s; they reload with every ledger change (`ledgerKey`, #213). */
+function useCategories(onError: (cause: unknown, fallback?: string) => void) {
+  const { data } = useLedgerList<{ categories: Category[] }>(
+    ledgerKeys.categories('visible'),
+    '/api/ledger/categories?visible=true',
+    onError,
+    'Could not load the categories',
+  );
+  return data?.categories ?? [];
 }
 
+type ClassifyResult = {
+  classified: number;
+  skipped: number;
+  rulesAdded: number;
+  rulesUpdated: number;
+};
+const asRequest = (request: ApiRequest) => request;
+
 /**
- * Entries without a category: pick some, pick a category, classify them at once. `version` changes when
- * entries or rules change elsewhere on the page; `onChange` reports a classification here.
+ * Entries without a category: pick some, pick a category, classify them at once. The list reloads with every
+ * ledger change (`ledgerKey`, #213); `onChange` reports a classification here to the sections still on a counter.
  */
-export function UncategorizedEntries({
-  categoriesVersion = 0,
-  version = 0,
-  onChange,
-}: {
-  categoriesVersion?: number;
-  version?: number;
-  onChange?: () => void;
-}) {
-  const [entries, setEntries] = useState<Entry[] | undefined>(undefined);
-  const [suggestions, setSuggestions] = useState<Map<number, Suggestion>>(new Map());
+export function UncategorizedEntries({ onChange }: { onChange?: () => void } = {}) {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [categoryId, setCategoryId] = useState('');
   const [remember, setRemember] = useState(true);
@@ -90,31 +89,32 @@ export function UncategorizedEntries({
   const title = useRef<HTMLHeadingElement>(null);
   const notice = useNotice();
   const { error: showError, status: showStatus } = notice;
-  const categories = useCategories(categoriesVersion, showError);
+  const categories = useCategories(showError);
+  const list = useLedgerList<{ entries: Entry[] }>(
+    ledgerKeys.uncategorized(),
+    '/api/ledger/entries?uncategorized=true',
+    showError,
+    'Could not load the uncategorized entries',
+  );
+  const entries = list.data?.entries;
+  // Suggestions only help: without them (or while they load) the list and the form still work.
+  const suggested = useApiQuery<{ suggestions: Suggestion[] }>(
+    ledgerKeys.suggestions(),
+    '/api/ledger/entries/suggestions',
+  ).data;
+  const suggestions = useMemo(
+    () => new Map((suggested?.suggestions ?? []).map((item) => [item.entryId, item])),
+    [suggested],
+  );
+  const write = useApiMutation<unknown, ApiRequest>(asRequest);
 
-  const load = useCallback(async () => {
-    const [data, suggested] = await Promise.all([
-      requestJson<{ entries: Entry[] }>('/api/ledger/entries?uncategorized=true'),
-      // Suggestions only help: without them the list and the form still work.
-      requestJson<{ suggestions: Suggestion[] }>('/api/ledger/entries/suggestions').catch(() => ({
-        suggestions: [],
-      })),
-    ]);
-    setEntries(data.entries);
-    setSuggestions(new Map(suggested.suggestions.map((item) => [item.entryId, item])));
-    // Entries classified elsewhere drop out of the selection.
-    setSelected(
-      (current) => new Set(data.entries.filter((e) => current.has(e.id)).map((e) => e.id)),
-    );
-    return data.entries;
-  }, []);
-
-  // A change here reloads by itself, so the version bump it reports skips one reload (#198).
-  const { notifyChange, takeSkip } = useOwnChange(onChange, String(version));
-  useEffect(() => {
-    if (takeSkip()) return;
-    load().catch((cause: unknown) => showError(cause, 'Could not load the uncategorized entries'));
-  }, [load, showError, takeSkip, version]);
+  // Entries classified elsewhere drop out of the selection.
+  const [listed, setListed] = useState(entries);
+  if (listed !== entries) {
+    setListed(entries);
+    if (entries)
+      setSelected((current) => new Set(entries.filter((e) => current.has(e.id)).map((e) => e.id)));
+  }
 
   const toggle = (id: number) =>
     setSelected((current) => {
@@ -126,14 +126,14 @@ export function UncategorizedEntries({
 
   // After a reload that empties the list the controls go away; focus moves to the section heading.
   const reloadAfter = async (done: string) => {
-    try {
-      const left = await load();
-      showStatus(done);
-      if (left.length === 0) title.current?.focus();
-    } catch {
+    const reloaded = await list.reload();
+    if (!reloaded.ok) {
       // The change is saved even when the reload fails, so this is a note, not an error (#262).
       showStatus(`${done}. The list could not be reloaded; reload the page to see it`);
+      return;
     }
+    showStatus(done);
+    if (reloaded.data?.entries.length === 0) title.current?.focus();
   };
 
   const classify = async (event: FormEvent) => {
@@ -156,22 +156,17 @@ export function UncategorizedEntries({
     saving.current = true;
     setBusy(true);
     try {
-      let result: {
-        classified: number;
-        skipped: number;
-        rulesAdded: number;
-        rulesUpdated: number;
-      };
+      let result: ClassifyResult;
       try {
-        result = await requestJson('/api/ledger/entries/classify', {
-          method: 'POST',
+        result = (await write.mutateAsync({
+          path: '/api/ledger/entries/classify',
           body: { entryIds: picked.map((entry) => entry.id), categoryId: category.id, remember },
-        });
+        })) as ClassifyResult;
       } catch (cause) {
         showError(cause);
         return;
       }
-      notifyChange();
+      onChange?.();
       const parts = [
         `${result.classified} ${result.classified === 1 ? 'entry' : 'entries'} classified as ${category.name}`,
       ];
@@ -204,12 +199,14 @@ export function UncategorizedEntries({
     try {
       let result: { classified: number };
       try {
-        result = await requestJson('/api/ledger/entries/apply-rules', { method: 'POST' });
+        result = (await write.mutateAsync({ path: '/api/ledger/entries/apply-rules' })) as {
+          classified: number;
+        };
       } catch (cause) {
         showError(cause);
         return;
       }
-      if (result.classified > 0) notifyChange();
+      if (result.classified > 0) onChange?.();
       await reloadAfter(
         result.classified > 0
           ? `${result.classified} ${result.classified === 1 ? 'entry' : 'entries'} classified by rules`
@@ -229,15 +226,15 @@ export function UncategorizedEntries({
     try {
       let result: { classified: number; skipped: number };
       try {
-        result = await requestJson('/api/ledger/entries/apply-suggestions', {
-          method: 'POST',
+        result = (await write.mutateAsync({
+          path: '/api/ledger/entries/apply-suggestions',
           body: { entryIds },
-        });
+        })) as { classified: number; skipped: number };
       } catch (cause) {
         showError(cause);
         return;
       }
-      if (result.classified > 0) notifyChange();
+      if (result.classified > 0) onChange?.();
       const parts = [
         `${result.classified} ${result.classified === 1 ? 'entry' : 'entries'} classified by suggestion`,
       ];
@@ -249,7 +246,7 @@ export function UncategorizedEntries({
     }
   };
 
-  const suggested = entries?.filter((entry) => suggestions.has(entry.id)) ?? [];
+  const withSuggestion = entries?.filter((entry) => suggestions.has(entry.id)) ?? [];
   const allSelected = !!entries && entries.length > 0 && selected.size === entries.length;
 
   return (
@@ -369,13 +366,13 @@ export function UncategorizedEntries({
             <Button type="button" variant="outline" onClick={() => void applyRules()}>
               Reclassify with rules
             </Button>
-            {suggested.length > 0 && (
+            {withSuggestion.length > 0 && (
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => void applySuggestions(suggested.map((entry) => entry.id))}
+                onClick={() => void applySuggestions(withSuggestion.map((entry) => entry.id))}
               >
-                {`Apply ${suggested.length} ${suggested.length === 1 ? 'suggestion' : 'suggestions'}`}
+                {`Apply ${withSuggestion.length} ${withSuggestion.length === 1 ? 'suggestion' : 'suggestions'}`}
               </Button>
             )}
           </div>
@@ -385,17 +382,12 @@ export function UncategorizedEntries({
   );
 }
 
-/** Keyword rules: add and delete. `version` changes when rules may have been saved elsewhere. */
-export function RuleManager({
-  categoriesVersion = 0,
-  version = 0,
-  onChange,
-}: {
-  categoriesVersion?: number;
-  version?: number;
-  onChange?: () => void;
-}) {
-  const [rules, setRules] = useState<Rule[] | undefined>(undefined);
+/**
+ * Keyword rules: add and delete. The list reloads with every ledger change (`ledgerKey`, #213), so a rule saved
+ * while classifying, or a renamed or hidden category, shows here. `onChange` reports a change here to the sections
+ * still on a counter.
+ */
+export function RuleManager({ onChange }: { onChange?: () => void } = {}) {
   const [keyword, setKeyword] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [invalid, setInvalid] = useState<'keyword' | 'category' | undefined>(undefined);
@@ -406,29 +398,23 @@ export function RuleManager({
   const afterDelete = useRef<HTMLElement | null>(null);
   const notice = useNotice();
   const { error: showError, status: showStatus } = notice;
-  const categories = useCategories(categoriesVersion, showError);
-
-  const load = useCallback(async () => {
-    const data = await requestJson<{ rules: Rule[] }>('/api/ledger/rules');
-    setRules(data.rules);
-  }, []);
-
-  // A change here reloads by itself, so the version bump it reports skips one reload (#198).
-  const { notifyChange, takeSkip } = useOwnChange(onChange, `${version}:${categoriesVersion}`);
-  useEffect(() => {
-    if (takeSkip()) return;
-    load().catch((cause: unknown) => showError(cause, 'Could not load the classification rules'));
-    // categoriesVersion too: a rule shows its category's current name and hidden state.
-  }, [load, showError, takeSkip, version, categoriesVersion]);
+  const categories = useCategories(showError);
+  const list = useLedgerList<{ rules: Rule[] }>(
+    ledgerKeys.rules(),
+    '/api/ledger/rules',
+    showError,
+    'Could not load the classification rules',
+  );
+  const rules = list.data?.rules;
+  const write = useApiMutation<unknown, ApiRequest>(asRequest);
 
   const reload = async (done: string) => {
-    try {
-      await load();
-      showStatus(done);
-    } catch {
-      // The change is saved even when the reload fails, so this is a note, not an error (#262).
-      showStatus(`${done}. The list could not be reloaded; reload the page to see it`);
-    }
+    // The change is saved even when the reload fails, so this is a note, not an error (#262).
+    showStatus(
+      (await list.reload()).ok
+        ? done
+        : `${done}. The list could not be reloaded; reload the page to see it`,
+    );
   };
 
   const add = async (event: FormEvent) => {
@@ -448,15 +434,15 @@ export function RuleManager({
     setBusy(true);
     try {
       try {
-        await requestJson('/api/ledger/rules', {
-          method: 'POST',
+        await write.mutateAsync({
+          path: '/api/ledger/rules',
           body: { keyword: text, categoryId: Number(categoryId) },
         });
       } catch (cause) {
         showError(cause);
         return;
       }
-      notifyChange();
+      onChange?.();
       setKeyword('');
       await reload(`Rule '${text}' added`);
     } finally {
@@ -467,12 +453,12 @@ export function RuleManager({
 
   const remove = async (rule: Rule) => {
     try {
-      await requestJson(`/api/ledger/rules/${rule.id}`, { method: 'DELETE' });
+      await write.mutateAsync({ path: `/api/ledger/rules/${rule.id}`, method: 'DELETE' });
     } catch (cause) {
       showError(cause);
       throw cause; // keeps the dialog open
     }
-    notifyChange();
+    onChange?.();
     afterDelete.current = title.current;
     await reload(`Rule '${rule.keyword}' deleted`);
   };
