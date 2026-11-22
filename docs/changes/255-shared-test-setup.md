@@ -29,3 +29,7 @@ Found in the review of #182 (PR #254).
 ## Limits
 
 - A test that fails because something never appears now takes up to 8 seconds to fail instead of 1.
+
+## Review
+
+- Round 1 (PR #256 comment): approve, no blocking comments. No fix commits, no split issues.
