@@ -60,6 +60,10 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
     setPreview(undefined);
   };
 
+  // Counts chosen files only: an import that ends after another file was chosen must not clear that file,
+  // while one that ends after a column change still clears the imported file's form (#200).
+  const fileChoice = useRef(0);
+
   const changeMapping = (next: Mapping) => {
     setMapping(next);
     changed();
@@ -78,6 +82,7 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
 
   const choose = async (event: ChangeEvent<HTMLInputElement>) => {
     const chosen = event.target.files?.[0];
+    fileChoice.current++;
     changed();
     const asked = choice.current;
     clear();
@@ -169,6 +174,7 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
     setBusy(true);
     clear();
     const asked = choice.current;
+    const importedFile = fileChoice.current;
     try {
       const result = await requestJson<{ imported: number; skipped: number }>(
         `${entryCsvPath}/import`,
@@ -177,8 +183,8 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
           body: { rows: preview.sent, skipDuplicates },
         },
       );
-      // A file chosen while this one was importing stays: only the old file's form is cleared (#200).
-      const current = choice.current === asked;
+      // A file chosen while this one was importing stays: only the imported file's form is cleared (#200).
+      const current = fileChoice.current === importedFile;
       if (current) reset();
       showStatus(
         result.skipped > 0
@@ -189,6 +195,7 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
       if (current) fileInput.current?.focus();
     } catch (cause) {
       // Nothing was saved. Something changed since the preview (e.g. a category was hidden): check again.
+      // A preview made meanwhile (another file or other columns) stays.
       if (choice.current === asked) setPreview(undefined);
       showError(cause, 'Could not import the file');
     } finally {

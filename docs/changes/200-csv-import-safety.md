@@ -43,3 +43,7 @@ Browser (Vite 5292 + API 3192 on a local `money_dev` DB, Playwright):
 
 - The "Line N" of an unclosed quote is the line in a text editor; other messages use spreadsheet row numbers. A broken quote makes the spreadsheet row unknowable, so the text line is the useful one.
 - `uncategorized=true` together with `category=<id>` exports the uncategorized entries; the export does not combine the two.
+
+## Review
+
+- Round 1: 1 finding, fixed. `save` compared `choice.current`, which also changes on a column or kind change, so changing a column while an import ran left the imported file's form on screen (it could be imported again). A separate `fileChoice` counter now decides whether the form is cleared; a newer preview still survives a failed import. Test added: "an import that finishes after a column change still clears the imported file". `npm run check` rerun through the shared lock: pass (backend 413/0 skipped, frontend 462 passed + 3 managed skips, build pass).

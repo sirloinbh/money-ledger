@@ -266,3 +266,17 @@ test('an import that finishes after another file was chosen keeps the new file (
   expect(onImported).toHaveBeenCalledOnce();
   expect(screen.getByRole('group', { name: /Columns of second\.csv/ })).toBeInTheDocument();
 });
+
+test('an import that finishes after a column change still clears the imported file (#200)', async () => {
+  show();
+  await choose(statement);
+  await checked({ rows: 2, valid: 2, problems: [], duplicates: [] });
+  let answer!: (response: Response) => void;
+  answers[importPath] = () => new Promise<Response>((resolve) => (answer = resolve));
+  fireEvent.click(screen.getByRole('button', { name: 'Import 2 entries' }));
+
+  fireEvent.change(screen.getByLabelText('Note (optional)'), { target: { value: '1' } });
+  answer(new Response(JSON.stringify({ imported: 2, skipped: 0 })));
+  expect(await findLive('status')).toHaveTextContent('Imported 2 entries');
+  expect(screen.queryByRole('group')).not.toBeInTheDocument();
+});
