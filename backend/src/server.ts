@@ -28,8 +28,9 @@ const server = createApp(pool, {
   toolsPublicKey: process.env.AI_TOOLS_PUBLIC_KEY,
 }).listen(port, listenHost(auth !== undefined), () => console.log(`API http://localhost:${port}`));
 // #178: jobs start after the API listens; a start-up failure is logged and the API keeps serving.
+// #235: a failed start is retried with a new PgBoss a few times (runtime.ts START_RETRY_DELAYS_MS).
 void jobs.start(
-  new PgBoss(jobBossOptions(databaseUrl)),
+  () => new PgBoss(jobBossOptions(databaseUrl)),
   (boss) =>
     startJobs(
       boss,
