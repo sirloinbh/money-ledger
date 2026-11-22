@@ -301,12 +301,8 @@ export function entriesRouter(pool: Pool) {
       ).rows[0];
       if (!category) throw new HttpError(400, 'Category not found');
       if (category.hidden) throw new HttpError(400, 'Cannot classify into a hidden category');
-      const other = await client.query(
-        'SELECT 1 FROM ledger_entries WHERE id = ANY($1::bigint[]) AND kind <> $2 LIMIT 1',
-        [ids, category.kind],
-      );
-      if (other.rowCount)
-        throw new HttpError(400, 'Some entries are a different kind from the chosen category');
+      // Entries of the other kind are skipped like those classified meanwhile, so the rest are still
+      // classified (#199); the update below only touches rows of the category's kind.
       const updated = await client.query<{ merchant: string }>(
         // Rows are locked in id order first, so two overlapping bulk classifications wait instead of deadlocking.
         `WITH target AS (
@@ -337,7 +333,7 @@ export function entriesRouter(pool: Pool) {
         rulesUpdated = saved.rows.length - rulesAdded;
       }
       const classified = updated.rowCount ?? 0;
-      // Skipped: already categorized, deleted, or changed to the other kind meanwhile.
+      // Skipped: of the other kind, already categorized, or deleted meanwhile.
       return { classified, skipped: ids.length - classified, rulesAdded, rulesUpdated };
     });
     res.json(result);

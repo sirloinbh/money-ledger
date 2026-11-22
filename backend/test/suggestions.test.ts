@@ -14,11 +14,15 @@ const row = (merchant: string, categoryId: number, more: Partial<HistoryRow> = {
 });
 const expense = (merchant: string) => ({ kind: 'expense' as const, merchant });
 
-test('the merchant key drops a branch word, brackets, digits, spaces and punctuation', () => {
+test('the merchant key drops a branch word, brackets, number words, spaces and punctuation', () => {
   assert.equal(merchantKey('스타벅스 강남점'), '스타벅스');
   assert.equal(merchantKey('스타벅스 역삼R점'), '스타벅스');
   assert.equal(merchantKey('이마트 성수지점'), '이마트');
-  assert.equal(merchantKey('GS25 역삼1호점'), 'gs');
+  // Digits inside a word are part of the name; a word of only digits is a terminal or card number (#199).
+  assert.equal(merchantKey('GS25 역삼1호점'), 'gs25');
+  assert.equal(merchantKey('카페24'), '카페24');
+  assert.equal(merchantKey('쿠팡 1234567'), '쿠팡');
+  assert.equal(merchantKey('스타벅스 강남점 0123'), '스타벅스');
   assert.equal(merchantKey('쿠팡(주)'), '쿠팡');
   assert.equal(merchantKey('㈜우아한형제들'), '우아한형제들');
   assert.equal(merchantKey('NICE_Netflix.com'), 'nicenetflixcom');
@@ -76,4 +80,16 @@ test('within a match the most used category wins, then the most recent one', () 
     row('이마트 왕십리점', 2, { uses: 1, lastDate: '2026-11-01' }),
   ];
   assert.equal(suggest(expense('이마트 용산점'), tie)?.categoryId, 2);
+});
+
+test('short or numbered names do not suggest unrelated merchants (#199)', () => {
+  const history = [row('gs칼텍스', 1), row('카페베네', 2), row('쿠팡', 3), row('이마트', 4)];
+  assert.equal(suggest(expense('GS25'), history), null);
+  assert.equal(suggest(expense('카페24'), history), null);
+  // A two-letter key matches only the same key, never as a prefix.
+  assert.equal(suggest(expense('카페'), history), null);
+  assert.equal(suggest(expense('쿠팡이츠'), history), null);
+  assert.equal(suggest(expense('쿠팡 1234567'), history)?.categoryId, 3);
+  // Three letters or more still match as a prefix.
+  assert.equal(suggest(expense('이마트에브리데이'), history)?.categoryId, 4);
 });
