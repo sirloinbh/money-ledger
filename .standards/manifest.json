@@ -1,5 +1,5 @@
 {
-  "centralSha": "6d9f613629d131a59f736aefdd02f80ec829817b",
+  "centralSha": "a64e69fb11fb4ce6f02e39df14ba9b156ddc8d7e",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -510,6 +510,7 @@
         "devDependencies.typescript": "5.9.3",
         "devDependencies.vite": "6.4.5",
         "devDependencies.vitest": "5.0.3",
+        "dependencies.@tanstack/react-query": "5.104.1",
         "dependencies.zod": "4.6.7"
       },
       "source": "templates/index.json"
@@ -918,6 +919,16 @@
       "mode": "full",
       "sha256": "d79c53b94936cd62befd9a4cbd6304c558eaa2e6d1ba11eb8f00dfe2ba60e617",
       "source": "templates/ui/frontend/src/lib/auth-config.ts.tmpl"
+    },
+    "frontend/src/lib/query.test.tsx": {
+      "mode": "full",
+      "sha256": "ffdf0cc2d11577b84e6dda4ae2518cc96bfca498a212771d6582ad8c3707429f",
+      "source": "templates/query/frontend/src/lib/query.test.tsx"
+    },
+    "frontend/src/lib/query.ts": {
+      "mode": "full",
+      "sha256": "2f1a83e3d4856a31cbb75c01d64f7afe449f600bd003cb444d5812ad18e5b9cf",
+      "source": "templates/query/frontend/src/lib/query.ts"
     },
     "frontend/src/lib/theme-config.ts": {
       "mode": "full",
