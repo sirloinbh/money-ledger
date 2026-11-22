@@ -28,6 +28,9 @@ test('mock trading accounts against the real database', { skip: !url }, async (t
     );
     await runMigration(pool, '005_mock_accounts.sql');
     await runMigration(pool, '005_mock_accounts.sql'); // re-running is safe
+    // 015 adds the fee rate that a reset carries over; it needs the securities table of 009.
+    await runMigration(pool, '009_prices.sql');
+    await runMigration(pool, '015_mock_orders.sql');
   };
 
   await t.test('an account starts with ₩10,000,000 unless another amount is given', async () => {
@@ -120,6 +123,32 @@ test('mock trading accounts against the real database', { skip: !url }, async (t
       const after = (await call('/api/mock/accounts')).data as State;
       assert.equal(after.account?.id, second.id);
       assert.equal(after.closedAccounts.length, 1);
+    });
+  });
+
+  await t.test('reset keeps the account fee rate (#196)', async () => {
+    await reset();
+    await withApi(pool, async (call) => {
+      const first = (await call('/api/mock/accounts', { method: 'POST', body: {} })).data
+        .account as Account;
+      await pool.query('UPDATE mock_accounts SET fee_rate = 0.00015 WHERE id = $1', [first.id]);
+
+      const reset = await call(`/api/mock/accounts/${first.id}/reset`, {
+        method: 'POST',
+        body: {},
+      });
+      assert.equal(reset.status, 200);
+      const second = reset.data.account as Account;
+      const rates = await pool.query<{ id: string; fee_rate: string }>(
+        'SELECT id, fee_rate FROM mock_accounts ORDER BY id',
+      );
+      assert.deepEqual(
+        rates.rows.map((row) => [Number(row.id), row.fee_rate]),
+        [
+          [first.id, '0.000150'],
+          [second.id, '0.000150'],
+        ],
+      );
     });
   });
 
