@@ -4,38 +4,42 @@ import { PgBoss } from 'pg-boss';
 import { createApp } from './app.js';
 import { snapshotOpenAccount } from './mock-snapshots.js';
 import { logPriceEvent, PRICE_QUEUE, priceQueue, sourcesFromEnv } from './prices/index.js';
+import { backgroundJobs, shutdownOnce } from './runtime.js';
 import { listenHost, sharedAuth } from './standard/auth.js';
 import { createPool } from './standard/db.js';
-import { jobBossOptions, jobsModeFromEnv, jobsStatus, startJobs } from './standard/jobs.js';
+import { jobBossOptions, jobsModeFromEnv, startJobs } from './standard/jobs.js';
 
 const port = Number(process.env.PORT ?? 3105);
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is required');
+// createPool adds the 'error' listeners, so a lost idle connection is logged and does not end the process (#178).
 const pool = createPool(new Pool({ connectionString: databaseUrl }));
 const prices = sourcesFromEnv();
-const boss = new PgBoss(jobBossOptions(databaseUrl));
 // PRICE_JOBS=off still works (the old switch); JOBS_MODE=off|send is the shared one (docs: price-source.md).
 const mode = process.env.PRICE_JOBS === 'off' ? 'off' : jobsModeFromEnv();
-// After each daily fetch the open mock account's value is saved for the return chart (#54).
-const jobs = await startJobs(
-  boss,
-  [priceQueue(pool, prices, logPriceEvent, (now) => snapshotOpenAccount(pool, now))],
-  { mode },
-);
-// A server that was off at 12:00 fetches once when it starts; the handler skips it when nothing is due.
-// No key: a `singleton` queue allows one running job per key, so a keyed job could overlap the cron's job.
-await jobs.send(PRICE_QUEUE, {});
+const jobs = backgroundJobs(mode);
 // Without the sign-in (local development) the API listens on 127.0.0.1 only; with it, on every interface (#866, #898).
 const auth = sharedAuth();
 const server = createApp(pool, {
   prices,
   priceLog: logPriceEvent,
   auth,
-  jobsStatus: jobsStatus(jobs.boss),
+  jobsStatus: jobs.status,
   toolsPublicKey: process.env.AI_TOOLS_PUBLIC_KEY,
 }).listen(port, listenHost(auth !== undefined), () => console.log(`API http://localhost:${port}`));
-process.on('SIGTERM', () => {
-  server.close(() => {
-    void jobs.stop().then(() => pool.end());
-  });
-});
+// #178: jobs start after the API listens; a start-up failure is logged and the API keeps serving.
+void jobs.start(
+  () =>
+    startJobs(
+      new PgBoss(jobBossOptions(databaseUrl)),
+      // After each daily fetch the open mock account's value is saved for the return chart (#54).
+      [priceQueue(pool, prices, logPriceEvent, (now) => snapshotOpenAccount(pool, now))],
+      { mode },
+    ),
+  // A server that was off at 12:00 fetches once when it starts; the handler skips it when nothing is due.
+  // No key: a `singleton` queue allows one running job per key, so a keyed job could overlap the cron's job.
+  (started) => started.send(PRICE_QUEUE, {}),
+);
+const shutdown = shutdownOnce(server, jobs, pool);
+process.on('SIGTERM', () => void shutdown());
+process.on('SIGINT', () => void shutdown());
