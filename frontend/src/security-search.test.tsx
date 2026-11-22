@@ -265,3 +265,40 @@ test('dates read as month and day', () => {
   expect(formatMonthDay('2026-01-05')).toBe('Jan 5');
   expect(formatMonthDay('2026-11-16')).toBe('Nov 16');
 });
+
+test('a detail that failed to load can be tried again, by the button or the same result (#197)', async () => {
+  answers['/api/prices/securities?q=005930'] = { status: 200, body: { securities: [samsung] } };
+  answers['POST /api/prices/securities/1/view'] = {
+    status: 503,
+    body: { error: 'The price source is not answering' },
+  };
+  const views = () => urls.filter((url) => url === '/api/prices/securities/1/view').length;
+  render(<SecuritySearch onOrdered={() => undefined} />);
+  searchFor('005930');
+  const result = await screen.findByRole('button', { name: /Samsung Electronics/ });
+  fireEvent.click(result);
+  expect(await findLive('alert')).toHaveTextContent('The price source is not answering');
+
+  // "Try again" sends the request again.
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+  await vi.waitFor(() => expect(views()).toBe(2));
+  expect(await findLive('alert')).toHaveTextContent('The price source is not answering');
+
+  // Clicking the same result again also reloads it, and a working answer replaces the error.
+  answers['POST /api/prices/securities/1/view'] = {
+    status: 200,
+    body: { security: samsung, quote: samsung.quote, quoteIssue: null, fx: null },
+  };
+  fireEvent.click(result);
+  expect(
+    await screen.findByRole('heading', { level: 2, name: 'Samsung Electronics' }),
+  ).toBeInTheDocument();
+  expect(views()).toBe(3);
+  expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+
+  // A detail that loaded is left alone (with any order being typed) when its result is clicked again.
+  fireEvent.change(screen.getByLabelText('Quantity (shares)'), { target: { value: '5' } });
+  fireEvent.click(result);
+  expect(views()).toBe(3);
+  expect(screen.getByLabelText('Quantity (shares)')).toHaveValue('5');
+});

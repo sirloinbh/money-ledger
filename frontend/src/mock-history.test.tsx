@@ -36,15 +36,20 @@ const securities = [
 
 let urls: string[];
 let answer: (url: string) => unknown;
+// When set, answers wait for it, so a test can look at the screen while a load is running.
+let gate: Promise<void> | undefined;
 
 beforeEach(() => {
   urls = [];
+  gate = undefined;
   answer = () => ({ orders: [order(3, 'sell'), apple, order(1)], hasMore: false, securities });
   vi.stubGlobal(
     'fetch',
-    vi.fn((url: string) => {
+    vi.fn(async (url: string) => {
       urls.push(url);
-      return Promise.resolve(new Response(JSON.stringify(answer(url))));
+      const body = JSON.stringify(answer(url));
+      await gate;
+      return new Response(body);
     }),
   );
 });
@@ -151,4 +156,34 @@ test('no order yet says so; a new refresh key (an order on the page) reloads', a
   rerender(<MockHistory accountId={7} refreshKey={1} />);
   expect(await screen.findByRole('list')).toBeInTheDocument();
   expect(urls).toHaveLength(2);
+});
+
+test('while a new filter loads, the old list is marked busy and cannot be continued (#197)', async () => {
+  answer = () => ({ orders: [order(3), order(2)], hasMore: true, securities });
+  render(<MockHistory accountId={7} refreshKey={0} />);
+  const list = await screen.findByRole('list', { name: 'Trade history' });
+  const more = screen.getByRole('button', { name: 'Load more' });
+  expect(more).not.toHaveAttribute('aria-disabled');
+
+  let release = () => undefined as void;
+  gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  answer = () => ({ orders: [order(1)], hasMore: false, securities });
+  fireEvent.change(screen.getByLabelText('Security'), { target: { value: '1' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+  expect(await findLive('status')).toHaveTextContent('Updating trade history');
+  expect(list).toHaveAttribute('aria-busy', 'true');
+  expect(more).toHaveAttribute('aria-disabled', 'true');
+  fireEvent.click(more);
+  expect(urls).toEqual(['/api/mock/accounts/7/orders', '/api/mock/accounts/7/orders?securityId=1']);
+
+  release();
+  await vi.waitFor(() =>
+    expect(within(screen.getByRole('list')).getAllByRole('listitem')).toHaveLength(1),
+  );
+  expect(screen.queryByText('Updating trade history')).toBeNull();
+  expect(screen.getByRole('list')).not.toHaveAttribute('aria-busy');
+  expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
 });
