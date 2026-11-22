@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { CategoryManager } from './categories';
-import { findLive } from './test/live';
+import { findLive, queryLive } from './test/live';
 
 type Category = { id: number; kind: 'income' | 'expense'; name: string; hidden: boolean };
 
@@ -226,7 +226,7 @@ test('opening rename again starts from the saved name, and focus returns to the 
   expect(screen.getByRole('button', { name: 'Rename Dining out' })).toHaveFocus();
 });
 
-test('a change that saved but could not reload says both and still clears the input', async () => {
+test('a change that saved but could not reload says both as a note and still clears the input (#262)', async () => {
   render(<CategoryManager />);
   await list('Expense category');
   const api = vi.mocked(fetch);
@@ -238,9 +238,10 @@ test('a change that saved but could not reload says both and still clears the in
   );
   fireEvent.change(screen.getByLabelText('New expense category'), { target: { value: 'Pets' } });
   fireEvent.click(screen.getAllByRole('button', { name: 'Add' })[0]);
-  expect(await findLive('alert')).toHaveTextContent(
-    'Pets category added. Could not reload the list',
+  expect(await findLive('status')).toHaveTextContent(
+    'Pets category added. The list could not be reloaded; reload the page to see it',
   );
+  expect(queryLive('alert')).toBeNull();
   expect(screen.getByLabelText('New expense category')).toHaveValue('');
 });
 

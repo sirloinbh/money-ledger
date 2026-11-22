@@ -186,7 +186,8 @@ export function EntryManager({
         await loadEntries();
         showStatus(done);
       } catch {
-        showError(`${done}. Could not reload the list`);
+        // The change is saved even when the reload fails, so this is a note, not an error (#262).
+        showStatus(`${done}. The list could not be reloaded; reload the page to see it`);
       }
     } finally {
       saving.current = false;
@@ -215,7 +216,7 @@ export function EntryManager({
         await loadEntries();
         showStatus('Entry deleted');
       } catch {
-        showError('Entry deleted. Could not reload the list');
+        showStatus('Entry deleted. The list could not be reloaded; reload the page to see it');
       }
     } finally {
       saving.current = false;

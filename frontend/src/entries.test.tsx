@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { EntryManager } from './entries';
-import { findLive, getLive } from './test/live';
+import { findLive, getLive, queryLive } from './test/live';
 import { unexpectedRequest } from './test/unexpected';
 
 // The list filters live in the address, so the manager renders inside a router.
@@ -560,6 +560,43 @@ test('a delete blocks a save until it is done (#198)', async () => {
   stored = [];
   finishDelete(new Response(null, { status: 204 }));
   expect(await screen.findByText('Entry deleted')).toBeInTheDocument();
+});
+
+/** After the next change is saved, the reload of `path` fails once (#262). */
+function failReloadAfterSave(path: string) {
+  const api = vi.mocked(fetch).getMockImplementation()!;
+  let saved = false;
+  vi.mocked(fetch).mockImplementation((url: string | URL | Request, init?: RequestInit) => {
+    const method = init?.method ?? 'GET';
+    if (method !== 'GET') saved = true;
+    else if (saved && String(url).startsWith(path)) {
+      saved = false;
+      return Promise.reject(new TypeError('offline'));
+    }
+    return api(url, init);
+  });
+}
+
+test('a saved entry or delete whose list fails to reload is a note, not an error (#262)', async () => {
+  await ready();
+  failReloadAfterSave('/api/ledger/entries');
+  fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '12500' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
+  expect(await findLive('status')).toHaveTextContent(
+    'Expense ₩12,500 recorded. The list could not be reloaded; reload the page to see it',
+  );
+  expect(queryLive('alert')).toBeNull();
+
+  failReloadAfterSave('/api/ledger/entries');
+  fireEvent.click(screen.getByRole('button', { name: 'Delete 2026-11-01 Leisure ₩5,000' }));
+  const dialog = screen.getByRole('dialog', { name: 'Delete this entry?' });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+  await vi.waitFor(() =>
+    expect(getLive('status')).toHaveTextContent(
+      'Entry deleted. The list could not be reloaded; reload the page to see it',
+    ),
+  );
+  expect(queryLive('alert')).toBeNull();
 });
 
 // #183 After a CSV import the list must show the new rows: a parent with `onChange` is told (it bumps the
