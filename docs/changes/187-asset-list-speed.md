@@ -28,6 +28,11 @@
 - `allocation`, `assets`, `net-worth` and `valuation` integration tests: 46/46 pass, unchanged list, totals and allocation expectations.
 - Commands and results are in the PR body.
 
+## Review
+
+- Round 1 (PR #257 comment): approve, no blocking comments; one non-blocking nitpick (a quick second save can spend a second call), kept as a limit below.
+
 ## Limits
 
 - Right after linking a US security without closes, the save's answer and a list loaded before the fetch finishes show "No price"; the next load shows the close. The frontend does not poll for it.
+- Saving the same newly linked US asset twice before the first fetch has stored a close can spend a second Tiingo call; both stay within the hourly limit `fetchUsCloses` enforces.
