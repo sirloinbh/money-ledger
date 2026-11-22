@@ -171,3 +171,21 @@ test('a report that fails to load says so, and Try again loads it', async () => 
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
   expect(await screen.findByText('The same as the week before')).toBeInTheDocument();
 });
+
+test('an unknown report id says the report was not found, without Try again', async () => {
+  show('/reports/999');
+  expect(
+    await screen.findByText('Report not found. It may have been removed, or the address is wrong.'),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+  expect(calls).toContain('GET /api/reports/999');
+});
+
+test('an id that is not a number is not found, and is not sent', async () => {
+  show('/reports/abc');
+  expect(
+    await screen.findByText('Report not found. It may have been removed, or the address is wrong.'),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+  expect(calls.filter((call) => call.startsWith('GET /api/reports/'))).toEqual([]);
+});
