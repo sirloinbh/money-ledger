@@ -3927,7 +3927,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The close the confirmation showed, as a plain decimal string such as \"70600.0000\" or \"70600\". Compared with the stored close as a number."
           },
           "expectedPriceDate": {
             "anyOf": [
@@ -3938,7 +3939,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The trade date of that close, YYYY-MM-DD."
           },
           "expectedFxRate": {
             "anyOf": [
@@ -3949,7 +3951,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "The USD rate the confirmation showed, as a plain decimal string such as \"1384.5000\"; null for a won security. Compared as a number."
           }
         },
         "required": [
