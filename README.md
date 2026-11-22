@@ -29,7 +29,7 @@ Vite http://localhost:5205, API http://localhost:3105/api/health, host DB port 1
 ## Verification
 
 - `npm run check`: format, lint, types, tests, the skill sync check, and the build.
-- DB integration tests need `TEST_DATABASE_URL` for a dedicated test DB with the migrations applied. They are skipped without it.
+- DB integration tests need `TEST_DATABASE_URL` for a dedicated test DB with the migrations applied. They are skipped without it. The backend test files run four at a time, each on its own copy of that DB (`backend/test/test-database.ts`, #184), so the DB user needs to be allowed to create databases, and nothing else may be connected to the test DB while the tests run.
 - GitHub Actions runs the full checks with a PostgreSQL service and builds the Docker images.
 
 ## Repository layout

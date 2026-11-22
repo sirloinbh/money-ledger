@@ -6,8 +6,10 @@ import { Pool } from 'pg';
 import { fakeSources } from '../src/prices/fake.js';
 import { trackedUsSecurities } from '../src/prices/store.js';
 import { runMigration, withApi } from './helpers.js';
+import { testDatabase } from './test-database.js';
 
-const url = process.env.TEST_DATABASE_URL;
+// #184 This file's own copy of the test DB (undefined without TEST_DATABASE_URL: the DB tests are skipped).
+const url = await testDatabase();
 const assets = '/api/portfolio/assets';
 const today = '2026-11-10';
 

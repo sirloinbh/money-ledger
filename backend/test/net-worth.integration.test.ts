@@ -4,8 +4,10 @@ import { test } from 'node:test';
 import { Pool } from 'pg';
 
 import { runMigration, withApi } from './helpers.js';
+import { testDatabase } from './test-database.js';
 
-const url = process.env.TEST_DATABASE_URL;
+// #184 This file's own copy of the test DB (undefined without TEST_DATABASE_URL: the DB tests are skipped).
+const url = await testDatabase();
 const assets = '/api/portfolio/assets';
 const netWorth = '/api/portfolio/net-worth';
 

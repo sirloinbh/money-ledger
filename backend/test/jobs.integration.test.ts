@@ -10,8 +10,10 @@ import { fakeSources } from '../src/prices/fake.js';
 import { PRICE_QUEUE, priceQueue } from '../src/prices/jobs.js';
 import { jobBossOptions, jobsStatus, startJobs } from '../src/standard/jobs.js';
 import { listen } from './helpers.js';
+import { testDatabase } from './test-database.js';
 
-const url = process.env.TEST_DATABASE_URL;
+// #184 This file's own copy of the test DB (undefined without TEST_DATABASE_URL: the DB tests are skipped).
+const url = await testDatabase();
 
 // Real pg-boss on the test DB (schema pgboss): the queue starts, a sent job is worked, and the status route
 // answers only behind the sign-in.
