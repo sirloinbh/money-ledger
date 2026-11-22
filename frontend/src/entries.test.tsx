@@ -1,10 +1,12 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { EntryManager } from './entries';
+import { ledgerKey } from './ledger-query';
 import { findLive, getLive, queryLive } from './test/live';
+import { renderWithQuery, testQueryClient } from './test/query';
 import { unexpectedRequest } from './test/unexpected';
 
 // The list filters live in the address, so the manager renders inside a router.
@@ -144,7 +146,7 @@ const optionLabels = () =>
     .map((option) => option.textContent);
 
 const ready = async () => {
-  render(<EntryManager />, { wrapper: Router });
+  renderWithQuery(<EntryManager />, { wrapper: Router });
   await screen.findByRole('list', { name: 'Entry list' });
   await screen.findByRole('option', { name: 'Food' });
 };
@@ -298,12 +300,16 @@ test('deleting asks first, then removes the entry', async () => {
   expect(getLive('status')).toHaveTextContent('Entry deleted');
 });
 
-test('a new categories version reloads the category choices', async () => {
-  const { rerender } = render(<EntryManager categoriesVersion={0} />, { wrapper: Router });
+// A change in another section of the Ledger page reloads every ledger read (#213).
+const ledgerChangedElsewhere = () =>
+  act(() => testQueryClient().invalidateQueries({ queryKey: ledgerKey }));
+
+test('a category change elsewhere reloads the category choices', async () => {
+  renderWithQuery(<EntryManager />, { wrapper: Router });
   await screen.findByRole('option', { name: 'Food' });
   categories[0] = { ...categories[0], hidden: true };
   try {
-    rerender(<EntryManager categoriesVersion={1} />);
+    await ledgerChangedElsewhere();
     await vi.waitFor(() => expect(optionLabels()).toEqual(['Uncategorized']));
   } finally {
     categories[0] = { ...categories[0], hidden: false };
@@ -356,7 +362,7 @@ test('while a save runs, opening an edit waits and the button says so', async ()
 });
 
 test('a category change reloads the list, and a chosen category hidden meanwhile is unchosen', async () => {
-  const { rerender } = render(<EntryManager categoriesVersion={0} />, { wrapper: Router });
+  renderWithQuery(<EntryManager />, { wrapper: Router });
   await screen.findByRole('option', { name: 'Food' });
   fireEvent.change(screen.getByLabelText('Category', { selector: '#entry-category' }), {
     target: { value: '1' },
@@ -369,7 +375,7 @@ test('a category change reloads the list, and a chosen category hidden meanwhile
 
   categories[0] = { ...categories[0], hidden: true };
   try {
-    rerender(<EntryManager categoriesVersion={1} />);
+    await ledgerChangedElsewhere();
     // The lost choice shows as "Choose again" instead of silently turning into Uncategorized.
     await vi.waitFor(() => expect(optionLabels()).toEqual(['Choose again', 'Uncategorized']));
     expect(listLoads()).toBe(before + 1);
@@ -480,7 +486,7 @@ test('an entry classified elsewhere while being edited keeps that category when 
       memo: '',
     },
   ];
-  const { rerender } = render(<EntryManager entriesVersion={0} />, { wrapper: Router });
+  renderWithQuery(<EntryManager />, { wrapper: Router });
   await screen.findByRole('option', { name: 'Food' });
   fireEvent.click(
     await screen.findByRole('button', { name: 'Edit 2026-11-02 Uncategorized ₩3,000' }),
@@ -489,7 +495,7 @@ test('an entry classified elsewhere while being edited keeps that category when 
 
   // The bulk classification below the form puts it in Food.
   stored = [{ ...stored[0], categoryId: 1, categoryName: 'Food' }];
-  rerender(<EntryManager entriesVersion={1} />);
+  await ledgerChangedElsewhere();
   await vi.waitFor(() =>
     expect(screen.getByLabelText('Category', { selector: '#entry-category' })).toHaveValue('1'),
   );
@@ -512,7 +518,7 @@ test('while categories have not loaded, a chosen category is not flagged', async
       ? new Promise<Response>(() => undefined) // never answers
       : json({ entries: stored, total: stored.length }),
   );
-  render(<EntryManager />, { wrapper: Router });
+  renderWithQuery(<EntryManager />, { wrapper: Router });
   fireEvent.click(await screen.findByRole('button', { name: 'Edit 2026-11-01 Leisure ₩5,000' }));
   expect(
     within(screen.getByLabelText('Category', { selector: '#entry-category' })).queryByRole(
@@ -522,20 +528,16 @@ test('while categories have not loaded, a chosen category is not flagged', async
   ).toBeNull();
 });
 
-test('a save reported to a parent that does not bump a version does not skip a later reload (#198)', async () => {
-  const onChange = vi.fn();
-  const { rerender } = render(<EntryManager entriesVersion={0} onChange={onChange} />, {
-    wrapper: Router,
-  });
+test('after a save here, a later change elsewhere still reloads the list (#198)', async () => {
+  renderWithQuery(<EntryManager />, { wrapper: Router });
   await screen.findByRole('option', { name: 'Food' });
   fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '3000' } });
   fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
   expect(await findLive('status')).toHaveTextContent('Expense ₩3,000 recorded');
-  expect(onChange).toHaveBeenCalledTimes(1);
 
-  // Later an entry is classified elsewhere on the page, and the parent bumps the version for that.
+  // Later an entry is classified elsewhere on the page.
   stored = stored.map((entry) => ({ ...entry, memo: 'Classified elsewhere' }));
-  rerender(<EntryManager entriesVersion={1} onChange={onChange} />);
+  await ledgerChangedElsewhere();
   expect(await screen.findAllByText('Classified elsewhere')).not.toHaveLength(0);
 });
 
@@ -602,8 +604,8 @@ test('a saved entry or delete whose list fails to reload is a note, not an error
   expect(queryLive('alert')).toBeNull();
 });
 
-// #183 After a CSV import the list must show the new rows: a parent with `onChange` is told (it bumps the
-// version that reloads the list); without one the list reloads itself, and a failed reload says so.
+// #183 After a CSV import the list must show the new rows (#213: through `ledgerKey`, with every other ledger
+// read), and a failed reload says so.
 const importOneRow = async () => {
   const file = new File(['date,merchant,amount\n2026-11-02,Bakery,4500\n'], 'card.csv', {
     type: 'text/csv',
@@ -614,26 +616,21 @@ const importOneRow = async () => {
   fireEvent.click(await screen.findByRole('button', { name: 'Import 1 entry' }));
 };
 
-test('a CSV import is reported to the parent, which reloads the list', async () => {
-  const onChange = vi.fn();
-  render(<EntryManager entriesVersion={0} onChange={onChange} />, { wrapper: Router });
-  await screen.findByRole('list', { name: 'Entry list' });
+test('a CSV import reloads the list once and makes the other ledger reads stale', async () => {
+  testQueryClient().setQueryData(['/api/ledger', 'summary', '2026-10'], { month: '2026-10' });
+  await ready();
   const loads = () =>
-    requests.filter((r) => r.method === 'GET' && r.url !== '/api/ledger/categories');
+    requests.filter((r) => r.method === 'GET' && r.url.startsWith('/api/ledger/entries?'));
   const before = loads().length;
   await importOneRow();
-  await vi.waitFor(() => expect(onChange).toHaveBeenCalledOnce());
-  // The parent's version bump does the reload, not the manager itself.
-  expect(loads()).toHaveLength(before);
-});
-
-test('without a parent a CSV import reloads the list itself', async () => {
-  await ready();
-  await importOneRow();
   expect(await screen.findByText('Bakery')).toBeInTheDocument();
+  expect(loads()).toHaveLength(before + 1);
+  expect(
+    testQueryClient().getQueryState(['/api/ledger', 'summary', '2026-10'])?.isInvalidated,
+  ).toBe(true);
 });
 
-test('without a parent a failed reload after a CSV import says so', async () => {
+test('a failed reload after a CSV import says so', async () => {
   await ready();
   failNextList = 'Cannot connect to the database';
   await importOneRow();

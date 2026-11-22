@@ -174,8 +174,7 @@ const row = (text: string) =>
     .find((item) => item.textContent?.includes(text))!;
 
 test('selected entries are classified at once and their merchant is remembered', async () => {
-  const onChange = vi.fn();
-  renderWithQuery(<UncategorizedEntries onChange={onChange} />);
+  renderWithQuery(<UncategorizedEntries />);
   expect(
     await screen.findByRole('heading', { name: 'Uncategorized entries (4)' }),
   ).toBeInTheDocument();
@@ -197,7 +196,6 @@ test('selected entries are classified at once and their merchant is remembered',
       body: { entryIds: [1, 2], categoryId: 1, remember: true },
     },
   ]);
-  expect(onChange).toHaveBeenCalled();
   expect(screen.getByRole('heading', { name: 'Uncategorized entries (2)' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Classify 0 selected' })).toBeInTheDocument();
 });
@@ -273,8 +271,7 @@ test('a server refusal of the classification is shown', async () => {
 });
 
 test('a rule is added with its category and listed', async () => {
-  const onChange = vi.fn();
-  renderWithQuery(<RuleManager onChange={onChange} />);
+  renderWithQuery(<RuleManager />);
   expect(await screen.findByText('There are no classification rules yet.')).toBeInTheDocument();
   await screen.findByRole('option', { name: 'Food' });
   fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: ' Starbucks ' } });
@@ -283,7 +280,6 @@ test('a rule is added with its category and listed', async () => {
 
   expect(await findLive('status')).toHaveTextContent("Rule 'Starbucks' added");
   expect(posts()[0].body).toEqual({ keyword: 'Starbucks', categoryId: 1 });
-  expect(onChange).toHaveBeenCalled();
   const list = screen.getByRole('list', { name: 'Classification rules' });
   expect(list).toHaveTextContent('Starbucks');
   expect(list).toHaveTextContent('Food');
@@ -338,7 +334,7 @@ const ledgerChangedElsewhere = () =>
   act(() => testQueryClient().invalidateQueries({ queryKey: ledgerKey }));
 
 test('a classification made here loads the list once more, not twice', async () => {
-  renderWithQuery(<UncategorizedEntries onChange={vi.fn()} />);
+  renderWithQuery(<UncategorizedEntries />);
   await screen.findByRole('option', { name: 'Food' });
   const loads = () =>
     requests.filter((request) => request.url === '/api/ledger/entries?uncategorized=true').length;
@@ -400,8 +396,7 @@ test('a suggestion is shown on its entry and used alone, without a rule', async 
     [1, 1],
     [2, 1],
   ]);
-  const onChange = vi.fn();
-  renderWithQuery(<UncategorizedEntries onChange={onChange} />);
+  renderWithQuery(<UncategorizedEntries />);
   await screen.findByRole('heading', { name: 'Uncategorized entries (4)' });
   expect(row('₩1,000')).toHaveTextContent('Suggested: Food (from Kimbap Place (earlier))');
   expect(row('₩3,000')).not.toHaveTextContent('Suggested');
@@ -417,7 +412,6 @@ test('a suggestion is shown on its entry and used alone, without a rule', async 
   expect(posts()).toEqual([
     { method: 'POST', url: '/api/ledger/entries/apply-suggestions', body: { entryIds: [1] } },
   ]);
-  expect(onChange).toHaveBeenCalled();
   expect(screen.getByRole('heading', { name: 'Uncategorized entries (3)' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Apply 1 suggestion' })).toBeInTheDocument();
 });
@@ -451,14 +445,12 @@ test('without suggestions, or when they fail to load, the list still works', asy
 });
 
 test('after a classification here, a later change elsewhere still reloads the list (#198)', async () => {
-  const onChange = vi.fn();
-  renderWithQuery(<UncategorizedEntries onChange={onChange} />);
+  renderWithQuery(<UncategorizedEntries />);
   await screen.findByRole('option', { name: 'Food' });
   fireEvent.click(within(row('₩1,000')).getByRole('checkbox'));
   fireEvent.change(screen.getByLabelText('Category to apply'), { target: { value: '1' } });
   fireEvent.click(screen.getByRole('button', { name: 'Classify 1 selected' }));
   await screen.findByRole('heading', { name: 'Uncategorized entries (3)' });
-  expect(onChange).toHaveBeenCalledTimes(1);
 
   // Later an entry is added elsewhere on the page.
   entries.push(entry(5, 'Bookshop'));
@@ -467,8 +459,7 @@ test('after a classification here, a later change elsewhere still reloads the li
 });
 
 test('after a rule added here, a later change elsewhere still reloads the rules (#198)', async () => {
-  const onChange = vi.fn();
-  renderWithQuery(<RuleManager onChange={onChange} />);
+  renderWithQuery(<RuleManager />);
   await screen.findByRole('option', { name: 'Food' });
   fireEvent.change(screen.getByLabelText('Keyword'), { target: { value: 'Kimbap' } });
   fireEvent.change(screen.getByLabelText('Category', { selector: '#rule-category' }), {

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import { MemoryRouter, useLocation, useSearchParams } from 'react-router';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -12,6 +12,7 @@ import {
   writeFilters,
 } from './entry-filters-state';
 import { getLive, queryLive } from './test/live';
+import { renderWithQuery } from './test/query';
 
 describe('filter helpers', () => {
   test('a month runs from its first to its last day, leap years included', () => {
@@ -150,7 +151,7 @@ function Address() {
 }
 
 const show = async (path = '/ledger') => {
-  const view = render(
+  const view = renderWithQuery(
     <MemoryRouter initialEntries={[path]}>
       <EntryManager />
       <Address />
@@ -317,10 +318,11 @@ test('an older answer that arrives last does not replace the list for the curren
   fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
   await vi.waitFor(() => expect(lastList()).toContain('from=2026-10-01'));
   fireEvent.click(screen.getByRole('button', { name: 'This month' }));
-  await vi.waitFor(() => expect(lastList()).toContain('from=2026-11-01'));
+  // This month was just loaded, so it shows again from the cache (#213) while October is still on its way.
   await screen.findByText('1 entry');
   finishOctober();
   await vi.waitFor(() => expect(log).toContain('GET 2026-10-01'));
+  await act(() => Promise.resolve());
   expect(screen.getByRole('list', { name: 'Entry list' })).toHaveTextContent('Entry 11');
   expect(screen.queryByText('Entry 10')).not.toBeInTheDocument();
 });
@@ -473,7 +475,7 @@ function MonthButton() {
 }
 
 test('changing the summary month (#40) keeps what is typed in the filter form', async () => {
-  render(
+  renderWithQuery(
     <MemoryRouter initialEntries={['/ledger']}>
       <EntryManager />
       <MonthButton />

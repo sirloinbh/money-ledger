@@ -15,11 +15,16 @@ export function testQueryClient() {
   return current;
 }
 
-/** `render` inside the test's query client; `rerender` keeps it. */
-export function renderWithQuery(ui: ReactElement, options: Omit<RenderOptions, 'wrapper'> = {}) {
+/** `render` inside the test's query client (around `wrapper`, if one is given); `rerender` keeps both. */
+export function renderWithQuery(
+  ui: ReactElement,
+  { wrapper: Inner, ...options }: RenderOptions = {},
+) {
   const client = testQueryClient();
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    <QueryClientProvider client={client}>
+      {Inner ? <Inner>{children}</Inner> : children}
+    </QueryClientProvider>
   );
   return render(ui, { ...options, wrapper });
 }

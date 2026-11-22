@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
 import { type SetURLSearchParams, useSearchParams } from 'react-router';
 
 import { type Filters, readFilters, writeFilters } from './entry-filters-state';
 import { type Category, entriesPath, type Entry, type Listing, pageSize } from './entry-model';
-import { requestJson } from './lib/api';
+import { ledgerKeys, useLedgerList } from './ledger-query';
+import { type RequestError, requestJson } from './lib/api';
 
 // #190 State and effects of EntryManager that do not touch the form: the filters in the address, the list,
 // the categories, and keeping the address valid.
@@ -22,56 +24,43 @@ export function useAddressFilters(today: string) {
 }
 
 /**
- * The loaded page for `query`. `loadEntries` always loads the filters current when it is called: a save or
- * delete that ends after the filters changed reloads the new list, not the one it started on.
+ * The loaded page for `query` (#213: a query under `ledgerKey`, so a change anywhere on the page reloads it). While
+ * the page for new filters loads, the one before stays (`listing.query` tells which), and after that load failed it
+ * still stays with its page buttons, so the focus holds; `loadFailed` is that failure while it is not being retried.
  */
 export function useEntryListing(query: string) {
-  const [listing, setListing] = useState<Listing | undefined>(undefined);
-  const [loadFailed, setLoadFailed] = useState(false);
-  // The filters the next load asks for.
-  const latestQuery = useRef(query);
-  useEffect(() => {
-    latestQuery.current = query;
-  }, [query]);
-  // Only the latest request may fill the list. Numbered, not compared by filters: two loads of the same
-  // filters (one started before a save, one after) may answer in either order.
-  const latestRequest = useRef(0);
-
-  const loadEntries = useCallback(async () => {
-    const asked = latestQuery.current;
-    const request = ++latestRequest.current;
-    setLoadFailed(false);
-    try {
-      const data = await requestJson<{ entries: Entry[]; total: number }>(
-        `${entriesPath}?${asked}`,
-      );
-      if (latestRequest.current === request) setListing({ query: asked, ...data });
-    } catch (cause) {
-      if (latestRequest.current === request) setLoadFailed(true);
-      throw cause;
-    }
-  }, []);
-
-  return { listing, loadFailed, loadEntries };
+  const read = useQuery<Listing, RequestError>({
+    queryKey: ledgerKeys.entries(query),
+    queryFn: async ({ signal }) => ({
+      query,
+      ...(await requestJson<{ entries: Entry[]; total: number }>(`${entriesPath}?${query}`, {
+        signal,
+      })),
+    }),
+    placeholderData: keepPreviousData,
+  });
+  const [lastShown, setLastShown] = useState(read.data);
+  if (read.data !== undefined && read.data !== lastShown) setLastShown(read.data);
+  return {
+    listing: read.data ?? lastShown,
+    loadFailed: read.isError && !read.isFetching,
+    error: read.error,
+    retry: () => void read.refetch(),
+  };
 }
 
-/** The categories, loaded again when `version` changes (edited elsewhere on the page). */
-export function useEntryCategories(
-  version: number,
-  showError: (cause: unknown, fallback: string) => void,
-) {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  useEffect(() => {
-    requestJson<{ categories: Category[] }>('/api/ledger/categories')
-      .then((data) => {
-        setCategories(data.categories);
-        setLoaded(true);
-      })
-      .catch((cause: unknown) => showError(cause, 'Could not load the categories'));
-  }, [version, showError]);
-  return { categories, loaded };
+/** The categories, hidden ones too; they reload with every ledger change (`ledgerKey`, #213). */
+export function useEntryCategories(showError: (cause: unknown, fallback?: string) => void) {
+  const { data } = useLedgerList<{ categories: Category[] }>(
+    ledgerKeys.categories(),
+    '/api/ledger/categories',
+    showError,
+    'Could not load the categories',
+  );
+  return { categories: data?.categories ?? noCategories, loaded: data !== undefined };
 }
+
+const noCategories: Category[] = [];
 
 /** Fixes an address the list cannot show: a page past the end, or a category the filter cannot offer. */
 export function useFilterCleanup({
