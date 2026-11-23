@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { type Allocation, AssetAllocation } from './asset-allocation';
 import { AssetForm } from './asset-form';
@@ -17,7 +17,10 @@ import {
 import { Notice } from './components/ui/notice';
 import { formatDecimal } from './format';
 import { requestJson } from './lib/api';
+import { useApiQuery } from './lib/query';
 import { useNotice } from './lib/use-notice';
+import { portfolioKeys, usePortfolioReload } from './portfolio-query';
+import { useLoadError } from './query-reads';
 
 // #45 Held assets and debts. Won values are numbers, quantities and USD values decimal strings (#35 rules).
 // Trades come with #46.
@@ -35,9 +38,6 @@ export type AssetsAnswer = { assets: Asset[]; totals: Totals; allocation: Alloca
 
 /** `afterAllocation` goes right under the allocation card (#49: the net worth history). */
 export function AssetManager({ afterAllocation }: { afterAllocation?: ReactNode } = {}) {
-  const [assets, setAssets] = useState<Asset[] | undefined>(undefined);
-  const [totals, setTotals] = useState<Totals | undefined>(undefined);
-  const [allocation, setAllocation] = useState<Allocation | undefined>(undefined);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [editing, setEditing] = useState<Asset | undefined>(undefined);
   const tradeManaged = editing?.hasTrades === true;
@@ -51,28 +51,16 @@ export function AssetManager({ afterAllocation }: { afterAllocation?: ReactNode 
   const notice = useNotice();
   const { error: showError, status: showStatus } = notice;
 
-  // #189 Loads overlap (a save's reload, a voucher use's reload): only the newest request's answer is shown,
-  // so an older response that arrives last cannot put stale rows back.
-  const latestLoad = useRef(0);
-  const load = useCallback(async () => {
-    const request = ++latestLoad.current;
-    let data: AssetsAnswer;
-    try {
-      data = await requestJson(assetsPath);
-    } catch (cause) {
-      // A superseded load's failure says nothing about the list shown now.
-      if (request !== latestLoad.current) return;
-      throw cause;
-    }
-    if (request !== latestLoad.current) return;
-    setAssets(data.assets);
-    setTotals(data.totals);
-    setAllocation(data.allocation);
-  }, []);
-
-  useEffect(() => {
-    load().catch((cause: unknown) => showError(cause, 'Could not load the assets'));
-  }, [load, showError]);
+  // #278 The list, its totals and the allocation are one read under `portfolioKey`: a save here, a trade or a use
+  // loads it again (it replaced the load loop, whose stale-answer guard (#189) the query layer gives now).
+  const query = useApiQuery<AssetsAnswer>(portfolioKeys.assets(), assetsPath);
+  const { data: loaded } = query;
+  const assets = loaded?.assets;
+  const totals = loaded?.totals;
+  const allocation = loaded?.allocation;
+  const explained = useLoadError(query.error, showError, 'Could not load the assets');
+  const reloadPortfolio = usePortfolioReload();
+  const reloadAssets = () => reloadPortfolio<AssetsAnswer>(() => portfolioKeys.assets(), explained);
 
   // Opening an edit moves focus to the form above the list (not when the same asset is refreshed below).
   const editingId = editing?.id;
@@ -124,12 +112,11 @@ export function AssetManager({ afterAllocation }: { afterAllocation?: ReactNode 
 
   // The change is saved even when the reload fails, so this is a note, not an error (#203).
   const reload = async (done: string) => {
-    try {
-      await load();
-      showStatus(done);
-    } catch {
-      showStatus(`${done}. The list could not be reloaded; reload the page to see it`);
-    }
+    showStatus(
+      (await reloadAssets()).ok
+        ? done
+        : `${done}. The list could not be reloaded; reload the page to see it`,
+    );
   };
 
   const submit = async (event: FormEvent) => {
@@ -222,7 +209,6 @@ export function AssetManager({ afterAllocation }: { afterAllocation?: ReactNode 
           onDeleteOpen={() => {
             afterDelete.current = null;
           }}
-          onUsagesChanged={load}
         />
       </section>
     </div>

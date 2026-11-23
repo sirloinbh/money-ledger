@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { AssetManager } from './assets';
 import { serviceToday } from './format';
 import { findLive, getLive, queryLive } from './test/live';
+import { renderWithQuery } from './test/query';
 
 // #64 Prepaid assets on the asset screen, against a fake server that keeps the same rules.
 
@@ -136,7 +137,7 @@ const salon: Asset = {
 };
 
 const ready = async () => {
-  render(<AssetManager />);
+  renderWithQuery(<AssetManager />);
   await screen.findByRole('heading', { name: 'Cash (incl. savings)' });
 };
 

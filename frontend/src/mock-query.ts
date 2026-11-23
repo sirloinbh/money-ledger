@@ -9,6 +9,8 @@ const mockPath = '/api/mock';
 export const mockKey = apiKey(mockPath);
 
 export const mockKeys = {
+  /** The dashboard card: the account's summary, or that there is no account yet. */
+  dashboard: () => apiKey(mockPath, 'dashboard'),
   accounts: () => apiKey(mockPath, 'accounts'),
   holdings: (accountId: number) => apiKey(mockPath, 'accounts', accountId, 'holdings'),
   snapshots: (accountId: number) => apiKey(mockPath, 'accounts', accountId, 'snapshots'),

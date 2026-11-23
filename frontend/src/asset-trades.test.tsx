@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { AssetManager } from './assets';
 import { type AssetFake, fakeAssetApi } from './test/asset-api';
 import { findLive, getLive, queryLive } from './test/live';
+import { renderWithQuery } from './test/query';
 
 // #46 Trades on the asset screen against the shared fake asset server (test/asset-api.ts). The position numbers
 // come from the server; the fake returns fixed ones so the screen's display and requests can be checked.
@@ -70,7 +71,7 @@ beforeEach(() => {
 });
 
 const ready = async () => {
-  render(<AssetManager />);
+  renderWithQuery(<AssetManager />);
   await screen.findByRole('heading', { name: 'Cash (incl. savings)' });
 };
 
