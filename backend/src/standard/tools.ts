@@ -182,6 +182,24 @@ export function describeTool(tool: Tool<ToolInput, never>, app: string) {
 }
 
 /**
+ * The default for `log`: one JSON line in the shape of the request log, with `"level":"error"` so the daily error report
+ * counts it (ADR-0021), and the error's message and code, no stack trace (#1036).
+ */
+function logToolError(message: string, err: unknown) {
+  const { message: detail, code } = (typeof err === 'object' && err !== null ? err : {}) as { message?: unknown; code?: unknown };
+  console.error(
+    JSON.stringify({
+      time: new Date().toISOString(),
+      level: 'error',
+      event: 'audit_write_failed',
+      message,
+      error: typeof detail === 'string' ? detail : String(err),
+      ...(code === undefined ? {} : { code }),
+    }),
+  );
+}
+
+/**
  * Serves the tools at /internal/tools when the shared-ai public key (PEM, Ed25519) is set; without it the routes are
  * not registered and the paths answer the app's JSON 404. Register it after express.json() and before notFound.
  */
@@ -194,7 +212,7 @@ export function registerToolRoutes<D extends AuditDb>(
     publicKey: string | undefined;
     /** Reject a token without `tool` and `jti`. Set it once shared-ai signs them (docs/ai-tools.md, deploy order). */
     requireBinding?: boolean;
-    /** Where a failed best-effort audit write is reported. Default: console.error. */
+    /** Where a failed best-effort audit write is reported. Default: one JSON line with `level: "error"` (logToolError). */
     log?: (message: string, err: unknown) => void;
   },
 ) {
@@ -212,7 +230,7 @@ export function registerToolRoutes<D extends AuditDb>(
   }
   // Built once, so an input schema JSON Schema cannot express fails at start, not on every list call.
   const listed = { app: options.app, tools: options.tools.map((tool) => describeTool(tool, options.app)) };
-  const log = options.log ?? ((message: string, err: unknown) => console.error(message, err));
+  const log = options.log ?? logToolError;
   // The rows for a denied, invalid, or failed call and the row of a read are best effort: if the audit table or the
   // connection is broken, the caller still gets the original answer or error, and the failed write is logged.
   const auditSoft = async (db: AuditDb, entry: AuditEntry) => {
