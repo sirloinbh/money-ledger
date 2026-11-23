@@ -155,8 +155,8 @@ verify() {
     echo "restore check failed: row counts of $(basename "$latest") differ" >&2
     exit 1
   fi
-  echo "restore check passed: $(basename "$latest"), $(wc -l < "$counts") tables"
-  signal_message="$(basename "$latest"), $(wc -l < "$counts") tables"
+  echo "restore check passed: $(basename "$latest"), $(wc -l < "$counts" | tr -d ' ') tables"
+  signal_message="$(basename "$latest"), $(wc -l < "$counts" | tr -d ' ') tables"
 }
 
 case "${1:-}" in

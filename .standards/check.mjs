@@ -366,7 +366,7 @@ export function formatReport({ problems, warnings, manifest }) {
   return lines.join('\n');
 }
 
-const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+const isMain = process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url));
 if (isMain) {
   const here = path.dirname(fileURLToPath(import.meta.url));
   const flag = process.argv.indexOf('--root');
