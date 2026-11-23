@@ -11,7 +11,8 @@
 #   backup  HEALTHCHECK_URL_BACKUP    the nightly dump
 #   restore HEALTHCHECK_URL_RESTORE   the weekly restore check
 #   report  HEALTHCHECK_URL_REPORT    the daily server report
-# A check without a URL in .env is skipped. A failed ping never fails the caller.
+# A check without a URL in .env is skipped. A failed ping makes `ping` exit 1, so report.sh keeps its
+# saved error lines for the next report (#1030); the other callers add `|| true`.
 set -uo pipefail
 cd /opt/money-ledger
 
@@ -40,6 +41,7 @@ ping_check() {
   # The body shows up in the healthchecks.io log (first 10 KB are kept).
   if ! printf '%s' "$message" | head -c 10000 | curl -fsS -m 10 --retry 3 -o /dev/null --data-binary @- "$url"; then
     echo "could not send the $check signal" >&2
+    return 1
   fi
   return 0
 }
@@ -49,9 +51,9 @@ health() {
   web_port=$(env_value WEB_PORT)
   web_port=${web_port:-8105}
   if curl -fsS -m 10 -o /dev/null "http://127.0.0.1:$web_port/api/health"; then
-    ping_check health ok "health ok on port $web_port"
+    ping_check health ok "health ok on port $web_port" || true
   else
-    ping_check health fail "GET http://127.0.0.1:$web_port/api/health failed"
+    ping_check health fail "GET http://127.0.0.1:$web_port/api/health failed" || true
     return 1
   fi
 }

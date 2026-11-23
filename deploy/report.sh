@@ -86,10 +86,13 @@ case "${1:-}" in
     echo "$text"
     memory_limit=$(env_value REPORT_MEMORY_PERCENT)
     disk_limit=$(env_value REPORT_DISK_PERCENT)
+    # A value like 90% would make [ -gt ] fail and silently turn the alert off: use the default instead.
+    case "$memory_limit" in '' | *[!0-9]*) memory_limit=85 ;; esac
+    case "$disk_limit" in '' | *[!0-9]*) disk_limit=90 ;; esac
     error_limit=$(env_value REPORT_ERROR_LIMIT)
     case "$error_limit" in '' | *[!0-9]*) error_limit=0 ;; esac
     status=ok
-    if [ "$(memory_percent)" -gt "${memory_limit:-85}" ] || [ "$(disk_percent)" -gt "${disk_limit:-90}" ]; then status=fail; fi
+    if [ "$(memory_percent)" -gt "$memory_limit" ] || [ "$(disk_percent)" -gt "$disk_limit" ]; then status=fail; fi
     if [ "$error_total" -gt "$error_limit" ]; then status=fail; fi
     # The saved lines are counted once; the running container keeps its own logs. The next report
     # starts its window where this one started, so no line is counted twice or skipped.
