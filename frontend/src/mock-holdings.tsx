@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
@@ -71,6 +71,16 @@ export function MockHoldings({ accountId }: { accountId: number }) {
   const { error: showError, status: showStatus, clear } = notice;
   useLoadError(read.error, showError, 'Could not load the holdings');
 
+  // The heading takes the focus when the open form goes away with its sold-out holding (#279).
+  const title = useRef<HTMLHeadingElement>(null);
+  const [soldOut, setSoldOut] = useState(false);
+  useEffect(() => {
+    if (soldOut) {
+      title.current?.focus();
+      setSoldOut(false);
+    }
+  }, [soldOut]);
+
   // When values come back: a holding with the open form that was sold out takes its form with it, so the
   // result is said here.
   const [seen, setSeen] = useState(loaded);
@@ -79,6 +89,7 @@ export function MockHoldings({ accountId }: { accountId: number }) {
     if (loaded) {
       if (ordering && !loaded.holdings.some((held) => held.security.id === ordering.id)) {
         setOrdering(undefined);
+        setSoldOut(true);
         showStatus(`Sold all your ${ordering.title}`);
       } else clear();
     }
@@ -86,7 +97,12 @@ export function MockHoldings({ accountId }: { accountId: number }) {
 
   return (
     <section aria-labelledby="mock-holdings-title" className="flex flex-col gap-3">
-      <h3 id="mock-holdings-title" className="text-body font-semibold">
+      <h3
+        id="mock-holdings-title"
+        ref={title}
+        tabIndex={-1}
+        className="text-body font-semibold outline-none"
+      >
         Holdings and returns
       </h3>
       <Notice id="mock-holdings-notice" notice={notice.notice} />
