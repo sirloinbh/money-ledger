@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { AssetManager } from './assets';
 import { type AssetFake, assetsAnswer, fakeAssetApi } from './test/asset-api';
 import { findLive, getLive } from './test/live';
+import { renderWithQuery } from './test/query';
 
 // The shared fake asset server (test/asset-api.ts): totals the way the server adds them, and any request it does
 // not serve fails the test.
@@ -50,7 +51,7 @@ beforeEach(() => {
 });
 
 const ready = async () => {
-  render(<AssetManager />);
+  renderWithQuery(<AssetManager />);
   await screen.findByRole('heading', { name: 'Cash (incl. savings)' });
 };
 
@@ -390,7 +391,7 @@ test('an older list answer that arrives last does not replace a newer one (#189)
       release = () => resolve(stale);
     });
   });
-  render(<AssetManager />);
+  renderWithQuery(<AssetManager />);
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Apartment' } });
   fireEvent.change(screen.getByLabelText('Type'), { target: { value: 'real_estate' } });
   fireEvent.change(screen.getByLabelText('Valuation (KRW)'), { target: { value: '300000000' } });

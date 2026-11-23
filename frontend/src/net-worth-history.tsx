@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 
 import { ChartBoundary } from './chart-boundary';
 import { Button } from './components/ui/button';
@@ -6,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './com
 import { Notice } from './components/ui/notice';
 import { countOf, formatWon, serviceToday } from './format';
 import { lazyChart } from './lazy-chart';
-import { requestJson } from './lib/api';
+import { type RequestError, requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 import { cn } from './lib/utils';
 import {
@@ -18,6 +19,8 @@ import {
   saveTodayOnce,
   type Snapshot,
 } from './net-worth';
+import { portfolioKeys } from './portfolio-query';
+import { refreshReads } from './query-reads';
 
 // #49 "Net worth trend" under the asset allocation card (decisions 2026-11-10). The saved days of a period as a line
 // and a table; days without a save are not filled in. "Save current values" saves today's totals again.
@@ -30,34 +33,28 @@ type List = { today: string; snapshots: Snapshot[] };
 
 export function NetWorthHistory() {
   const [period, setPeriod] = useState<Period>('3m');
-  const [list, setList] = useState<{ period: Period; data: List } | undefined>(undefined);
-  const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
-  // Bumped by Try again and by a save, so the list (and a chart that failed to load) is read again.
+  // Bumped by Try again and by a save, so a chart that failed to load is loaded again.
   const [attempt, setAttempt] = useState(0);
-  const latest = useRef(0);
+  const client = useQueryClient();
   const notice = useNotice();
   const { error: showError, status: showStatus } = notice;
 
   const today = serviceToday();
   const from = periodStart(today, period);
 
-  const load = useCallback(async () => {
-    const request = ++latest.current;
-    setFailed(false);
+  // #278 The list of another period stays (dimmed) while the chosen one loads; once that load fails there is no
+  // list, so the old period's records are not shown under the new period's dates.
+  const query = useQuery<List, RequestError>({
+    queryKey: portfolioKeys.netWorth(from ?? undefined),
     // Today's save from opening the app goes first, so today is in the list.
-    await saveTodayOnce();
-    try {
-      const data = await requestJson<List>(from ? `${netWorthPath}?from=${from}` : netWorthPath);
-      if (request === latest.current) setList({ period, data });
-    } catch {
-      if (request === latest.current) setFailed(true);
-    }
-  }, [from, period]);
-
-  useEffect(() => {
-    void load();
-  }, [load, attempt]);
+    queryFn: ({ signal }) =>
+      saveTodayOnce().then(() =>
+        requestJson<List>(from ? `${netWorthPath}?from=${from}` : netWorthPath, { signal }),
+      ),
+    placeholderData: keepPreviousData,
+  });
+  const failed = query.isError && !query.isFetching;
 
   const saveNow = async () => {
     if (saving) return;
@@ -70,6 +67,7 @@ export function NetWorthHistory() {
         `Saved the net worth of ${formatWon(snapshot.netKrw)} for ${dayLabel(snapshot.date)}`,
       );
       setAttempt((value) => value + 1);
+      await refreshReads(client, portfolioKeys.netWorthAll());
     } catch (cause) {
       showError(cause, 'Could not save the net worth');
     } finally {
@@ -79,9 +77,8 @@ export function NetWorthHistory() {
 
   // The list of another period stays (dimmed) while the chosen one loads; once that load fails it is hidden, so
   // the old period's records are not shown under the new period's dates.
-  const stale = list !== undefined && list.period !== period;
-  const shown = failed && stale ? undefined : list?.data;
-  const loading = stale && !failed;
+  const shown = query.data;
+  const loading = query.isPlaceholderData;
   // The axis starts at the period's first day, or at the first save for the whole history.
   const axisFrom = from ?? shown?.snapshots[0]?.date ?? today;
 
@@ -135,7 +132,10 @@ export function NetWorthHistory() {
               variant="outline"
               size="sm"
               aria-label="Try loading the net worth records again"
-              onClick={() => setAttempt((value) => value + 1)}
+              onClick={() => {
+                setAttempt((value) => value + 1);
+                void query.refetch();
+              }}
             >
               Try again
             </Button>

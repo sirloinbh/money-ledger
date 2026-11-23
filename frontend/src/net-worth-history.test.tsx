@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import {
@@ -11,6 +11,7 @@ import {
 } from './net-worth';
 import type * as History from './net-worth-history';
 import { findLive } from './test/live';
+import { renderWithQuery } from './test/query';
 
 // #49 The "Net worth trend" card against a fake server. The real chart is checked in net-worth-chart.test.tsx and in a
 // real browser (docs/changes/49-*.md); here it only reports what it was given.
@@ -76,7 +77,7 @@ const gets = () =>
   requests.filter((request) => request.method === 'GET').map((request) => request.url);
 
 test("opening saves today's values once before reading the last 3 months", async () => {
-  const { unmount } = render(<NetWorthHistory />);
+  const { unmount } = renderWithQuery(<NetWorthHistory />);
   const from = periodStart(today, '3m')!;
   // The save from opening is in the list: today is the newly saved value.
   expect(await screen.findByTestId('chart')).toHaveTextContent(
@@ -87,13 +88,13 @@ test("opening saves today's values once before reading the last 3 months", async
   expect(screen.getByRole('button', { name: '3 months' })).toHaveAttribute('aria-pressed', 'true');
   // Opened again (another page and back): no second save.
   unmount();
-  render(<NetWorthHistory />);
+  renderWithQuery(<NetWorthHistory />);
   await screen.findByTestId('chart');
   expect(requests.filter((request) => request.method === 'POST')).toHaveLength(1);
 });
 
 test('the periods read their own range; the whole history has no start', async () => {
-  render(<NetWorthHistory />);
+  renderWithQuery(<NetWorthHistory />);
   await screen.findByTestId('chart');
   fireEvent.click(screen.getByRole('button', { name: '1 year' }));
   await vi.waitFor(() =>
@@ -109,7 +110,7 @@ test('the periods read their own range; the whole history has no start', async (
 });
 
 test('a failed period switch hides the previous period instead of showing it under the new dates', async () => {
-  render(<NetWorthHistory />);
+  renderWithQuery(<NetWorthHistory />);
   await screen.findByTestId('chart');
   failList = true;
   fireEvent.click(screen.getByRole('button', { name: '1 year' }));
@@ -125,7 +126,7 @@ test('a failed period switch hides the previous period instead of showing it und
 test('the table lists every saved day, newest first, with how many were left out', async () => {
   // The quiet save on opening is refused, so today keeps the value with an item left out.
   saveError = 'Not saved in this test';
-  render(<NetWorthHistory />);
+  renderWithQuery(<NetWorthHistory />);
   fireEvent.click(await screen.findByRole('button', { name: 'All' }));
   const toggle = await screen.findByText('Show as a table (2 days)');
   fireEvent.click(toggle);
@@ -140,13 +141,13 @@ test('a period without saves says so instead of a flat chart', async () => {
   saved = [];
   // The quiet save on opening is refused, so nothing is saved at all.
   saveError = 'Not saved in this test';
-  render(<NetWorthHistory />);
+  renderWithQuery(<NetWorthHistory />);
   expect(await screen.findByText('No records in this period.')).toBeInTheDocument();
   expect(screen.queryByTestId('chart')).not.toBeInTheDocument();
 });
 
 test('"Save current values" saves again, says what was saved and reads the list again', async () => {
-  render(<NetWorthHistory />);
+  renderWithQuery(<NetWorthHistory />);
   await screen.findByTestId('chart');
   const before = gets().length;
   fireEvent.click(screen.getByRole('button', { name: 'Save current values' }));
@@ -156,7 +157,7 @@ test('"Save current values" saves again, says what was saved and reads the list 
 });
 
 test('a refused save shows the server message', async () => {
-  render(<NetWorthHistory />);
+  renderWithQuery(<NetWorthHistory />);
   await screen.findByTestId('chart');
   saveError = 'The totals are too large to save the net worth';
   fireEvent.click(screen.getByRole('button', { name: 'Save current values' }));
@@ -165,7 +166,7 @@ test('a refused save shows the server message', async () => {
 
 test('a failed list can be tried again', async () => {
   failList = true;
-  render(<NetWorthHistory />);
+  renderWithQuery(<NetWorthHistory />);
   const retry = await screen.findByRole('button', {
     name: 'Try loading the net worth records again',
   });

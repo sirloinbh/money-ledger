@@ -1,5 +1,6 @@
 import { addDue } from './fixed-costs-api';
 import { requestJson } from './lib/api';
+import { apiKey } from './lib/query';
 import { formatMonthDay } from './quote-format';
 import { monthLabel } from './trend-series';
 
@@ -8,6 +9,13 @@ import { monthLabel } from './trend-series';
 // server rebuilds a report when an expense entry in its period, or the period before it, changes.
 
 export const reportsPath = '/api/reports';
+
+/** #278 Query keys: opening a report refreshes `reportsKey`, so the list and the dashboard notice follow. */
+export const reportsKey = apiKey(reportsPath);
+export const reportsKeys = {
+  list: () => apiKey(reportsPath, 'list'),
+  one: (id: string) => apiKey(reportsPath, 'one', id),
+};
 
 export type ReportItem = {
   id: number;

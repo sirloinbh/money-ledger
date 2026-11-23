@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useRef, useState } from 'react';
 
 import { MAX_WON_TEXT } from '../../shared/contract';
 import { Button } from './components/ui/button';
@@ -14,7 +14,10 @@ import {
   wonFromDigits,
 } from './format';
 import { RequestError, requestJson } from './lib/api';
+import { useApiQuery } from './lib/query';
 import { useNotice } from './lib/use-notice';
+import { portfolioKeys, usePortfolioReload } from './portfolio-query';
+import { useLoadError } from './query-reads';
 
 // #64 Uses of a stored-value prepaid asset (voucher). Add and delete only (decision 2026-11-08); the server
 // refuses a use larger than the balance or after the expiry date. A use is not a ledger expense: the
@@ -30,17 +33,7 @@ const refusedField = (cause: unknown): Field | undefined => {
   return paths.includes('usedOn') ? 'usedOn' : paths.includes('amountKrw') ? 'amount' : undefined;
 };
 
-export function PrepaidUsages({
-  assetId,
-  assetName,
-  onChanged,
-}: {
-  assetId: number;
-  assetName: string;
-  /** Reloads the asset list so the balance and totals follow the change. */
-  onChanged: () => Promise<void>;
-}) {
-  const [usages, setUsages] = useState<Usage[] | undefined>(undefined);
+export function PrepaidUsages({ assetId, assetName }: { assetId: number; assetName: string }) {
   const [usedOn, setUsedOn] = useState(serviceToday);
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');
@@ -55,23 +48,21 @@ export function PrepaidUsages({
   const path = `/api/portfolio/assets/${assetId}/usages`;
   const noticeId = `usages-${assetId}-notice`;
 
-  const load = useCallback(async () => {
-    const data = await requestJson<{ usages: Usage[] }>(path);
-    setUsages(data.usages);
-  }, [path]);
-
-  useEffect(() => {
-    load().catch((cause: unknown) => showError(cause, 'Could not load the usage records'));
-  }, [load, showError]);
+  // #278 A change reloads every portfolio read, so the balance and totals in the asset list follow it too.
+  const query = useApiQuery<{ usages: Usage[] }>(portfolioKeys.usages(assetId), path);
+  const usages = query.data?.usages;
+  const explained = useLoadError(query.error, showError, 'Could not load the usage records');
+  const reloadPortfolio = usePortfolioReload();
 
   const refresh = async (done: string) => {
-    try {
-      await Promise.all([load(), onChanged()]);
-      showStatus(done);
-    } catch {
-      // The change is saved even when the reload fails, so this is a note, not an error (#265).
-      showStatus(`${done}. The list could not be reloaded; reload the page to see it`);
-    }
+    const reloaded = await reloadPortfolio<{ usages: Usage[] }>(
+      () => portfolioKeys.usages(assetId),
+      explained,
+    );
+    // The change is saved even when the reload fails, so this is a note, not an error (#265).
+    showStatus(
+      reloaded.ok ? done : `${done}. The list could not be reloaded; reload the page to see it`,
+    );
   };
 
   const fieldProps = (field: Field) => ({
@@ -141,7 +132,7 @@ export function PrepaidUsages({
     } catch (cause) {
       showError(cause);
       // Already gone (deleted elsewhere): show the list as it is now.
-      if (cause instanceof RequestError && cause.status === 404) await load().catch(() => {});
+      if (cause instanceof RequestError && cause.status === 404) await query.refetch();
       throw cause;
     } finally {
       saving.current = false;

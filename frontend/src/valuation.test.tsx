@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { AssetManager } from './assets';
 import { serviceToday } from './format';
 import { findLive, getLive } from './test/live';
+import { renderWithQuery } from './test/query';
 import { unexpectedRequest } from './test/unexpected';
 
 // #47 Current prices on the asset screen against a fake server. The server works out every value; the fake
@@ -191,7 +192,7 @@ beforeEach(() => {
 });
 
 const ready = async () => {
-  render(<AssetManager />);
+  renderWithQuery(<AssetManager />);
   await screen.findByRole('heading', { name: 'Stocks (incl. ETFs and funds)' });
 };
 // The asset's row: the one list item with its own "Edit <name>" button (found by role, not by styling, #183).

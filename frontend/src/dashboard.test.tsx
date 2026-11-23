@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import type * as Dashboard from './dashboard';
+import { renderWithQuery } from './test/query';
 import { unexpectedRequest } from './test/unexpected';
 
 type Answer = () => Promise<Response>;
@@ -69,7 +70,7 @@ afterEach(() => {
 });
 
 const show = () =>
-  render(
+  renderWithQuery(
     <MemoryRouter>
       <DashboardPage health={{ state: 'ok', today: '2026-11-16' }} />
     </MemoryRouter>,

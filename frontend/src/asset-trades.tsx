@@ -16,7 +16,10 @@ import {
   wonFromDigits,
 } from './format';
 import { RequestError, requestJson } from './lib/api';
+import { useApiQuery } from './lib/query';
 import { useNotice } from './lib/use-notice';
+import { portfolioKeys, usePortfolioReload } from './portfolio-query';
+import { useLoadError } from './query-reads';
 import { formatMonthDay } from './quote-format';
 
 // #46 Buy and sell records of a stock or other asset. The server works out the held quantity, the
@@ -151,7 +154,6 @@ export function AssetTrades({
   currency,
   handQuantity,
   latestFx = null,
-  onChanged,
 }: {
   assetId: number;
   assetName: string;
@@ -160,11 +162,7 @@ export function AssetTrades({
   handQuantity: string | null;
   /** The newest stored USD rate, filled into a new USD trade (it can be changed). */
   latestFx?: { fxRate: string; rateDate: string } | null;
-  /** Reloads the asset list so the quantity follows the trades. */
-  onChanged: () => Promise<void>;
 }) {
-  const [trades, setTrades] = useState<Trade[] | undefined>(undefined);
-  const [position, setPosition] = useState<Position | undefined>(undefined);
   const prefillFx =
     currency === 'USD' && latestFx ? formatDecimal(latestFx.fxRate).replaceAll(',', '') : '';
   // A blank trade: the rate starts from the newest stored rate.
@@ -183,24 +181,22 @@ export function AssetTrades({
   const prefix = `trade-${assetId}`;
   const noticeId = `${prefix}-notice`;
 
-  const load = useCallback(async () => {
-    const data = await requestJson<TradesAnswer>(path);
-    setTrades(data.trades);
-    setPosition(data.position);
-  }, [path]);
-
-  useEffect(() => {
-    load().catch((cause: unknown) => showError(cause, 'Could not load the trades'));
-  }, [load, showError]);
+  // #278 A change reloads every portfolio read, so the quantity in the asset list follows the trades.
+  const query = useApiQuery<TradesAnswer>(portfolioKeys.trades(assetId), path);
+  const trades = query.data?.trades;
+  const position = query.data?.position;
+  const explained = useLoadError(query.error, showError, 'Could not load the trades');
+  const reloadPortfolio = usePortfolioReload();
 
   // The trade is saved even when the reload fails, so this is a note, not an error (#203).
   const refresh = async (done: string) => {
-    try {
-      await Promise.all([load(), onChanged()]);
-      showStatus(done);
-    } catch {
-      showStatus(`${done}. The list could not be reloaded; reload the page to see it`);
-    }
+    const reloaded = await reloadPortfolio<TradesAnswer>(
+      () => portfolioKeys.trades(assetId),
+      explained,
+    );
+    showStatus(
+      reloaded.ok ? done : `${done}. The list could not be reloaded; reload the page to see it`,
+    );
   };
 
   // The note says the rate was filled in; once changed it is the user's own rate.
@@ -300,7 +296,7 @@ export function AssetTrades({
       await requestJson(`${path}/${trade.id}`, { method: 'DELETE' });
     } catch (cause) {
       showError(cause);
-      if (cause instanceof RequestError && cause.status === 404) await load().catch(() => {});
+      if (cause instanceof RequestError && cause.status === 404) await query.refetch();
       throw cause;
     } finally {
       saving.current = false;

@@ -1,5 +1,6 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleAlert } from 'lucide-react';
-import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { Link, useParams } from 'react-router';
 
 import { Badge } from './components/ui/badge';
@@ -8,12 +9,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './com
 import { formatWon } from './format';
 import type { Health } from './health';
 import { RequestError, requestJson } from './lib/api';
+import { useApiQuery } from './lib/query';
 import { Page } from './page';
 import {
   makeReportsOnce,
   periodLabel,
   type Report,
   type ReportItem,
+  reportsKey,
+  reportsKeys,
   reportsPath,
 } from './reports-api';
 
@@ -21,34 +25,21 @@ import {
 // dashboard (PUT .../seen); reading the list does not.
 
 /**
- * undefined while loading; `failed` after an error, with `retry` to ask again. `missing` when the server answered
- * 404, which a retry cannot fix.
+ * The list on the shared query layer (#278): undefined while loading; `failed` after an error, with `retry` to ask
+ * again.
  */
-function useLoad<T>(load: () => Promise<T>) {
-  const [data, setData] = useState<T>();
-  const [failed, setFailed] = useState(false);
-  const [missing, setMissing] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    let current = true;
-    setFailed(false);
-    setMissing(false);
-    load().then(
-      (value) => {
-        if (current) setData(value);
-      },
-      (cause: unknown) => {
-        if (!current) return;
-        if (cause instanceof RequestError && cause.status === 404) setMissing(true);
-        else setFailed(true);
-      },
-    );
-    return () => {
-      current = false;
-    };
-  }, [load, attempt]);
-  const retry = useCallback(() => setAttempt((n) => n + 1), []);
-  return { data, failed, missing, retry };
+function useReportList() {
+  const query = useQuery<{ reports: ReportItem[] }, RequestError>({
+    queryKey: reportsKeys.list(),
+    // Waits for this open's reports to be made, so a period that just finished is listed.
+    queryFn: ({ signal }) =>
+      makeReportsOnce().then(() => requestJson<{ reports: ReportItem[] }>(reportsPath, { signal })),
+  });
+  return {
+    data: query.data,
+    failed: query.isError && query.data === undefined,
+    retry: () => void query.refetch(),
+  };
 }
 
 const Muted = ({ children }: { children: ReactNode }) => (
@@ -69,12 +60,8 @@ function Failed({ what, onRetry }: { what: string; onRetry: () => void }) {
 const shownName = (item: { name: string; hidden: boolean }) =>
   item.hidden ? `${item.name} (hidden)` : item.name;
 
-// Waits for this open's reports to be made, so a period that just finished is listed.
-const loadList = () =>
-  makeReportsOnce().then(() => requestJson<{ reports: ReportItem[] }>(reportsPath));
-
 export function ReportsPage({ health }: { health: Health }) {
-  const { data, failed, retry } = useLoad(loadList);
+  const { data, failed, retry } = useReportList();
   return (
     <Page
       title="Reports"
@@ -129,25 +116,28 @@ const reportId = /^[1-9]\d{0,14}$/;
 export function ReportPage({ health }: { health: Health }) {
   const { id = '' } = useParams();
   const valid = reportId.test(id);
-  const load = useCallback(
-    () =>
-      valid
-        ? requestJson<{ report: Report }>(`${reportsPath}/${id}`)
-        : Promise.reject(new RequestError('Report not found', 404)),
-    [id, valid],
-  );
-  const { data, failed, missing, retry } = useLoad(load);
+  const client = useQueryClient();
+  // An address the server would not accept is not sent: it is a missing report, as a 404 is.
+  const query = useApiQuery<{ report: Report }>(reportsKeys.one(id), `${reportsPath}/${id}`, {
+    enabled: valid,
+  });
+  const data = query.data;
+  const missing = !valid || (query.error instanceof RequestError && query.error.status === 404);
+  const failed = !missing && query.isError && query.data === undefined;
+  const retry = () => void query.refetch();
   // The loaded report belongs to this address: after a move to another id, the old one is not shown.
   const report = data?.report.id === Number(id) && !missing ? data.report : undefined;
 
   // Opened: its dashboard notice goes away. Not worth an error on screen if it fails; it is tried next time.
   useEffect(() => {
     if (report && !report.seen) {
-      void requestJson(`${reportsPath}/${report.id}/seen`, { method: 'PUT' }).catch(
+      // The list and the dashboard notice follow once it is marked.
+      void requestJson(`${reportsPath}/${report.id}/seen`, { method: 'PUT' }).then(
+        () => client.invalidateQueries({ queryKey: reportsKey }),
         () => undefined,
       );
     }
-  }, [report]);
+  }, [report, client]);
 
   return (
     <Page

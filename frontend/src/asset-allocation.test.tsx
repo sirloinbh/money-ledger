@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 
 import { type Allocation, AssetAllocation } from './asset-allocation';
 import { AssetAllocationChart } from './asset-allocation-chart';
 import { AssetManager } from './assets';
+import { renderWithQuery } from './test/query';
 
 // #48 The asset allocation card. The server works out every share (allocation.integration.test.ts); here the
 // card shows them. The real chart is checked at the end and in a real browser (docs/changes/48-*.md).
@@ -57,7 +58,7 @@ const rowsOf = (table: HTMLElement) =>
     .map((row) => row.textContent);
 
 test('by type first: the chart and every type in a table, and how many were left out', async () => {
-  render(<AssetAllocation allocation={allocation} typeLabel={typeLabel} />);
+  renderWithQuery(<AssetAllocation allocation={allocation} typeLabel={typeLabel} />);
   expect(screen.getByRole('heading', { name: 'Asset allocation' })).toBeInTheDocument();
   expect(screen.getByText(/2 assets without a quote, .* are left out\./)).toBeInTheDocument();
   expect(screen.getByRole('tab', { name: 'By type' })).toHaveAttribute('aria-selected', 'true');
@@ -72,7 +73,7 @@ test('by type first: the chart and every type in a table, and how many were left
 });
 
 test('by asset: a 0 won asset is in the table at 0.0% but not in the chart', async () => {
-  render(<AssetAllocation allocation={allocation} typeLabel={typeLabel} />);
+  renderWithQuery(<AssetAllocation allocation={allocation} typeLabel={typeLabel} />);
   fireEvent.click(screen.getByRole('tab', { name: 'By asset' }));
   expect(screen.getByRole('tab', { name: 'By asset' })).toHaveAttribute('aria-selected', 'true');
   expect(await screen.findByTestId('chart')).toHaveTextContent(
@@ -87,7 +88,7 @@ test('by asset: a 0 won asset is in the table at 0.0% but not in the chart', asy
 });
 
 test('the rest of the assets are one chart line, "Other N"', async () => {
-  render(
+  renderWithQuery(
     <AssetAllocation
       allocation={{
         ...allocation,
@@ -104,7 +105,7 @@ test('the rest of the assets are one chart line, "Other N"', async () => {
 });
 
 test('arrow keys move between the tabs', () => {
-  render(<AssetAllocation allocation={allocation} typeLabel={typeLabel} />);
+  renderWithQuery(<AssetAllocation allocation={allocation} typeLabel={typeLabel} />);
   const byType = screen.getByRole('tab', { name: 'By type' });
   byType.focus();
   fireEvent.keyDown(byType, { key: 'ArrowRight' });
@@ -118,7 +119,7 @@ test('arrow keys move between the tabs', () => {
 });
 
 test('nothing to spread: no tabs, a short note instead', () => {
-  render(
+  renderWithQuery(
     <AssetAllocation
       allocation={{ excluded: 1, byType: [], byAsset: [], chart: [] }}
       typeLabel={typeLabel}
@@ -130,7 +131,7 @@ test('nothing to spread: no tabs, a short note instead', () => {
 });
 
 test('a line too large to show in won is still drawn by its share', async () => {
-  render(
+  renderWithQuery(
     <AssetAllocation
       allocation={{
         ...allocation,
@@ -147,7 +148,7 @@ test('a line too large to show in won is still drawn by its share', async () => 
 });
 
 test('each tab controls its own panel; the other one is hidden', () => {
-  render(<AssetAllocation allocation={allocation} typeLabel={typeLabel} />);
+  renderWithQuery(<AssetAllocation allocation={allocation} typeLabel={typeLabel} />);
   for (const name of ['By type', 'By asset']) {
     const tab = screen.getByRole('tab', { name });
     const panel = document.getElementById(tab.getAttribute('aria-controls')!)!;
@@ -158,7 +159,7 @@ test('each tab controls its own panel; the other one is hidden', () => {
 });
 
 test('only 0 won assets: the table without a chart', () => {
-  render(
+  renderWithQuery(
     <AssetAllocation
       allocation={{
         excluded: 0,
@@ -190,7 +191,7 @@ test('the asset screen shows the card right under the totals', async () => {
       ),
     ),
   );
-  render(<AssetManager />);
+  renderWithQuery(<AssetManager />);
   const card = await screen.findByRole('heading', { name: 'Asset allocation' });
   const totals = screen.getByRole('region', { name: 'Totals' });
   // The card follows the totals and comes before the form.
@@ -206,7 +207,7 @@ test('the real chart is one image named by its largest line', async () => {
     typeof import('./asset-allocation-chart')
   >('./asset-allocation-chart');
   expect(Real).not.toBe(AssetAllocationChart);
-  render(
+  renderWithQuery(
     <Real
       title="By asset"
       bars={[

@@ -57,7 +57,6 @@ export function AssetList({
   onDelete,
   returnFocusRef,
   onDeleteOpen,
-  onUsagesChanged,
 }: {
   assets: Asset[] | undefined;
   failed: boolean;
@@ -65,7 +64,6 @@ export function AssetList({
   onDelete: (asset: Asset) => Promise<void>;
   returnFocusRef: RefObject<HTMLElement | null>;
   onDeleteOpen: () => void;
-  onUsagesChanged: () => Promise<void>;
 }) {
   // The stored-value asset whose uses are open, one at a time.
   const [openUsages, setOpenUsages] = useState<number | undefined>(undefined);
@@ -186,11 +184,7 @@ export function AssetList({
                     </div>
                     {asset.prepaid?.kind === 'amount' && openUsages === asset.id ? (
                       <div id={`usage-${asset.id}-panel`} className="w-full">
-                        <PrepaidUsages
-                          assetId={asset.id}
-                          assetName={asset.name}
-                          onChanged={onUsagesChanged}
-                        />
+                        <PrepaidUsages assetId={asset.id} assetName={asset.name} />
                       </div>
                     ) : null}
                     {tradeableTypes.includes(asset.type) && openTrades === asset.id ? (
@@ -201,7 +195,6 @@ export function AssetList({
                           currency={asset.currency}
                           handQuantity={asset.hasTrades ? null : asset.quantity}
                           latestFx={asset.fx}
-                          onChanged={onUsagesChanged}
                         />
                       </div>
                     ) : null}

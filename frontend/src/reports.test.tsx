@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import type * as Reports from './reports';
+import { renderWithQuery } from './test/query';
 
 type Answer = () => Promise<Response>;
 let answers: Record<string, Answer>;
@@ -101,7 +102,7 @@ beforeEach(async () => {
 
 const health = { state: 'ok', today: '2026-11-16' } as const;
 const show = (path: string) =>
-  render(
+  renderWithQuery(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/reports" element={<ReportsPage health={health} />} />
