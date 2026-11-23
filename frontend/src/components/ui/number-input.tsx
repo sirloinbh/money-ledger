@@ -94,6 +94,8 @@ export function NumberInput({
 // are taken, so the stored value is always finite (NaN would empty a saved draft) and pasted
 // "0x10" or "1e3" is refused rather than read as 16 or 1000. A lone "." reads as 0 until the
 // digits after it arrive, so ".5" can be typed.
+// #1023: because of that the lowest value is 0 even when no `min` (or a negative one) is given, so the − button
+// shows aria-disabled at 0 instead of doing nothing.
 // #972: with allowEmpty the value may be undefined. An emptied field then stays undefined, never 0,
 // so a required field shows its error when the form is saved; without it an emptied field reads as 0.
 const typedNumber = /^\d*\.?\d*$/;
@@ -113,6 +115,7 @@ export function NumberValueInput({
   value,
   onValueChange,
   allowEmpty = false,
+  min,
   ...props
 }: NumberValueProps) {
   const [text, setText] = useState(showNumber(value));
@@ -120,6 +123,7 @@ export function NumberValueInput({
   return (
     <NumberInput
       {...props}
+      min={Math.max(0, min ?? 0)}
       value={shown}
       onValueChange={(next) => {
         const normalized = next.replace(',', '.');

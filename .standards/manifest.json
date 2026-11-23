@@ -1,5 +1,5 @@
 {
-  "centralSha": "740b5e1d7ec66e943793aec58c40493d5ce0228e",
+  "centralSha": "23edc98d92f476b731e8f8265b7946f60c6a57fc",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -170,7 +170,7 @@
     },
     ".prettierignore": {
       "mode": "section",
-      "sha256": "b2e51dd2a014403c87e744232b7c2b71f2e88c85ecf2a4cdfcffaa1e367732f1",
+      "sha256": "436fd446a6539f67ae17f33cca4167cc81c079ed49e71a0ca69b3defa1f956f0",
       "source": "templates/app/.prettierignore.tmpl"
     },
     ".standards/blocked-packages.json": {
@@ -180,7 +180,7 @@
     },
     ".standards/check.mjs": {
       "mode": "full",
-      "sha256": "b0a0d20637413cf230985cd4d0e1a9f5088429ac1a74477885fc6b2667039704",
+      "sha256": "61108495fe719aafbdf1abd5756e291a25546107bbe7826787a34123b0501243",
       "source": "scripts/standards-check.mjs"
     },
     ".standards/ci-migrate.sh": {
@@ -195,7 +195,7 @@
     },
     ".standards/lib/env-tags.mjs": {
       "mode": "full",
-      "sha256": "fea1e12ba393d21203a1bc9a0c778f677f653e3ea4330cf2ca4f99672f00cf83",
+      "sha256": "337cd27cdd736960cedb4f8fca597f1e6721446ffadaa9e36d0a25aa44cfebfd",
       "source": "scripts/lib/env-tags.mjs"
     },
     ".standards/lib/hash.mjs": {
@@ -275,7 +275,7 @@
     },
     "backend/src/standard/db.ts": {
       "mode": "full",
-      "sha256": "740d508493e06ef5ebc1c093218809903fdb68ab9f6ca5a2ffe0ea504ea831db",
+      "sha256": "14c9830c0d4fa071016c5e2ac134f331bad410f31e109e607a57ad8814e55a51",
       "source": "templates/app/backend/src/standard/db.ts"
     },
     "backend/src/standard/http.ts": {
@@ -290,12 +290,12 @@
     },
     "backend/src/standard/migrate.ts": {
       "mode": "full",
-      "sha256": "7e9cfe04d1e06dfb9f08ddb33af4aaf6e063112e355a24f86cde6528e3662d57",
+      "sha256": "1f12d836a1062d214d3cec4b7af40dbf39e7b09f5e012b5b621611f9c18631cf",
       "source": "templates/app/backend/src/standard/migrate.ts.tmpl"
     },
     "backend/src/standard/migrations.ts": {
       "mode": "full",
-      "sha256": "a8925ea6d9969321c28f2b99ee52160ae7bfa9a4bed7e2cf0a64e213e7031f1d",
+      "sha256": "bfa8fae509a6ae1998dd88ce9983de742ff22ea80ef34b9b67295e9cafc67727",
       "source": "templates/app/backend/src/standard/migrations.ts"
     },
     "backend/src/standard/openapi-cli.ts": {
@@ -322,6 +322,11 @@
       "mode": "full",
       "sha256": "b88ce1260d7cadea93a03d64460e383e5d6a999ace73f519409109cb88abe2e6",
       "source": "templates/app/backend/test/standard-api.test.ts"
+    },
+    "backend/test/standard-migrations.test.ts": {
+      "mode": "full",
+      "sha256": "92f1585a67bd50aa7807c2cf629f92cf5904375a6af28b17bf61f61887d4f3e4",
+      "source": "templates/app/backend/test/standard-migrations.test.ts"
     },
     "backend/test/standard/api.ts": {
       "mode": "full",
@@ -762,12 +767,12 @@
     },
     "frontend/src/components/ui/number-input.test.tsx": {
       "mode": "full",
-      "sha256": "633fe81a1ae8cc234e3d15f0080eae82002b92f40c14b185243d25ae5f7ec9fd",
+      "sha256": "83376bcaf66c70f2c16074b21fbe88760ee7816b49a61c07c20fae6fe36f47e4",
       "source": "templates/ui/frontend/src/components/ui/number-input.test.tsx"
     },
     "frontend/src/components/ui/number-input.tsx": {
       "mode": "full",
-      "sha256": "f96ea1d33c8174272f60cb791fdb926b69e77cb3c576de96e722efc816be299c",
+      "sha256": "a4a1f31491655d26c6647656e36f215efffc345cb713d99f14227b5d42960cbb",
       "source": "templates/ui/frontend/src/components/ui/number-input.tsx"
     },
     "frontend/src/components/ui/number-step.ts": {
@@ -887,12 +892,12 @@
     },
     "frontend/src/lib/ai-chat.test.ts": {
       "mode": "full",
-      "sha256": "3ee0265a86f0b066252bec455b4f76b04bfa2799cc06fee2fd3554e48b9a1462",
+      "sha256": "87feec086ff208c8e66a0f5db59694805e1416e05d64385e7560db05468842b3",
       "source": "templates/ui/frontend/src/lib/ai-chat.test.ts"
     },
     "frontend/src/lib/ai-chat.ts": {
       "mode": "full",
-      "sha256": "8befa3a6f2bfacc5edf55e7945fe1cabd8f05d9936f33e3cdc5c004a74086df0",
+      "sha256": "f0868312f6800a41d3287a908a6387ec7dd241f66d99d37e39dd0b87f4f0a033",
       "source": "templates/ui/frontend/src/lib/ai-chat.ts"
     },
     "frontend/src/lib/ai-config.ts": {
@@ -922,12 +927,12 @@
     },
     "frontend/src/lib/query.test.tsx": {
       "mode": "full",
-      "sha256": "ffdf0cc2d11577b84e6dda4ae2518cc96bfca498a212771d6582ad8c3707429f",
+      "sha256": "163554fdea778fcf9439c9477d9f98973b6b9543250d02173298c6b95c7813f0",
       "source": "templates/query/frontend/src/lib/query.test.tsx"
     },
     "frontend/src/lib/query.ts": {
       "mode": "full",
-      "sha256": "2f1a83e3d4856a31cbb75c01d64f7afe449f600bd003cb444d5812ad18e5b9cf",
+      "sha256": "2e52a616145430bb06abd3bd09c91a5e2dcae3163a0fe57075c68b6750d2fbe0",
       "source": "templates/query/frontend/src/lib/query.ts"
     },
     "frontend/src/lib/theme-config.ts": {

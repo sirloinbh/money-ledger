@@ -113,6 +113,13 @@ export async function streamChat(options: {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  // A turn ends with `done`, or with `error` or `limit` (no `done` follows those). A stream that closes cleanly
+  // without one was cut off (a proxy timeout, a restart during a deploy): it must not look like a finished answer (#1022).
+  let ended = false;
+  const deliver = (event: ChatEvent) => {
+    if (event.type === 'done' || event.type === 'error' || event.type === 'limit') ended = true;
+    options.onEvent(event);
+  };
   try {
     for (;;) {
       const { done, value } = await reader.read();
@@ -122,16 +129,17 @@ export async function streamChat(options: {
       while (end !== -1) {
         const event = parseEventBlock(buffer.slice(0, end));
         buffer = buffer.slice(end + 2);
-        if (event) options.onEvent(event);
+        if (event) deliver(event);
         end = buffer.indexOf('\n\n');
       }
     }
     const last = parseEventBlock(buffer);
-    if (last) options.onEvent(last);
+    if (last) deliver(last);
   } catch {
     if (options.signal?.aborted) throw new ChatError('The request was cancelled');
     throw new ChatError('The connection to the AI service was lost');
   }
+  if (!ended) throw new ChatError('The answer was cut off. Try again.');
 }
 
 /** Answers the confirmation of a tool call that changes data. */

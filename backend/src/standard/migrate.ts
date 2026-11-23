@@ -25,8 +25,9 @@ if (!url) {
   process.exit(1);
 }
 const client = new Client({ connectionString: url });
-await client.connect();
 try {
+  // Inside the try: a wrong host or a stopped database is one line and exit code 1, not an unhandled stack trace.
+  await client.connect();
   const files = await readMigrations(dir);
   if (flags.includes('--status')) {
     const status = await migrationStatus(client, files);
@@ -39,8 +40,12 @@ try {
     console.log(applied.length ? `Applied: ${applied.join(', ')}` : 'No pending migrations.');
   }
 } catch (e) {
-  console.error((e as Error).message);
+  const { message, cause } = e as Error;
+  // The cause carries the PostgreSQL detail (for example the file's error); keep it on the same line.
+  const detail = cause instanceof Error ? cause.message : cause;
+  console.error(detail && !message.includes(String(detail)) ? `${message} (${String(detail)})` : message);
   process.exitCode = 1;
 } finally {
-  await client.end();
+  // Never connected: end() has nothing to close, and its own error must not hide the real one.
+  await client.end().catch(() => undefined);
 }

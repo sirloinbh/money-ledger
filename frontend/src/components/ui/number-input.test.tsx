@@ -192,6 +192,25 @@ test('a value can start with the decimal point', () => {
   expect(stored()).toBe('0.5');
 });
 
+test('a number field without a min stops at 0: the minus button is aria-disabled and does nothing (#1023)', () => {
+  function NoMin() {
+    const [value, setValue] = useState(1);
+    return (
+      <>
+        <NumberValueInput label="Weight" value={value} onValueChange={setValue} />
+        <output>{String(value)}</output>
+      </>
+    );
+  }
+  render(<NoMin />);
+  fireEvent.click(down());
+  expect(stored()).toBe('0');
+  expect(down()).toHaveAttribute('aria-disabled', 'true');
+  fireEvent.click(down());
+  expect(stored()).toBe('0');
+  expect(field()).toHaveValue('0');
+});
+
 // #972: a field that may be left empty, like a set's weight before it is typed.
 function OptionalWeight({ initial }: { initial?: number }) {
   const [value, setValue] = useState<number | undefined>(initial);

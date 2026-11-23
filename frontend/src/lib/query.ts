@@ -61,7 +61,8 @@ export type ApiRequest = { path: string; method?: string; body?: unknown; header
 
 /**
  * A write. `request` turns the variables into the call. After it succeeds the `invalidate` keys are refetched, and the
- * mutation stays pending until they are, so a screen that waits for it shows the fresh data when it ends.
+ * mutation stays pending until they are, so a screen that waits for it shows the fresh data when it ends. Reads of those
+ * keys that are still on their way are cancelled first, so none of them can answer with data from before the write.
  */
 export function useApiMutation<TData = unknown, TVariables = void>(
   request: (variables: TVariables) => ApiRequest,
@@ -74,7 +75,14 @@ export function useApiMutation<TData = unknown, TVariables = void>(
       return requestJson<TData>(path, { method, body, headers });
     },
     onSuccess: async (data, variables) => {
-      await Promise.all((options.invalidate ?? []).map((queryKey) => client.invalidateQueries({ queryKey })));
+      // A read already on its way may have started before this write was stored. React Query hands that running read to
+      // invalidateQueries when the query has no data yet, so cancel those reads first: every read after a write starts after it (#1008).
+      await Promise.all(
+        (options.invalidate ?? []).map(async (queryKey) => {
+          await client.cancelQueries({ queryKey });
+          await client.invalidateQueries({ queryKey });
+        }),
+      );
       options.onSuccess?.(data, variables);
     },
     onError: (error) => options.onError?.(error),
