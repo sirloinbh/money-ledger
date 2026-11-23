@@ -7,7 +7,7 @@ import { useReadsReload } from './query-reads';
 
 const portfolioPath = '/api/portfolio';
 
-export const portfolioKey = apiKey(portfolioPath);
+const portfolioKey = apiKey(portfolioPath);
 
 export const portfolioKeys = {
   assets: () => apiKey(portfolioPath, 'assets'),
