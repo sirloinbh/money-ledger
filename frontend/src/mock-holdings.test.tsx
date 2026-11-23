@@ -199,4 +199,6 @@ test('a holding opens the order form, so a suspended security found by no search
   );
   expect(screen.queryByLabelText('Quantity (shares)')).toBeNull();
   expect(screen.getAllByRole('listitem')).toHaveLength(1);
+  // The form had the focus, and it is gone: the focus moves to the section heading, not to the page body.
+  expect(screen.getByRole('heading', { name: 'Holdings and returns' })).toHaveFocus();
 });
