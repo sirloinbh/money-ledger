@@ -61,6 +61,26 @@ test('streamChat posts with the cookie and the guard header and delivers events 
   });
 });
 
+test('streamChat rejects when the stream closes without a done, error or limit event (#1022)', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sse({ type: 'text', delta: 'Hel' })));
+  const events: ChatEvent[] = [];
+  await expect(streamChat({ ...base, onEvent: (event) => events.push(event) })).rejects.toMatchObject({
+    name: 'ChatError',
+    message: 'The answer was cut off. Try again.',
+  });
+  expect(events).toEqual([{ type: 'text', delta: 'Hel' }]);
+});
+
+test('streamChat resolves when the turn ends with an error or limit event', async () => {
+  for (const last of [
+    { type: 'error', message: 'Failed' },
+    { type: 'limit', message: 'Daily limit reached' },
+  ]) {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sse({ type: 'text', delta: 'Hi' }, last)));
+    await expect(streamChat({ ...base, onEvent: () => {} })).resolves.toBeUndefined();
+  }
+});
+
 test('streamChat rejects with the server message on a failed answer', async () => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: 'Sign in first' }), { status: 401 })));
   await expect(streamChat({ ...base, onEvent: () => {} })).rejects.toMatchObject({

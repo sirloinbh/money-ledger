@@ -26,6 +26,26 @@ export type PoolEvents = {
 /** The part of a pg Pool that these helpers use. */
 export type PoolLike<C extends TxClient = TxClient> = PoolEvents & { connect: () => Promise<C> };
 
+/** The logger createPool calls for a connection error. An app can pass its own. */
+type PoolLog = (message: string, err: Error) => void;
+
+/**
+ * The default PoolLog: one JSON line in the shape of the request log (time, level, message), plus the error's message
+ * and code (for example ECONNRESET). No stack trace, so the line is one line and easy to parse (#1003).
+ */
+function logPoolError(message: string, err: Error): void {
+  const code = (err as { code?: unknown }).code;
+  console.error(
+    JSON.stringify({
+      time: new Date().toISOString(),
+      level: 'error',
+      message,
+      error: err.message,
+      ...(code === undefined ? {} : { code }),
+    }),
+  );
+}
+
 /**
  * Adds the error listeners pg needs, so a lost connection is logged instead of ending the process. pg reports a lost
  * connection as an `error` event, and an event nobody listens to throws. The pool listens for idle clients only: pg stops
@@ -33,10 +53,7 @@ export type PoolLike<C extends TxClient = TxClient> = PoolEvents & { connect: ()
  * its own listener, and that one logs; an idle client reports on both, so the pool-level listener stays quiet. Queries on
  * a lost connection still reject (the app answers 500); the pool drops the dead client and opens a new one.
  */
-export function createPool<P extends PoolEvents>(
-  pool: P,
-  log: (message: string, err: Error) => void = (message, err) => console.error(message, err),
-): P {
+export function createPool<P extends PoolEvents>(pool: P, log: PoolLog = logPoolError): P {
   pool.on('error', () => undefined);
   pool.on('connect', (client) => client.on('error', (err) => log('Database connection failed', err)));
   return pool;

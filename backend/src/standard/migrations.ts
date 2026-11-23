@@ -6,15 +6,16 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { Client } from 'pg';
+import type { ClientBase } from 'pg';
 
 export type Migration = { name: string; checksum: string; sql: string };
 export type AppliedMigration = { name: string; checksum: string };
 /**
  * A single connection, not a Pool: the advisory lock, BEGIN and COMMIT must all run on the same connection, and a
- * Pool may hand each query to a different one.
+ * Pool may hand each query to a different one. `escapeLiteral` is a method of a Client and a PoolClient (one connection) but not
+ * on a Pool, so passing a Pool is a compile error (#997).
  */
-export type MigrationDb = Pick<Client, 'query'>;
+export type MigrationDb = Pick<ClientBase, 'query' | 'escapeLiteral'>;
 
 const filePattern = /^(\d{3})_[a-z0-9_]+\.sql$/;
 
@@ -120,7 +121,11 @@ export async function migrate(db: MigrationDb, files: Migration[], lockKey: numb
     await unlock(db, lockKey).catch(() => undefined);
     throw e;
   }
-  await unlock(db, lockKey);
+  // Every file is committed. The server releases a session lock when the session ends, so a failed unlock here (for
+  // example the connection dropped right after the last COMMIT) must not turn a finished run into a failed one (#1002).
+  await unlock(db, lockKey).catch((e: unknown) =>
+    console.error(`Could not release the migration lock after applying all files: ${(e as Error).message}`),
+  );
   return applied;
 }
 

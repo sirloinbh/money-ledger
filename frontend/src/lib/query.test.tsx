@@ -137,6 +137,35 @@ test('a mutation sends its request, then refetches the invalidated keys before i
   await waitFor(() => expect(list.result.current.data).toEqual(['a', 'b']));
 });
 
+test('a first read that started before a write and answers last is not what the screen shows (#1008)', async () => {
+  let saved = false;
+  const resolvers: Array<() => void> = [];
+  const fetch = vi.fn((_path: string, init?: RequestInit) => {
+    if (init?.method === 'POST') {
+      saved = true;
+      return Promise.resolve(json(201, { id: 2 }));
+    }
+    // A read answers with what the server holds when it was started: the first one holds the old rows.
+    const before = !saved;
+    return new Promise<Response>((resolve) => {
+      resolvers.push(() => resolve(json(200, before ? ['old'] : ['saved'])));
+    });
+  });
+  const { wrapper } = setup(fetch);
+  const list = renderHook(() => useApiQuery<string[]>(apiKey('/api/goals'), '/api/goals'), { wrapper });
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+  const save = renderHook(() => useApiMutation<{ id: number }, string>((name) => ({ path: '/api/goals', body: { name } }), { invalidate: [apiKey('/api/goals')] }), { wrapper });
+  const writing = act(async () => {
+    await save.result.current.mutateAsync('Run');
+  });
+  // GET (before the write), POST, then the GET that starts after it.
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
+  resolvers[1]?.();
+  await writing;
+  resolvers[0]?.();
+  await waitFor(() => expect(list.result.current.data).toEqual(['saved']));
+});
+
 test('a mutation sends the request headers it is given, next to the JSON content type', async () => {
   const fetch = vi.fn(() => Promise.resolve(json(201, { id: 3 })));
   const { wrapper } = setup(fetch);

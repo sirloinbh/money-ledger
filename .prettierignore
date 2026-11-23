@@ -87,6 +87,7 @@ frontend/src/service-worker.test.tsx
 frontend/src/test/standard-setup.ts
 backend/test/standard/
 backend/test/standard-api.test.ts
+backend/test/standard-migrations.test.ts
 frontend/src/lib/query.ts
 frontend/src/lib/query.test.tsx
 # --- project ---
