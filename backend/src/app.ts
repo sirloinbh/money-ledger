@@ -4,6 +4,8 @@ import type { Pool } from 'pg';
 import { types } from 'pg';
 
 import { tools } from './ai-tools.js';
+import { kakaoRouter } from './kakao/router.js';
+import type { KakaoService } from './kakao/service.js';
 import { budgetsRouter } from './ledger/budgets.js';
 import { categoriesRouter } from './ledger/categories.js';
 import { entriesRouter } from './ledger/entries.js';
@@ -19,6 +21,7 @@ import { mockOrdersRouter } from './mock/orders.js';
 import { mockAccountPositionsRouter, mockPositionsRouter } from './mock/positions.js';
 import { mockQuotesRouter } from './mock/quotes.js';
 import { mockSnapshotsRouter } from './mock/snapshots.js';
+import { type NewsLog, newsRouter, type NewsSource } from './news/index.js';
 import { assetsRouter } from './portfolio/assets.js';
 import { netWorthRouter } from './portfolio/net-worth.js';
 import { type PriceLog, type PriceSources, pricesRouter } from './prices/index.js';
@@ -46,12 +49,17 @@ type AppOptions = {
   // #187 Receives work that runs after an answer was sent (the fetch on linking an asset). By default it just
   // runs; tests collect and await it so none outlives its test.
   background?: (task: Promise<void>) => void;
+  // #306 Economy news source. None by default: the manual fetch then answers 503.
+  news?: NewsSource;
+  newsLog?: NewsLog;
   // The shared sign-in session check (#149). None by default: tests and local development run open.
   auth?: express.RequestHandler;
   // Read-only background job status (ADR-0018). Mounted after `auth`, so it needs the shared sign-in.
   jobsStatus?: express.RequestHandler;
   // shared-ai's public key (project-standards#711). None by default: /internal/tools is then a JSON 404.
   toolsPublicKey?: string;
+  // #311 The KakaoTalk connection and the URL of the web app (for the login return and message links). None: no /api/kakao.
+  kakao?: { service: KakaoService; appUrl?: string };
 };
 
 export function createApp(pool: Pool, options: AppOptions = {}) {
@@ -96,6 +104,8 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
     }),
   );
   app.use('/api/portfolio/net-worth', netWorthRouter(pool, { today }));
+  if (options.kakao)
+    app.use('/api/kakao', kakaoRouter(options.kakao.service, { appUrl: options.kakao.appUrl }));
   app.use('/api/mock/accounts/:accountId/orders', mockOrdersRouter(pool, today));
   app.use('/api/mock/accounts/:accountId/holdings', mockHoldingsRouter(pool, today));
   app.use('/api/mock/accounts/:accountId/snapshots', mockSnapshotsRouter(pool));
@@ -113,6 +123,15 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
       today,
       now,
       log: options.priceLog ?? (() => undefined),
+    }),
+  );
+  app.use(
+    '/api/news',
+    newsRouter(pool, {
+      source: options.news,
+      today,
+      now,
+      log: options.newsLog ?? (() => undefined),
     }),
   );
   // AI tools for shared-ai on /internal/tools: outside /api, so nginx never forwards them and the signed call

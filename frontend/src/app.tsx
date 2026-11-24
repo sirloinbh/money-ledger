@@ -8,6 +8,7 @@ import { Toaster } from './components/ui/sonner';
 import { DashboardPage } from './dashboard';
 import { addDueOnce } from './fixed-costs-api';
 import type { Health } from './health';
+import { KakaoSettings } from './kakao-settings';
 import { LedgerPage } from './ledger';
 import { createQueryClient } from './lib/query';
 import { MockTradingPage } from './mock-trading';
@@ -37,8 +38,6 @@ const nav: NavItem[] = [
   { to: pages.reports, label: 'Reports', icon: FileText },
   { to: pages.settings, label: 'Settings', icon: Settings2 },
 ];
-
-const emptyDescription = 'Features are registered as GitHub issue cards and added one by one.';
 
 function useHealth() {
   const [health, setHealth] = useState<Health>({ state: 'loading' });
@@ -85,9 +84,10 @@ function Workspace() {
               <Page
                 title="Settings"
                 description="App preferences and data management"
-                emptyDescription={emptyDescription}
                 health={health}
-              />
+              >
+                <KakaoSettings />
+              </Page>
             }
           />
           <Route path="*" element={<Navigate to={pages.overview} replace />} />
