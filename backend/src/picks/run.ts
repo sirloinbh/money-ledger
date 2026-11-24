@@ -16,6 +16,8 @@ export type PickDeps = {
   hasOpenPosition: () => Promise<boolean>;
   /** Places the all-in buy for the pick and returns the order id. It must be safe to call again for one pick. */
   buy: (pick: { pickId: number; securityId: number; day: string }) => Promise<number>;
+  /** Called once the buy is saved (#313: the KakaoTalk message). It must not throw. */
+  onBought?: (pickId: number) => Promise<void>;
   log: PickLog;
 };
 
@@ -29,14 +31,21 @@ export type PickResult =
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 async function buyFor(pool: Pool, deps: PickDeps, pickId: number, securityId: number, day: string) {
+  let orderId: number;
   try {
-    const orderId = await deps.buy({ pickId, securityId, day });
+    orderId = await deps.buy({ pickId, securityId, day });
     await setPickOrder(pool, pickId, orderId);
-    return { orderId, buyError: null };
   } catch (error) {
     deps.log({ event: 'pick_buy_failed', pickId, message: messageOf(error) });
     return { orderId: null, buyError: messageOf(error) };
   }
+  // After the buy is saved and outside the try above: a message that fails must never turn a saved buy into a failed one.
+  try {
+    await deps.onBought?.(pickId);
+  } catch (error) {
+    deps.log({ event: 'pick_notify_failed', pickId, message: messageOf(error) });
+  }
+  return { orderId, buyError: null };
 }
 
 /**
