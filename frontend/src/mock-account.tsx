@@ -15,6 +15,7 @@ import { MockHoldings } from './mock-holdings';
 import { mockKey, mockKeys } from './mock-query';
 import { MockReturns } from './mock-returns';
 import { useLoadError, useReadsReload } from './query-reads';
+import { ReturnComparison } from './return-comparison';
 
 // #50 Mock trading account. Virtual won only, never added to the ledger or portfolio totals.
 // One open account; resetting keeps the old one as a closed record (2026-11-03 decision).
@@ -296,6 +297,7 @@ export function MockAccount() {
         // #54 Only the open account's return and orders are shown; keyed so a reset starts them over.
         <>
           <MockReturns key={`returns-${account.id}`} accountId={account.id} />
+          <ReturnComparison key={`comparison-${account.id}`} accountId={account.id} />
           <MockHistory key={`history-${account.id}`} accountId={account.id} />
         </>
       ) : null}
