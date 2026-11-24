@@ -9,7 +9,12 @@ import { HttpError, parseId } from '../standard/http.js';
 
 const statusOf = { bad_key: 502, rate_limit: 429, market_closed: 409, unavailable: 502 } as const;
 
-/** Reads a live quote for a symbol, mapping a KIS failure to the HTTP error the screen shows. */
+/**
+ * Reads a live quote for a symbol, mapping a KIS failure to the HTTP error the screen shows. Shared with the
+ * position code of #307 and #309, so it stays exported.
+ *
+ * @public
+ */
 export async function liveQuote(kis: KisSource | undefined, symbol: string) {
   if (!kis) throw new HttpError(503, 'Live prices are not set up yet');
   try {

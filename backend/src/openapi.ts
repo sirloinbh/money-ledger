@@ -3,6 +3,8 @@
 // when the table and the registered routes differ.
 import { z } from 'zod/v4';
 
+import * as benchmark from './benchmark.js';
+import * as kakao from './kakao/router.js';
 import * as budgets from './ledger/budgets.js';
 import * as categories from './ledger/categories.js';
 import * as entries from './ledger/entries.js';
@@ -15,6 +17,7 @@ import * as accountsModule from './mock/accounts.js';
 import * as longHold from './mock/long-hold.js';
 import * as orders from './mock/orders.js';
 import * as positions from './mock/positions.js';
+import * as news from './news/router.js';
 import * as assetsModule from './portfolio/asset-schema.js';
 import * as netWorth from './portfolio/net-worth.js';
 import * as trades from './portfolio/trades.js';
@@ -40,6 +43,21 @@ const table: Record<string, Operation> = {
     // 503 also when background jobs are off, still starting, or failed to start (#178).
     status: [200],
   },
+  'GET /api/kakao/status': { summary: 'Get whether KakaoTalk is connected', status: [200] },
+  'POST /api/kakao/connect': {
+    summary: 'Start the Kakao Login and get the URL to open',
+    status: [200, 503],
+  },
+  'GET /api/kakao/callback': {
+    summary: 'Finish the Kakao Login and send the browser back to Settings',
+    query: kakao.callbackQuery,
+    status: [302, 400],
+  },
+  'POST /api/kakao/test': {
+    summary: 'Send a test message to my KakaoTalk',
+    status: [200, 409, 502, 503],
+  },
+  'DELETE /api/kakao/connection': { summary: 'Disconnect KakaoTalk', status: [204] },
   'GET /api/ledger/entries/csv': {
     summary: 'Export the filtered entries as a CSV file',
     query: entries.listQuery,
@@ -243,6 +261,11 @@ const table: Record<string, Operation> = {
     summary: 'List the daily value snapshots of a mock trading account',
     status: [200, 400, 404],
   },
+  [`GET ${accounts}/:accountId/return`]: {
+    summary: 'Get the time-weighted return of a mock trading account for a period',
+    query: benchmark.returnQuery,
+    status: [200, 400, 404],
+  },
   'GET /api/mock/quotes/:securityId': {
     summary:
       'Get the live price and 10-level order book of an active Korean security (503 when live prices are not set up, 409 when the market is closed)',
@@ -289,6 +312,16 @@ const table: Record<string, Operation> = {
     summary: 'Close a mock trading account and open a new one',
     body: ['MockAccountBody', accountsModule.accountBody],
     status: [200, 400, 404, 409],
+  },
+  'GET /api/news': {
+    summary: 'List the economy news headlines stored on a date (default today)',
+    query: news.listQuery,
+    status: [200, 400],
+  },
+  'POST /api/news/fetch': {
+    summary: 'Fetch and store the economy news headlines now',
+    // 503: no news source is configured.
+    status: [200, 503],
   },
   'GET /api/prices/securities': {
     summary: 'Search the securities by name or symbol',

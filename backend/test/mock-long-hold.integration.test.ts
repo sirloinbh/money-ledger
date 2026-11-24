@@ -47,7 +47,7 @@ test('the morning keep-or-sell question against the real database', { skip: !url
       '013_asset_trades.sql',
       '016_asset_valuation.sql',
       '018_mock_snapshots.sql',
-      '040_mock_positions.sql',
+      '041_mock_positions.sql',
       '042_mock_position_questions.sql',
     ]) {
       await runMigration(pool, file);
@@ -238,6 +238,7 @@ test('the morning keep-or-sell question against the real database', { skip: !url
     const closedKis: KisSource = {
       name: 'CLOSED',
       quote: (symbol) => kis.quote(symbol === '005930' ? '999999' : symbol),
+      lastPrice: (symbol) => kis.lastPrice(symbol),
     };
     await tick('2026-11-25 08:30', closedKis);
     clock = kst('2026-11-25 09:30');

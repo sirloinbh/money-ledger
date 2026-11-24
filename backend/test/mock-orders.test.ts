@@ -124,3 +124,15 @@ test('a confirmed quote matches the stored numeric by value, not by text (#196)'
     assert.equal(sameDecimal(stored, sent), false, `${stored} ${sent}`);
   }
 });
+
+test('sameDecimal trims zeros without a regular expression: long runs stay fast and zero stays zero', () => {
+  assert.equal(sameDecimal('0.0000', '0'), true);
+  assert.equal(sameDecimal('0', '000'), true);
+  assert.equal(sameDecimal('123.4500', '000123.45'), true);
+  assert.equal(sameDecimal('100.0000', '100'), true);
+  assert.equal(sameDecimal('100', '1'), false);
+  const long = `${'0'.repeat(100_000)}1.${'0'.repeat(100_000)}`;
+  const started = Date.now();
+  assert.equal(sameDecimal('1.0000', long), true);
+  assert.ok(Date.now() - started < 1000, 'a very long run of zeros is a linear scan');
+});
