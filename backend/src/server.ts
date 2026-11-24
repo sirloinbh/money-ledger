@@ -13,6 +13,7 @@ import { notifyPickBought } from './kakao/pick-events.js';
 import { createKakaoService } from './kakao/service.js';
 import { skillConfigFromEnv } from './kakao/skill.js';
 import { dayTradeQueue } from './mock/day-trade.js';
+import { longHoldQueue } from './mock/long-hold.js';
 import { snapshotOpenAccount } from './mock/snapshots.js';
 import { logNewsEvent, newsQueue, newsSourceFromEnv } from './news/index.js';
 import {
@@ -109,6 +110,8 @@ void jobs.start(
         pickQueue(pool, pick),
         // #294 The Bank of Korea base rate for the deposit comparison.
         benchmarkQueue(pool, baseRateSourceFromEnv(), logPriceEvent),
+        // #310 The morning keep-or-sell question of each long hold.
+        longHoldQueue(pool, kis),
       ],
       { mode },
     ),
