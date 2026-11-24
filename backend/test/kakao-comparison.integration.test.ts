@@ -96,4 +96,29 @@ test('the daily summary comparison against the real database', { skip: !url }, a
       );
     },
   );
+
+  await t.test(
+    'a comparison that cannot be read still sends the summary, without the line',
+    async () => {
+      await seed([
+        ['2026-11-01', 10_000_000],
+        ['2026-11-15', 10_420_000],
+      ]);
+      const messenger = fakeMessenger();
+      const lines: Record<string, unknown>[] = [];
+      const notifier = createNotifier(messenger, {
+        link: 'https://app',
+        log: () => undefined,
+        retryDelayMs: 0,
+      });
+      await sendDailySummary(pool, notifier, '2026-11-24', {
+        connected: () => Promise.resolve(true),
+        comparison: () => Promise.reject(new Error('benchmark query failed')),
+        log: (line) => void lines.push(line),
+      });
+      assert.equal(messenger.sent.length, 1);
+      assert.ok(!String(messenger.sent[0].text).includes('Buffett'));
+      assert.equal(lines[0].event, 'kakao_daily_summary_comparison_failed');
+    },
+  );
 });
