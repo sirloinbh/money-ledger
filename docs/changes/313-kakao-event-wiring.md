@@ -24,7 +24,7 @@ Behavior notes:
 - The log line holds the event type and the error message only, never the message text (it carries amounts).
 - If one message of a pick fails twice (not revoked), the later ones are still sent.
 - The daily summary is skipped, with an info log and no job failure, when KakaoTalk is not connected or there is no open account. (Step 1b below replaced the stored-close skips: a holding without a close is valued at cost.)
-- The comparison with the deposit, Buffett (20% a year) and Renaissance (66% a year) is an optional `comparison` provider on the queue. It is not given yet, so the message leaves the line out; it is added when #294 lands.
+- The comparison with the deposit, Buffett (20% a year) and Renaissance (66% a year) is an optional `comparison` provider on the queue (wired in step 1c).
 
 ## Review round 1 (separate read-only agent, no blocking findings)
 
@@ -40,6 +40,12 @@ KRX daily closes are stored around 8 AM the next day, so at 19:10 no Korean hold
 - The summary still skips when KakaoTalk is not connected or there is no open account. It runs weekdays only; the shared KRX business-day check replaces that when #321 lands.
 - The live price is `kis.lastPrice(symbol)` (#325): the current-price endpoint alone, which works after the close with an empty order book. (`kis.quote()` throws `market_closed` then, so it was not used.) The real KIS answer after hours is not checked until #304.
 
+## Step 1c: the comparison line in the daily summary (#294 landed)
+
+`backend/src/kakao/comparison.ts` (`comparisonFor`) takes the deposit, Buffett (20% a year) and Renaissance (66% a year) returns from `accountReturn` and `benchmarkReturns` in `backend/src/benchmark.ts` (lane-4 agreed to the two `export` keywords added there) over the same days as the account's own return, and the queue passes it as `comparison`. No period yet (no day after the account's start) leaves the line out; a deposit without a stored base rate shows `Deposit n/a`. The comparison covers the account's own return period, which ends at the last stored daily snapshot, so it can end a day before the live-valued headline return (the headline is a simple return on the initial cash; the comparison uses the time-weighted period of #294). A comparison that cannot be read is logged (`kakao_daily_summary_comparison_failed`) and the summary goes out without it. `backend/test/kakao-comparison.integration.test.ts` checks the three figures against a hand calculation (14 days: Buffett 0.70%, Renaissance 1.96%, deposit 0.10% at 2.5%), the unknown deposit, no period, the message text, and a provider that throws (the summary still goes out). `npm run check` and `npm run knip` pass for this step.
+
+Review round 1 (separate read-only agent, no blocking findings): the provider failure is now caught and logged, comments and this record updated.
+
 ## Verification
 
 - Daily summary valuation (integration test): one holding priced live, one at the last close, one at cost gives the expected total and return (-3.35%) and the `Prices:` line; with no live source it falls back to close and cost.
@@ -51,4 +57,3 @@ KRX daily closes are stored around 8 AM the next day, so at 19:10 no Korean hold
 
 - The calls into the jobs of #308 (pick and buy), #309 (day trade sale) and #310 (morning question) are added as those cards merge: one line each, in files owned by lanes 2, 1 and 6, so the owners are told.
 - The daily summary leaves out positions for now (the positions table is in #307).
-- The summary comparison waits for #294.
