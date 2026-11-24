@@ -24,13 +24,25 @@ function scriptedKis() {
     ask: '70100',
     bid: '70000',
     fail: undefined as Error | undefined,
+    // An empty order book (market closed): the price is still readable, a quote is not.
+    closedBook: false,
     calls: 0,
   };
   const source: KisSource = {
     name: 'TEST',
+    lastPrice(symbol) {
+      state.calls += 1;
+      if (state.fail) return Promise.reject(state.fail);
+      return Promise.resolve({ symbol, price: state.price, readAt: new Date().toISOString() });
+    },
     quote(symbol) {
       state.calls += 1;
       if (state.fail) return Promise.reject(state.fail);
+      if (state.closedBook) {
+        return Promise.reject(
+          new KisError('market_closed', 'The market is closed, so there is no order book'),
+        );
+      }
       return Promise.resolve({
         symbol,
         price: state.price,
@@ -298,16 +310,24 @@ test('day trade auto sell against the real database', { skip: !url }, async (t) 
     assert.equal((await row(id)).strategy, 'long_hold');
   });
 
-  await t.test('market closed ends the run quietly and carries nothing over', async () => {
-    await reset();
-    const { state, source } = scriptedKis();
-    const id = await open(source);
-    state.fail = new KisError('market_closed', 'The market is closed, so there is no order book');
-    const run = await check(source, '15:20');
-    assert.equal(run.skipped, 'market_closed');
-    assert.deepEqual(run.carriedOver, []);
-    assert.equal((await row(id)).strategy, 'day_trade');
-  });
+  await t.test(
+    'a closed market ends the run quietly: the sale needs a book and nothing changes',
+    async () => {
+      await reset();
+      const { state, source } = scriptedKis();
+      const id = await open(source);
+      state.closedBook = true;
+      // The price alone is still readable and is at a level, but the sale cannot get a bid.
+      state.price = '80000';
+      const run = await check(source, '15:20');
+      assert.equal(run.skipped, 'market_closed');
+      assert.deepEqual(run.sold, []);
+      assert.deepEqual(run.carriedOver, []);
+      assert.equal((await row(id)).strategy, 'day_trade');
+      assert.equal((await row(id)).closed_at, null);
+      assert.equal(await sells(), 0);
+    },
+  );
 
   await t.test('a KIS failure leaves the position open for the next minute', async () => {
     await reset();

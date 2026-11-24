@@ -312,6 +312,7 @@ test('mock all-in positions against the real database', { skip: !url }, async (t
         const closedKis: KisSource = {
           name: 'CLOSED',
           quote: (symbol) => kis.quote(symbol === '005930' ? '999999' : symbol),
+          lastPrice: (symbol) => kis.lastPrice(symbol),
         };
         await assert.rejects(sellPosition(pool, closedKis, today, id), /market is closed/);
         assert.equal(await cashOf(), 18_453);

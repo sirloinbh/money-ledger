@@ -13,11 +13,12 @@ Step 5 of mock investing v2 ([#303](https://github.com/sirloinbh/money-ledger/is
 
 ## Rules
 
+- The price comes from `lastPrice` (#325), one call per security per minute, shared by positions of the same stock. The sale itself still reads the order book (`sellPosition`).
 - Trigger: current price >= buy fill price x 1.05 sells as `take_profit`; <= x 0.97 as `stop_loss`. The comparison is SQL `numeric`. Exactly 73,605 / 67,997 for a 70,100 buy sells; one won inside does not. The sale is at the best bid, so the gain can differ from 5% / -3%.
 - Net gain = sale amount - fee - tax - (buy amount + buy fee); percent = net gain / (buy amount + buy fee), 2 places, half away from zero. Example: 142 shares bought at 70,100 and sold at 73,605 gain 473,745 won (4.76%).
 - Overlapping runs make one sale: `sellPosition` locks the account and the position and refuses a closed one.
 - **Decision (recommendation taken): a day trade that reaches neither level by 15:20 keeps being held and becomes a long hold** (`strategy_source = 'auto'`, `carried_over_at` set), so the next morning's keep-or-sell question (#310) asks the user. A day trade still open on a later day (for example a missed 15:20 run) is carried over the same way before any trigger is looked at. A buy after 15:20 is carried over the next morning.
-- Trading days: weekdays. The KRX holiday calendar is #321 and plugs in through the `isTradingDay` option. Until then a holiday is caught by KIS answering with an empty book (market closed), which ends the run without selling or carrying anything over.
+- Trading days: weekdays. The KRX holiday calendar is #321 and plugs in through the `isTradingDay` option. Until then a holiday is caught when a sale would be needed: `lastPrice` still answers with the last close, but `sellPosition` cannot get a bid (market closed), which ends the run without selling or carrying anything over.
 - The run returns what happened (`sold`, `carriedOver`, `alreadySold`, `failed`) so the event wiring (#313) can tell the user.
 
 ## Checks

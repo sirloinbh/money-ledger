@@ -4,9 +4,10 @@ import type { KisSource } from '../prices/kis.js';
 import { HttpError } from '../standard/http.js';
 import type { JobQueue } from '../standard/jobs.js';
 import { sellPosition } from './positions.js';
-import { liveQuote } from './quotes.js';
+import { livePrice } from './quotes.js';
 
 // #309 Day trade auto sell (epic #303, step 5).
+// - The price is one `lastPrice` call per security (#325); the sale itself reads the order book (sellPosition).
 // - Every minute from 09:00 to 15:20 KST on a trading day, each open `day_trade` position is checked against its
 //   buy price: current price >= buy price x 1.05 sells it as 'take_profit', <= x 0.97 as 'stop_loss'. The sale is
 //   sellPosition (#307): the whole position at the best bid, with commission and transaction tax. The trigger
@@ -117,7 +118,7 @@ export async function runDayTradeCheck(
     try {
       let price = quotes.get(position.symbol);
       if (price === undefined) {
-        price = (await liveQuote(kis, position.symbol)).price;
+        price = (await livePrice(kis, position.symbol)).price;
         quotes.set(position.symbol, price);
       }
       // Compared in SQL numeric, never as JS numbers (AGENTS.project.md).
