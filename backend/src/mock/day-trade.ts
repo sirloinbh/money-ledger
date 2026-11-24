@@ -48,6 +48,8 @@ type Options = {
   /** `YYYY-MM-DD` in the service time zone: false on a market holiday. Default: Monday to Friday. */
   isTradingDay?: (date: string) => boolean;
   log?: (event: Record<string, unknown>) => void;
+  /** Called with the sales of a run after they are saved (#313: the KakaoTalk message). It must not throw. */
+  onSold?: (sold: DayTradeRun['sold']) => Promise<void>;
 };
 
 const weekday = (date: string) => {
@@ -187,7 +189,8 @@ export function dayTradeQueue(
     retryLimit: 0,
     schedule: '* 9-15 * * 1-5',
     handler: async () => {
-      await runDayTradeCheck(pool, kis, now(), today, options);
+      const run = await runDayTradeCheck(pool, kis, now(), today, options);
+      if (run.sold.length > 0) await options.onSold?.(run.sold);
     },
   };
 }

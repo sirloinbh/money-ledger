@@ -7,6 +7,7 @@ import { dailySavesQueue } from './daily-saves.js';
 import { kakaoConfigFromEnv } from './kakao/api.js';
 import { comparisonFor } from './kakao/comparison.js';
 import { kakaoDailySummaryQueue } from './kakao/daily-summary.js';
+import { notifyDayTradeSales } from './kakao/day-trade-events.js';
 import { createNotifier } from './kakao/notifier.js';
 import { createKakaoService } from './kakao/service.js';
 import { skillConfigFromEnv } from './kakao/skill.js';
@@ -71,7 +72,11 @@ void jobs.start(
         // #185 Fixed costs, finished reports and net worth once a day; the app's on-open calls stay as a fallback.
         dailySavesQueue(pool),
         // #309 Day trades are sold at +5% or -3% every minute during market hours.
-        dayTradeQueue(pool, kis, () => serviceDate(), { log: logPriceEvent }),
+        dayTradeQueue(pool, kis, () => serviceDate(), {
+          log: logPriceEvent,
+          // #313 Each sale goes to KakaoTalk once it is saved.
+          onSold: (sold) => notifyDayTradeSales(pool, notifier, sold, serviceDate(), logPriceEvent),
+        }),
         // #313 The account summary to KakaoTalk once a day after the close.
         kakaoDailySummaryQueue(pool, notifier, kakao.service, undefined, {
           // #294 The deposit, Buffett and Renaissance returns over the account's own period.

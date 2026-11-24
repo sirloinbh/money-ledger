@@ -46,6 +46,10 @@ KRX daily closes are stored around 8 AM the next day, so at 19:10 no Korean hold
 
 Review round 1 (separate read-only agent, no blocking findings): the provider failure is now caught and logged, comments and this record updated.
 
+## Step 2: the day trade sale message (#309 merged)
+
+`dayTradeQueue` (lane-1, `backend/src/mock/day-trade.ts`) got an optional `onSold(sold)` option, called after a run that sold something (two lines changed there; lane-1 asked me to add the call). `backend/src/kakao/day-trade-events.ts` (`notifyDayTradeSales`, wired in `server.ts`) sends one `day-trade-sold` message per sale: take profit or stop loss, the sell price, the net gain after fees and tax (from the saved position), and the account's value after the sale. It never throws, so a send failure cannot undo a sale. Carried-over day trades are not messaged here: the morning keep-or-sell message covers them (#310 step). `backend/test/kakao-day-trade.integration.test.ts` runs the real queue with a scripted price: nothing sold sends nothing; a take profit at 73,605 sends `142 sh at ₩73,605`, `Net gain: ₩473,745 (+4.76%)`, `Capital: ₩10,473,745`; a stop loss with two failing sends leaves the position closed with `stop_loss`.
+
 ## Verification
 
 - Daily summary valuation (integration test): one holding priced live, one at the last close, one at cost gives the expected total and return (-3.35%) and the `Prices:` line; with no live source it falls back to close and cost.
