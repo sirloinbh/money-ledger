@@ -6,6 +6,7 @@ import { dailySavesQueue } from './daily-saves.js';
 import { kakaoConfigFromEnv } from './kakao/api.js';
 import { createKakaoService } from './kakao/service.js';
 import { snapshotOpenAccount } from './mock/snapshots.js';
+import { logNewsEvent, newsQueue, newsSourceFromEnv } from './news/index.js';
 import { logPriceEvent, PRICE_QUEUE, priceQueue, sourcesFromEnv } from './prices/index.js';
 import { backgroundJobs, shutdownOnce } from './runtime.js';
 import { listenHost, sharedAuth } from './standard/auth.js';
@@ -18,6 +19,7 @@ if (!databaseUrl) throw new Error('DATABASE_URL is required');
 // createPool adds the 'error' listeners, so a lost idle connection is logged and does not end the process (#178).
 const pool = createPool(new Pool({ connectionString: databaseUrl }));
 const prices = sourcesFromEnv();
+const news = newsSourceFromEnv();
 // PRICE_JOBS=off still works (the old switch); JOBS_MODE=off|send is the shared one (docs: price-source.md).
 const mode = process.env.PRICE_JOBS === 'off' ? 'off' : jobsModeFromEnv();
 const jobs = backgroundJobs(mode);
@@ -32,6 +34,8 @@ const kakao = {
 const server = createApp(pool, {
   prices,
   priceLog: logPriceEvent,
+  news,
+  newsLog: logNewsEvent,
   auth,
   jobsStatus: jobs.status,
   toolsPublicKey: process.env.AI_TOOLS_PUBLIC_KEY,
@@ -49,6 +53,8 @@ void jobs.start(
         priceQueue(pool, prices, logPriceEvent, (now) => snapshotOpenAccount(pool, now)),
         // #185 Fixed costs, finished reports and net worth once a day; the app's on-open calls stay as a fallback.
         dailySavesQueue(pool),
+        // #306 Economy headlines at 07:30 on weekdays, for the daily pick.
+        newsQueue(pool, news, logNewsEvent),
       ],
       { mode },
     ),
