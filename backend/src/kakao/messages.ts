@@ -177,7 +177,14 @@ export const longHoldQuestionMessage = (event: LongHoldQuestion, link: string) =
   );
 
 /** Returns in percent since the account started, for the same period as the account's own return. */
-export type Comparison = { depositPct: string; buffettPct: string; renaissancePct: string };
+export type Comparison = {
+  depositPct: string | null;
+  buffettPct: string | null;
+  renaissancePct: string | null;
+};
+
+/** A percent from SQL, or "n/a" when it is not known (the deposit has no stored base rate yet). */
+const pctOrNa = (pct: string | null) => (pct === null ? 'n/a' : formatPct(pct));
 
 /** How many holdings were valued at a live price, at the last stored close, or (no price at all) at cost. */
 export type PriceSources = { live: number; close: number; stale: number; cost: number };
@@ -211,7 +218,7 @@ export function dailySummaryMessage({ summary, comparison, prices }: DailySummar
       ...(note ? [note] : []),
       ...(comparison
         ? [
-            `Deposit ${formatPct(comparison.depositPct)} · Buffett ${formatPct(comparison.buffettPct)} · Renaissance ${formatPct(comparison.renaissancePct)}`,
+            `Deposit ${pctOrNa(comparison.depositPct)} · Buffett ${pctOrNa(comparison.buffettPct)} · Renaissance ${pctOrNa(comparison.renaissancePct)}`,
           ]
         : []),
     ],

@@ -48,7 +48,7 @@ type ReturnRow = {
  * starts at the last known value on or before `from`, and ends at the last known value on or before `to`.
  * `returnPct` is null when the period holds no day after its start.
  */
-async function accountReturn(
+export async function accountReturn(
   pool: Pool,
   accountId: number,
   today: string,
@@ -132,7 +132,7 @@ type Benchmark = {
  * What the same money would have earned over the days from `startDate` to `endDate` (YYYY-MM-DD), or all nulls when
  * the period is unknown. The deposit needs a base rate on or before the start day; without one it is null.
  */
-async function benchmarkReturns(
+export async function benchmarkReturns(
   pool: Pool,
   startDate: string | null,
   endDate: string | null,
