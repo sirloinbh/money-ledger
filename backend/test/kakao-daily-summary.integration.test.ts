@@ -39,7 +39,11 @@ test('the daily KakaoTalk summary against the real database', { skip: !url }, as
         'INSERT INTO mock_accounts (initial_cash_krw, cash_krw) VALUES (10000000, 10000000)',
       );
       const messenger = fakeMessenger();
-      const notifier = createNotifier(messenger, { log: quiet().log, retryDelayMs: 0 });
+      const notifier = createNotifier(messenger, {
+        link: 'https://app',
+        log: quiet().log,
+        retryDelayMs: 0,
+      });
       await sendDailySummary(pool, notifier, '2026-11-24', {
         connected: async () => true,
         log: quiet().log,
@@ -70,7 +74,11 @@ test('the daily KakaoTalk summary against the real database', { skip: !url }, as
     async () => {
       await reset();
       const messenger = fakeMessenger();
-      const notifier = createNotifier(messenger, { log: quiet().log, retryDelayMs: 0 });
+      const notifier = createNotifier(messenger, {
+        link: 'https://app',
+        log: quiet().log,
+        retryDelayMs: 0,
+      });
       const { lines, log } = quiet();
       await sendDailySummary(pool, notifier, '2026-11-24', { connected: async () => false, log });
       await sendDailySummary(pool, notifier, '2026-11-24', { connected: async () => true, log });
@@ -92,13 +100,57 @@ test('the daily KakaoTalk summary against the real database', { skip: !url }, as
     const { lines, log } = quiet();
     const queue = kakaoDailySummaryQueue(
       pool,
-      createNotifier(messenger, { log, retryDelayMs: 0 }),
+      createNotifier(messenger, { link: 'https://app', log, retryDelayMs: 0 }),
       { status: async () => ({ configured: true, state: 'connected', connectedAt: null }) },
       () => '2026-11-24',
     );
     assert.equal(queue.name, KAKAO_DAILY_SUMMARY_QUEUE);
     assert.equal(queue.schedule, '10 19 * * 1-5');
-    await queue.handler({}, {} as never);
+    await assert.doesNotReject(queue.handler({}, {} as never));
     assert.equal(lines.filter((line) => line.event === 'kakao_notify_failed').length, 1);
+    assert.equal(messenger.sent.length, 0);
+  });
+
+  await t.test('a holding without a close for the day skips the summary', async () => {
+    await reset();
+    await pool.query('DELETE FROM security_prices');
+    await pool.query('DELETE FROM securities');
+    const { rows } = await pool.query(
+      "INSERT INTO securities (market, symbol, name, kind, currency) VALUES ('KOSPI', '005930', 'Samsung', 'stock', 'KRW') RETURNING id",
+    );
+    await pool.query(
+      'INSERT INTO mock_accounts (initial_cash_krw, cash_krw) VALUES (10000000, 9000000)',
+    );
+    await pool.query(
+      'INSERT INTO mock_holdings (account_id, security_id, quantity, cost_krw) VALUES (1, $1, 10, 1000000)',
+      [rows[0].id],
+    );
+    const messenger = fakeMessenger();
+    const notifier = createNotifier(messenger, {
+      link: 'https://app',
+      log: quiet().log,
+      retryDelayMs: 0,
+    });
+    const { lines, log } = quiet();
+    const options = { connected: async () => true, log };
+    // No close at all: the total is unknown.
+    await sendDailySummary(pool, notifier, '2026-11-24', options);
+    // A close from an earlier day: the value would look current but is not.
+    await pool.query(
+      "INSERT INTO security_prices (security_id, trade_date, close, currency, source) VALUES ($1, '2026-11-20', 80000, 'KRW', 'test')",
+      [rows[0].id],
+    );
+    await sendDailySummary(pool, notifier, '2026-11-24', options);
+    assert.deepEqual(
+      lines.map((line) => line.reason),
+      ['no-valuation', 'stale-prices'],
+    );
+    // Today's close: sent.
+    await pool.query(
+      "INSERT INTO security_prices (security_id, trade_date, close, currency, source) VALUES ($1, '2026-11-24', 81000, 'KRW', 'test')",
+      [rows[0].id],
+    );
+    await sendDailySummary(pool, notifier, '2026-11-24', options);
+    assert.match(String(messenger.sent[0].text), /Total value: ₩9,810,000/);
   });
 });

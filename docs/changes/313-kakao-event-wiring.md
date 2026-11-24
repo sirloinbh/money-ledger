@@ -22,15 +22,19 @@ Behavior notes:
 
 - A revoked connection is not retried (reconnecting in Settings is the fix); it is logged with `revoked: true`.
 - The log line holds the event type and the error message only, never the message text (it carries amounts).
-- If the first message of a pick fails twice, the second is still sent.
-- The daily summary is skipped, with an info log and no job failure, when KakaoTalk is not connected, there is no open account, or a holding has no stored close (the total would be unknown).
+- If one message of a pick fails twice (not revoked), the later ones are still sent.
+- The daily summary is skipped, with an info log and no job failure, when KakaoTalk is not connected, there is no open account, a holding has no stored close (the total would be unknown), or a holding's latest close is not from that day.
 - The comparison with the deposit, Buffett (20% a year) and Renaissance (66% a year) is an optional `comparison` provider on the queue. It is not given yet, so the message leaves the line out; it is added when #294 lands.
+
+## Review round 1 (separate read-only agent, no blocking findings)
+
+Fixed in a follow-up commit: a pick is now three messages (story, pick and reasoning, buy) so the reasoning is not cut by Kakao's 200 characters, and the 단타 / 장투 question is the first line of the buy message so it is never the line that is cut; the daily summary is skipped when a holding has no close for that day (price fetch failed or market closed), instead of sending an earlier day's value as current; a revoked connection stops the rest of an event and logs once; `link` is now a required option of `createNotifier`; tests cover the no-valuation and stale-price skips, what a failing send leaves behind, and the 200-character limit.
 
 ## Verification
 
 - Backend unit tests (`kakao-notifier.test.ts`): each event's exact text, a stop loss with a negative gain, the summary with and without the comparison, each event sent through the fake messenger, a retry that succeeds, two failures logged with no amounts and no throw, a revoked connection not retried, the second message of a pick surviving the first one's failure.
 - DB integration test (`kakao-daily-summary.integration.test.ts`, dedicated Postgres 17 test DB, not skipped): an account with no holdings is summarized with and without a comparison; not connected and no account send nothing and raise nothing; a failing send does not fail the job.
-- `npm run check`: see the result below.
+- `npm run check` with `TEST_DATABASE_URL` on a dedicated Postgres 17 test DB: passed, no skipped DB tests.
 
 ## Limits and follow-up
 

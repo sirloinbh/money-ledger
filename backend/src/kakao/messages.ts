@@ -116,13 +116,16 @@ export type PickBought = {
 };
 
 export const pickBoughtMessages = (event: PickBought, link: string) => [
-  newsReasonMessage(event.news, link),
+  // Three messages, each under the 200 character limit on its own, so the reasoning is not cut off by the headline.
+  text([`News: ${event.news.headline}`, `Effect: ${event.news.effect}`], link),
+  text([`Pick: ${event.news.stockName} (${event.news.symbol})`, `Why: ${event.news.reason}`], link),
+  // The question comes first: it is the line that must never be cut.
   text(
     [
+      'Day trade or long hold? Reply 단타 or 장투',
       `Bought ${event.stockName} (${event.symbol})`,
       `${decimal(event.quantity)} sh at ${formatWon(event.priceKrw)}`,
       `Cost: ${formatWon(event.amountKrw)}`,
-      'Day trade or long hold? Reply 단타 or 장투',
     ],
     link,
   ),

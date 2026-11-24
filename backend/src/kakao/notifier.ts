@@ -38,9 +38,10 @@ const messagesFor = (event: KakaoEvent, link: string): Template[] => {
 
 export function createNotifier(
   messenger: Messenger,
-  options: { link?: string; log?: JobLog; retryDelayMs?: number } = {},
+  options: { link: string | undefined; log?: JobLog; retryDelayMs?: number },
 ): Notifier {
-  const link = options.link ?? 'https://kakao.com';
+  // The button on each message opens the web app; without an app URL the message has no link target.
+  const link = options.link ?? '';
   const log = options.log ?? logJob;
   const retryDelayMs = options.retryDelayMs ?? 2000;
   const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -65,7 +66,7 @@ export function createNotifier(
             await wait(retryDelayMs);
             failure = await sendOnce(template);
           }
-          if (failure)
+          if (failure) {
             log({
               level: 'error',
               event: 'kakao_notify_failed',
@@ -73,6 +74,9 @@ export function createNotifier(
               revoked: failure instanceof KakaoRevokedError,
               message: failure instanceof Error ? failure.message : 'unknown error',
             });
+            // The rest of a revoked event would fail the same way, and log the same line again.
+            if (failure instanceof KakaoRevokedError) break;
+          }
         }
       } catch (error) {
         // Building a message failed (a bad value): still not the caller's problem.

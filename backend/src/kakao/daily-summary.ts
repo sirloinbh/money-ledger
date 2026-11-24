@@ -37,10 +37,16 @@ export async function sendDailySummary(
     return;
   }
   const value = await accountValue(pool, account.id, day);
-  const summary = value?.summary;
   // A holding without a stored close makes the total unknown; no summary is better than a wrong one.
-  if (!summary || summary.totalKrw === null || summary.returnPct === null) {
+  const summary = value?.summary;
+  if (!value || !summary || summary.totalKrw === null || summary.returnPct === null) {
     log({ level: 'info', event: 'kakao_daily_summary_skipped', reason: 'no-valuation', day });
+    return;
+  }
+  // No close stored for today (the price fetch failed, or the market was closed) means the value is as of an earlier
+  // day; a summary that looks current but is not would mislead, so skip it.
+  if (value.holdings.some((holding) => holding.priceDate !== day)) {
+    log({ level: 'info', event: 'kakao_daily_summary_skipped', reason: 'stale-prices', day });
     return;
   }
   await notifier.notify({
