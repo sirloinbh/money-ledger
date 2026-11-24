@@ -5,6 +5,7 @@ import { createApp } from './app.js';
 import { baseRateSourceFromEnv, benchmarkQueue } from './benchmark-fetch.js';
 import { dailySavesQueue } from './daily-saves.js';
 import { kakaoConfigFromEnv } from './kakao/api.js';
+import { comparisonFor } from './kakao/comparison.js';
 import { kakaoDailySummaryQueue } from './kakao/daily-summary.js';
 import { createNotifier } from './kakao/notifier.js';
 import { createKakaoService } from './kakao/service.js';
@@ -71,6 +72,8 @@ void jobs.start(
         // #313 The account summary to KakaoTalk once a day after the close.
         kakaoDailySummaryQueue(pool, notifier, kakao.service, undefined, {
           // lastPrice works after the close too (it is the day's close then); when KIS cannot answer, the stored close is used.
+          // #294 The deposit, Buffett and Renaissance returns over the account's own period.
+          comparison: (accountId, day) => comparisonFor(pool, accountId, day),
           livePrice: kis ? async (symbol) => (await kis.lastPrice(symbol)).price : undefined,
         }),
         // #306 Economy headlines at 07:30 on weekdays, for the daily pick.
