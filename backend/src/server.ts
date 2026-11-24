@@ -3,6 +3,7 @@ import { PgBoss } from 'pg-boss';
 
 import { createApp } from './app.js';
 import { dailySavesQueue } from './daily-saves.js';
+import { longHoldQueue } from './mock/long-hold.js';
 import { snapshotOpenAccount } from './mock/snapshots.js';
 import {
   liveSourceFromEnv,
@@ -48,6 +49,8 @@ void jobs.start(
         priceQueue(pool, prices, logPriceEvent, (now) => snapshotOpenAccount(pool, now)),
         // #185 Fixed costs, finished reports and net worth once a day; the app's on-open calls stay as a fallback.
         dailySavesQueue(pool),
+        // #310 The morning keep-or-sell question of each long hold.
+        longHoldQueue(pool, kis),
       ],
       { mode },
     ),

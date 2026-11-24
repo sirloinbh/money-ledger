@@ -12,6 +12,7 @@ import * as rules from './ledger/rules.js';
 import * as summary from './ledger/summary.js';
 import * as trend from './ledger/trend.js';
 import * as accountsModule from './mock/accounts.js';
+import * as longHold from './mock/long-hold.js';
 import * as orders from './mock/orders.js';
 import * as positions from './mock/positions.js';
 import * as assetsModule from './portfolio/asset-schema.js';
@@ -266,6 +267,16 @@ const table: Record<string, Operation> = {
   'POST /api/mock/positions/:id/strategy': {
     summary: 'Choose day trade or long hold for an open position that is still undecided',
     body: ['MockStrategyBody', positions.strategyBody],
+    status: [200, 400, 404, 409],
+  },
+  [`GET ${accounts}/:accountId/next-day-questions`]: {
+    summary: "List today's keep-or-sell questions of the long holds of a mock trading account",
+    status: [200, 400, 404],
+  },
+  'POST /api/mock/positions/:id/next-day': {
+    summary:
+      "Answer this morning's keep-or-sell question of a long hold (409 when already answered or closed at 15:00)",
+    body: ['MockNextDayBody', longHold.nextDayBody],
     status: [200, 400, 404, 409],
   },
   [`GET ${accounts}`]: { summary: 'List the mock trading accounts', status: [200] },

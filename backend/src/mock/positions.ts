@@ -449,7 +449,8 @@ export function mockAccountPositionsRouter(
   return router;
 }
 
-export function mockPositionsRouter(pool: Pool) {
+/** `extend` adds routes of later steps to the same router (#310 adds the next-day answer), without an import cycle. */
+export function mockPositionsRouter(pool: Pool, extend?: (router: Router) => void) {
   const router = Router();
 
   router.post('/:id/strategy', async (req, res) => {
@@ -458,5 +459,6 @@ export function mockPositionsRouter(pool: Pool) {
     res.json({ position: toPosition(await chooseStrategy(pool, id, body.strategy, body.source)) });
   });
 
+  extend?.(router);
   return router;
 }

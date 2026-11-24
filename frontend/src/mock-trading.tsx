@@ -1,5 +1,6 @@
 import type { Health } from './health';
 import { MockAccount } from './mock-account';
+import { MockKeepOrSell } from './mock-keep-or-sell';
 import { MockPositions } from './mock-positions';
 import { Page } from './page';
 import { SecuritySearch } from './security-search';
@@ -13,6 +14,7 @@ export function MockTradingPage({ health }: { health: Health }) {
       health={health}
     >
       <MockAccount />
+      <MockKeepOrSell />
       <MockPositions />
       <SecuritySearch orders />
     </Page>
