@@ -3,14 +3,14 @@ import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
 import { won } from '../money.js';
-import { isWeekend } from '../prices/dates.js';
 import type { KisSource } from '../prices/kis.js';
+import { isBusinessDay } from '../prices/krx-calendar.js';
 import { HttpError, parseId } from '../standard/http.js';
 import type { JobQueue } from '../standard/jobs.js';
 import { sellPosition } from './positions.js';
 
 // #310 Each trading morning the app asks, for every long hold bought before today, "keep or sell?".
-// - 08:30 KST on a KRX business day (a weekday not in krx_holidays): one question per long hold position.
+// - 08:30 KST on a KRX business day (a weekday not in krx_holidays, #321): one question per long hold position.
 // - Answer `keep` closes the question until tomorrow. Answer `sell` sells at the best bid once the market is
 //   open (09:00); asked earlier, the sale waits (`sell_queued`) and the next tick sells it.
 // - No answer by 15:00 keeps the position and closes the question (answer_source 'auto'); it is asked again the
@@ -46,15 +46,6 @@ export function seoulClock(now: Date) {
     date: `${part('year')}-${part('month')}-${part('day')}`,
     minute: Number(part('hour')) * 60 + Number(part('minute')),
   };
-}
-
-/** A KRX business day: not a weekend and not in krx_holidays. */
-export async function isBusinessDay(pool: Pool, date: string) {
-  if (isWeekend(date)) return false;
-  const { rowCount } = await pool.query('SELECT 1 FROM krx_holidays WHERE holiday_date = $1', [
-    date,
-  ]);
-  return !rowCount;
 }
 
 type QuestionRow = {

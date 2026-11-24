@@ -16,9 +16,14 @@ export type LiveQuote = {
   readAt: string;
 };
 
+/** One calendar day of the KRX: `open` is KIS's opnd_yn (whether the market opens that day). */
+export type CalendarDay = { date: string; open: boolean };
+
 export type KisSource = {
   readonly name: string;
   quote(symbol: string): Promise<LiveQuote>;
+  /** #321 The KRX calendar from `from` (YYYY-MM-DD) on, about a month at a time (KIS 국내휴장일조회). */
+  calendar?(from: string): Promise<CalendarDay[]>;
 };
 
 export type KisErrorCode = 'bad_key' | 'rate_limit' | 'market_closed' | 'unavailable';
@@ -84,6 +89,25 @@ export function parseQuote(
     throw new KisError('market_closed', 'The market is closed, so there is no order book');
   }
   return { symbol, price, asks, bids, readAt: readAt.toISOString() };
+}
+
+/** The days of a KIS holiday-check answer (`output` rows with bass_dt and opnd_yn); rows it cannot read are skipped. */
+export function parseCalendar(body: unknown): CalendarDay[] {
+  const rows = (body as Body | null)?.output;
+  if (!Array.isArray(rows)) {
+    throw new KisError('unavailable', 'The KIS answer is not in the expected format');
+  }
+  const days: CalendarDay[] = [];
+  for (const row of rows as Body[]) {
+    const raw = text(row?.bass_dt);
+    const flag = text(row?.opnd_yn);
+    if (!/^\d{8}$/.test(raw) || (flag !== 'Y' && flag !== 'N')) continue;
+    days.push({
+      date: `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`,
+      open: flag === 'Y',
+    });
+  }
+  return days;
 }
 
 /** Maps an error answer (rt_cd other than "0") or an HTTP failure to a KisError. */
@@ -164,8 +188,20 @@ export function kisSource(options: Options): KisSource {
     return (await issuing).value;
   }
 
-  async function get(path: string, trId: string, symbol: string, retry = true): Promise<Body> {
-    const query = new URLSearchParams({ FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol });
+  async function get(path: string, trId: string, symbol: string): Promise<Body> {
+    return getWith(
+      path,
+      trId,
+      new URLSearchParams({ FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol }),
+    );
+  }
+
+  async function getWith(
+    path: string,
+    trId: string,
+    query: URLSearchParams,
+    retry = true,
+  ): Promise<Body> {
     const { status, body } = await call(`${root}${path}?${query.toString()}`, {
       headers: {
         'content-type': 'application/json; charset=utf-8',
@@ -180,7 +216,7 @@ export function kisSource(options: Options): KisSource {
     // EGW00123: the token expired early. Drop it and ask once more with a new one.
     if (text(data.msg_cd) === 'EGW00123' && retry) {
       token = undefined;
-      return get(path, trId, symbol, false);
+      return getWith(path, trId, query, false);
     }
     if (status !== 200 || text(data.rt_cd) !== '0') throw errorOf(status, body);
     return data;
@@ -200,6 +236,18 @@ export function kisSource(options: Options): KisSource {
         symbol,
       );
       return parseQuote(symbol, price, book, now());
+    },
+    async calendar(from) {
+      const data = await getWith(
+        '/uapi/domestic-stock/v1/quotations/chk-holiday',
+        'CTCA0903R',
+        new URLSearchParams({
+          BASS_DT: from.replaceAll('-', ''),
+          CTX_AREA_NK: '',
+          CTX_AREA_FK: '',
+        }),
+      );
+      return parseCalendar(data);
     },
   };
 }

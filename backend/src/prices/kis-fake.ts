@@ -1,4 +1,4 @@
-import { KisError, type KisSource, type Level } from './kis.js';
+import { type CalendarDay, KisError, type KisSource, type Level } from './kis.js';
 
 // #305 A deterministic stand-in for KIS, for tests and for running without keys (PRICE_SOURCE=fake). The base
 // prices match prices/fake.ts. The spread is one tick, so the best ask is always above the best bid, and the
@@ -23,9 +23,25 @@ function tick(price: number) {
   return 1_000;
 }
 
+/** Weekdays the fake market is closed (so a browser check can see a holiday): none by default. */
+const fakeClosed = new Set<string>();
+
+function fakeCalendar(from: string): CalendarDay[] {
+  const days: CalendarDay[] = [];
+  const day = new Date(`${from}T00:00:00Z`);
+  for (let i = 0; i < 30; i += 1) {
+    const date = day.toISOString().slice(0, 10);
+    const weekend = [0, 6].includes(day.getUTCDay());
+    days.push({ date, open: !weekend && !fakeClosed.has(date) });
+    day.setUTCDate(day.getUTCDate() + 1);
+  }
+  return days;
+}
+
 export function fakeKis(now: () => Date = () => new Date()): KisSource {
   return {
     name: 'FAKE',
+    calendar: (from) => Promise.resolve(fakeCalendar(from)),
     quote(symbol) {
       if (symbol === '999999') {
         return Promise.reject(
