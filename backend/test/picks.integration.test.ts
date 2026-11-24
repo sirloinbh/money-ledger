@@ -21,8 +21,8 @@ test('the daily pick against the real database', { skip: !url }, async (t) => {
   const reset = async () => {
     await pool.query('DROP TABLE IF EXISTS daily_picks, news_items');
     await runMigration(pool, '028_news_items.sql');
-    await runMigration(pool, '042_daily_picks.sql');
-    await runMigration(pool, '042_daily_picks.sql'); // re-running is safe
+    await runMigration(pool, '043_daily_picks.sql');
+    await runMigration(pool, '043_daily_picks.sql'); // re-running is safe
     await pool.query('TRUNCATE securities RESTART IDENTITY CASCADE');
     await pool.query(
       `INSERT INTO securities (market, symbol, name, kind, currency, active) VALUES

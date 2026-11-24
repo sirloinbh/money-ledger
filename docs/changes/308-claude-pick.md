@@ -6,7 +6,7 @@ Steps 2 and 3 of mock investing v2 (epic #303): Claude reads the day's stored he
 
 ## Changes
 
-- `database/migrations/042_daily_picks.sql`: `daily_picks` (one row per service date: the news item ids, story, effect, reasoning, `security_id`, model, raw response, `order_id` to `mock_orders`).
+- `database/migrations/043_daily_picks.sql`: `daily_picks` (one row per service date: the news item ids, story, effect, reasoning, `security_id`, model, raw response, `order_id` to `mock_orders`).
 - `backend/src/picks/claude.ts`: Claude Messages API client with `fetch` (no new package). The key goes in the `x-api-key` header only. Structured output (`output_config.format` JSON schema), `effort: high`, and `fallbacks: "default"` so a safety decline is re-run on the fallback model. `fakeClaude` for tests and `PICK_SOURCE=fake`.
 - `backend/src/picks/prompt.ts`: system prompt, the headline list (marked as data), the answer schema and the Zod check.
 - `backend/src/picks/run.ts`: the run. The answer must cite headlines that exist and name an active Korean security (`currency = 'KRW'`, `active`); otherwise Claude is asked once more with the reason (never more than twice). One pick per day: a second run does nothing, and a pick whose buy failed is only bought again, never re-picked. A run is skipped while a v2 position is open.

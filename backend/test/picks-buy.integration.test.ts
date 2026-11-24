@@ -48,8 +48,9 @@ test('the daily pick buys all-in and links the order', { skip: !url }, async (t)
       '016_asset_valuation.sql',
       '018_mock_snapshots.sql',
       '028_news_items.sql',
-      '042_daily_picks.sql',
+      '043_daily_picks.sql',
       '041_mock_positions.sql',
+      '042_mock_position_exit.sql',
     ]) {
       await runMigration(pool, file);
     }

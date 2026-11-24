@@ -29,7 +29,6 @@ import {
 import { backgroundJobs, shutdownOnce } from './runtime.js';
 import { listenHost, sharedAuth } from './standard/auth.js';
 import { createPool } from './standard/db.js';
-import { serviceDate } from './standard/http.js';
 import { jobBossOptions, jobsModeFromEnv, startJobs } from './standard/jobs.js';
 
 const port = Number(process.env.PORT ?? 3105);
