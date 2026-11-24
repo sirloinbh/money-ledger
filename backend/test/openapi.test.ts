@@ -7,6 +7,7 @@ import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
 import { createApp } from '../src/app.js';
+import type { KakaoService } from '../src/kakao/service.js';
 import { document, operations } from '../src/openapi.js';
 import { schemaOf } from '../src/standard/openapi.js';
 
@@ -34,9 +35,11 @@ const mounts: Record<string, string[]> = {
     '/api/ledger/trend',
     assets,
     '/api/portfolio/net-worth',
+    '/api/kakao',
     `${accounts}/:accountId/orders`,
     `${accounts}/:accountId/holdings`,
     `${accounts}/:accountId/snapshots`,
+    `${accounts}/:accountId/return`,
     accounts,
     '/api/mock/quotes',
     `${accounts}/:accountId/positions`,
@@ -69,7 +72,12 @@ function registeredRoutes(app: express.Express) {
 
 // Routes are only registered here, never called, so no database is needed. The server always passes a jobs status
 // handler (#178), so a stub stands in for it and GET /api/jobs/status is checked like every other route (#181).
-const app = () => createApp({} as Pool, { jobsStatus: (_req, res) => void res.end() });
+const app = () =>
+  createApp({} as Pool, {
+    jobsStatus: (_req, res) => void res.end(),
+    // #311 The Kakao routes exist only with a service; a stub registers them.
+    kakao: { service: {} as KakaoService },
+  });
 
 test('docs/openapi.json is up to date with the operation table', async () => {
   const committed = JSON.parse(

@@ -28,6 +28,7 @@ const empty = {
 
 // The requests the pages make, by method and path (the query depends on today's date).
 const answered = new Set([
+  'GET /api/kakao/status',
   'GET /api/ledger/budgets',
   'GET /api/ledger/categories',
   'GET /api/ledger/entries',

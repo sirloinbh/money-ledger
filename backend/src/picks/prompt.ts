@@ -36,7 +36,7 @@ export const answerSchema = {
 
 const text = (max: number) => z.string().trim().min(1).max(max);
 
-export const pickAnswer = z.object({
+const pickAnswer = z.object({
   newsIds: z.array(z.number().int().positive()).min(1).max(50),
   storyTitle: text(300),
   storySummary: text(2000),

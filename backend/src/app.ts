@@ -4,6 +4,10 @@ import type { Pool } from 'pg';
 import { types } from 'pg';
 
 import { tools } from './ai-tools.js';
+import { benchmarkRouter } from './benchmark.js';
+import { kakaoRouter } from './kakao/router.js';
+import type { KakaoService } from './kakao/service.js';
+import { skillHandlers, type SkillOptions } from './kakao/skill.js';
 import { budgetsRouter } from './ledger/budgets.js';
 import { categoriesRouter } from './ledger/categories.js';
 import { entriesRouter } from './ledger/entries.js';
@@ -59,6 +63,11 @@ type AppOptions = {
   jobsStatus?: express.RequestHandler;
   // shared-ai's public key (project-standards#711). None by default: /internal/tools is then a JSON 404.
   toolsPublicKey?: string;
+  // #311 The KakaoTalk connection and the URL of the web app (for the login return and message links). None: no /api/kakao.
+  kakao?: { service: KakaoService; appUrl?: string };
+  // #312 The public chatbot webhook at /kakao/skill (not under /api, so not behind the sign-in). With no config every
+  // request is refused.
+  kakaoSkill?: SkillOptions;
 };
 
 export function createApp(pool: Pool, options: AppOptions = {}) {
@@ -83,6 +92,9 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   if (options.jobsStatus) app.get('/api/jobs/status', options.jobsStatus);
   // Mounted before the app-wide JSON parser: an import of up to 2,000 rows has its own, larger limit (#44).
   app.use('/api/ledger/entries/csv', entryCsvRouter(pool, { today }));
+  // #312 Public webhook: before the app-wide JSON parser, so nothing is parsed before the secret is checked.
+  if (options.kakaoSkill)
+    app.use('/kakao/skill', ...skillHandlers(pool, { ...options.kakaoSkill, today }));
   app.use(express.json({ limit: '256kb' }));
   app.use('/api/ledger/budgets', budgetsRouter(pool));
   app.use('/api/ledger/categories', categoriesRouter(pool));
@@ -103,9 +115,12 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
     }),
   );
   app.use('/api/portfolio/net-worth', netWorthRouter(pool, { today }));
+  if (options.kakao)
+    app.use('/api/kakao', kakaoRouter(options.kakao.service, { appUrl: options.kakao.appUrl }));
   app.use('/api/mock/accounts/:accountId/orders', mockOrdersRouter(pool, today));
   app.use('/api/mock/accounts/:accountId/holdings', mockHoldingsRouter(pool, today));
   app.use('/api/mock/accounts/:accountId/snapshots', mockSnapshotsRouter(pool));
+  app.use('/api/mock/accounts/:accountId/return', benchmarkRouter(pool, today));
   app.use('/api/mock/accounts', mockAccountsRouter(pool));
   app.use('/api/mock/quotes', mockQuotesRouter(pool, options.kis));
   app.use(

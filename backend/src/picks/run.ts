@@ -7,7 +7,7 @@ import { activeKoreanSecurity, newsForPick, pickOfDay, savePick, setPickOrder } 
 
 // #308 One run of the daily pick: read the headlines, ask Claude, check its answer, store the pick, then buy.
 
-export type PickLog = (event: Record<string, unknown>) => void;
+type PickLog = (event: Record<string, unknown>) => void;
 
 /** What the run needs from outside: the model client and the all-in buy (#307). */
 export type PickDeps = {

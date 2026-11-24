@@ -176,8 +176,14 @@ const plainDecimal = /^(\d+)(?:\.(\d+))?$/;
 function canonicalDecimal(text: string) {
   const match = plainDecimal.exec(text);
   if (!match) return null;
-  const whole = match[1].replace(/^0+(?=\d)/, '');
-  const fraction = (match[2] ?? '').replace(/0+$/, '');
+  // Plain loops, not regular expressions: a long run of zeros in a user-sent value costs only a linear scan.
+  let start = 0;
+  while (start < match[1].length - 1 && match[1][start] === '0') start += 1;
+  const whole = match[1].slice(start);
+  const rest = match[2] ?? '';
+  let end = rest.length;
+  while (end > 0 && rest[end - 1] === '0') end -= 1;
+  const fraction = rest.slice(0, end);
   return fraction ? `${whole}.${fraction}` : whole;
 }
 

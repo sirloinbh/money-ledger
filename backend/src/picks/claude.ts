@@ -1,7 +1,7 @@
 // The Claude Messages API client for the daily pick (#308), called with `fetch` (no SDK package: AGENTS.md).
 // The key goes in a header and is never logged or put in an error message.
 
-export type ClaudeRequest = { system: string; user: string; schema: Record<string, unknown> };
+type ClaudeRequest = { system: string; user: string; schema: Record<string, unknown> };
 export type ClaudeAnswer = { text: string; model: string; raw: unknown };
 export type ClaudeClient = { complete(request: ClaudeRequest): Promise<ClaudeAnswer> };
 
