@@ -374,7 +374,13 @@ function SecurityDetail({
             </div>
           ) : null}
         </dl>
-        {orders ? <MockOrder securityId={security.id} title={title(security)} /> : null}
+        {orders ? (
+          <MockOrder
+            securityId={security.id}
+            title={title(security)}
+            currency={security.currency}
+          />
+        ) : null}
       </CardContent>
     </Card>
   );

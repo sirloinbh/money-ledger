@@ -4,7 +4,13 @@ import { PgBoss } from 'pg-boss';
 import { createApp } from './app.js';
 import { dailySavesQueue } from './daily-saves.js';
 import { snapshotOpenAccount } from './mock/snapshots.js';
-import { logPriceEvent, PRICE_QUEUE, priceQueue, sourcesFromEnv } from './prices/index.js';
+import {
+  liveSourceFromEnv,
+  logPriceEvent,
+  PRICE_QUEUE,
+  priceQueue,
+  sourcesFromEnv,
+} from './prices/index.js';
 import { backgroundJobs, shutdownOnce } from './runtime.js';
 import { listenHost, sharedAuth } from './standard/auth.js';
 import { createPool } from './standard/db.js';
@@ -16,6 +22,7 @@ if (!databaseUrl) throw new Error('DATABASE_URL is required');
 // createPool adds the 'error' listeners, so a lost idle connection is logged and does not end the process (#178).
 const pool = createPool(new Pool({ connectionString: databaseUrl }));
 const prices = sourcesFromEnv();
+const kis = liveSourceFromEnv();
 // PRICE_JOBS=off still works (the old switch); JOBS_MODE=off|send is the shared one (docs: price-source.md).
 const mode = process.env.PRICE_JOBS === 'off' ? 'off' : jobsModeFromEnv();
 const jobs = backgroundJobs(mode);
@@ -23,6 +30,7 @@ const jobs = backgroundJobs(mode);
 const auth = sharedAuth();
 const server = createApp(pool, {
   prices,
+  kis,
   priceLog: logPriceEvent,
   auth,
   jobsStatus: jobs.status,
