@@ -1,6 +1,7 @@
 import { DailyPick } from './daily-pick';
 import type { Health } from './health';
 import { MockAccount } from './mock-account';
+import { MockPositions } from './mock-positions';
 import { Page } from './page';
 import { SecuritySearch } from './security-search';
 
@@ -14,6 +15,7 @@ export function MockTradingPage({ health }: { health: Health }) {
     >
       <DailyPick />
       <MockAccount />
+      <MockPositions />
       <SecuritySearch orders />
     </Page>
   );

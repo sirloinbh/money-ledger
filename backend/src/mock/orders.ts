@@ -212,6 +212,7 @@ type OrderRow = {
   fx_date: string | null;
   amount_krw: string;
   fee_krw: string;
+  tax_krw: string;
   cash_after_krw: string;
   created_at: Date;
   symbol: string;
@@ -219,7 +220,7 @@ type OrderRow = {
 };
 
 const orderColumns = `o.id, o.account_id, o.security_id, o.request_key, o.side, o.quantity, o.price, o.currency,
-  o.price_date, o.fx_rate, o.fx_date, o.amount_krw, o.fee_krw, o.cash_after_krw, o.created_at, s.symbol, s.name`;
+  o.price_date, o.fx_rate, o.fx_date, o.amount_krw, o.fee_krw, o.tax_krw, o.cash_after_krw, o.created_at, s.symbol, s.name`;
 
 // Won amounts stay within MAX_WON (and the 10^15 CHECK of 015), so they are exact as JSON numbers.
 const toOrder = (row: OrderRow) => ({
@@ -235,6 +236,7 @@ const toOrder = (row: OrderRow) => ({
   fxDate: row.fx_date,
   amountKrw: won(row.amount_krw),
   feeKrw: won(row.fee_krw),
+  taxKrw: won(row.tax_krw),
   cashAfterKrw: won(row.cash_after_krw),
   createdAt: row.created_at.toISOString(),
 });

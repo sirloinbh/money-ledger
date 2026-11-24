@@ -1,5 +1,6 @@
 import { anthropicClient, type ClaudeClient, defaultModel, fakeClaude } from './claude.js';
 
+export { pickBuyDeps } from './buy.js';
 export { pickQueue } from './jobs.js';
 export { picksRouter } from './router.js';
 export type { PickDeps } from './run.js';

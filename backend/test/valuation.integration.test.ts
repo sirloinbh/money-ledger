@@ -44,7 +44,7 @@ test('asset valuation against the real database', { skip: !url }, async (t) => {
   const ids: Record<string, number> = {};
   const reset = async () => {
     await pool.query(
-      `DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets, mock_orders,
+      `DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets, mock_positions, mock_orders,
          mock_holdings, security_prices, fx_rates, price_fetch_state, price_api_calls, krx_market_days, securities`,
     );
     for (const file of [

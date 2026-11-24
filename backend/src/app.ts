@@ -16,12 +16,15 @@ import { trendRouter } from './ledger/trend.js';
 import { mockAccountsRouter } from './mock/accounts.js';
 import { mockHoldingsRouter } from './mock/holdings.js';
 import { mockOrdersRouter } from './mock/orders.js';
+import { mockAccountPositionsRouter, mockPositionsRouter } from './mock/positions.js';
+import { mockQuotesRouter } from './mock/quotes.js';
 import { mockSnapshotsRouter } from './mock/snapshots.js';
 import { type NewsLog, newsRouter, type NewsSource } from './news/index.js';
 import { type PickDeps, picksRouter } from './picks/index.js';
 import { assetsRouter } from './portfolio/assets.js';
 import { netWorthRouter } from './portfolio/net-worth.js';
 import { type PriceLog, type PriceSources, pricesRouter } from './prices/index.js';
+import type { KisSource } from './prices/kis.js';
 import { setInt8Parser } from './standard/db.js';
 import { errorHandler, notFound, requestLog, serviceDate } from './standard/http.js';
 import { apiRateLimit } from './standard/rate-limit.js';
@@ -40,6 +43,8 @@ type AppOptions = {
   // Price sources for immediate fetches (#51). None by default: tests and a server without keys fetch nothing.
   prices?: PriceSources;
   priceLog?: PriceLog;
+  // #305 Live prices and the order book (KIS). None by default: /api/mock/quotes then answers 503.
+  kis?: KisSource;
   // #187 Receives work that runs after an answer was sent (the fetch on linking an asset). By default it just
   // runs; tests collect and await it so none outlives its test.
   background?: (task: Promise<void>) => void;
@@ -102,6 +107,12 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   app.use('/api/mock/accounts/:accountId/holdings', mockHoldingsRouter(pool, today));
   app.use('/api/mock/accounts/:accountId/snapshots', mockSnapshotsRouter(pool));
   app.use('/api/mock/accounts', mockAccountsRouter(pool));
+  app.use('/api/mock/quotes', mockQuotesRouter(pool, options.kis));
+  app.use(
+    '/api/mock/accounts/:accountId/positions',
+    mockAccountPositionsRouter(pool, today, options.kis),
+  );
+  app.use('/api/mock/positions', mockPositionsRouter(pool));
   app.use(
     '/api/prices',
     pricesRouter(pool, {

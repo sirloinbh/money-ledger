@@ -15,6 +15,13 @@ Steps 2 and 3 of mock investing v2 (epic #303): Claude reads the day's stored he
 - Frontend: `daily-pick.tsx` card on the Mock trading page (story, effect, reasoning, stock, news links, bought or not).
 - `.env.example`, `compose.yaml`: `ANTHROPIC_API_KEY`, `PICK_MODEL`, `PICK_SOURCE` (names only).
 
+## The buy (on #307)
+
+- `backend/src/picks/buy.ts`: `buy` reads the best ask of the live quote and calls `buyAllIn` of #307 on the open mock account with the best ask as `expectedAsk`. The request key is a fixed UUID derived from the pick id (`buyKeyOf`), so calling the buy again for one pick returns the first position and never buys twice. The order id is stored in `daily_picks.order_id`.
+- `hasOpenPosition` is true while the open account has an unsold `mock_positions` row, so the run is skipped before Claude is asked.
+- A failed buy keeps the pick (`order_id` stays empty); the next run buys it without a second Claude call, and the job throws so pg-boss retries.
+- No foreign keys from `daily_picks` to `securities` or `mock_orders`: existing DB tests drop those tables without CASCADE, and neither table deletes rows. The run checks the security before it stores the pick, and the order id comes from the buy.
+
 ## Choices
 
 - Model: `claude-opus-5-5` (the `claude-api` skill's default), changeable with `PICK_MODEL`. It runs once a day, so cost is small; set a monthly spend limit on the key (#304).
