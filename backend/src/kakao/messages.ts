@@ -180,7 +180,7 @@ export const longHoldQuestionMessage = (event: LongHoldQuestion, link: string) =
 export type Comparison = { depositPct: string; buffettPct: string; renaissancePct: string };
 
 /** How many holdings were valued at a live price, at the last stored close, or (no price at all) at cost. */
-export type PriceSources = { live: number; close: number; cost: number };
+export type PriceSources = { live: number; close: number; stale: number; cost: number };
 
 export type DailySummary = {
   summary: AccountSummary;
@@ -188,25 +188,27 @@ export type DailySummary = {
   prices?: PriceSources;
 };
 
-const priceNote = ({ live, close, cost }: PriceSources) =>
-  close + cost === 0
+const priceNote = ({ live, close, stale, cost }: PriceSources) =>
+  close + stale + cost === 0
     ? undefined
     : `Prices: ${[
         live > 0 ? `${live} live` : '',
         close > 0 ? `${close} last close` : '',
+        stale > 0 ? `${stale} old close (over 5 days)` : '',
         cost > 0 ? `${cost} at cost` : '',
       ]
         .filter(Boolean)
         .join(', ')}`;
 
-export const dailySummaryMessage = ({ summary, comparison, prices }: DailySummary, link: string) =>
-  text(
+export function dailySummaryMessage({ summary, comparison, prices }: DailySummary, link: string) {
+  const note = prices ? priceNote(prices) : undefined;
+  return text(
     [
       'Daily summary',
       `Total value: ${formatWon(summary.totalValueKrw)}`,
       `Return: ${formatPct(summary.returnPct)} (${formatWon(summary.profitKrw)})`,
       `Cash: ${formatWon(summary.cashKrw)}`,
-      ...(prices && priceNote(prices) ? [priceNote(prices) ?? ''] : []),
+      ...(note ? [note] : []),
       ...(comparison
         ? [
             `Deposit ${formatPct(comparison.depositPct)} · Buffett ${formatPct(comparison.buffettPct)} · Renaissance ${formatPct(comparison.renaissancePct)}`,
@@ -215,3 +217,4 @@ export const dailySummaryMessage = ({ summary, comparison, prices }: DailySummar
     ],
     link,
   );
+}

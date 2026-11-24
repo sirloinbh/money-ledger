@@ -26,28 +26,38 @@ export type LivePrice = (symbol: string) => Promise<string>;
  * multiplication, the rounding and the return use SQL numeric (AGENTS.project.md); only whole-won integers are added
  * here.
  */
-export async function valueForSummary(
+async function valueForSummary(
   pool: Pool,
   accountId: number,
   day: string,
   livePrice: LivePrice | undefined,
+  log: JobLog = logJob,
 ): Promise<Pick<DailySummary, 'summary' | 'prices'> | undefined> {
   const value = await accountValue(pool, accountId, day);
   if (!value) return undefined;
-  const prices = { live: 0, close: 0, cost: 0 };
+  const prices = { live: 0, close: 0, stale: 0, cost: 0 };
 
-  const known = await Promise.all(
-    value.holdings.map(async (holding) => {
-      if (livePrice && holding.security.currency === 'KRW') {
-        try {
-          return { holding, live: await livePrice(holding.security.symbol) };
-        } catch {
-          // Fall back to the stored close below.
-        }
+  // One at a time: each quote is two KIS calls, and KIS limits calls per second. A quote that fails (rate limit, market
+  // closed, bad answer) is logged by symbol and code, and that holding falls back to its stored close below.
+  const known: { holding: (typeof value.holdings)[number]; live: string | undefined }[] = [];
+  for (const holding of value.holdings) {
+    let live: string | undefined;
+    if (livePrice && holding.security.currency === 'KRW') {
+      try {
+        const price = await livePrice(holding.security.symbol);
+        if (/^\d{1,12}$/.test(price)) live = price;
+      } catch (error) {
+        log({
+          level: 'warn',
+          event: 'kakao_daily_summary_quote_failed',
+          symbol: holding.security.symbol,
+          code: (error as { code?: unknown }).code ?? 'unknown',
+          day,
+        });
       }
-      return { holding, live: undefined };
-    }),
-  );
+    }
+    known.push({ holding, live });
+  }
 
   const liveRows = known.filter((entry) => entry.live !== undefined);
   const liveKrw = new Map<number, number>();
@@ -71,7 +81,9 @@ export async function valueForSummary(
       prices.live += 1;
       valueKrw += live;
     } else if (holding.valueKrw !== null) {
-      prices.close += 1;
+      // A close more than 5 days old is counted apart, so the note says the price is that old.
+      if (holding.priceStale) prices.stale += 1;
+      else prices.close += 1;
       valueKrw += holding.valueKrw;
     } else {
       prices.cost += 1;
@@ -122,7 +134,8 @@ export async function sendDailySummary(
     log({ level: 'info', event: 'kakao_daily_summary_skipped', reason: 'no-account', day });
     return;
   }
-  const valued = await valueForSummary(pool, account.id, day, options.livePrice);
+  const valued = await valueForSummary(pool, account.id, day, options.livePrice, log);
+  // The account was open a moment ago; a reset in between leaves nothing to send.
   if (!valued) return;
   await notifier.notify({
     type: 'daily-summary',
