@@ -52,11 +52,11 @@ test('mock all-in positions against the real database', { skip: !url }, async (t
       '013_asset_trades.sql',
       '016_asset_valuation.sql',
       '018_mock_snapshots.sql',
-      '040_mock_positions.sql',
+      '041_mock_positions.sql',
     ]) {
       await runMigration(pool, file);
     }
-    await runMigration(pool, '040_mock_positions.sql'); // re-running is safe
+    await runMigration(pool, '041_mock_positions.sql'); // re-running is safe
     const securities = await pool.query<{ id: string; symbol: string }>(
       `INSERT INTO securities (market, symbol, name, kind, currency, active) VALUES
          ('KOSPI', '005930', '삼성전자', 'stock', 'KRW', true),

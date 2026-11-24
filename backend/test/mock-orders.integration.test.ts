@@ -68,7 +68,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
       '013_asset_trades.sql',
       '016_asset_valuation.sql',
       '018_mock_snapshots.sql',
-      '040_mock_positions.sql',
+      '041_mock_positions.sql',
     ]) {
       await runMigration(pool, file);
     }
