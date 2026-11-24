@@ -4,6 +4,7 @@ import type { Pool } from 'pg';
 import { types } from 'pg';
 
 import { tools } from './ai-tools.js';
+import { benchmarkRouter } from './benchmark.js';
 import { budgetsRouter } from './ledger/budgets.js';
 import { categoriesRouter } from './ledger/categories.js';
 import { entriesRouter } from './ledger/entries.js';
@@ -94,6 +95,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   app.use('/api/mock/accounts/:accountId/orders', mockOrdersRouter(pool, today));
   app.use('/api/mock/accounts/:accountId/holdings', mockHoldingsRouter(pool, today));
   app.use('/api/mock/accounts/:accountId/snapshots', mockSnapshotsRouter(pool));
+  app.use('/api/mock/accounts/:accountId/return', benchmarkRouter(pool, today));
   app.use('/api/mock/accounts', mockAccountsRouter(pool));
   app.use(
     '/api/prices',

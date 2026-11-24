@@ -90,6 +90,19 @@ function fakeApi() {
       if (method === 'GET' && page === 'snapshots') {
         return json({ startDate: '2026-11-05', initialCashKrw: 10_000_000, snapshots: [] });
       }
+      if (method === 'GET' && page?.startsWith('return')) {
+        return json({
+          account: {
+            startDate: null,
+            endDate: null,
+            startValueKrw: null,
+            endValueKrw: null,
+            netCashFlowKrw: 0,
+            days: 0,
+            returnPct: null,
+          },
+        });
+      }
       if (method === 'GET' && url === '/api/mock/accounts') {
         return json({ account: open, closedAccounts: closed });
       }
