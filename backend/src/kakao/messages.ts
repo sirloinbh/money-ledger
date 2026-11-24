@@ -179,15 +179,34 @@ export const longHoldQuestionMessage = (event: LongHoldQuestion, link: string) =
 /** Returns in percent since the account started, for the same period as the account's own return. */
 export type Comparison = { depositPct: string; buffettPct: string; renaissancePct: string };
 
-export type DailySummary = { summary: AccountSummary; comparison?: Comparison };
+/** How many holdings were valued at a live price, at the last stored close, or (no price at all) at cost. */
+export type PriceSources = { live: number; close: number; cost: number };
 
-export const dailySummaryMessage = ({ summary, comparison }: DailySummary, link: string) =>
+export type DailySummary = {
+  summary: AccountSummary;
+  comparison?: Comparison;
+  prices?: PriceSources;
+};
+
+const priceNote = ({ live, close, cost }: PriceSources) =>
+  close + cost === 0
+    ? undefined
+    : `Prices: ${[
+        live > 0 ? `${live} live` : '',
+        close > 0 ? `${close} last close` : '',
+        cost > 0 ? `${cost} at cost` : '',
+      ]
+        .filter(Boolean)
+        .join(', ')}`;
+
+export const dailySummaryMessage = ({ summary, comparison, prices }: DailySummary, link: string) =>
   text(
     [
       'Daily summary',
       `Total value: ${formatWon(summary.totalValueKrw)}`,
       `Return: ${formatPct(summary.returnPct)} (${formatWon(summary.profitKrw)})`,
       `Cash: ${formatWon(summary.cashKrw)}`,
+      ...(prices && priceNote(prices) ? [priceNote(prices) ?? ''] : []),
       ...(comparison
         ? [
             `Deposit ${formatPct(comparison.depositPct)} · Buffett ${formatPct(comparison.buffettPct)} · Renaissance ${formatPct(comparison.renaissancePct)}`,

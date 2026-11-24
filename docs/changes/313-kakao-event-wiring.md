@@ -30,8 +30,18 @@ Behavior notes:
 
 Fixed in a follow-up commit: a pick is now three messages (story, pick and reasoning, buy) so the reasoning is not cut by Kakao's 200 characters, and the 단타 / 장투 question is the first line of the buy message so it is never the line that is cut; the daily summary is skipped when a holding has no close for that day (price fetch failed or market closed), instead of sending an earlier day's value as current; a revoked connection stops the rest of an event and logs once; `link` is now a required option of `createNotifier`; tests cover the no-valuation and stale-price skips, what a failing send leaves behind, and the 200-character limit.
 
+## Step 1b: value the daily summary at live prices (coordinator report)
+
+KRX daily closes are stored around 8 AM the next day, so at 19:10 no Korean holding has that day's stored close, and the step 1 rule "skip when a holding's latest close is not from that day" would have skipped the summary almost every day. Replaced:
+
+- Each Korean holding is valued at the live price (`kis.quote(symbol).price`, injected as `livePrice`), else at the latest stored close, else at cost. The multiplication, rounding and return are SQL numeric (`valueForSummary` in `backend/src/kakao/daily-summary.ts`); only whole-won integers are added in code.
+- One missing price never skips the summary. The message adds a line such as `Prices: 1 live, 1 last close, 1 at cost` unless every holding is live.
+- The summary still skips when KakaoTalk is not connected or there is no open account. It runs weekdays only; the shared KRX business-day check replaces that when #321 lands.
+- Open question for lane-1 (owner of `prices/kis*.ts`): `kis.quote()` throws `market_closed` when the order book is empty, which is the normal state at 19:10. If the real KIS answers an empty book after the close, the live price is never used and the summary falls back to the stored close (marked as such). A price-only read on `KisSource` would fix that. This cannot be checked without real keys (#304).
+
 ## Verification
 
+- Daily summary valuation (integration test): one holding priced live, one at the last close, one at cost gives the expected total and return (-3.35%) and the `Prices:` line; with no live source it falls back to close and cost.
 - Backend unit tests (`kakao-notifier.test.ts`): each event's exact text, a stop loss with a negative gain, the summary with and without the comparison, each event sent through the fake messenger, a retry that succeeds, two failures logged with no amounts and no throw, a revoked connection not retried, the second message of a pick surviving the first one's failure.
 - DB integration test (`kakao-daily-summary.integration.test.ts`, dedicated Postgres 17 test DB, not skipped): an account with no holdings is summarized with and without a comparison; not connected and no account send nothing and raise nothing; a failing send does not fail the job.
 - `npm run check` with `TEST_DATABASE_URL` on a dedicated Postgres 17 test DB: passed, no skipped DB tests.
