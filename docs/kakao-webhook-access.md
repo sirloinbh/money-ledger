@@ -1,6 +1,6 @@
 # Kakao skill webhook: public access design (#314)
 
-Status: design only. Nothing here is deployed. Choosing the hosting route and every real AWS or production change need the user's decision (see "Open decisions"), and the first real round trip needs the keys from #304.
+Status: design only. Nothing here is deployed. Choosing the hosting route and every real AWS or production change need the user's decision (see "Hosting route"), and the first real round trip needs the keys from #304.
 
 ## Why this exists
 
@@ -23,7 +23,7 @@ The public entry must forward only `POST /kakao/skill` to the API and refuse eve
 2. **Method**: only `POST`.
 3. **Shared secret**: the `x-kakao-skill-secret` request header must equal `KAKAO_SKILL_SECRET` (16+ characters, random). Both sides are hashed with SHA-256 and compared with `timingSafeEqual`, so response time does not reveal how much of a guess was right. The same value is entered once in Open Builder as the skill's request header.
 4. **Body shape**: a 16 kB JSON limit, parsed only after the secret check, and only `userRequest.utterance` and `userRequest.user.id` are read.
-5. **User allowlist**: `userRequest.user.id` must be in `KAKAO_ALLOWED_USER_IDS`. The ID is read from the chatbot's own first message and set in the environment, not in git.
+5. **User allowlist**: `userRequest.user.id` must be in `KAKAO_ALLOWED_USER_IDS`. The ID is taken from the first request the bot receives from the user (it appears in the skill request, not in any Kakao screen) and set in the environment, not in git.
 6. **Fail closed**: if either setting is missing, short or empty, the endpoint refuses every request.
 
 A failure at step 2, 3, 5 or 6 returns the same `403 {"error":"Not allowed"}` with no data and no hint of which check failed. Only a correct secret together with a listed user ID gets a real answer.
@@ -39,7 +39,7 @@ A failure at step 2, 3, 5 or 6 returns the same `403 {"error":"Not allowed"}` wi
 - Commands: the command name and the result (`ok`, `unavailable`, `error`, `timeout`) as a JSON line and as a row in `kakao_commands`. Never the user ID and never the text the user typed.
 - The shared request log adds method, path, status and duration for every request.
 
-Retention follows the platform default for container logs; `kakao_commands` rows carry no personal data. Neither is shipped to a third party.
+Retention follows the platform default for container logs; `kakao_commands` rows carry no personal data.
 
 ## Hosting route (open decision)
 
