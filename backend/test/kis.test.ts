@@ -195,3 +195,55 @@ test('the quote route answers 503 without a source and maps KIS errors', async (
     { kis: fakeKis() },
   );
 });
+
+test('lastPrice makes one call to the current-price endpoint and needs no order book', async () => {
+  const kis = script({
+    quote: () => ({ status: 200, body: price }),
+  });
+  const source = kisSource({
+    appKey: 'k',
+    appSecret: 's',
+    fetchFn: kis.fetchFn,
+    now: () => new Date('2026-11-24T10:10:00Z'),
+  });
+  const last = await source.lastPrice('005930');
+  assert.deepEqual(last, { symbol: '005930', price: '71000', readAt: '2026-11-24T10:10:00.000Z' });
+  const priceCalls = kis.calls.filter((call) => !call.url.endsWith('/oauth2/tokenP'));
+  assert.equal(priceCalls.length, 1);
+  assert.ok(priceCalls[0].url.includes('/inquire-price?'));
+  assert.equal(priceCalls[0].headers.tr_id, 'FHKST01010100');
+  // The same answer is not a quote: there is no order book, so quote() reports the market as closed or broken.
+  await assert.rejects(source.quote('005930'), (error: unknown) => error instanceof KisError);
+});
+
+test('lastPrice maps errors like quote and rejects an answer without a price', async () => {
+  for (const [status, msg, code] of [
+    [200, 'EGW00201', 'rate_limit'],
+    [403, 'EGW00103', 'bad_key'],
+    [500, '', 'unavailable'],
+  ] as const) {
+    const kis = script({ quote: () => ({ status, body: { rt_cd: '1', msg_cd: msg } }) });
+    const source = kisSource({ appKey: 'k', appSecret: 'TOPSECRET', fetchFn: kis.fetchFn });
+    await assert.rejects(source.lastPrice('005930'), (error: unknown) => {
+      assert.ok(error instanceof KisError);
+      assert.equal(error.code, code);
+      assert.ok(!error.message.includes('TOPSECRET'));
+      return true;
+    });
+  }
+  const noPrice = script({ quote: () => ({ status: 200, body: { rt_cd: '0', output: {} } }) });
+  await assert.rejects(
+    kisSource({ appKey: 'k', appSecret: 's', fetchFn: noPrice.fetchFn }).lastPrice('005930'),
+    (error: unknown) => error instanceof KisError && error.code === 'unavailable',
+  );
+});
+
+test('the fake answers a last price also for the always-closed symbol', async () => {
+  const fake = fakeKis(() => new Date('2026-11-24T10:10:00Z'));
+  assert.deepEqual(await fake.lastPrice('005930'), {
+    symbol: '005930',
+    price: '70000',
+    readAt: '2026-11-24T10:10:00.000Z',
+  });
+  assert.equal((await fake.lastPrice('999999')).price, '10000');
+});
