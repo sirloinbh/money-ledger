@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import { PgBoss } from 'pg-boss';
 
-import { createApp } from './app.js';
+import { createApp, serviceDate } from './app.js';
 import { baseRateSourceFromEnv, benchmarkQueue } from './benchmark-fetch.js';
 import { dailySavesQueue } from './daily-saves.js';
 import { kakaoConfigFromEnv } from './kakao/api.js';
@@ -9,6 +9,7 @@ import { kakaoDailySummaryQueue } from './kakao/daily-summary.js';
 import { createNotifier } from './kakao/notifier.js';
 import { createKakaoService } from './kakao/service.js';
 import { skillConfigFromEnv } from './kakao/skill.js';
+import { dayTradeQueue } from './mock/day-trade.js';
 import { snapshotOpenAccount } from './mock/snapshots.js';
 import { logNewsEvent, newsQueue, newsSourceFromEnv } from './news/index.js';
 import {
@@ -82,6 +83,8 @@ void jobs.start(
         priceQueue(pool, prices, logPriceEvent, (now) => snapshotOpenAccount(pool, now)),
         // #185 Fixed costs, finished reports and net worth once a day; the app's on-open calls stay as a fallback.
         dailySavesQueue(pool),
+        // #309 Day trades are sold at +5% or -3% every minute during market hours.
+        dayTradeQueue(pool, kis, () => serviceDate(), { log: logPriceEvent }),
         // #313 The account summary to KakaoTalk once a day after the close.
         kakaoDailySummaryQueue(pool, notifier, kakao.service, undefined, {
           // lastPrice works after the close too (it is the day's close then); when KIS cannot answer, the stored close is used.
