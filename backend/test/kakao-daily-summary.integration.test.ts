@@ -20,7 +20,7 @@ test('the daily KakaoTalk summary against the real database', { skip: !url }, as
   t.after(() => pool.end());
   const reset = async () => {
     await pool.query(
-      'DROP TABLE IF EXISTS mock_snapshots, mock_orders, mock_holdings, mock_accounts',
+      'DROP TABLE IF EXISTS mock_snapshots, mock_positions, mock_orders, mock_holdings, mock_accounts',
     );
     await runMigration(pool, '005_mock_accounts.sql');
     await runMigration(pool, '009_prices.sql');
@@ -111,46 +111,65 @@ test('the daily KakaoTalk summary against the real database', { skip: !url }, as
     assert.equal(messenger.sent.length, 0);
   });
 
-  await t.test('a holding without a close for the day skips the summary', async () => {
-    await reset();
-    await pool.query('DELETE FROM security_prices');
-    await pool.query('DELETE FROM securities');
-    const { rows } = await pool.query(
-      "INSERT INTO securities (market, symbol, name, kind, currency) VALUES ('KOSPI', '005930', 'Samsung', 'stock', 'KRW') RETURNING id",
-    );
-    await pool.query(
-      'INSERT INTO mock_accounts (initial_cash_krw, cash_krw) VALUES (10000000, 9000000)',
-    );
-    await pool.query(
-      'INSERT INTO mock_holdings (account_id, security_id, quantity, cost_krw) VALUES (1, $1, 10, 1000000)',
-      [rows[0].id],
-    );
-    const messenger = fakeMessenger();
-    const notifier = createNotifier(messenger, {
-      link: 'https://app',
-      log: quiet().log,
-      retryDelayMs: 0,
-    });
-    const { lines, log } = quiet();
-    const options = { connected: async () => true, log };
-    // No close at all: the total is unknown.
-    await sendDailySummary(pool, notifier, '2026-11-24', options);
-    // A close from an earlier day: the value would look current but is not.
-    await pool.query(
-      "INSERT INTO security_prices (security_id, trade_date, close, currency, source) VALUES ($1, '2026-11-20', 80000, 'KRW', 'test')",
-      [rows[0].id],
-    );
-    await sendDailySummary(pool, notifier, '2026-11-24', options);
-    assert.deepEqual(
-      lines.map((line) => line.reason),
-      ['no-valuation', 'stale-prices'],
-    );
-    // Today's close: sent.
-    await pool.query(
-      "INSERT INTO security_prices (security_id, trade_date, close, currency, source) VALUES ($1, '2026-11-24', 81000, 'KRW', 'test')",
-      [rows[0].id],
-    );
-    await sendDailySummary(pool, notifier, '2026-11-24', options);
-    assert.match(String(messenger.sent[0].text), /Total value: ₩9,810,000/);
-  });
+  await t.test(
+    'holdings are valued at the live price, the last close, or cost, and never skip the summary',
+    async () => {
+      await reset();
+      await pool.query('DELETE FROM security_prices');
+      await pool.query('DELETE FROM securities');
+      const added = await pool.query<{ id: number }>(
+        `INSERT INTO securities (market, symbol, name, kind, currency) VALUES
+         ('KOSPI', '005930', 'Samsung', 'stock', 'KRW'),
+         ('KOSPI', '000660', 'SK hynix', 'stock', 'KRW'),
+         ('KOSDAQ', '035720', 'No price', 'stock', 'KRW') RETURNING id`,
+      );
+      const [samsung, hynix, bare] = added.rows.map((row) => row.id);
+      await pool.query(
+        'INSERT INTO mock_accounts (initial_cash_krw, cash_krw) VALUES (10000000, 8000000)',
+      );
+      await pool.query(
+        `INSERT INTO mock_holdings (account_id, security_id, quantity, cost_krw) VALUES
+         (1, $1, 10, 700000), (1, $2, 5, 800000), (1, $3, 2, 200000)`,
+        [samsung, hynix, bare],
+      );
+      // Only a close of an earlier day is stored: the day's own close comes the next morning.
+      await pool.query(
+        `INSERT INTO security_prices (security_id, trade_date, close, currency, source)
+       VALUES ($1, '2026-11-23', 150000, 'KRW', 'test'), ($2, '2026-11-23', 70000, 'KRW', 'test')`,
+        [hynix, samsung],
+      );
+      const messenger = fakeMessenger();
+      const notifier = createNotifier(messenger, {
+        link: 'https://app',
+        log: quiet().log,
+        retryDelayMs: 0,
+      });
+      const asked: string[] = [];
+      // Samsung answers live; SK hynix cannot (market closed); the third has no close either.
+      const livePrice = async (symbol: string) => {
+        asked.push(symbol);
+        if (symbol === '005930') return '71500';
+        throw new Error('market closed');
+      };
+      await sendDailySummary(pool, notifier, '2026-11-24', {
+        connected: async () => true,
+        livePrice,
+        log: quiet().log,
+      });
+      assert.deepEqual(asked.sort(), ['000660', '005930', '035720']);
+      // 8,000,000 cash + Samsung 10 x 71,500 live + SK hynix 5 x 150,000 close + 200,000 cost
+      assert.equal(
+        messenger.sent[0].text,
+        'Daily summary\nTotal value: ₩9,665,000\nReturn: -3.35% (-₩335,000)\nCash: ₩8,000,000\nPrices: 1 live, 1 last close, 1 at cost',
+      );
+
+      // Without a live source everything falls back to the stored close, or cost.
+      await sendDailySummary(pool, notifier, '2026-11-24', {
+        connected: async () => true,
+        log: quiet().log,
+      });
+      assert.match(String(messenger.sent[1].text), /Total value: ₩9,650,000/);
+      assert.match(String(messenger.sent[1].text), /Prices: 2 last close, 1 at cost/);
+    },
+  );
 });

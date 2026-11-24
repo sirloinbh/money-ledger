@@ -1,5 +1,5 @@
 -- #309 Day trade auto sell: why and how a position closed, and what happens to a day trade that reached neither level.
--- Safe to re-run. Numbered after 040 (mock_positions): the runner refuses a file numbered before one already applied.
+-- Safe to re-run. Numbered after 041 (mock_positions): the runner refuses a file numbered before one already applied.
 
 -- exit_reason: 'take_profit' (+5%) and 'stop_loss' (-3%) from the day trade rule, 'manual' for any other sale.
 -- net_gain_krw / net_gain_pct: the sale's cash after fee and tax minus the buy amount plus its fee, and that gain as

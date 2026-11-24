@@ -2,11 +2,13 @@ import { Pool } from 'pg';
 import { PgBoss } from 'pg-boss';
 
 import { createApp, serviceDate } from './app.js';
+import { baseRateSourceFromEnv, benchmarkQueue } from './benchmark-fetch.js';
 import { dailySavesQueue } from './daily-saves.js';
 import { kakaoConfigFromEnv } from './kakao/api.js';
 import { kakaoDailySummaryQueue } from './kakao/daily-summary.js';
 import { createNotifier } from './kakao/notifier.js';
 import { createKakaoService } from './kakao/service.js';
+import { skillConfigFromEnv } from './kakao/skill.js';
 import { dayTradeQueue } from './mock/day-trade.js';
 import { snapshotOpenAccount } from './mock/snapshots.js';
 import { logNewsEvent, newsQueue, newsSourceFromEnv } from './news/index.js';
@@ -53,6 +55,7 @@ const server = createApp(pool, {
   jobsStatus: jobs.status,
   toolsPublicKey: process.env.AI_TOOLS_PUBLIC_KEY,
   kakao,
+  kakaoSkill: { config: skillConfigFromEnv() },
 }).listen(port, listenHost(auth !== undefined), () => console.log(`API http://localhost:${port}`));
 // #178: jobs start after the API listens; a start-up failure is logged and the API keeps serving.
 // #235: a failed start is retried with a new PgBoss a few times (runtime.ts START_RETRY_DELAYS_MS).
@@ -69,9 +72,14 @@ void jobs.start(
         // #309 Day trades are sold at +5% or -3% every minute during market hours.
         dayTradeQueue(pool, kis, () => serviceDate(), { log: logPriceEvent }),
         // #313 The account summary to KakaoTalk once a day after the close.
-        kakaoDailySummaryQueue(pool, notifier, kakao.service),
+        kakaoDailySummaryQueue(pool, notifier, kakao.service, undefined, {
+          // lastPrice works after the close too (it is the day's close then); when KIS cannot answer, the stored close is used.
+          livePrice: kis ? async (symbol) => (await kis.lastPrice(symbol)).price : undefined,
+        }),
         // #306 Economy headlines at 07:30 on weekdays, for the daily pick.
         newsQueue(pool, news, logNewsEvent),
+        // #294 The Bank of Korea base rate for the deposit comparison.
+        benchmarkQueue(pool, baseRateSourceFromEnv(), logPriceEvent),
       ],
       { mode },
     ),

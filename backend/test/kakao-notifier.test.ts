@@ -116,6 +116,18 @@ test('the daily summary adds the deposit, Buffett and Renaissance line only when
   );
 });
 
+test('the daily summary says which prices it used, and stays quiet when all are live', () => {
+  const event = events['daily-summary'] as Extract<KakaoEvent, { type: 'daily-summary' }>;
+  const note = (prices: { live: number; close: number; stale: number; cost: number }) =>
+    String(dailySummaryMessage({ summary: event.summary, prices }, 'https://app').text);
+  assert.ok(!note({ live: 3, close: 0, stale: 0, cost: 0 }).includes('Prices'));
+  assert.match(
+    note({ live: 1, close: 1, stale: 1, cost: 1 }),
+    /\nPrices: 1 live, 1 last close, 1 old close \(over 5 days\), 1 at cost$/,
+  );
+  assert.match(note({ live: 0, close: 2, stale: 0, cost: 0 }), /\nPrices: 2 last close$/);
+});
+
 test('each event type is sent through the messenger', async () => {
   const messenger = fakeMessenger();
   const notifier = createNotifier(messenger, {
