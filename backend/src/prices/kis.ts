@@ -16,9 +16,22 @@ export type LiveQuote = {
   readAt: string;
 };
 
+/**
+ * The last traded price of a stock; outside market hours it is the last close. Exported for the code that calls
+ * `lastPrice` (#313, #309).
+ *
+ * @public
+ */
+export type LastPrice = { symbol: string; price: string; readAt: string };
+
 export type KisSource = {
   readonly name: string;
   quote(symbol: string): Promise<LiveQuote>;
+  /**
+   * The last traded price alone, from the current-price endpoint (one call). It works when the market is closed,
+   * unlike `quote`, which needs an order book. `readAt` is when it was read, not when it was traded.
+   */
+  lastPrice(symbol: string): Promise<LastPrice>;
 };
 
 export type KisErrorCode = 'bad_key' | 'rate_limit' | 'market_closed' | 'unavailable';
@@ -50,6 +63,11 @@ function whole(value: unknown) {
   return plain !== null && /^\d{1,12}$/.test(plain) ? plain : null;
 }
 
+/** The current price in an inquire-price answer (`output.stck_prpr`), or null when it is not a won price. */
+function priceOf(body: unknown) {
+  return whole(((body as Body | null)?.output as Body | undefined)?.stck_prpr);
+}
+
 function readLevels(output: Body, priceKey: string, quantityKey: string): Level[] {
   const result: Level[] = [];
   for (let i = 1; i <= levels; i += 1) {
@@ -73,7 +91,7 @@ export function parseQuote(
   bookBody: unknown,
   readAt: Date,
 ): LiveQuote {
-  const price = whole(((priceBody as Body | null)?.output as Body | undefined)?.stck_prpr);
+  const price = priceOf(priceBody);
   const output = (bookBody as Body | null)?.output1 as Body | undefined;
   if (price === null || !output || typeof output !== 'object') {
     throw new KisError('unavailable', 'The KIS answer is not in the expected format');
@@ -200,6 +218,18 @@ export function kisSource(options: Options): KisSource {
         symbol,
       );
       return parseQuote(symbol, price, book, now());
+    },
+    async lastPrice(symbol) {
+      const body = await get(
+        '/uapi/domestic-stock/v1/quotations/inquire-price',
+        'FHKST01010100',
+        symbol,
+      );
+      const price = priceOf(body);
+      if (price === null) {
+        throw new KisError('unavailable', 'The KIS answer is not in the expected format');
+      }
+      return { symbol, price, readAt: now().toISOString() };
     },
   };
 }
