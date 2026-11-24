@@ -63,7 +63,7 @@ test('day trade auto sell against the real database', { skip: !url }, async (t) 
   let securityId = 0;
   const reset = async () => {
     await pool.query(
-      `DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets, mock_positions,
+      `DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets, mock_position_questions, mock_positions,
          mock_snapshots, mock_orders, mock_holdings, mock_accounts, security_prices, fx_rates,
          price_fetch_state, price_api_calls, krx_market_days, securities`,
     );

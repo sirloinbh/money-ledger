@@ -48,6 +48,7 @@ test('the morning keep-or-sell question against the real database', { skip: !url
       '016_asset_valuation.sql',
       '018_mock_snapshots.sql',
       '041_mock_positions.sql',
+      '042_mock_position_exit.sql',
       '043_mock_position_questions.sql',
     ]) {
       await runMigration(pool, file);
