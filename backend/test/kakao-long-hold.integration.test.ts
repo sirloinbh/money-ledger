@@ -8,7 +8,7 @@ import { fakeMessenger } from '../src/kakao/fake.js';
 import { notifyLongHoldQuestions } from '../src/kakao/long-hold-events.js';
 import { createNotifier } from '../src/kakao/notifier.js';
 import { longHoldQueue } from '../src/mock/long-hold.js';
-import { runMigration } from './helpers.js';
+import { resetDatabase } from './helpers.js';
 import { testDatabase } from './test-database.js';
 
 // #313 The keep-or-sell question message, through the real morning queue with a fake clock. 2026-11-25 is a Wednesday.
@@ -22,29 +22,9 @@ test('the long hold question message against the real database', { skip: !url },
   let accountId = 0;
   let securityId = 0;
   const reset = async () => {
-    await pool.query(
-      `DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets, mock_position_questions,
-         krx_holidays, mock_positions, mock_snapshots, mock_orders, mock_holdings, mock_accounts, security_prices,
-         fx_rates, price_fetch_state, price_api_calls, krx_market_days, securities`,
-    );
-    for (const file of [
-      '005_mock_accounts.sql',
-      '009_prices.sql',
-      '012_krx_listing.sql',
-      '024_price_fetch_not_found.sql',
-      '015_mock_orders.sql',
-      '004_portfolio_assets.sql',
-      '007_depreciable_assets.sql',
-      '010_prepaid_assets.sql',
-      '013_asset_trades.sql',
-      '016_asset_valuation.sql',
-      '018_mock_snapshots.sql',
-      '041_mock_positions.sql',
-      '042_mock_position_exit.sql',
-      '046_mock_position_questions.sql',
-    ]) {
-      await runMigration(pool, file);
-    }
+    await resetDatabase(pool);
+    // The migrations seed some closing days; this test starts from an empty calendar.
+    await pool.query('TRUNCATE krx_holidays');
     const security = await pool.query<{ id: string }>(
       `INSERT INTO securities (market, symbol, name, kind, currency, active)
        VALUES ('KOSPI', '005930', 'Samsung Electronics', 'stock', 'KRW', true) RETURNING id`,
