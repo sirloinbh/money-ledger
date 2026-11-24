@@ -39,6 +39,8 @@ const mounts: Record<string, string[]> = {
     `${accounts}/:accountId/snapshots`,
     accounts,
     '/api/mock/quotes',
+    `${accounts}/:accountId/positions`,
+    '/api/mock/positions',
     '/api/prices',
   ],
   [assets]: ['/:id/trades'],

@@ -21,7 +21,7 @@ test('the daily saves job against the real database', { skip: !url }, async (t) 
   // The asset tables as the net worth test makes them (other tests drop some of them).
   await pool.query(
     `DROP TABLE IF EXISTS net_worth_snapshots, portfolio_trades, portfolio_prepaid_usages, portfolio_assets,
-       mock_snapshots, mock_orders, mock_holdings, mock_accounts, security_prices, fx_rates, price_fetch_state,
+       mock_snapshots, mock_positions, mock_orders, mock_holdings, mock_accounts, security_prices, fx_rates, price_fetch_state,
        price_api_calls, krx_market_days, securities`,
   );
   for (const file of [
