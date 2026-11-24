@@ -3,6 +3,8 @@
 export type Fetch = typeof fetch;
 
 export type KakaoConfig = {
+  /** KAKAO_APP_URL: where the web app is, when it is not on the same origin as the redirect URI (local development). */
+  appUrl?: string;
   restApiKey: string;
   clientSecret: string | undefined;
   redirectUri: string;
@@ -16,7 +18,13 @@ export function kakaoConfigFromEnv(env: NodeJS.ProcessEnv = process.env): KakaoC
   const redirectUri = env.KAKAO_REDIRECT_URI;
   const tokenKey = env.KAKAO_TOKEN_KEY;
   if (!restApiKey || !redirectUri || !tokenKey) return undefined;
-  return { restApiKey, clientSecret: env.KAKAO_CLIENT_SECRET || undefined, redirectUri, tokenKey };
+  return {
+    restApiKey,
+    clientSecret: env.KAKAO_CLIENT_SECRET || undefined,
+    redirectUri,
+    tokenKey,
+    appUrl: env.KAKAO_APP_URL || undefined,
+  };
 }
 
 export type Tokens = {
@@ -40,6 +48,17 @@ export class KakaoApiError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'KakaoApiError';
+  }
+}
+
+/** Kakao answers in well under a second; a call that hangs must not hold a row lock or a connection for long. */
+const timeoutMs = 10_000;
+
+async function call(fetcher: Fetch, input: string, init: RequestInit) {
+  try {
+    return await fetcher(input, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+  } catch {
+    throw new KakaoApiError('Kakao did not answer in time');
   }
 }
 
@@ -75,7 +94,7 @@ async function tokenRequest(
 ) {
   const body = new URLSearchParams({ client_id: config.restApiKey, ...params });
   if (config.clientSecret) body.set('client_secret', config.clientSecret);
-  const response = await fetcher(tokenUrl, {
+  const response = await call(fetcher, tokenUrl, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded;charset=utf-8' },
     body,
@@ -120,7 +139,7 @@ export const refreshTokens = (
 export type Template = Record<string, unknown> & { object_type: 'text' | 'list' };
 
 export async function sendMemo(fetcher: Fetch, accessToken: string, template: Template) {
-  const response = await fetcher(memoUrl, {
+  const response = await call(fetcher, memoUrl, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${accessToken}`,

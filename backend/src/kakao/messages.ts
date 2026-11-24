@@ -24,7 +24,9 @@ const decimal = (text: string) => {
 
 function text(lines: string[], link: string): Template {
   const joined = lines.join('\n');
-  const body = joined.length > textLimit ? `${joined.slice(0, textLimit - 1)}…` : joined;
+  // Cut by code points, so an emoji is never split in half.
+  const chars = Array.from(joined);
+  const body = chars.length > textLimit ? `${chars.slice(0, textLimit - 1).join('')}…` : joined;
   return {
     object_type: 'text',
     text: body,

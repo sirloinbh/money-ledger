@@ -23,11 +23,11 @@ const mode = process.env.PRICE_JOBS === 'off' ? 'off' : jobsModeFromEnv();
 const jobs = backgroundJobs(mode);
 // Without the sign-in (local development) the API listens on 127.0.0.1 only; with it, on every interface (#866, #898).
 const auth = sharedAuth();
-// #311 Without the Kakao settings the card says it is not set up; the redirect URI's origin is the web app.
+// #311 Without the Kakao settings the card says it is not set up; the web app is KAKAO_APP_URL, or the redirect URI's origin when both share one.
 const kakaoConfig = kakaoConfigFromEnv();
 const kakao = {
   service: createKakaoService(pool, { config: kakaoConfig }),
-  appUrl: kakaoConfig ? new URL(kakaoConfig.redirectUri).origin : undefined,
+  appUrl: kakaoConfig ? (kakaoConfig.appUrl ?? new URL(kakaoConfig.redirectUri).origin) : undefined,
 };
 const server = createApp(pool, {
   prices,
