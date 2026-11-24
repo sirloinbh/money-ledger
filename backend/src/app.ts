@@ -18,6 +18,7 @@ import { mockHoldingsRouter } from './mock/holdings.js';
 import { mockOrdersRouter } from './mock/orders.js';
 import { mockSnapshotsRouter } from './mock/snapshots.js';
 import { type NewsLog, newsRouter, type NewsSource } from './news/index.js';
+import { type PickDeps, picksRouter } from './picks/index.js';
 import { assetsRouter } from './portfolio/assets.js';
 import { netWorthRouter } from './portfolio/net-worth.js';
 import { type PriceLog, type PriceSources, pricesRouter } from './prices/index.js';
@@ -44,6 +45,8 @@ type AppOptions = {
   background?: (task: Promise<void>) => void;
   // #306 Economy news source. None by default: the manual fetch then answers 503.
   news?: NewsSource;
+  // #308 The daily pick's Claude client and buy. None by default: the manual run then answers 503.
+  pick?: PickDeps;
   newsLog?: NewsLog;
   // The shared sign-in session check (#149). None by default: tests and local development run open.
   auth?: express.RequestHandler;
@@ -117,6 +120,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
       log: options.newsLog ?? (() => undefined),
     }),
   );
+  app.use('/api/picks', picksRouter(pool, { deps: options.pick, today, now }));
   // AI tools for shared-ai on /internal/tools: outside /api, so nginx never forwards them and the signed call
   // token, not the session, is the check. shared-ai signs the tool and jti claims, so the app requires them.
   registerToolRoutes(app, {
