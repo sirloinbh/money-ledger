@@ -60,13 +60,21 @@ export type SkillOptions = {
   requestsPerMinute?: number;
 };
 
+/** What kakao_commands stores: both strategy words are one command. */
+const recorded = (name: string | undefined) =>
+  name === 'day_trade' || name === 'long_hold' ? 'strategy' : (name ?? 'unknown');
+
 type Result = 'ok' | 'unavailable' | 'error' | 'timeout';
 
-const answer = (text: string) => ({
+const answer = (text: string, extra: string[] = []) => ({
   version: '2.0',
   template: {
     outputs: [{ simpleText: { text } }],
-    quickReplies: quickReplies.map((label) => ({ label, action: 'message', messageText: label })),
+    quickReplies: [...extra, ...quickReplies].map((label) => ({
+      label,
+      action: 'message',
+      messageText: label,
+    })),
   },
 });
 
@@ -125,6 +133,7 @@ export function skillHandlers(
       const name = parseCommand(utterance);
       let result: Result = 'ok';
       let text = helpText;
+      let extra: string[] = [];
       if (name) {
         try {
           const outcome = await Promise.race([
@@ -137,6 +146,7 @@ export function skillHandlers(
           } else {
             result = outcome.available ? 'ok' : 'unavailable';
             text = outcome.text;
+            extra = outcome.extraReplies ?? [];
           }
         } catch (error) {
           result = 'error';
@@ -149,14 +159,14 @@ export function skillHandlers(
       // The command and its result only: not the user ID, not what was typed.
       await pool
         .query('INSERT INTO kakao_commands (command, result) VALUES ($1, $2)', [
-          name ?? 'unknown',
+          recorded(name),
           result,
         ])
         .catch((error: unknown) =>
           log({ event: 'kakao_skill_record_failed', message: String(error) }),
         );
-      log({ event: 'kakao_skill_command', command: name ?? 'unknown', result });
-      res.json(answer(text));
+      log({ event: 'kakao_skill_command', command: recorded(name), result });
+      res.json(answer(text, extra));
     } catch (error) {
       next(error);
     }

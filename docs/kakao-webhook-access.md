@@ -31,7 +31,7 @@ A failure at step 2, 3, 5 or 6 returns the same `403 {"error":"Not allowed"}` wi
 ### What a leaked secret or user ID allows
 
 - Secret alone (without a listed user ID): nothing; step 5 refuses. User IDs are not secrets in themselves, but they are not published.
-- Both: the read-only commands (상태, 포지션, 뉴스, 수익률) and, after #312 is finished, the strategy and keep-or-sell answers for a **mock** account. No real money, no ledger or portfolio data, no setting changes. Rotating `KAKAO_SKILL_SECRET` in the environment and in Open Builder ends the exposure.
+- Both: the read-only commands (상태, 포지션, 뉴스, 수익률) the strategy choice (단타, 장투) and, once #312 is finished, the keep-or-sell answers (유지, 매도), all for a **mock** account. No real money, no ledger or portfolio data, no setting changes. Rotating `KAKAO_SKILL_SECRET` in the environment and in Open Builder ends the exposure.
 
 ## What is logged
 

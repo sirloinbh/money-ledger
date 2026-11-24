@@ -42,6 +42,8 @@ test('KakaoTalk chatbot commands against the real database', { skip: !url }, asy
   await pool.query('DROP TABLE IF EXISTS kakao_commands');
   await pool.query('TRUNCATE mock_accounts, securities CASCADE');
   await runMigration(pool, '039_kakao_commands.sql');
+  await runMigration(pool, '043_kakao_commands_strategy.sql');
+  await runMigration(pool, '043_kakao_commands_strategy.sql'); // re-running is safe
   await runMigration(pool, '039_kakao_commands.sql'); // re-running is safe
 
   const ask = async (
@@ -95,6 +97,25 @@ test('KakaoTalk chatbot commands against the real database', { skip: !url }, asy
     [account.rows[0]!.id, security.rows[0]!.id],
   );
 
+  // The all-in buy of the same shares (#307): an undecided position the strategy commands act on.
+  const buy = await pool.query<{ id: string }>(
+    `INSERT INTO mock_orders (account_id, security_id, request_key, side, quantity, price, currency,
+       price_date, amount_krw, fee_krw, cash_after_krw, fill_source)
+     VALUES ($1, $2, gen_random_uuid(), 'buy', 20, 70500, 'KRW', '2026-11-06', 1410000, 0, 8590000, 'book')
+     RETURNING id`,
+    [account.rows[0]!.id, security.rows[0]!.id],
+  );
+  await pool.query(
+    'INSERT INTO mock_positions (account_id, security_id, buy_order_id, quantity) VALUES ($1, $2, $3, 20)',
+    [account.rows[0]!.id, security.rows[0]!.id, buy.rows[0]!.id],
+  );
+  const strategyRow = async () =>
+    (
+      await pool.query<{ strategy: string; strategy_source: string | null }>(
+        'SELECT strategy, strategy_source FROM mock_positions',
+      )
+    ).rows[0]!;
+
   await t.test('상태 shows capital, cash, total value and return from SQL', async () => {
     const answer = await ask('상태');
     assert.equal(answer.status, 200);
@@ -123,6 +144,59 @@ test('KakaoTalk chatbot commands against the real database', { skip: !url }, asy
     const answer = await ask(' Positions ');
     assert.match(textOf(answer), /Open positions\nSamsung Electronics \(005930\) 20 sh,/);
     assert.match(textOf(answer), /\+2\.13%/); // (1,440,000 − 1,410,000) / 1,410,000
+    // A position waits for its choice, so the answer offers the two strategy buttons first.
+    assert.match(textOf(answer), /strategy not chosen/);
+    assert.deepEqual(
+      answer.body.template.quickReplies.slice(0, 2).map((reply) => reply.messageText),
+      ['단타', '장투'],
+    );
+  });
+
+  await t.test('단타 chooses a day trade for the waiting position, once', async () => {
+    const answer = await ask('단타');
+    assert.equal(answer.status, 200);
+    assert.match(textOf(answer), /^Day trade: Samsung Electronics \(005930\)\n.*\+5% or -3%/);
+    assert.deepEqual(await strategyRow(), { strategy: 'day_trade', strategy_source: 'kakao' });
+    assert.match(textOf(await ask('포지션')), /day trade, /);
+    assert.equal((await ask('포지션')).body.template.quickReplies.length, 4); // no strategy buttons now
+    // Nothing waits any more, so the same word again, or the other one, changes nothing.
+    assert.match(textOf(await ask('단타')), /No position is waiting/);
+    assert.match(textOf(await ask('장투')), /No position is waiting/);
+    assert.equal((await strategyRow()).strategy, 'day_trade');
+  });
+
+  await t.test('장투 chooses a long hold', async () => {
+    await pool.query(
+      "UPDATE mock_positions SET strategy = 'undecided', strategy_chosen_at = NULL, strategy_source = NULL",
+    );
+    const answer = await ask(' Long Hold ');
+    assert.match(textOf(answer), /^Long hold: Samsung Electronics \(005930\)\n.*each morning/);
+    assert.deepEqual(await strategyRow(), { strategy: 'long_hold', strategy_source: 'kakao' });
+    assert.match(textOf(await ask('포지션')), /long hold, /);
+  });
+
+  await t.test('a position sold meanwhile is skipped without an error', async () => {
+    await pool.query(
+      "UPDATE mock_positions SET strategy = 'undecided', strategy_chosen_at = NULL, strategy_source = NULL",
+    );
+    // Closed between the list and the update cannot be staged here, so close it before and see that no
+    // position is offered: the guard for the race is the 409 branch, covered by the chooseStrategy tests (#307).
+    const sell = await pool.query<{ id: string }>(
+      `INSERT INTO mock_orders (account_id, security_id, request_key, side, quantity, price, currency,
+         price_date, amount_krw, fee_krw, tax_krw, cash_after_krw, fill_source)
+       VALUES ($1, $2, gen_random_uuid(), 'sell', 20, 72000, 'KRW', '2026-11-06', 1440000, 0, 0, 10030000, 'book')
+       RETURNING id`,
+      [account.rows[0]!.id, security.rows[0]!.id],
+    );
+    await pool.query('UPDATE mock_positions SET sell_order_id = $1, closed_at = now()', [
+      sell.rows[0]!.id,
+    ]);
+    assert.match(textOf(await ask('단타')), /No position is waiting/);
+    await pool.query('UPDATE mock_positions SET sell_order_id = NULL, closed_at = NULL');
+    await pool.query('DELETE FROM mock_orders WHERE id = $1', [sell.rows[0]!.id]);
+    await pool.query(
+      "UPDATE mock_positions SET strategy = 'undecided', strategy_chosen_at = NULL, strategy_source = NULL",
+    );
   });
 
   await t.test(
@@ -198,6 +272,14 @@ test('KakaoTalk chatbot commands against the real database', { skip: !url }, asy
         { command: 'status', result: 'unavailable' },
         { command: 'status', result: 'ok' },
         { command: 'positions', result: 'ok' },
+        { command: 'strategy', result: 'ok' },
+        { command: 'positions', result: 'ok' },
+        { command: 'positions', result: 'ok' },
+        { command: 'strategy', result: 'unavailable' },
+        { command: 'strategy', result: 'unavailable' },
+        { command: 'strategy', result: 'ok' },
+        { command: 'positions', result: 'ok' },
+        { command: 'strategy', result: 'unavailable' },
         { command: 'news', result: 'unavailable' },
         { command: 'returns', result: 'unavailable' },
         { command: 'news', result: 'ok' },
