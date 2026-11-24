@@ -5,7 +5,7 @@ import { Pool } from 'pg';
 
 import { type CalendarDay, KisError, type KisSource } from '../src/prices/kis.js';
 import { isBusinessDay, syncHolidays } from '../src/prices/krx-calendar.js';
-import { runMigration } from './helpers.js';
+import { resetDatabase } from './helpers.js';
 import { testDatabase } from './test-database.js';
 
 // #321 The holiday sync and the shared business-day function against the real database.
@@ -39,13 +39,10 @@ test('the KRX holiday calendar against the real database', { skip: !url }, async
   const pool = new Pool({ connectionString: url });
   t.after(() => pool.end());
 
+  // The migrations seed some closing days; these tests start from an empty calendar.
   const reset = async () => {
-    await pool.query('DROP TABLE IF EXISTS krx_holiday_sync, krx_holidays');
-    await pool.query(
-      'CREATE TABLE IF NOT EXISTS krx_holidays (holiday_date date PRIMARY KEY, name text NOT NULL)',
-    );
-    await runMigration(pool, '047_krx_holiday_sync.sql');
-    await runMigration(pool, '047_krx_holiday_sync.sql'); // re-running is safe
+    await resetDatabase(pool);
+    await pool.query('TRUNCATE krx_holidays, krx_holiday_sync');
   };
   const holidays = async () =>
     (

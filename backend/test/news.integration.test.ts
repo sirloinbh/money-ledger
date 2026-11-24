@@ -6,7 +6,7 @@ import { Pool } from 'pg';
 import { newsQueue } from '../src/news/jobs.js';
 import { fakeNewsSource, newsQueries, type NewsSource } from '../src/news/source.js';
 import { fetchNews } from '../src/news/store.js';
-import { runMigration, withApi } from './helpers.js';
+import { resetDatabase, withApi } from './helpers.js';
 import { testDatabase } from './test-database.js';
 
 const url = await testDatabase();
@@ -18,9 +18,7 @@ test('news headlines against the real database', { skip: !url }, async (t) => {
   const pool = new Pool({ connectionString: url });
   t.after(() => pool.end());
   const reset = async () => {
-    await pool.query('DROP TABLE IF EXISTS news_items');
-    await runMigration(pool, '028_news_items.sql');
-    await runMigration(pool, '028_news_items.sql'); // re-running is safe
+    await resetDatabase(pool);
   };
   const now = new Date('2026-11-24T00:00:00Z'); // 09:00 on 2026-11-24 in Seoul
   const quiet = () => undefined;
