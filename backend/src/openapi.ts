@@ -264,6 +264,11 @@ const table: Record<string, Operation> = {
     query: benchmark.returnQuery,
     status: [200, 400, 404],
   },
+  'GET /api/mock/quotes/:securityId': {
+    summary:
+      'Get the live price and 10-level order book of an active Korean security (503 when live prices are not set up, 409 when the market is closed)',
+    status: [200, 400, 404, 409, 429, 502, 503],
+  },
   [`GET ${accounts}`]: { summary: 'List the mock trading accounts', status: [200] },
   [`POST ${accounts}`]: {
     summary: 'Open the mock trading account',

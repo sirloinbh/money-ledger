@@ -84,6 +84,15 @@ function fakeApi() {
               : [],
         });
       }
+      if (method === 'GET' && url === '/api/mock/quotes/1') {
+        return json({
+          securityId: 1,
+          price: '70600',
+          asks: [{ price: '70700', quantity: '100' }],
+          bids: [{ price: '70600', quantity: '100' }],
+          readAt: '2026-11-06T01:00:00.000Z',
+        });
+      }
       if (method === 'GET' && page === 'orders') {
         return json({ orders: [], hasMore: false, securities: [] });
       }
