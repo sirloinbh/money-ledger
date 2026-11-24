@@ -27,7 +27,7 @@ export type LivePrice = (symbol: string) => Promise<string>;
  * multiplication, the rounding and the return use SQL numeric (AGENTS.project.md); only whole-won integers are added
  * here.
  */
-async function valueForSummary(
+export async function valueForSummary(
   pool: Pool,
   accountId: number,
   day: string,
