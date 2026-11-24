@@ -4,6 +4,7 @@ import type { Pool } from 'pg';
 import { types } from 'pg';
 
 import { tools } from './ai-tools.js';
+import { benchmarkRouter } from './benchmark.js';
 import { kakaoRouter } from './kakao/router.js';
 import type { KakaoService } from './kakao/service.js';
 import { skillHandlers, type SkillOptions } from './kakao/skill.js';
@@ -115,6 +116,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   app.use('/api/mock/accounts/:accountId/orders', mockOrdersRouter(pool, today));
   app.use('/api/mock/accounts/:accountId/holdings', mockHoldingsRouter(pool, today));
   app.use('/api/mock/accounts/:accountId/snapshots', mockSnapshotsRouter(pool));
+  app.use('/api/mock/accounts/:accountId/return', benchmarkRouter(pool, today));
   app.use('/api/mock/accounts', mockAccountsRouter(pool));
   app.use('/api/mock/quotes', mockQuotesRouter(pool, options.kis));
   app.use(

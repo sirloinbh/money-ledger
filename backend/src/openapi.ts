@@ -3,6 +3,7 @@
 // when the table and the registered routes differ.
 import { z } from 'zod/v4';
 
+import * as benchmark from './benchmark.js';
 import * as kakao from './kakao/router.js';
 import * as budgets from './ledger/budgets.js';
 import * as categories from './ledger/categories.js';
@@ -256,6 +257,11 @@ const table: Record<string, Operation> = {
   },
   [`GET ${accounts}/:accountId/snapshots`]: {
     summary: 'List the daily value snapshots of a mock trading account',
+    status: [200, 400, 404],
+  },
+  [`GET ${accounts}/:accountId/return`]: {
+    summary: 'Get the time-weighted return of a mock trading account for a period',
+    query: benchmark.returnQuery,
     status: [200, 400, 404],
   },
   'GET /api/mock/quotes/:securityId': {
