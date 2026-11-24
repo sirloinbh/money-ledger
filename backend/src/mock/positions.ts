@@ -117,6 +117,10 @@ type PositionRow = {
   buy_price: string;
   buy_amount: string;
   buy_fee: string;
+  exit_reason: 'take_profit' | 'stop_loss' | 'manual' | null;
+  net_gain_krw: string | null;
+  net_gain_pct: string | null;
+  carried_over_at: Date | null;
   sell_price: string | null;
   sell_amount: string | null;
   sell_fee: string | null;
@@ -125,7 +129,8 @@ type PositionRow = {
 
 const positionSelect = `
   SELECT p.id, p.account_id, p.security_id, s.symbol, s.name, p.quantity, p.strategy, p.strategy_chosen_at,
-         p.strategy_source, p.opened_at, p.closed_at,
+         p.strategy_source, p.opened_at, p.closed_at, p.exit_reason, p.net_gain_krw, p.net_gain_pct,
+         p.carried_over_at,
          b.price AS buy_price, b.amount_krw AS buy_amount, b.fee_krw AS buy_fee,
          e.price AS sell_price, e.amount_krw AS sell_amount, e.fee_krw AS sell_fee, e.tax_krw AS sell_tax
   FROM mock_positions p
@@ -145,6 +150,10 @@ export const toPosition = (row: PositionRow) => ({
   strategySource: row.strategy_source,
   openedAt: row.opened_at.toISOString(),
   closedAt: iso(row.closed_at),
+  carriedOverAt: iso(row.carried_over_at),
+  exitReason: row.exit_reason,
+  netGainKrw: row.net_gain_krw === null ? null : won(row.net_gain_krw),
+  netGainPct: row.net_gain_pct,
   buy: { price: row.buy_price, amountKrw: won(row.buy_amount), feeKrw: won(row.buy_fee) },
   sell:
     row.sell_price === null
@@ -310,6 +319,8 @@ export async function sellPosition(
   kis: KisSource | undefined,
   today: () => string,
   positionId: number,
+  // #309 Why it is sold: the day trade rule passes 'take_profit' or 'stop_loss'; any other sale is 'manual'.
+  reason: 'take_profit' | 'stop_loss' | 'manual' = 'manual',
 ) {
   const open = await positionById(pool, positionId);
   if (!open) throw new HttpError(404, 'Position not found');
@@ -371,9 +382,18 @@ export async function sellPosition(
         cash.rows[0].cash_krw,
       ],
     );
+    // The net gain is worked out in SQL numeric from the two orders: cash after fee and tax minus the buy cost.
     await client.query(
-      'UPDATE mock_positions SET sell_order_id = $2, closed_at = now() WHERE id = $1',
-      [positionId, order.rows[0].id],
+      `UPDATE mock_positions p SET sell_order_id = $2, closed_at = now(), exit_reason = $3,
+         net_gain_krw = x.net, net_gain_pct = round(x.net::numeric * 100 / x.cost, 2)
+       FROM (SELECT (s.amount_krw - s.fee_krw - s.tax_krw) - (b.amount_krw + b.fee_krw) AS net,
+                    (b.amount_krw + b.fee_krw) AS cost
+             FROM mock_positions q
+             JOIN mock_orders b ON b.id = q.buy_order_id
+             JOIN mock_orders s ON s.id = $2
+             WHERE q.id = $1) x
+       WHERE p.id = $1`,
+      [positionId, order.rows[0].id, reason],
     );
     await saveSnapshot(client, open.account_id, day, day);
     return toPosition(await positionById(client, positionId));

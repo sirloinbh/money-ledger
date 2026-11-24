@@ -1,8 +1,9 @@
 import { Pool } from 'pg';
 import { PgBoss } from 'pg-boss';
 
-import { createApp } from './app.js';
+import { createApp, serviceDate } from './app.js';
 import { dailySavesQueue } from './daily-saves.js';
+import { dayTradeQueue } from './mock/day-trade.js';
 import { snapshotOpenAccount } from './mock/snapshots.js';
 import {
   liveSourceFromEnv,
@@ -48,6 +49,8 @@ void jobs.start(
         priceQueue(pool, prices, logPriceEvent, (now) => snapshotOpenAccount(pool, now)),
         // #185 Fixed costs, finished reports and net worth once a day; the app's on-open calls stay as a fallback.
         dailySavesQueue(pool),
+        // #309 Day trades are sold at +5% or -3% every minute during market hours.
+        dayTradeQueue(pool, kis, () => serviceDate(), { log: logPriceEvent }),
       ],
       { mode },
     ),
