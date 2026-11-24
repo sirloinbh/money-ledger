@@ -54,6 +54,12 @@ The handler awaits the sends: a failing send is retried once after 2 s, so a run
 
 Review round 1 (separate read-only agent, no blocking findings): the capital valuation, the guard order and the skipped-sale log, the extra tests and this note. `npm run check` and `npm run knip` pass.
 
+## Step 3: the pick message (#308 merged)
+
+`runDailyPick` (lane-2, `backend/src/picks/run.ts`) got an optional `onBought(pickId)` dependency, called by `buyFor` once the buy is saved and the order is linked, both for a new pick and for the retry of a stored pick whose buy failed earlier. A throwing hook is logged as `pick_notify_failed` and never turns the saved buy into a failed one. `backend/src/kakao/pick-events.ts` (`notifyPickBought`, wired in `server.ts`) reads the story, effect and reasoning from `daily_picks`, the stock from `securities`, and the quantity, the price and the cost (order amount plus fee, added in SQL) from the order, then sends the three `pick-bought` messages (news and effect, the pick and why, and the day-trade-or-long-hold question). It never throws. `backend/test/kakao-pick.integration.test.ts` runs the real pick run and all-in buy: three messages with `142 sh at ₩70,100` and `Cost: ₩9,955,693`; a second run sends nothing more; a pick whose buy failed is messaged only when the retry buys it; failing sends and a throwing hook leave the buy in place; two runs that overlap on one pick send once.
+
+A pick is messaged at most once: `setPickOrder` now returns whether this run linked the order (the `UPDATE ... WHERE order_id IS NULL` is the claim), and only that run sends. A crash between the link and the send loses the message but never doubles it. The sends are awaited (the Kakao call has a 10 s timeout and a failed send is retried once after 2 s), so the pick job ends a few seconds later at worst; the buy is already saved. Review round 1 (separate read-only agent, no blocking findings): the claim, this note and the overlap test. `npm run check` fails here only in the three migration tests because main has two `043` migrations (not from this change).
+
 ## Verification
 
 - Daily summary valuation (integration test): one holding priced live, one at the last close, one at cost gives the expected total and return (-3.35%) and the `Prices:` line; with no live source it falls back to close and cost.

@@ -9,6 +9,7 @@ import { comparisonFor } from './kakao/comparison.js';
 import { kakaoDailySummaryQueue } from './kakao/daily-summary.js';
 import { notifyDayTradeSales } from './kakao/day-trade-events.js';
 import { createNotifier } from './kakao/notifier.js';
+import { notifyPickBought } from './kakao/pick-events.js';
 import { createKakaoService } from './kakao/service.js';
 import { skillConfigFromEnv } from './kakao/skill.js';
 import { dayTradeQueue } from './mock/day-trade.js';
@@ -41,11 +42,7 @@ const pool = createPool(new Pool({ connectionString: databaseUrl }));
 const prices = sourcesFromEnv();
 const news = newsSourceFromEnv();
 const kis = liveSourceFromEnv();
-// #308 The daily pick: Claude plus the all-in buy of #307. Without an Anthropic key there is none.
 const claude = claudeFromEnv();
-const pick: PickDeps | undefined = claude
-  ? { claude, ...pickBuyDeps(pool, kis, () => serviceDate()), log: logPickEvent }
-  : undefined;
 // PRICE_JOBS=off still works (the old switch); JOBS_MODE=off|send is the shared one (docs: price-source.md).
 const mode = process.env.PRICE_JOBS === 'off' ? 'off' : jobsModeFromEnv();
 const jobs = backgroundJobs(mode);
@@ -59,6 +56,15 @@ const kakao = {
 };
 // #313 Every event (pick, sale, question, daily summary) goes out through this one notifier.
 const notifier = createNotifier(kakao.service, { link: kakao.appUrl });
+// #308 The daily pick: Claude plus the all-in buy of #307. Without an Anthropic key there is none. #313 The buy goes to KakaoTalk once it is saved.
+const pick: PickDeps | undefined = claude
+  ? {
+      claude,
+      ...pickBuyDeps(pool, kis, () => serviceDate()),
+      onBought: (pickId) => notifyPickBought(pool, notifier, pickId, logPickEvent),
+      log: logPickEvent,
+    }
+  : undefined;
 const server = createApp(pool, {
   prices,
   kis,
