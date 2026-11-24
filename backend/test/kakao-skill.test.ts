@@ -65,6 +65,8 @@ test('commands match in Korean and English, ignoring case and spaces', () => {
   assert.equal(parseCommand('  Positions '), 'positions');
   assert.equal(parseCommand('뉴스'), 'news');
   assert.equal(parseCommand('수익률'), 'returns');
+  assert.equal(parseCommand('단타'), 'day_trade');
+  assert.equal(parseCommand(' Long Hold '), 'long_hold');
   assert.equal(parseCommand('buy everything'), undefined);
   assert.equal(parseCommand(''), undefined);
 });
