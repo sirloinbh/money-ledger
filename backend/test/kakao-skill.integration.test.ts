@@ -42,8 +42,8 @@ test('KakaoTalk chatbot commands against the real database', { skip: !url }, asy
   await pool.query('DROP TABLE IF EXISTS kakao_commands');
   await pool.query('TRUNCATE mock_accounts, securities CASCADE');
   await runMigration(pool, '039_kakao_commands.sql');
-  await runMigration(pool, '043_kakao_commands_strategy.sql');
-  await runMigration(pool, '043_kakao_commands_strategy.sql'); // re-running is safe
+  await runMigration(pool, '045_kakao_commands_strategy.sql');
+  await runMigration(pool, '045_kakao_commands_strategy.sql'); // re-running is safe
   await runMigration(pool, '039_kakao_commands.sql'); // re-running is safe
 
   const ask = async (
