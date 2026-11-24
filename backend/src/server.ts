@@ -4,6 +4,7 @@ import { PgBoss } from 'pg-boss';
 import { createApp } from './app.js';
 import { dailySavesQueue } from './daily-saves.js';
 import { snapshotOpenAccount } from './mock/snapshots.js';
+import { logNewsEvent, newsQueue, newsSourceFromEnv } from './news/index.js';
 import {
   liveSourceFromEnv,
   logPriceEvent,
@@ -23,6 +24,7 @@ if (!databaseUrl) throw new Error('DATABASE_URL is required');
 const pool = createPool(new Pool({ connectionString: databaseUrl }));
 const prices = sourcesFromEnv();
 const kis = liveSourceFromEnv();
+const news = newsSourceFromEnv();
 // PRICE_JOBS=off still works (the old switch); JOBS_MODE=off|send is the shared one (docs: price-source.md).
 const mode = process.env.PRICE_JOBS === 'off' ? 'off' : jobsModeFromEnv();
 const jobs = backgroundJobs(mode);
@@ -32,6 +34,8 @@ const server = createApp(pool, {
   prices,
   kis,
   priceLog: logPriceEvent,
+  news,
+  newsLog: logNewsEvent,
   auth,
   jobsStatus: jobs.status,
   toolsPublicKey: process.env.AI_TOOLS_PUBLIC_KEY,
@@ -48,6 +52,8 @@ void jobs.start(
         priceQueue(pool, prices, logPriceEvent, (now) => snapshotOpenAccount(pool, now)),
         // #185 Fixed costs, finished reports and net worth once a day; the app's on-open calls stay as a fallback.
         dailySavesQueue(pool),
+        // #306 Economy headlines at 07:30 on weekdays, for the daily pick.
+        newsQueue(pool, news, logNewsEvent),
       ],
       { mode },
     ),
