@@ -27,7 +27,7 @@ import { saveSnapshot } from './snapshots.js';
  * development special tax, KOSDAQ 0.20%, for sales from 2026-01-01. Taken from news reports of the 2026 tax law
  * revision; no official page was reachable when this was written (docs/changes/307-all-in-buy-strategy.md).
  */
-export const SALE_TAX_RATE = '0.0020';
+const SALE_TAX_RATE = '0.0020';
 
 const maxWon = BigInt(MAX_WON);
 const closedShown = 20;
@@ -135,7 +135,7 @@ const positionSelect = `
 
 const iso = (date: Date | null) => (date === null ? null : date.toISOString());
 
-export const toPosition = (row: PositionRow) => ({
+const toPosition = (row: PositionRow) => ({
   id: row.id,
   accountId: row.account_id,
   security: { id: row.security_id, symbol: row.symbol, name: row.name },
@@ -212,7 +212,10 @@ async function previewAllIn(pool: Pool, accountId: number, securityId: number, k
   };
 }
 
-/** Buys all-in at the best ask. A repeated request key returns the first position. */
+/**
+ * Buys all-in at the best ask. A repeated request key returns the first position.
+ * @public Called by the pick job (#308) and the chatbot (#312) as well as the route.
+ */
 export async function buyAllIn(
   pool: Pool,
   kis: KisSource | undefined,
@@ -380,7 +383,10 @@ export async function sellPosition(
   });
 }
 
-/** Chooses the strategy of an open, undecided position. The same choice again changes nothing. */
+/**
+ * Chooses the strategy of an open, undecided position. The same choice again changes nothing.
+ * @public Called by the day trade job (#309) and the chatbot (#312) as well as the route.
+ */
 export async function chooseStrategy(
   pool: Pool,
   positionId: number,
