@@ -18,6 +18,7 @@ import * as longHold from './mock/long-hold.js';
 import * as orders from './mock/orders.js';
 import * as positions from './mock/positions.js';
 import * as news from './news/router.js';
+import * as picks from './picks/router.js';
 import * as assetsModule from './portfolio/asset-schema.js';
 import * as netWorth from './portfolio/net-worth.js';
 import * as trades from './portfolio/trades.js';
@@ -321,6 +322,16 @@ const table: Record<string, Operation> = {
   'POST /api/news/fetch': {
     summary: 'Fetch and store the economy news headlines now',
     // 503: no news source is configured.
+    status: [200, 503],
+  },
+  'GET /api/picks': {
+    summary: 'Get the Claude pick of a date (default today) with the news behind it',
+    query: picks.dateQuery,
+    status: [200, 400],
+  },
+  'POST /api/picks/run': {
+    summary: 'Run the daily pick now: ask Claude, store the pick and place the all-in buy',
+    // 503: no Claude client is configured.
     status: [200, 503],
   },
   'GET /api/prices/securities': {

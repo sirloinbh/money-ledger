@@ -9,7 +9,8 @@ import type { Notifier } from './notifier.js';
 import type { KakaoService } from './service.js';
 
 // #313 Once a day after the close: the open mock account's summary to KakaoTalk. The comparison with the deposit,
-// Buffett and Renaissance comes from #294; until it lands `comparison` is not given and the message leaves it out.
+// Buffett and Renaissance comes from #294 (kakao/comparison.ts). It covers the account's own return period, which ends
+// at the last stored daily snapshot, so it can end a day earlier than the live-valued headline return.
 //
 // KRX daily closes are stored around 8 AM the next day (docs/price-source.md), so at 19:10 no Korean holding has
 // today's stored close. Each Korean holding is valued at the live price (after 15:30 it is the day's close) and, when
@@ -137,11 +138,19 @@ export async function sendDailySummary(
   const valued = await valueForSummary(pool, account.id, day, options.livePrice, log);
   // The account was open a moment ago; a reset in between leaves nothing to send.
   if (!valued) return;
-  await notifier.notify({
-    type: 'daily-summary',
-    ...valued,
-    comparison: await options.comparison?.(account.id, day),
-  });
+  // The comparison is an extra line: if it cannot be read, the summary still goes out without it.
+  let comparison: Comparison | undefined;
+  try {
+    comparison = await options.comparison?.(account.id, day);
+  } catch (error) {
+    log({
+      level: 'warn',
+      event: 'kakao_daily_summary_comparison_failed',
+      message: error instanceof Error ? error.message : 'unknown error',
+      day,
+    });
+  }
+  await notifier.notify({ type: 'daily-summary', ...valued, comparison });
 }
 
 /**

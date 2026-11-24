@@ -39,6 +39,7 @@ const answered = new Set([
   'GET /api/ledger/summary',
   'GET /api/ledger/trend',
   'GET /api/mock/accounts',
+  'GET /api/picks',
   'GET /api/portfolio/assets',
   'GET /api/portfolio/net-worth',
   'POST /api/portfolio/net-worth',
