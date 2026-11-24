@@ -9,16 +9,11 @@ import { HttpError, parseId } from '../standard/http.js';
 
 const statusOf = { bad_key: 502, rate_limit: 429, market_closed: 409, unavailable: 502 } as const;
 
-/**
- * Reads a live quote for a symbol, mapping a KIS failure to the HTTP error the screen shows. Shared with the
- * position code of #307 and #309, so it stays exported.
- *
- * @public
- */
-export async function liveQuote(kis: KisSource | undefined, symbol: string) {
+/** Runs a KIS read and maps a KIS failure to the HTTP error the screen shows. */
+async function viaKis<T>(kis: KisSource | undefined, read: (source: KisSource) => Promise<T>) {
   if (!kis) throw new HttpError(503, 'Live prices are not set up yet');
   try {
-    return await kis.quote(symbol);
+    return await read(kis);
   } catch (error) {
     if (error instanceof KisError) {
       const message =
@@ -28,6 +23,19 @@ export async function liveQuote(kis: KisSource | undefined, symbol: string) {
     throw error;
   }
 }
+
+/**
+ * Reads a live quote for a symbol (price and order book). Shared with the position code of #307 and #309, so it
+ * stays exported.
+ *
+ * @public
+ */
+export const liveQuote = (kis: KisSource | undefined, symbol: string) =>
+  viaKis(kis, (source) => source.quote(symbol));
+
+/** Reads the last traded price alone: one KIS call, and it also works when the market is closed (#325). */
+export const livePrice = (kis: KisSource | undefined, symbol: string) =>
+  viaKis(kis, (source) => source.lastPrice(symbol));
 
 export function mockQuotesRouter(pool: Pool, kis: KisSource | undefined) {
   const router = Router();

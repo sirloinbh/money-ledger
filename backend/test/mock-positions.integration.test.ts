@@ -53,6 +53,7 @@ test('mock all-in positions against the real database', { skip: !url }, async (t
       '016_asset_valuation.sql',
       '018_mock_snapshots.sql',
       '041_mock_positions.sql',
+      '042_mock_position_exit.sql',
     ]) {
       await runMigration(pool, file);
     }
