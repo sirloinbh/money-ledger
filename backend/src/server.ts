@@ -4,6 +4,8 @@ import { PgBoss } from 'pg-boss';
 import { createApp } from './app.js';
 import { dailySavesQueue } from './daily-saves.js';
 import { kakaoConfigFromEnv } from './kakao/api.js';
+import { kakaoDailySummaryQueue } from './kakao/daily-summary.js';
+import { createNotifier } from './kakao/notifier.js';
 import { createKakaoService } from './kakao/service.js';
 import { snapshotOpenAccount } from './mock/snapshots.js';
 import { logNewsEvent, newsQueue, newsSourceFromEnv } from './news/index.js';
@@ -38,6 +40,8 @@ const kakao = {
   service: createKakaoService(pool, { config: kakaoConfig }),
   appUrl: kakaoConfig ? (kakaoConfig.appUrl ?? new URL(kakaoConfig.redirectUri).origin) : undefined,
 };
+// #313 Every event (pick, sale, question, daily summary) goes out through this one notifier.
+const notifier = createNotifier(kakao.service, { link: kakao.appUrl });
 const server = createApp(pool, {
   prices,
   kis,
@@ -61,6 +65,8 @@ void jobs.start(
         priceQueue(pool, prices, logPriceEvent, (now) => snapshotOpenAccount(pool, now)),
         // #185 Fixed costs, finished reports and net worth once a day; the app's on-open calls stay as a fallback.
         dailySavesQueue(pool),
+        // #313 The account summary to KakaoTalk once a day after the close.
+        kakaoDailySummaryQueue(pool, notifier, kakao.service),
         // #306 Economy headlines at 07:30 on weekdays, for the daily pick.
         newsQueue(pool, news, logNewsEvent),
       ],

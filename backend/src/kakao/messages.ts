@@ -100,3 +100,99 @@ export const newsReasonMessage = (news: NewsReason, link: string) =>
 
 export const testMessage = (link: string) =>
   text(['Money Ledger test message', 'KakaoTalk is connected.'], link);
+
+// #313 Event messages. A story needs more than Kakao's 200 characters, so an event can be several messages, sent in order.
+
+export type PickBought = {
+  news: NewsReason;
+  stockName: string;
+  symbol: string;
+  /** Decimal string, e.g. "12.00000000". */
+  quantity: string;
+  /** Fill price per share in won (the best ask). */
+  priceKrw: number;
+  /** What the buy cost in total, fees included. */
+  amountKrw: number;
+};
+
+export const pickBoughtMessages = (event: PickBought, link: string) => [
+  // Three messages, each under the 200 character limit on its own, so the reasoning is not cut off by the headline.
+  text([`News: ${event.news.headline}`, `Effect: ${event.news.effect}`], link),
+  text([`Pick: ${event.news.stockName} (${event.news.symbol})`, `Why: ${event.news.reason}`], link),
+  // The question comes first: it is the line that must never be cut.
+  text(
+    [
+      'Day trade or long hold? Reply 단타 or 장투',
+      `Bought ${event.stockName} (${event.symbol})`,
+      `${decimal(event.quantity)} sh at ${formatWon(event.priceKrw)}`,
+      `Cost: ${formatWon(event.amountKrw)}`,
+    ],
+    link,
+  ),
+];
+
+export type DayTradeSold = {
+  reason: 'take-profit' | 'stop-loss';
+  stockName: string;
+  symbol: string;
+  quantity: string;
+  /** Sell price per share in won (the best bid). */
+  priceKrw: number;
+  /** Gain after fees and tax; negative for a loss. */
+  netGainKrw: number;
+  netGainPct: string;
+  /** The account's total value after the sale. */
+  capitalKrw: number;
+};
+
+const soldLabel = { 'take-profit': 'Take profit', 'stop-loss': 'Stop loss' } as const;
+
+export const dayTradeSoldMessage = (event: DayTradeSold, link: string) =>
+  text(
+    [
+      `${soldLabel[event.reason]}: sold ${event.stockName} (${event.symbol})`,
+      `${decimal(event.quantity)} sh at ${formatWon(event.priceKrw)}`,
+      `Net gain: ${formatWon(event.netGainKrw)} (${formatPct(event.netGainPct)})`,
+      `Capital: ${formatWon(event.capitalKrw)}`,
+    ],
+    link,
+  );
+
+export type LongHoldQuestion = {
+  stockName: string;
+  symbol: string;
+  quantity: string;
+  priceKrw: number;
+  returnPct: string;
+};
+
+export const longHoldQuestionMessage = (event: LongHoldQuestion, link: string) =>
+  text(
+    [
+      `Keep or sell ${event.stockName} (${event.symbol})?`,
+      `${decimal(event.quantity)} sh, last ${formatWon(event.priceKrw)}, ${formatPct(event.returnPct)}`,
+      'Reply 유지 or 매도. No answer by 15:00 means keep.',
+    ],
+    link,
+  );
+
+/** Returns in percent since the account started, for the same period as the account's own return. */
+export type Comparison = { depositPct: string; buffettPct: string; renaissancePct: string };
+
+export type DailySummary = { summary: AccountSummary; comparison?: Comparison };
+
+export const dailySummaryMessage = ({ summary, comparison }: DailySummary, link: string) =>
+  text(
+    [
+      'Daily summary',
+      `Total value: ${formatWon(summary.totalValueKrw)}`,
+      `Return: ${formatPct(summary.returnPct)} (${formatWon(summary.profitKrw)})`,
+      `Cash: ${formatWon(summary.cashKrw)}`,
+      ...(comparison
+        ? [
+            `Deposit ${formatPct(comparison.depositPct)} · Buffett ${formatPct(comparison.buffettPct)} · Renaissance ${formatPct(comparison.renaissancePct)}`,
+          ]
+        : []),
+    ],
+    link,
+  );
