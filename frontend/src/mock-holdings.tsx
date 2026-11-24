@@ -200,7 +200,11 @@ export function MockHoldings({ accountId }: { accountId: number }) {
                   </div>
                   {ordering?.id === held.security.id ? (
                     <div className="mt-2 rounded-xl border px-4 py-3">
-                      <MockOrder securityId={held.security.id} title={heldTitle(held)} />
+                      <MockOrder
+                        securityId={held.security.id}
+                        title={heldTitle(held)}
+                        currency={held.security.currency}
+                      />
                     </div>
                   ) : null}
                 </li>
