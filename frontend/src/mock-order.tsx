@@ -9,6 +9,7 @@ import { Notice } from './components/ui/notice';
 import { formatDecimal, formatWon, sharesOf } from './format';
 import { RequestError, requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
+import { MockAllIn } from './mock-all-in';
 import { MockOrderBook } from './mock-order-book';
 import { mockKey } from './mock-query';
 import { refreshReads } from './query-reads';
@@ -241,6 +242,7 @@ export function MockOrder({
     // Named after the security: a holding (#53) and the security detail can each show a form on one page.
     <section aria-label={`${title} mock order`} className="flex flex-col gap-3">
       {currency === 'KRW' ? <MockOrderBook securityId={securityId} title={title} /> : null}
+      {currency === 'KRW' ? <MockAllIn securityId={securityId} title={title} /> : null}
       <h3 className="text-body font-semibold">Mock order</h3>
       <p id={`${id}-hint`} className="text-caption text-muted-foreground">
         Fills right away at the latest saved close. You can order in whole shares.

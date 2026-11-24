@@ -20,7 +20,7 @@ test('the daily KakaoTalk summary against the real database', { skip: !url }, as
   t.after(() => pool.end());
   const reset = async () => {
     await pool.query(
-      'DROP TABLE IF EXISTS mock_snapshots, mock_orders, mock_holdings, mock_accounts',
+      'DROP TABLE IF EXISTS mock_snapshots, mock_positions, mock_orders, mock_holdings, mock_accounts',
     );
     await runMigration(pool, '005_mock_accounts.sql');
     await runMigration(pool, '009_prices.sql');

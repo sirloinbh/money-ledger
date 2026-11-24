@@ -176,8 +176,14 @@ const plainDecimal = /^(\d+)(?:\.(\d+))?$/;
 function canonicalDecimal(text: string) {
   const match = plainDecimal.exec(text);
   if (!match) return null;
-  const whole = match[1].replace(/^0+(?=\d)/, '');
-  const fraction = (match[2] ?? '').replace(/0+$/, '');
+  // Plain loops, not regular expressions: a long run of zeros in a user-sent value costs only a linear scan.
+  let start = 0;
+  while (start < match[1].length - 1 && match[1][start] === '0') start += 1;
+  const whole = match[1].slice(start);
+  const rest = match[2] ?? '';
+  let end = rest.length;
+  while (end > 0 && rest[end - 1] === '0') end -= 1;
+  const fraction = rest.slice(0, end);
   return fraction ? `${whole}.${fraction}` : whole;
 }
 
@@ -212,6 +218,7 @@ type OrderRow = {
   fx_date: string | null;
   amount_krw: string;
   fee_krw: string;
+  tax_krw: string;
   cash_after_krw: string;
   created_at: Date;
   symbol: string;
@@ -219,7 +226,7 @@ type OrderRow = {
 };
 
 const orderColumns = `o.id, o.account_id, o.security_id, o.request_key, o.side, o.quantity, o.price, o.currency,
-  o.price_date, o.fx_rate, o.fx_date, o.amount_krw, o.fee_krw, o.cash_after_krw, o.created_at, s.symbol, s.name`;
+  o.price_date, o.fx_rate, o.fx_date, o.amount_krw, o.fee_krw, o.tax_krw, o.cash_after_krw, o.created_at, s.symbol, s.name`;
 
 // Won amounts stay within MAX_WON (and the 10^15 CHECK of 015), so they are exact as JSON numbers.
 const toOrder = (row: OrderRow) => ({
@@ -235,6 +242,7 @@ const toOrder = (row: OrderRow) => ({
   fxDate: row.fx_date,
   amountKrw: won(row.amount_krw),
   feeKrw: won(row.fee_krw),
+  taxKrw: won(row.tax_krw),
   cashAfterKrw: won(row.cash_after_krw),
   createdAt: row.created_at.toISOString(),
 });

@@ -12,6 +12,8 @@ import { HttpError, parseId } from '../standard/http.js';
 
 const defaultInitialCashKrw = 10_000_000;
 const shownClosedAccounts = 20;
+// #307 A new account pays 0.015% commission on each side (the v2 rate). Existing accounts keep their own rate.
+const newAccountFeeRate = '0.00015';
 
 export const accountBody = z.object(
   {
@@ -71,7 +73,8 @@ export function mockAccountsRouter(pool: Pool) {
     const body = accountBody.parse(req.body);
     try {
       const { rows } = await pool.query<Row>(
-        `INSERT INTO mock_accounts (initial_cash_krw, cash_krw) VALUES ($1, $1) RETURNING ${columns}`,
+        `INSERT INTO mock_accounts (initial_cash_krw, cash_krw, fee_rate) VALUES ($1, $1, ${newAccountFeeRate})
+         RETURNING ${columns}`,
         [body.initialCashKrw],
       );
       res.status(201).json({ account: toAccount(rows[0]) });

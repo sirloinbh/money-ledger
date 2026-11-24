@@ -20,6 +20,7 @@ import { trendRouter } from './ledger/trend.js';
 import { mockAccountsRouter } from './mock/accounts.js';
 import { mockHoldingsRouter } from './mock/holdings.js';
 import { mockOrdersRouter } from './mock/orders.js';
+import { mockAccountPositionsRouter, mockPositionsRouter } from './mock/positions.js';
 import { mockQuotesRouter } from './mock/quotes.js';
 import { mockSnapshotsRouter } from './mock/snapshots.js';
 import { type NewsLog, newsRouter, type NewsSource } from './news/index.js';
@@ -119,6 +120,11 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   app.use('/api/mock/accounts/:accountId/return', benchmarkRouter(pool, today));
   app.use('/api/mock/accounts', mockAccountsRouter(pool));
   app.use('/api/mock/quotes', mockQuotesRouter(pool, options.kis));
+  app.use(
+    '/api/mock/accounts/:accountId/positions',
+    mockAccountPositionsRouter(pool, today, options.kis),
+  );
+  app.use('/api/mock/positions', mockPositionsRouter(pool));
   app.use(
     '/api/prices',
     pricesRouter(pool, {
