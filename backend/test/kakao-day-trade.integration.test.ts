@@ -140,4 +140,60 @@ test('the day trade sale message against the real database', { skip: !url }, asy
     assert.notEqual(rows[0].closed_at, null);
     assert.equal(rows[0].exit_reason, 'stop_loss');
   });
+
+  await t.test('a stop loss sale is sent with the loss and a capital below the start', async () => {
+    await reset();
+    const { state, source } = scriptedKis();
+    await open(source);
+    const messenger = fakeMessenger();
+    const queue = wire(source, messenger);
+    state.price = '67997';
+    state.bid = '67997';
+    await queue.handler({}, {} as never);
+    assert.equal(messenger.sent.length, 1);
+    assert.match(
+      String(messenger.sent[0].text),
+      /^Stop loss: sold Samsung Electronics \(005930\)\n142 sh at ₩67,997\nNet gain: -₩/,
+    );
+    assert.match(String(messenger.sent[0].text), /\nCapital: ₩9,\d{3},\d{3}$/);
+  });
+
+  await t.test(
+    'a sale whose capital is unknown is logged, not sent with a made-up figure',
+    async () => {
+      await reset();
+      const { source } = scriptedKis();
+      const id = await open(source);
+      const messenger = fakeMessenger();
+      const lines: Record<string, unknown>[] = [];
+      const notifier = createNotifier(messenger, {
+        link: 'https://app',
+        log: () => undefined,
+        retryDelayMs: 0,
+      });
+      await notifyDayTradeSales(
+        pool,
+        notifier,
+        [
+          {
+            positionId: id,
+            reason: 'take_profit',
+            position: {
+              id,
+              accountId: 999_999,
+              security: { id: 1, symbol: '005930', name: null },
+              quantity: '1',
+              netGainKrw: 1,
+              netGainPct: '1.00',
+              sell: { price: '1', amountKrw: 1, feeKrw: 0, taxKrw: 0 },
+            } as never,
+          },
+        ],
+        today(),
+        (line) => void lines.push(line),
+      );
+      assert.equal(messenger.sent.length, 0);
+      assert.equal(lines[0].event, 'kakao_day_trade_notify_skipped');
+    },
+  );
 });

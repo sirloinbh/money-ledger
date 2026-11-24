@@ -190,6 +190,8 @@ export function dayTradeQueue(
     schedule: '* 9-15 * * 1-5',
     handler: async () => {
       const run = await runDayTradeCheck(pool, kis, now(), today, options);
+      // Awaited: a failing send is retried once after 2 s, so a run with sales can end a few seconds late, and the next
+      // minute's check waits for it (singleton). The sales are already saved, so only the next check is delayed.
       if (run.sold.length > 0) await options.onSold?.(run.sold);
     },
   };
