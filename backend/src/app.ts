@@ -4,6 +4,10 @@ import type { Pool } from 'pg';
 import { types } from 'pg';
 
 import { tools } from './ai-tools.js';
+import { benchmarkRouter } from './benchmark.js';
+import { kakaoRouter } from './kakao/router.js';
+import type { KakaoService } from './kakao/service.js';
+import { skillHandlers, type SkillOptions } from './kakao/skill.js';
 import { budgetsRouter } from './ledger/budgets.js';
 import { categoriesRouter } from './ledger/categories.js';
 import { entriesRouter } from './ledger/entries.js';
@@ -20,6 +24,8 @@ import { mockOrdersRouter } from './mock/orders.js';
 import { mockAccountPositionsRouter, mockPositionsRouter } from './mock/positions.js';
 import { mockQuotesRouter } from './mock/quotes.js';
 import { mockSnapshotsRouter } from './mock/snapshots.js';
+import { type NewsLog, newsRouter, type NewsSource } from './news/index.js';
+import { type PickDeps, picksRouter } from './picks/index.js';
 import { assetsRouter } from './portfolio/assets.js';
 import { netWorthRouter } from './portfolio/net-worth.js';
 import { type PriceLog, type PriceSources, pricesRouter } from './prices/index.js';
@@ -47,12 +53,22 @@ type AppOptions = {
   // #187 Receives work that runs after an answer was sent (the fetch on linking an asset). By default it just
   // runs; tests collect and await it so none outlives its test.
   background?: (task: Promise<void>) => void;
+  // #306 Economy news source. None by default: the manual fetch then answers 503.
+  news?: NewsSource;
+  // #308 The daily pick's Claude client and buy. None by default: the manual run then answers 503.
+  pick?: PickDeps;
+  newsLog?: NewsLog;
   // The shared sign-in session check (#149). None by default: tests and local development run open.
   auth?: express.RequestHandler;
   // Read-only background job status (ADR-0018). Mounted after `auth`, so it needs the shared sign-in.
   jobsStatus?: express.RequestHandler;
   // shared-ai's public key (project-standards#711). None by default: /internal/tools is then a JSON 404.
   toolsPublicKey?: string;
+  // #311 The KakaoTalk connection and the URL of the web app (for the login return and message links). None: no /api/kakao.
+  kakao?: { service: KakaoService; appUrl?: string };
+  // #312 The public chatbot webhook at /kakao/skill (not under /api, so not behind the sign-in). With no config every
+  // request is refused.
+  kakaoSkill?: SkillOptions;
 };
 
 export function createApp(pool: Pool, options: AppOptions = {}) {
@@ -77,6 +93,9 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   if (options.jobsStatus) app.get('/api/jobs/status', options.jobsStatus);
   // Mounted before the app-wide JSON parser: an import of up to 2,000 rows has its own, larger limit (#44).
   app.use('/api/ledger/entries/csv', entryCsvRouter(pool, { today }));
+  // #312 Public webhook: before the app-wide JSON parser, so nothing is parsed before the secret is checked.
+  if (options.kakaoSkill)
+    app.use('/kakao/skill', ...skillHandlers(pool, { ...options.kakaoSkill, today }));
   app.use(express.json({ limit: '256kb' }));
   app.use('/api/ledger/budgets', budgetsRouter(pool));
   app.use('/api/ledger/categories', categoriesRouter(pool));
@@ -97,9 +116,12 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
     }),
   );
   app.use('/api/portfolio/net-worth', netWorthRouter(pool, { today }));
+  if (options.kakao)
+    app.use('/api/kakao', kakaoRouter(options.kakao.service, { appUrl: options.kakao.appUrl }));
   app.use('/api/mock/accounts/:accountId/orders', mockOrdersRouter(pool, today));
   app.use('/api/mock/accounts/:accountId/holdings', mockHoldingsRouter(pool, today));
   app.use('/api/mock/accounts/:accountId/snapshots', mockSnapshotsRouter(pool));
+  app.use('/api/mock/accounts/:accountId/return', benchmarkRouter(pool, today));
   app.use('/api/mock/accounts', mockAccountsRouter(pool));
   app.use('/api/mock/quotes', mockQuotesRouter(pool, options.kis));
   app.use(
@@ -120,6 +142,16 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
       log: options.priceLog ?? (() => undefined),
     }),
   );
+  app.use(
+    '/api/news',
+    newsRouter(pool, {
+      source: options.news,
+      today,
+      now,
+      log: options.newsLog ?? (() => undefined),
+    }),
+  );
+  app.use('/api/picks', picksRouter(pool, { deps: options.pick, today, now }));
   // AI tools for shared-ai on /internal/tools: outside /api, so nginx never forwards them and the signed call
   // token, not the session, is the check. shared-ai signs the tool and jti claims, so the app requires them.
   registerToolRoutes(app, {

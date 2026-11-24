@@ -9,7 +9,7 @@ Found while building #310: `krx_holidays` was a hand-kept table with three seede
 | `docs/price-source.md`                         | New section "KRX holidays (#321)": the three sources compared and the choice                                                                              |
 | `backend/src/prices/kis.ts`, `kis-fake.ts`     | Optional `calendar(from)` on `KisSource` (KIS 국내휴장일조회), `parseCalendar`; the fake answers weekdays as open. A small additive edit in lane-1's file |
 | `backend/src/prices/krx-calendar.ts`           | `isBusinessDay` (moved here from `long-hold.ts`), `ruleClosures`, `syncHolidays`, the daily `krx-holidays` queue                                          |
-| `database/migrations/043_krx_holiday_sync.sql` | `krx_holidays.source` (`manual`, `rule`, `kis`) and the one-row `krx_holiday_sync`                                                                        |
+| `database/migrations/047_krx_holiday_sync.sql` | `krx_holidays.source` (`manual`, `rule`, `kis`) and the one-row `krx_holiday_sync`                                                                        |
 | `backend/src/mock/long-hold.ts`, `server.ts`   | #310 now uses the shared function; the queue is added and sent once at start                                                                              |
 
 ## Rules
@@ -21,7 +21,7 @@ Found while building #310: `krx_holidays` was a hand-kept table with three seede
 ## Choices made without asking
 
 - **KIS over the public data portal**: one key, includes KRX-only closures, and it is the exchange's own flag. Say so if you want the data.go.kr API instead.
-- **Migration number 043** (not in the lane table; 040 and 042 were mine, 044 and up are free).
+- **Migration number 047**, the next free number above everything on main (046 is the keep-or-sell questions table). It adds `source` to the table that 046 creates.
 - The seeded rows from 042 stay as `manual` rows.
 
 ## Checks

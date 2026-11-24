@@ -42,6 +42,13 @@ export function fakeKis(now: () => Date = () => new Date()): KisSource {
   return {
     name: 'FAKE',
     calendar: (from) => Promise.resolve(fakeCalendar(from)),
+    // Works for every symbol, also the always-closed 999999: a last price needs no order book.
+    lastPrice: (symbol) =>
+      Promise.resolve({
+        symbol,
+        price: String(base[symbol] ?? 10_000),
+        readAt: now().toISOString(),
+      }),
     quote(symbol) {
       if (symbol === '999999') {
         return Promise.reject(

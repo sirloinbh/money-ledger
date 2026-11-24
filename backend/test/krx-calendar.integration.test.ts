@@ -17,6 +17,7 @@ function stub(closed: string[]) {
   const source: KisSource = {
     name: 'STUB',
     quote: () => Promise.reject(new Error('not used')),
+    lastPrice: () => Promise.reject(new Error('not used')),
     calendar(from) {
       calls.push(from);
       const days: CalendarDay[] = [];
@@ -43,8 +44,8 @@ test('the KRX holiday calendar against the real database', { skip: !url }, async
     await pool.query(
       'CREATE TABLE IF NOT EXISTS krx_holidays (holiday_date date PRIMARY KEY, name text NOT NULL)',
     );
-    await runMigration(pool, '043_krx_holiday_sync.sql');
-    await runMigration(pool, '043_krx_holiday_sync.sql'); // re-running is safe
+    await runMigration(pool, '047_krx_holiday_sync.sql');
+    await runMigration(pool, '047_krx_holiday_sync.sql'); // re-running is safe
   };
   const holidays = async () =>
     (
@@ -117,6 +118,7 @@ test('the KRX holiday calendar against the real database', { skip: !url }, async
       const failing: KisSource = {
         name: 'DOWN',
         quote: () => Promise.reject(new Error('not used')),
+        lastPrice: () => Promise.reject(new Error('not used')),
         calendar: () =>
           Promise.reject(new KisError('unavailable', 'KIS request failed (HTTP 500)')),
       };

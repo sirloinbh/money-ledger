@@ -170,7 +170,10 @@ export async function runLongHoldTick(pool: Pool, kis: KisSource | undefined, no
   return result;
 }
 
-/** Answers today's question of a position. Answering twice, or after 15:00, is a 409. */
+/**
+ * Answers today's question of a position. Answering twice, or after 15:00, is a 409.
+ * @public Called by the chatbot (#312) as well as the route.
+ */
 export async function answerQuestion(
   pool: Pool,
   kis: KisSource | undefined,
@@ -240,7 +243,7 @@ export function addNextDayRoute(
   });
 }
 
-export const LONG_HOLD_QUEUE = 'long-hold-morning';
+const LONG_HOLD_QUEUE = 'long-hold-morning';
 
 /**
  * The morning question as a pg-boss queue (#310): every minute from 08:00 to 15:59 Asia/Seoul on weekdays. The tick

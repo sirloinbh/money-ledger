@@ -47,12 +47,13 @@ test('the morning keep-or-sell question against the real database', { skip: !url
       '013_asset_trades.sql',
       '016_asset_valuation.sql',
       '018_mock_snapshots.sql',
-      '040_mock_positions.sql',
-      '042_mock_position_questions.sql',
+      '041_mock_positions.sql',
+      '042_mock_position_exit.sql',
+      '046_mock_position_questions.sql',
     ]) {
       await runMigration(pool, file);
     }
-    await runMigration(pool, '042_mock_position_questions.sql'); // re-running is safe
+    await runMigration(pool, '046_mock_position_questions.sql'); // re-running is safe
     const security = await pool.query<{ id: string }>(
       `INSERT INTO securities (market, symbol, name, kind, currency, active)
        VALUES ('KOSPI', '005930', '삼성전자', 'stock', 'KRW', true) RETURNING id`,
@@ -238,6 +239,7 @@ test('the morning keep-or-sell question against the real database', { skip: !url
     const closedKis: KisSource = {
       name: 'CLOSED',
       quote: (symbol) => kis.quote(symbol === '005930' ? '999999' : symbol),
+      lastPrice: (symbol) => kis.lastPrice(symbol),
     };
     await tick('2026-11-25 08:30', closedKis);
     clock = kst('2026-11-25 09:30');

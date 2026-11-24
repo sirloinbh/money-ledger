@@ -53,7 +53,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
   let accountId = 0;
   const reset = async (cash = 10_000_000) => {
     await pool.query(
-      `DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets, mock_snapshots, mock_position_questions, mock_positions, mock_orders, mock_holdings, mock_accounts, security_prices, fx_rates,
+      `DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets, mock_cash_flows, mock_snapshots, mock_position_questions, mock_positions, mock_orders, mock_holdings, mock_accounts, security_prices, fx_rates,
          price_fetch_state, price_api_calls, krx_market_days, securities`,
     );
     for (const file of [
@@ -68,7 +68,8 @@ test('mock trading market orders against the real database', { skip: !url }, asy
       '013_asset_trades.sql',
       '016_asset_valuation.sql',
       '018_mock_snapshots.sql',
-      '040_mock_positions.sql',
+      '041_mock_positions.sql',
+      '042_mock_position_exit.sql',
     ]) {
       await runMigration(pool, file);
     }
