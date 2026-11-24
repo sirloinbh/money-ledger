@@ -15,6 +15,13 @@ import { dayTradeQueue } from './mock/day-trade.js';
 import { snapshotOpenAccount } from './mock/snapshots.js';
 import { logNewsEvent, newsQueue, newsSourceFromEnv } from './news/index.js';
 import {
+  claudeFromEnv,
+  logPickEvent,
+  pickBuyDeps,
+  type PickDeps,
+  pickQueue,
+} from './picks/index.js';
+import {
   liveSourceFromEnv,
   logPriceEvent,
   PRICE_QUEUE,
@@ -32,8 +39,13 @@ if (!databaseUrl) throw new Error('DATABASE_URL is required');
 // createPool adds the 'error' listeners, so a lost idle connection is logged and does not end the process (#178).
 const pool = createPool(new Pool({ connectionString: databaseUrl }));
 const prices = sourcesFromEnv();
-const kis = liveSourceFromEnv();
 const news = newsSourceFromEnv();
+const kis = liveSourceFromEnv();
+// #308 The daily pick: Claude plus the all-in buy of #307. Without an Anthropic key there is none.
+const claude = claudeFromEnv();
+const pick: PickDeps | undefined = claude
+  ? { claude, ...pickBuyDeps(pool, kis, () => serviceDate()), log: logPickEvent }
+  : undefined;
 // PRICE_JOBS=off still works (the old switch); JOBS_MODE=off|send is the shared one (docs: price-source.md).
 const mode = process.env.PRICE_JOBS === 'off' ? 'off' : jobsModeFromEnv();
 const jobs = backgroundJobs(mode);
@@ -53,6 +65,7 @@ const server = createApp(pool, {
   priceLog: logPriceEvent,
   news,
   newsLog: logNewsEvent,
+  pick,
   auth,
   jobsStatus: jobs.status,
   toolsPublicKey: process.env.AI_TOOLS_PUBLIC_KEY,
@@ -86,6 +99,8 @@ void jobs.start(
         }),
         // #306 Economy headlines at 07:30 on weekdays, for the daily pick.
         newsQueue(pool, news, logNewsEvent),
+        // #308 Claude's pick and the all-in buy at 08:00 on weekdays, after the news fetch.
+        pickQueue(pool, pick),
         // #294 The Bank of Korea base rate for the deposit comparison.
         benchmarkQueue(pool, baseRateSourceFromEnv(), logPriceEvent),
       ],
