@@ -2,6 +2,7 @@ import { Pool } from 'pg';
 import { PgBoss } from 'pg-boss';
 
 import { createApp } from './app.js';
+import { baseRateSourceFromEnv, benchmarkQueue } from './benchmark-fetch.js';
 import { dailySavesQueue } from './daily-saves.js';
 import { kakaoConfigFromEnv } from './kakao/api.js';
 import { kakaoDailySummaryQueue } from './kakao/daily-summary.js';
@@ -71,6 +72,8 @@ void jobs.start(
         kakaoDailySummaryQueue(pool, notifier, kakao.service),
         // #306 Economy headlines at 07:30 on weekdays, for the daily pick.
         newsQueue(pool, news, logNewsEvent),
+        // #294 The Bank of Korea base rate for the deposit comparison.
+        benchmarkQueue(pool, baseRateSourceFromEnv(), logPriceEvent),
       ],
       { mode },
     ),

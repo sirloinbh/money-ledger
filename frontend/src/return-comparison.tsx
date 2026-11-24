@@ -3,16 +3,23 @@ import { useState } from 'react';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Notice } from './components/ui/notice';
-import { formatWon, serviceToday, signedPercent } from './format';
+import { formatDecimal, formatWon, serviceToday, signedPercent } from './format';
 import { apiKey, useApiQuery } from './lib/query';
 import { useNotice } from './lib/use-notice';
 import { useLoadError } from './query-reads';
 
 // #294 The mock account's time-weighted return for a period (user decision 2026-11-24: money added or taken out
 // is not counted as a gain or a loss). The server does the calculation; this card shows it with the values it
-// starts and ends from. Deposit and index comparisons are added to this card in later issues.
+// starts and ends from, and lines it up with what the same days would have earned at the Bank of Korea base rate and
+// at two fixed yearly rates (user decision 2026-11-24).
 
 type Period = '1m' | '3m' | 'all';
+type Benchmark = {
+  id: string;
+  name: string;
+  annualPct: string | null;
+  returnPct: string | null;
+};
 type AccountReturn = {
   startDate: string | null;
   endDate: string | null;
@@ -50,21 +57,22 @@ export function ReturnComparison({ accountId }: { accountId: number }) {
   const months = periods.find((item) => item.value === period)?.months ?? null;
   const from = months === null ? null : monthsBefore(serviceToday(), months);
   const path = `/api/mock/accounts/${accountId}/return${from ? `?from=${from}` : ''}`;
-  const read = useApiQuery<{ account: AccountReturn }>(
+  const read = useApiQuery<{ account: AccountReturn; benchmarks: Benchmark[] }>(
     apiKey('/api/mock', 'accounts', accountId, 'return', period),
     path,
   );
   const notice = useNotice();
   useLoadError(read.error, notice.error, 'Could not load the return');
   const result = read.data?.account;
+  const benchmarks = read.data?.benchmarks ?? [];
 
   return (
     <Card>
       <CardHeader>
         <CardTitle asHeading="h2">Return of your decisions</CardTitle>
         <CardDescription>
-          The return of your trades, not of the money you add. A deposit or a withdrawal is not
-          counted as a gain or a loss.
+          The return of your trades, not of the money you add, next to what the same days would have
+          earned elsewhere. A deposit or a withdrawal is not counted as a gain or a loss.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -125,6 +133,50 @@ export function ReturnComparison({ accountId }: { accountId: number }) {
             </div>
           </dl>
         )}
+        {result && result.returnPct !== null ? (
+          <table className="w-full text-body-sm">
+            <caption className="sr-only">
+              Return of your trades next to the benchmarks over the same days
+            </caption>
+            <thead>
+              <tr className="border-b text-left text-muted-foreground">
+                <th scope="col" className="py-2 font-medium">
+                  Compared with
+                </th>
+                <th scope="col" className="py-2 text-right font-medium">
+                  Per year
+                </th>
+                <th scope="col" className="py-2 text-right font-medium">
+                  Return
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b">
+                <th scope="row" className="py-2 text-left font-medium">
+                  Your trades
+                </th>
+                <td className="py-2 text-right">-</td>
+                <td className="py-2 text-right font-medium tabular-nums">
+                  {signedPercent(result.returnPct)}
+                </td>
+              </tr>
+              {benchmarks.map((item) => (
+                <tr key={item.id} className="border-b last:border-b-0">
+                  <th scope="row" className="py-2 text-left font-normal">
+                    {item.name}
+                  </th>
+                  <td className="py-2 text-right tabular-nums">
+                    {item.annualPct === null ? '-' : `${formatDecimal(item.annualPct)}%`}
+                  </td>
+                  <td className="py-2 text-right tabular-nums">
+                    {item.returnPct === null ? 'No rate yet' : signedPercent(item.returnPct)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
       </CardContent>
     </Card>
   );
