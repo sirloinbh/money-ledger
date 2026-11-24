@@ -69,7 +69,10 @@ void jobs.start(
         // #185 Fixed costs, finished reports and net worth once a day; the app's on-open calls stay as a fallback.
         dailySavesQueue(pool),
         // #313 The account summary to KakaoTalk once a day after the close.
-        kakaoDailySummaryQueue(pool, notifier, kakao.service),
+        kakaoDailySummaryQueue(pool, notifier, kakao.service, undefined, {
+          // lastPrice works after the close too (it is the day's close then); when KIS cannot answer, the stored close is used.
+          livePrice: kis ? async (symbol) => (await kis.lastPrice(symbol)).price : undefined,
+        }),
         // #306 Economy headlines at 07:30 on weekdays, for the daily pick.
         newsQueue(pool, news, logNewsEvent),
         // #294 The Bank of Korea base rate for the deposit comparison.
