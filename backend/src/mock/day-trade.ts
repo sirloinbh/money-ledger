@@ -21,12 +21,12 @@ import { livePrice } from './quotes.js';
 // - Trading days: weekdays by default. #321 plugs the KRX holiday calendar in through `isTradingDay`; until then
 //   a holiday is caught by KIS answering with an empty order book (market closed), which ends the run quietly.
 
-export const TAKE_PROFIT_RATE = '1.05';
-export const STOP_LOSS_RATE = '0.97';
+const TAKE_PROFIT_RATE = '1.05';
+const STOP_LOSS_RATE = '0.97';
 const openMinute = 9 * 60;
 const closeMinute = 15 * 60 + 20;
 
-export type ExitReason = 'take_profit' | 'stop_loss';
+type ExitReason = 'take_profit' | 'stop_loss';
 export type DayTradeRun = {
   /** Why nothing was checked, or null when the run looked at the positions. */
   skipped: 'outside_hours' | 'not_trading_day' | 'market_closed' | null;
@@ -167,7 +167,7 @@ export async function runDayTradeCheck(
   return run;
 }
 
-export const DAY_TRADE_QUEUE = 'day-trade-check';
+const DAY_TRADE_QUEUE = 'day-trade-check';
 
 /**
  * The day trade check as a pg-boss queue, every minute from 09:00 to 15:59 KST on weekdays (cron is in
