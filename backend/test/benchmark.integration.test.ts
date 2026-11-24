@@ -19,6 +19,8 @@ type Return = {
   returnPct: string | null;
 };
 
+type Benchmark = { id: string; name: string; annualPct: string | null; returnPct: string | null };
+
 test('time-weighted account return against the real database', { skip: !url }, async (t) => {
   const pool = new Pool({ connectionString: url });
   t.after(() => pool.end());
@@ -53,13 +55,15 @@ test('time-weighted account return against the real database', { skip: !url }, a
   };
   const get = async (id: number, query = '') => {
     let result: Return | undefined;
+    let benchmarks: Benchmark[] = [];
     let status = 0;
     await withApi(pool, async (call) => {
       const response = await call(`/api/mock/accounts/${id}/return${query}`);
       status = response.status;
       result = response.data.account as Return | undefined;
+      benchmarks = (response.data.benchmarks ?? []) as Benchmark[];
     });
-    return { status, result };
+    return { status, result, benchmarks };
   };
 
   await t.test('is empty until a day after the start is saved', async () => {
@@ -141,5 +145,63 @@ test('time-weighted account return against the real database', { skip: !url }, a
     assert.equal((await get(id + 99)).status, 404);
     assert.equal((await get(id, '?from=2026-13-01')).status, 400);
     assert.equal((await get(id, '?from=2026-11-05&to=2026-11-01')).status, 400);
+  });
+
+  await t.test(
+    'the benchmarks cover the same days: deposit at a changing base rate, 20% and 66% a year',
+    async () => {
+      // An account that started on 2025-01-02 (first value 2025-01-01) and was last valued on 2025-12-31: 364 days.
+      await pool.query('TRUNCATE base_rates');
+      await pool.query(
+        `INSERT INTO base_rates (effective_date, rate_pct, source, fetched_at) VALUES
+         ('2024-01-01', 2.5, 'TEST', now()), ('2025-07-01', 3.5, 'TEST', now())`,
+      );
+      const id = await seed([['2025-12-31', 11_000_000]]);
+      await pool.query(
+        "UPDATE mock_accounts SET created_at = '2025-01-02T01:00:00Z' WHERE id = $1",
+        [id],
+      );
+      const { result, benchmarks } = await get(id, '?from=2025-01-01&to=2025-12-31');
+      assert.equal(result?.startDate, '2025-01-01');
+      assert.equal(result?.endDate, '2025-12-31');
+      assert.equal(result?.returnPct, '10.00');
+      // 180 days at 2.5% then 184 days at 3.5%, compounded daily: (1 + 2.5/36500)^180 × (1 + 3.5/36500)^184 − 1.
+      // The fixed rates: 1.2^(364/365) − 1 and 1.66^(364/365) − 1.
+      assert.deepEqual(
+        benchmarks.map(({ id: key, annualPct, returnPct }) => ({ key, annualPct, returnPct })),
+        [
+          { key: 'deposit', annualPct: '3.5000', returnPct: '3.04' },
+          { key: 'buffett', annualPct: '20', returnPct: '19.94' },
+          { key: 'renaissance', annualPct: '66', returnPct: '65.77' },
+        ],
+      );
+    },
+  );
+
+  await t.test(
+    'the deposit is unknown without a base rate on the start day; fixed rates still show',
+    async () => {
+      await pool.query('TRUNCATE base_rates');
+      await pool.query(
+        "INSERT INTO base_rates (effective_date, rate_pct, source, fetched_at) VALUES ('2026-06-01', 3, 'TEST', now())",
+      );
+      const id = await seed([['2026-11-02', 10_500_000]]); // the period starts on 2026-11-01
+      const early = await get(id);
+      assert.equal(early.benchmarks[0].returnPct !== null, true); // 2026-06-01 is before the start: known
+      await pool.query('TRUNCATE base_rates');
+      const none = await get(id);
+      assert.equal(none.benchmarks[0].returnPct, null);
+      assert.equal(none.benchmarks[0].annualPct, null);
+      assert.notEqual(none.benchmarks[1].returnPct, null);
+    },
+  );
+
+  await t.test('without a later day there is no period, so every benchmark is null', async () => {
+    const id = await seed([]);
+    const { benchmarks } = await get(id);
+    assert.deepEqual(
+      benchmarks.map((item) => item.returnPct),
+      [null, null, null],
+    );
   });
 });

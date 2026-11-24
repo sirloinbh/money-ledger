@@ -10,6 +10,10 @@ import { HttpError, parseId, serviceTimeZone } from './standard/http.js';
 // Between two known days the return is (value now - cash flows in between) / value before; the period return is the
 // product of those, minus 1. A flow dated in (previous day, this day] is taken out of this day's step, so it is
 // counted as money added, not earned. All of it runs in SQL `numeric`, rounded half away from zero to 2 places.
+//
+// The benchmarks (user decision 2026-11-24) are measured over the same days as the account return, from its start day
+// to its end day: a deposit at the Bank of Korea base rate in effect on each day (compounded daily as the rate
+// changes), and two fixed yearly rates, (1 + rate) ^ (days / 365) - 1.
 
 const date = z
   .string({ error: 'The date is not valid' })
@@ -109,12 +113,81 @@ async function accountReturn(
   };
 }
 
+/** The fixed yearly rates in one place: percent a year, compounded as (1 + rate) ^ (days / 365). */
+const fixedBenchmarks = [
+  { id: 'buffett', name: 'Warren Buffett', annualPct: '20' },
+  { id: 'renaissance', name: 'Renaissance fund', annualPct: '66' },
+] as const;
+
+type Benchmark = {
+  id: 'deposit' | (typeof fixedBenchmarks)[number]['id'];
+  name: string;
+  /** The yearly rate: the base rate on the end day for the deposit (null while no rate is stored). */
+  annualPct: string | null;
+  /** The return over the account's period, null when the period or the rate is not known. */
+  returnPct: string | null;
+};
+
+/**
+ * What the same money would have earned over the days from `startDate` to `endDate` (YYYY-MM-DD), or all nulls when
+ * the period is unknown. The deposit needs a base rate on or before the start day; without one it is null.
+ */
+async function benchmarkReturns(
+  pool: Pool,
+  startDate: string | null,
+  endDate: string | null,
+): Promise<Benchmark[]> {
+  const known = startDate !== null && endDate !== null && endDate > startDate;
+  const deposit: Benchmark = {
+    id: 'deposit',
+    name: 'Deposit at the Bank of Korea base rate',
+    annualPct: null,
+    returnPct: null,
+  };
+  if (!known) {
+    return [deposit, ...fixedBenchmarks.map((item) => ({ ...item, returnPct: null }))];
+  }
+  const { rows } = await pool.query<{ deposit_pct: string | null; rate_pct: string | null }>(
+    `WITH days AS (
+       SELECT d::date AS d FROM generate_series($1::date + 1, $2::date, interval '1 day') AS g(d)
+     ),
+     rated AS (
+       SELECT days.d,
+              (SELECT b.rate_pct FROM base_rates b WHERE b.effective_date <= days.d
+               ORDER BY b.effective_date DESC LIMIT 1) AS rate
+       FROM days
+     )
+     SELECT CASE WHEN count(*) = count(rate)
+                 THEN round((exp(sum(ln(1 + rate / 36500))) - 1) * 100, 2)::text END AS deposit_pct,
+            (SELECT b.rate_pct::text FROM base_rates b WHERE b.effective_date <= $2::date
+             ORDER BY b.effective_date DESC LIMIT 1) AS rate_pct
+     FROM rated`,
+    [startDate, endDate],
+  );
+  deposit.returnPct = rows[0].deposit_pct;
+  deposit.annualPct = rows[0].rate_pct;
+  const fixed: Benchmark[] = [];
+  for (const item of fixedBenchmarks) {
+    const result = await pool.query<{ pct: string }>(
+      `SELECT round((power(1 + $1::numeric / 100, ($3::date - $2::date)::numeric / 365) - 1) * 100, 2)::text AS pct`,
+      [item.annualPct, startDate, endDate],
+    );
+    fixed.push({ ...item, returnPct: result.rows[0].pct });
+  }
+  return [deposit, ...fixed];
+}
+
 export function benchmarkRouter(pool: Pool, today: () => string) {
   const router = Router({ mergeParams: true });
   router.get('/', async (req, res) => {
     const accountId = parseId((req.params as { accountId?: string }).accountId, 'mock account');
     const query = returnQuery.parse(req.query);
-    res.json({ account: await accountReturn(pool, accountId, today(), query) });
+    const account = await accountReturn(pool, accountId, today(), query);
+    // The benchmarks cover the same days, so the three numbers can be read side by side.
+    res.json({
+      account,
+      benchmarks: await benchmarkReturns(pool, account.startDate, account.endDate),
+    });
   });
   return router;
 }
