@@ -18,9 +18,9 @@ import {
 // with the same generic 403, and a server without either setting refuses everything. Kakao drops a skill answer
 // that takes longer than 5 seconds, so a command gets 4.
 
-export const SECRET_HEADER = 'x-kakao-skill-secret';
+const SECRET_HEADER = 'x-kakao-skill-secret';
 /** Kakao's limit is 5 s; leave a second for the network. */
-export const COMMAND_TIMEOUT_MS = 4000;
+const COMMAND_TIMEOUT_MS = 4000;
 const refusal = { error: 'Not allowed' };
 
 export type SkillConfig = { secret: string; allowedUserIds: string[] };

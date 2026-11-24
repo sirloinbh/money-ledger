@@ -37,7 +37,7 @@ export function parseCommand(utterance: string): CommandName | undefined {
 export const quickReplies = ['상태', '포지션', '뉴스', '수익률'] as const;
 
 /** Return of the account next to each benchmark, in percent with 2 decimals, already rounded in SQL. */
-export type ReturnComparison = {
+type ReturnComparison = {
   accountPct: string;
   depositPct: string;
   buffettPct: string;
