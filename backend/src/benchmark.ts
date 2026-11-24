@@ -44,7 +44,7 @@ type ReturnRow = {
  * starts at the last known value on or before `from`, and ends at the last known value on or before `to`.
  * `returnPct` is null when the period holds no day after its start.
  */
-export async function accountReturn(
+async function accountReturn(
   pool: Pool,
   accountId: number,
   today: string,
