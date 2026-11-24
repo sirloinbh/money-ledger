@@ -29,4 +29,6 @@ Steps 2 and 3 of mock investing v2 (epic #303): Claude reads the day's stored he
 
 ## Verification
 
-See the PR.
+- Real browser (Playwright) on the Mock trading page with the API on port 3192 and Vite on 5292, `PICK_SOURCE=fake`, `NEWS_SOURCE=fake`, `PRICE_SOURCE=fake` (fake KIS book), on a scratch copy of the test DB: `POST /api/news/fetch`, then `POST /api/picks/run` stored one pick and bought all-in (order linked), and the card showed the stock, story, effect, reasoning, "Bought" and the news link with `rel="noopener noreferrer"`.
+- 390x844: the card is 358 px wide inside the page, no horizontal scroll (`scrollWidth` 390). 1440x900: card 1088 px, no horizontal scroll. The browser console had no errors.
+- Real Claude key and real KIS book: waiting on #304 (not run).

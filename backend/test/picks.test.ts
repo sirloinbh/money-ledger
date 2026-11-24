@@ -105,6 +105,17 @@ test('the client comes from the environment', () => {
   assert.throws(() => claudeFromEnv({ PICK_SOURCE: 'fake', NODE_ENV: 'production' }), /production/);
 });
 
+test('the fake client cites the first headline of the prompt when no ids are given', async () => {
+  const answer = await fakeClaude().complete({
+    system: '',
+    user: buildPrompt([{ id: 42, title: 't', summary: '', publisher: null }]),
+    schema: {},
+  });
+  const parsed = parseAnswer(answer.text);
+  assert.ok('answer' in parsed);
+  assert.deepEqual(parsed.answer.newsIds, [42]);
+});
+
 test('the fake client answers with a parseable pick', async () => {
   const answer = await fakeClaude('000660', [3]).complete({ system: '', user: '', schema: {} });
   const parsed = parseAnswer(answer.text);

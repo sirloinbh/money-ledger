@@ -78,12 +78,16 @@ export function anthropicClient(apiKey: string, model: string = defaultModel): C
   };
 }
 
-/** Deterministic stand-in for tests and for running without a key (PICK_SOURCE=fake): always picks `symbol`. */
-export function fakeClaude(symbol = '005930', newsIds: number[] = []): ClaudeClient {
+/**
+ * Deterministic stand-in for tests and for running without a key (PICK_SOURCE=fake): always picks `symbol`, and
+ * cites `newsIds` or, when none are given, the first headline of the prompt.
+ */
+export function fakeClaude(symbol = '005930', newsIds?: number[]): ClaudeClient {
   return {
-    complete() {
+    complete({ user }) {
+      const first = /^\[(\d+)\]/m.exec(user)?.[1];
       const body = {
-        newsIds,
+        newsIds: newsIds ?? (first ? [Number(first)] : []),
         storyTitle: '가짜 뉴스 요약',
         storySummary: '테스트용 가짜 이야기입니다.',
         economicEffect: '테스트용 경제 영향입니다.',
