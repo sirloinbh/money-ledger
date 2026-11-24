@@ -174,7 +174,7 @@ test('the daily KakaoTalk summary against the real database', { skip: !url }, as
       'INSERT INTO mock_accounts (initial_cash_krw, cash_krw) VALUES (10000000, 10000000)',
     );
     await pool.query(
-      "INSERT INTO krx_holidays (holiday_date, name) VALUES ('2026-12-25', 'Christmas')",
+      "INSERT INTO krx_holidays (holiday_date, name) VALUES ('2026-12-25', 'Christmas') ON CONFLICT DO NOTHING",
     );
     const messenger = fakeMessenger();
     const { lines, log } = quiet();
