@@ -130,4 +130,19 @@ test('the pick message against the real database', { skip: !url }, async (t) => 
     assert.ok(run.status === 'picked' && run.buyError === null);
     assert.ok(logged.some((line) => line.event === 'pick_notify_failed'));
   });
+
+  await t.test('two runs that overlap on one pick send the messages once', async () => {
+    await reset(false);
+    const messenger = fakeMessenger();
+    const deps = wire(messenger, []);
+    assert.ok((await runDailyPick(pool, deps, now)).status === 'picked'); // stored, not bought
+    await pool.query(
+      'INSERT INTO mock_accounts (initial_cash_krw, cash_krw, fee_rate) VALUES (10000000, 10000000, 0.00015)',
+    );
+    // Both runs see the pick without an order and buy it; the request key makes it one order.
+    const overlapping = { ...deps, hasOpenPosition: () => Promise.resolve(false) };
+    await Promise.all([runDailyPick(pool, overlapping, now), runDailyPick(pool, overlapping, now)]);
+    assert.equal((await pool.query('SELECT 1 FROM mock_orders')).rowCount, 1);
+    assert.equal(messenger.sent.length, 3);
+  });
 });

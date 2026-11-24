@@ -32,14 +32,18 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
 
 async function buyFor(pool: Pool, deps: PickDeps, pickId: number, securityId: number, day: string) {
   let orderId: number;
+  let linked: boolean;
   try {
     orderId = await deps.buy({ pickId, securityId, day });
-    await setPickOrder(pool, pickId, orderId);
+    linked = await setPickOrder(pool, pickId, orderId);
   } catch (error) {
     deps.log({ event: 'pick_buy_failed', pickId, message: messageOf(error) });
     return { orderId: null, buyError: messageOf(error) };
   }
-  // After the buy is saved and outside the try above: a message that fails must never turn a saved buy into a failed one.
+  // After the buy is saved and outside the try above: a message that fails must never turn a saved buy into a failed
+  // one. Only the run that linked the order sends: a run that overlapped it (same order, same request key) does not,
+  // so a pick is messaged at most once. A crash between the link and the send loses the message, never doubles it.
+  if (!linked) return { orderId, buyError: null };
   try {
     await deps.onBought?.(pickId);
   } catch (error) {

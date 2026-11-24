@@ -85,11 +85,13 @@ export async function pickOfDay(pool: Pool, day: string) {
   return (await pool.query<PickRow>(`${selectPick} WHERE p.pick_date = $1`, [day])).rows.at(0);
 }
 
+/** Links the order to the pick. True only for the run that did it; a run that finds it already linked gets false. */
 export async function setPickOrder(pool: Pool, pickId: number, orderId: number) {
-  await pool.query('UPDATE daily_picks SET order_id = $2 WHERE id = $1 AND order_id IS NULL', [
-    pickId,
-    orderId,
-  ]);
+  const { rowCount } = await pool.query(
+    'UPDATE daily_picks SET order_id = $2 WHERE id = $1 AND order_id IS NULL',
+    [pickId, orderId],
+  );
+  return rowCount === 1;
 }
 
 /** The pick with the headlines behind it, as the API sends it. */
