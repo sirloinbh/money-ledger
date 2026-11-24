@@ -206,7 +206,7 @@ test('KakaoTalk chatbot commands against the real database', { skip: !url }, asy
     '뉴스 and 수익률 use the source that fills them in, or say they are not ready',
     async () => {
       assert.match(textOf(await ask('뉴스')), /no news pick/);
-      assert.match(textOf(await ask('수익률')), /not ready/);
+      assert.match(textOf(await ask('수익률')), /no return to compare/);
       const news = await ask('뉴스', {
         sources: {
           news: () =>
@@ -227,6 +227,8 @@ test('KakaoTalk chatbot commands against the real database', { skip: !url }, asy
         sources: {
           returns: () =>
             Promise.resolve({
+              startDate: '2026-11-01',
+              endDate: '2026-11-06',
               accountPct: '0.30',
               depositPct: '0.12',
               buffettPct: '0.05',
@@ -236,7 +238,7 @@ test('KakaoTalk chatbot commands against the real database', { skip: !url }, asy
       });
       assert.match(
         textOf(returns),
-        /Account: 0\.30%\nDeposit: 0\.12%\nBuffett .*: 0\.05%\nRenaissance .*: 0\.18%/,
+        /Account: \+0\.30%\nDeposit: \+0\.12%\nBuffett .*: \+0\.05%\nRenaissance .*: \+0\.18%/,
       );
     },
   );
@@ -303,4 +305,54 @@ test('KakaoTalk chatbot commands against the real database', { skip: !url }, asy
     assert.deepEqual(answer.body, { error: 'Not allowed' } as unknown as SkillAnswer);
     assert.equal((await recorded()).length, before);
   });
+
+  await t.test('뉴스 reads today’s stored pick and shows the whole reason', async () => {
+    const reason = `Chip exports rise, ${'and the order book is deep. '.repeat(10)}`; // longer than a send-to-me message
+    await pool.query('TRUNCATE daily_picks');
+    await pool.query(
+      `INSERT INTO daily_picks (pick_date, news_item_ids, story_title, story_summary, economic_effect, reasoning,
+         security_id, model, raw_response)
+       VALUES ('2026-11-06', ARRAY[1], 'Chip exports jump', 'Summary', 'Exports lift growth', $1, $2, 'test', '{}')`,
+      [reason, security.rows[0]!.id],
+    );
+    const text = textOf(await ask('뉴스'));
+    assert.match(
+      text,
+      /^News: Chip exports jump\nEffect: Exports lift growth\nPick: Samsung Electronics \(005930\)\nWhy: Chip exports rise/,
+    );
+    assert.ok(text.length > 200 && text.includes(reason.trimEnd().slice(-30)));
+    // Another day's pick is not shown.
+    await pool.query("UPDATE daily_picks SET pick_date = '2026-11-05'");
+    assert.match(textOf(await ask('뉴스')), /no news pick for today/);
+  });
+
+  await t.test(
+    '수익률 compares the account with the deposit, Buffett and Renaissance',
+    async () => {
+      // The account starts on 2026-11-02 (KST), so its first known value is dated 2026-11-01: 5 days to 2026-11-06.
+      await pool.query("UPDATE mock_accounts SET created_at = '2026-11-02T01:00:00Z'");
+      await pool.query('TRUNCATE mock_snapshots');
+      await pool.query(
+        `INSERT INTO mock_snapshots (account_id, snapshot_date, cash_krw, value_krw, total_krw, profit_krw, return_pct)
+       VALUES ($1, '2026-11-06', 10500000, 0, 10500000, 500000, 5)`,
+        [account.rows[0]!.id],
+      );
+      await pool.query('TRUNCATE base_rates');
+      const without = textOf(await ask('수익률'));
+      assert.equal(
+        without,
+        [
+          'Return vs benchmarks (2026-11-01 to 2026-11-06)',
+          'Account: +5.00%',
+          'Deposit: n/a', // no base rate stored yet
+          'Buffett (20% a year): +0.25%', // 1.20 ^ (5 / 365) − 1
+          'Renaissance (66% a year): +0.70%', // 1.66 ^ (5 / 365) − 1
+        ].join('\n'),
+      );
+      await pool.query(
+        "INSERT INTO base_rates (effective_date, rate_pct, source, fetched_at) VALUES ('2026-10-01', 3, 'T', now())",
+      );
+      assert.match(textOf(await ask('수익률')), /\nDeposit: \+0\.04%\n/); // 3% a year over 5 days
+    },
+  );
 });
