@@ -1,6 +1,6 @@
 # Fill the KRX holiday calendar from a real source (#321)
 
-Found while building #310: `krx_holidays` was a hand-kept table with three seeded days. Stacked on #310.
+Found while building #310: `krx_holidays` was a hand-kept table with three seeded days. #310 is merged, so this is based on main.
 
 ## Changes
 
@@ -22,7 +22,7 @@ Found while building #310: `krx_holidays` was a hand-kept table with three seede
 
 - **KIS over the public data portal**: one key, includes KRX-only closures, and it is the exchange's own flag. Say so if you want the data.go.kr API instead.
 - **Migration number 047**, the next free number above everything on main (046 is the keep-or-sell questions table). It adds `source` to the table that 046 creates.
-- The seeded rows from 042 stay as `manual` rows.
+- The seeded rows from 046 stay as `manual` rows.
 
 ## Checks
 
