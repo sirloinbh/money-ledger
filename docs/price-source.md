@@ -202,3 +202,35 @@ How the app uses it:
 - Errors map to `bad_key` (502), `rate_limit` (429), `market_closed` (409, both sides of the book are empty) and `unavailable` (502).
 - `KIS_APP_KEY` and `KIS_APP_SECRET` turn it on. `PRICE_SOURCE=fake` uses `prices/kis-fake.ts` instead (not in production). With neither, `GET /api/mock/quotes/:securityId` answers 503.
 - Korean securities only. KIS calls are made when a person or a job asks; nothing polls on its own in this issue.
+
+## Base rate (ECOS)
+
+Added for the return comparison of the mock account ([#294](https://github.com/sirloinbh/money-ledger/issues/294), user decision 2026-11-24: a deposit at the Bank of Korea base rate, applied as it changes). No index source is used: the user dropped KOSPI and S&P 500 from the comparison.
+
+The values below come from the ECOS Open API guide as recalled by the agent, **not** checked with a real key: the key is still pending ([#304](https://github.com/sirloinbh/money-ledger/issues/304)). Confidence is **Secondary**. Search results disagreed about the table code, so recheck the table and item codes with `StatisticTableList` and `StatisticItemList` on the first real call and fix this table.
+
+| Item         | Value                                                                                                                                                                                             | Confirmed |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Request      | `GET https://ecos.bok.or.kr/api/StatisticSearch/<key>/json/kr/1/10000/722Y001/D/<yyyymmdd>/<yyyymmdd>/0101000` (table 722Y001, daily cycle, item 0101000 = the base rate). The key is in the path | Secondary |
+| Answer       | `StatisticSearch.row[]` with `TIME` (`YYYYMMDD`) and `DATA_VALUE` (annual percent as text). The parser accepts one row per day or only the days the rate changed                                  | Secondary |
+| No data      | `RESULT.CODE` `INFO-200`: an empty list, not a failure                                                                                                                                            | Secondary |
+| Other errors | Any other `RESULT.CODE` (for example `ERROR-100`, a bad key) is a failure; only the code is kept in the message, never the URL or key                                                             | Secondary |
+| Limits       | One call a day is far below the limits seen in secondary sources (about 1,000 a day, 300 in 3 minutes)                                                                                            | Secondary |
+
+How the app uses it:
+
+- `backend/src/prices/ecos.ts` is the source, `backend/src/benchmark-fetch.ts` the daily job (queue `benchmarks`, hourly from 12:30 to 18:30 Asia/Seoul, half an hour after the price fetch; the next hour is the retry). The first run asks from 2020-01-01 so the rate in effect at any account start is known; later runs ask from the day after the last checked day to today. An empty answer counts as checked.
+- Rows go to `base_rates` (`effective_date`, `rate_pct numeric(7,4)`), one per published day. The rate in effect on a day is the latest row on or before it. Fetch state is in `price_fetch_state` under source `ECOS`, scope `BASE_RATE`.
+- `ECOS_API_KEY` turns it on. `PRICE_SOURCE=fake` uses a fake that answers 2.5% since 2025-05-29 (not in production). With neither, the deposit comparison shows "No rate yet".
+
+## Benchmarks for the account return
+
+`GET /api/mock/accounts/:accountId/return` answers the time-weighted return of the account and three benchmarks over the same days (from the first value of the period to its last value), as percent strings rounded to 2 places in SQL `numeric`:
+
+| Benchmark                              | How                                                                                                                                                                       |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Deposit at the Bank of Korea base rate | For each day after the start, `1 + rate / 100 / 365` with the rate in effect that day, multiplied together. `null` when a day has no rate (no row on or before the start) |
+| Warren Buffett, 20% a year             | `(1 + 0.20) ^ (days / 365) - 1`                                                                                                                                           |
+| Renaissance fund, 66% a year           | `(1 + 0.66) ^ (days / 365) - 1`                                                                                                                                           |
+
+The two fixed yearly rates are in one place, `fixedBenchmarks` in `backend/src/benchmark.ts`. They are the user's chosen reference points, not market data. With no period yet (no value after the start) every benchmark is `null`.
