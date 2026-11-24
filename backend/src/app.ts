@@ -4,6 +4,8 @@ import type { Pool } from 'pg';
 import { types } from 'pg';
 
 import { tools } from './ai-tools.js';
+import { kakaoRouter } from './kakao/router.js';
+import type { KakaoService } from './kakao/service.js';
 import { budgetsRouter } from './ledger/budgets.js';
 import { categoriesRouter } from './ledger/categories.js';
 import { entriesRouter } from './ledger/entries.js';
@@ -47,6 +49,8 @@ type AppOptions = {
   jobsStatus?: express.RequestHandler;
   // shared-ai's public key (project-standards#711). None by default: /internal/tools is then a JSON 404.
   toolsPublicKey?: string;
+  // #311 The KakaoTalk connection and the URL of the web app (for the login return and message links). None: no /api/kakao.
+  kakao?: { service: KakaoService; appUrl?: string };
 };
 
 export function createApp(pool: Pool, options: AppOptions = {}) {
@@ -91,6 +95,8 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
     }),
   );
   app.use('/api/portfolio/net-worth', netWorthRouter(pool, { today }));
+  if (options.kakao)
+    app.use('/api/kakao', kakaoRouter(options.kakao.service, { appUrl: options.kakao.appUrl }));
   app.use('/api/mock/accounts/:accountId/orders', mockOrdersRouter(pool, today));
   app.use('/api/mock/accounts/:accountId/holdings', mockHoldingsRouter(pool, today));
   app.use('/api/mock/accounts/:accountId/snapshots', mockSnapshotsRouter(pool));
