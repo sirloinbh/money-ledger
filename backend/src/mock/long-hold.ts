@@ -128,7 +128,7 @@ async function sellQueued(
  */
 export async function runLongHoldTick(pool: Pool, kis: KisSource | undefined, now: Date) {
   const { date, minute } = seoulClock(now);
-  const result = { opened: 0, sold: 0, closed: 0 };
+  const result = { opened: 0, sold: 0, closed: 0, openedPositionIds: [] as number[] };
   // Questions of earlier days that are still waiting end, whatever the clock says today.
   const stale = await pool.query(
     `UPDATE mock_position_questions SET
@@ -142,15 +142,18 @@ export async function runLongHoldTick(pool: Pool, kis: KisSource | undefined, no
   if (!(await isBusinessDay(pool, date))) return result;
 
   if (minute >= askMinute && minute < closeQuestionMinute) {
-    const opened = await pool.query(
+    const opened = await pool.query<{ position_id: number }>(
       `INSERT INTO mock_position_questions (position_id, question_date)
        SELECT p.id, $1::date FROM mock_positions p
        WHERE p.strategy = 'long_hold' AND p.closed_at IS NULL
          AND (p.opened_at AT TIME ZONE 'Asia/Seoul')::date < $1::date
-       ON CONFLICT DO NOTHING`,
+       ON CONFLICT DO NOTHING
+       RETURNING position_id`,
       [date],
     );
     result.opened = opened.rowCount ?? 0;
+    // The positions asked just now (not the ones asked by an earlier tick), for the KakaoTalk message (#313).
+    result.openedPositionIds = opened.rows.map((row) => row.position_id);
   }
   if (minute >= openMinute && minute < closeMarketMinute) {
     const queued = await pool.query<{ id: number; position_id: number }>(
@@ -262,6 +265,8 @@ export function longHoldQueue(
   pool: Pool,
   kis: KisSource | undefined,
   now: () => Date = () => new Date(),
+  /** Called with the positions whose question this tick opened (#313: the KakaoTalk message). It must not throw. */
+  onOpened?: (positionIds: number[]) => Promise<void>,
 ): JobQueue {
   return {
     name: LONG_HOLD_QUEUE,
@@ -269,7 +274,8 @@ export function longHoldQueue(
     retryLimit: 0,
     schedule: '* 8-15 * * 1-5',
     handler: async () => {
-      await runLongHoldTick(pool, kis, now());
+      const result = await runLongHoldTick(pool, kis, now());
+      if (result.openedPositionIds.length > 0) await onOpened?.(result.openedPositionIds);
     },
   };
 }

@@ -120,9 +120,20 @@ test('the morning keep-or-sell question against the real database', { skip: !url
       await position('2026-11-24', 'day_trade');
       await position('2026-11-24', 'undecided');
       await position('2026-11-25', 'long_hold'); // bought today: not asked yet
-      assert.deepEqual(await tick('2026-11-25 08:29'), { opened: 0, sold: 0, closed: 0 });
+      assert.deepEqual(await tick('2026-11-25 08:29'), {
+        opened: 0,
+        sold: 0,
+        closed: 0,
+        openedPositionIds: [],
+      });
       assert.equal((await questions()).length, 0);
-      assert.equal((await tick('2026-11-25 08:30')).opened, 1);
+      const asked = await tick('2026-11-25 08:30');
+      assert.equal(asked.opened, 1);
+      assert.deepEqual(
+        asked.openedPositionIds,
+        [hold],
+        'the ids of the questions this tick opened',
+      );
       assert.equal((await tick('2026-11-25 08:31')).opened, 0, 'a second tick asks nothing again');
       const rows = await questions();
       assert.deepEqual(
