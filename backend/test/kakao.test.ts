@@ -99,3 +99,13 @@ test('a long news message is cut to Kakao’s 200 characters', () => {
   assert.equal(String(message.text).length, 200);
   assert.ok(String(message.text).endsWith('…'));
 });
+
+test('truncation never splits an emoji in half', () => {
+  const message = newsReasonMessage(
+    { headline: '📈'.repeat(250), effect: 'e', stockName: 'A', symbol: '1', reason: 'r' },
+    'https://app',
+  );
+  const text = String(message.text);
+  assert.equal(Array.from(text).length, 200);
+  assert.ok(!/[\ud800-\udbff](?![\udc00-\udfff])/.test(text), 'no lone surrogate');
+});

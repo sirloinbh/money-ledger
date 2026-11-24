@@ -176,3 +176,28 @@ The shared module is `backend/src/prices/`, and the table is in `database/migrat
 - If intraday prices become necessary, review the Korea Investment & Securities Open API again. It requires opening an account.
 - Funds other than Korean ETFs, crypto, and overseas markets other than the US are out of scope.
 - For delisted or halted tickers, the fetched close always takes priority, so it cannot be replaced by a manual entry. If it becomes necessary, consider a per-ticker setting that prefers the manual entry.
+
+## Live prices (KIS)
+
+Added for mock investing v2 ([#303](https://github.com/sirloinbh/money-ledger/issues/303), [#305](https://github.com/sirloinbh/money-ledger/issues/305)). This extends the "closing price only" decision above for Korean stocks in mock trading: all-in buys, sells and the day trade check need prices during the day. Daily closes for valuation stay as they are.
+
+The values below come from the KIS Open API guide as recalled by the agent, **not** checked against a live account: the key is still pending ([#304](https://github.com/sirloinbh/money-ledger/issues/304)). Confidence is **Secondary**. Recheck every row after the first real call and fix this table.
+
+| Item              | Value                                                                                                                                                                                                                                 | Confirmed |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Host              | `https://openapi.koreainvestment.com:9443` (real account)                                                                                                                                                                             | Secondary |
+| Access token      | `POST /oauth2/tokenP` with `grant_type=client_credentials`, `appkey`, `appsecret`. Answer has `access_token` and `expires_in` (about 24 hours). Asking again soon returns the same token, and issuing is limited (about 1 per minute) | Secondary |
+| Current price     | `GET /uapi/domestic-stock/v1/quotations/inquire-price`, `tr_id` `FHKST01010100`, query `FID_COND_MRKT_DIV_CODE=J`, `FID_INPUT_ISCD=<6-digit code>`. Price in `output.stck_prpr`                                                       | Secondary |
+| Order book        | `GET /uapi/domestic-stock/v1/quotations/inquire-asking-price-exp-ccn`, `tr_id` `FHKST01010200`, same query. `output1` has `askp1..10` (ask prices, lowest first), `bidp1..10`, `askp_rsqn1..10`, `bidp_rsqn1..10`                     | Secondary |
+| Headers           | `authorization: Bearer <token>`, `appkey`, `appsecret`, `tr_id`, `custtype: P`                                                                                                                                                        | Secondary |
+| Call limit        | About 20 calls per second per account on a real account (2 on a mock-investing account). Error `EGW00201` or HTTP 429 when exceeded                                                                                                   | Secondary |
+| Errors            | `rt_cd` other than `"0"` with `msg_cd`: `EGW00201` rate limit, `EGW00123` token expired, `EGW00103` / `EGW00105` bad app key or secret                                                                                                | Secondary |
+| Outside the hours | Every order book level is `0`                                                                                                                                                                                                         | Secondary |
+
+How the app uses it:
+
+- `backend/src/prices/kis.ts` keeps one access token in memory, renews it 5 minutes before it expires, and lets callers that arrive together wait for the same token request. An `EGW00123` answer drops the token and retries once. The app secret and token are never stored in the DB, logged or put in an error message.
+- One quote is two calls (current price and order book). Prices stay won decimal strings.
+- Errors map to `bad_key` (502), `rate_limit` (429), `market_closed` (409, both sides of the book are empty) and `unavailable` (502).
+- `KIS_APP_KEY` and `KIS_APP_SECRET` turn it on. `PRICE_SOURCE=fake` uses `prices/kis-fake.ts` instead (not in production). With neither, `GET /api/mock/quotes/:securityId` answers 503.
+- Korean securities only. KIS calls are made when a person or a job asks; nothing polls on its own in this issue.

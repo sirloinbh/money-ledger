@@ -22,7 +22,7 @@ import { decrypt, encrypt } from './crypto.js';
 /** What other code (the chatbot replies, the event wiring) sends through; tests use fakeMessenger. */
 export type Messenger = { send(template: Template): Promise<void> };
 
-export type KakaoStatus = {
+type KakaoStatus = {
   configured: boolean;
   state: 'not-configured' | 'disconnected' | 'connected' | 'revoked';
   connectedAt: string | null;
@@ -55,6 +55,14 @@ export function createKakaoService(
   const { config } = options;
   const fetcher = options.fetch ?? fetch;
   const now = options.now ?? (() => new Date());
+  // A key that no longer matches (KAKAO_TOKEN_KEY changed) fails GCM authentication; say so instead of a bare 500.
+  const open = (stored: string) => {
+    try {
+      return decrypt(stored, needConfig().tokenKey);
+    } catch {
+      throw new HttpError(409, 'The stored KakaoTalk tokens cannot be read. Reconnect KakaoTalk');
+    }
+  };
   const needConfig = () => {
     if (!config) throw new HttpError(503, 'KakaoTalk is not set up on the server yet');
     return config;
@@ -82,19 +90,14 @@ export function createKakaoService(
     if (current.status === 'revoked') throw new KakaoRevokedError();
     const fresh = (row: ConnectionRow) =>
       !force && row.access_expires_at.getTime() - now().getTime() > refreshMarginMs;
-    if (fresh(current)) return decrypt(current.access_token_enc, cfg.tokenKey);
+    if (fresh(current)) return open(current.access_token_enc);
     try {
       return await inTransaction(pool, async (client) => {
         const row = (await load(client, true)) ?? current;
         if (row.status === 'revoked') throw new KakaoRevokedError();
         // Someone else refreshed while this call waited for the lock (a forced refresh always goes on).
-        if (!force && fresh(row)) return decrypt(row.access_token_enc, cfg.tokenKey);
-        const tokens = await refreshTokens(
-          fetcher,
-          cfg,
-          decrypt(row.refresh_token_enc, cfg.tokenKey),
-          now(),
-        );
+        if (!force && fresh(row)) return open(row.access_token_enc);
+        const tokens = await refreshTokens(fetcher, cfg, open(row.refresh_token_enc), now());
         await client.query(
           `UPDATE kakao_connection SET access_token_enc = $1, access_expires_at = $2,
              refresh_token_enc = coalesce($3, refresh_token_enc), refresh_expires_at = coalesce($4, refresh_expires_at),

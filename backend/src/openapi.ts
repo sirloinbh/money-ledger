@@ -14,6 +14,7 @@ import * as summary from './ledger/summary.js';
 import * as trend from './ledger/trend.js';
 import * as accountsModule from './mock/accounts.js';
 import * as orders from './mock/orders.js';
+import * as news from './news/router.js';
 import * as assetsModule from './portfolio/asset-schema.js';
 import * as netWorth from './portfolio/net-worth.js';
 import * as trades from './portfolio/trades.js';
@@ -257,6 +258,11 @@ const table: Record<string, Operation> = {
     summary: 'List the daily value snapshots of a mock trading account',
     status: [200, 400, 404],
   },
+  'GET /api/mock/quotes/:securityId': {
+    summary:
+      'Get the live price and 10-level order book of an active Korean security (503 when live prices are not set up, 409 when the market is closed)',
+    status: [200, 400, 404, 409, 429, 502, 503],
+  },
   [`GET ${accounts}`]: { summary: 'List the mock trading accounts', status: [200] },
   [`POST ${accounts}`]: {
     summary: 'Open the mock trading account',
@@ -267,6 +273,16 @@ const table: Record<string, Operation> = {
     summary: 'Close a mock trading account and open a new one',
     body: ['MockAccountBody', accountsModule.accountBody],
     status: [200, 400, 404, 409],
+  },
+  'GET /api/news': {
+    summary: 'List the economy news headlines stored on a date (default today)',
+    query: news.listQuery,
+    status: [200, 400],
+  },
+  'POST /api/news/fetch': {
+    summary: 'Fetch and store the economy news headlines now',
+    // 503: no news source is configured.
+    status: [200, 503],
   },
   'GET /api/prices/securities': {
     summary: 'Search the securities by name or symbol',

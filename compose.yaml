@@ -29,6 +29,9 @@ services:
       KRX_API_KEY: ${KRX_API_KEY:-}
       TIINGO_API_KEY: ${TIINGO_API_KEY:-}
       KOREAEXIM_API_KEY: ${KOREAEXIM_API_KEY:-}
+      NAVER_CLIENT_ID: ${NAVER_CLIENT_ID:-}
+      NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET:-}
+      NEWS_SOURCE: ${NEWS_SOURCE:-}
       # #149: the shared sign-in (sirloinbh/shared-auth) checks each /api session on its network.
       AUTH_INTERNAL_URL: ${AUTH_INTERNAL_URL:-http://shared-auth-api:3110}
       # shared-ai's public key; /internal/tools is served only when it is set (project-standards#711).

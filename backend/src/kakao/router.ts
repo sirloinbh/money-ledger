@@ -40,11 +40,15 @@ export function kakaoRouter(service: KakaoService, options: { appUrl?: string } 
       await service.finishLogin(query.code, query.state);
       res.redirect(302, settings('connected'));
     } catch (error) {
-      if (error instanceof HttpError && error.status < 500) {
-        res.redirect(302, settings('failed'));
-        return;
-      }
-      throw error;
+      // The browser is waiting on this page, so every failure ends on Settings with a message, not a JSON error.
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          message: 'kakao login failed',
+          error: error instanceof Error ? error.message : 'unknown',
+        }),
+      );
+      res.redirect(302, settings('failed'));
     }
   });
 
