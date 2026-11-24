@@ -68,7 +68,7 @@ A question is messaged at most once: the insert's `RETURNING` lists only the row
 
 ## Step 5: the daily summary skips KRX holidays (#321 merged)
 
-`sendDailySummary` now asks the shared `isBusinessDay` (`backend/src/prices/krx-calendar.ts`) first and logs `kakao_daily_summary_skipped` with reason `not-business-day` on a holiday; the cron still skips weekends. `backend/test/kakao-daily-summary.integration.test.ts` covers a holiday (2026-12-25), a Saturday, and the business day before. This closes the "weekday-only until #321" limit.
+`sendDailySummary` now asks the shared `isBusinessDay` (`backend/src/prices/krx-calendar.ts`) first and logs `kakao_daily_summary_skipped` with reason `not-business-day` on a holiday; the cron still skips weekends. `backend/test/kakao-daily-summary.integration.test.ts` covers a holiday (2026-12-25), a Saturday, and the business day before. A database error in `isBusinessDay` fails the job and pg-boss retries it, like the other reads. This closes the "weekday-only until #321" limit. Review round 1 (separate read-only agent, no blocking findings): the test now keeps the migrated `krx_holidays` table and only clears its rows. `npm run check` and `npm run knip` pass.
 
 ## Verification
 

@@ -123,7 +123,7 @@ export async function sendDailySummary(
   },
 ) {
   const log = options.log ?? logJob;
-  // A market holiday has no new close and no net worth save worth reporting (#321: the shared KRX calendar).
+  // A market holiday has no new close to report (#321: the shared KRX calendar).
   if (!(await isBusinessDay(pool, day))) {
     log({ level: 'info', event: 'kakao_daily_summary_skipped', reason: 'not-business-day', day });
     return;

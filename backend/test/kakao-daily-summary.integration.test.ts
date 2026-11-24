@@ -25,10 +25,8 @@ test('the daily KakaoTalk summary against the real database', { skip: !url }, as
     await runMigration(pool, '005_mock_accounts.sql');
     await runMigration(pool, '009_prices.sql');
     await runMigration(pool, '015_mock_orders.sql');
-    await pool.query('DROP TABLE IF EXISTS krx_holidays');
-    await pool.query(
-      'CREATE TABLE krx_holidays (holiday_date date PRIMARY KEY, name text NOT NULL)',
-    );
+    // The migrated table (with its source column) stays; only its rows are cleared.
+    await pool.query('TRUNCATE krx_holidays');
   };
   const quiet = () => {
     const lines: Record<string, unknown>[] = [];
