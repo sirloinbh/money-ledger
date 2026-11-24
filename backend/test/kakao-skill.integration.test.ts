@@ -5,7 +5,7 @@ import { Pool } from 'pg';
 
 import { createApp } from '../src/app.js';
 import type { SkillOptions } from '../src/kakao/skill.js';
-import { listen, runMigration } from './helpers.js';
+import { listen, resetDatabase, runMigration } from './helpers.js';
 import { testDatabase } from './test-database.js';
 
 const url = await testDatabase();
@@ -39,7 +39,7 @@ test('KakaoTalk chatbot commands against the real database', { skip: !url }, asy
   const pool = new Pool({ connectionString: url });
   t.after(() => pool.end());
   // The test database already holds every earlier migration (the copy of the template); start from empty tables.
-  await pool.query('DROP TABLE IF EXISTS kakao_commands');
+  await resetDatabase(pool);
   await pool.query('TRUNCATE mock_accounts, securities CASCADE');
   await runMigration(pool, '039_kakao_commands.sql');
   await runMigration(pool, '045_kakao_commands_strategy.sql');

@@ -8,7 +8,7 @@ import type { KakaoConfig } from '../src/kakao/api.js';
 import { decrypt } from '../src/kakao/crypto.js';
 import { fakeMessenger } from '../src/kakao/fake.js';
 import { createKakaoService } from '../src/kakao/service.js';
-import { listen, runMigration, withApi } from './helpers.js';
+import { listen, resetDatabase, withApi } from './helpers.js';
 import { testDatabase } from './test-database.js';
 
 const url = await testDatabase();
@@ -57,9 +57,7 @@ test('KakaoTalk send-to-me against the real database', { skip: !url }, async (t)
   const pool = new Pool({ connectionString: url });
   t.after(() => pool.end());
   const reset = async () => {
-    await pool.query('DROP TABLE IF EXISTS kakao_connection, kakao_login_states');
-    await runMigration(pool, '029_kakao_connection.sql');
-    await runMigration(pool, '029_kakao_connection.sql'); // re-running is safe
+    await resetDatabase(pool);
   };
   const connect = async (
     service: ReturnType<typeof createKakaoService>,

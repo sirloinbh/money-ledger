@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 
 import type { Pool } from 'pg';
 
@@ -65,4 +65,31 @@ export async function withApi(
 export async function runMigration(pool: Pool, file: string) {
   const sql = await readFile(new URL(`../../database/migrations/${file}`, import.meta.url), 'utf8');
   await pool.query(sql);
+}
+
+const migrationsDir = new URL('../../database/migrations/', import.meta.url);
+let allMigrations: Promise<string[]> | undefined;
+
+/** The SQL of every migration file in name order, read once per test file. */
+function migrationSql() {
+  allMigrations ??= readdir(migrationsDir).then((names) =>
+    Promise.all(
+      names
+        .filter((name) => name.endsWith('.sql'))
+        .sort()
+        .map((name) => readFile(new URL(name, migrationsDir), 'utf8')),
+    ),
+  );
+  return allMigrations;
+}
+
+/**
+ * #320 Puts the test DB back to an empty, fully migrated schema: drops the `public` schema with everything in it
+ * (CASCADE) and applies every migration file. Use it in a test's reset instead of a hand-written `DROP TABLE` list, so
+ * a new table with a foreign key never breaks another file's reset. A test that needs a partly migrated schema (a
+ * migration's own upgrade path) runs `runMigration` on top of its own `DROP TABLE` of just those tables instead.
+ */
+export async function resetDatabase(pool: Pool) {
+  await pool.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public');
+  for (const sql of await migrationSql()) await pool.query(sql);
 }

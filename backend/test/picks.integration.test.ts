@@ -6,7 +6,7 @@ import { Pool } from 'pg';
 import type { ClaudeClient } from '../src/picks/claude.js';
 import { pickQueue } from '../src/picks/jobs.js';
 import { type PickDeps, runDailyPick } from '../src/picks/run.js';
-import { runMigration, withApi } from './helpers.js';
+import { resetDatabase, withApi } from './helpers.js';
 import { testDatabase } from './test-database.js';
 
 const url = await testDatabase();
@@ -19,10 +19,8 @@ test('the daily pick against the real database', { skip: !url }, async (t) => {
   const day = '2026-11-24';
 
   const reset = async () => {
-    await pool.query('DROP TABLE IF EXISTS daily_picks, news_items');
-    await runMigration(pool, '028_news_items.sql');
-    await runMigration(pool, '043_daily_picks.sql');
-    await runMigration(pool, '043_daily_picks.sql'); // re-running is safe
+    orders.length = 0;
+    await resetDatabase(pool);
     await pool.query('TRUNCATE securities RESTART IDENTITY CASCADE');
     await pool.query(
       `INSERT INTO securities (market, symbol, name, kind, currency, active) VALUES
@@ -71,6 +69,25 @@ test('the daily pick against the real database', { skip: !url }, async (t) => {
     };
     return { client, prompts };
   };
+  // #320 order_id is a real foreign key now, so the fake buy stores a real order and returns its id.
+  const orders: number[] = [];
+  const placeOrder = async (securityId: number) => {
+    const account =
+      (await pool.query<{ id: string }>('SELECT id FROM mock_accounts LIMIT 1')).rows[0] ??
+      (
+        await pool.query<{ id: string }>(
+          'INSERT INTO mock_accounts (initial_cash_krw, cash_krw) VALUES (10000000, 10000000) RETURNING id',
+        )
+      ).rows[0];
+    const { rows } = await pool.query<{ id: string }>(
+      `INSERT INTO mock_orders (account_id, security_id, request_key, side, quantity, price, currency, price_date,
+         amount_krw, fee_krw, cash_after_krw)
+       VALUES ($1, $2, gen_random_uuid(), 'buy', 1, 70000, 'KRW', '2026-11-24', 70000, 0, 9930000) RETURNING id`,
+      [account.id, securityId],
+    );
+    orders.push(Number(rows[0].id));
+    return orders[orders.length - 1];
+  };
   const deps = (client: ClaudeClient, extra: Partial<PickDeps> = {}) => {
     const buys: { pickId: number; securityId: number; day: string }[] = [];
     const value: PickDeps = {
@@ -78,13 +95,48 @@ test('the daily pick against the real database', { skip: !url }, async (t) => {
       hasOpenPosition: () => Promise.resolve(false),
       buy: (pick) => {
         buys.push(pick);
-        return Promise.resolve(500 + buys.length);
+        return placeOrder(pick.securityId);
       },
       log: () => undefined,
       ...extra,
     };
     return { value, buys };
   };
+
+  await t.test(
+    'the database keeps the foreign keys of a pick, and of the cash flows (#320)',
+    async () => {
+      await reset();
+      const violation = async (sql: string) =>
+        pool.query(sql).then(
+          () => 'inserted',
+          (error: { code?: string }) => error.code,
+        );
+      assert.equal(
+        await violation(
+          `INSERT INTO daily_picks (pick_date, news_item_ids, story_title, story_summary, economic_effect, reasoning,
+           security_id, model, raw_response) VALUES ('2026-11-24', '{1}', 't', 's', 'e', 'r', 999, 'm', '{}')`,
+        ),
+        '23503',
+      );
+      assert.equal(
+        await violation(
+          `INSERT INTO mock_cash_flows (account_id, flow_date, amount_krw) VALUES (999, '2026-11-24', 1000)`,
+        ),
+        '23503',
+      );
+      const [{ id }] = (await pool.query<{ id: number }>('SELECT id FROM securities LIMIT 1')).rows;
+      assert.equal(
+        await violation(
+          `INSERT INTO daily_picks (pick_date, news_item_ids, story_title, story_summary, economic_effect, reasoning,
+           security_id, model, raw_response, order_id) VALUES ('2026-11-24', '{1}', 't', 's', 'e', 'r', ${id}, 'm', '{}', 999)`,
+        ),
+        '23503',
+      );
+      // Resetting again works with the keys in place: nothing in a test file lists tables to drop.
+      await resetDatabase(pool);
+    },
+  );
 
   await t.test(
     'stores the pick with its news and security, buys, and links the order',
@@ -106,7 +158,7 @@ test('the daily pick against the real database', { skip: !url }, async (t) => {
       assert.deepEqual(rows[0].news_item_ids.map(Number), ids);
       assert.equal(rows[0].pick_date, day);
       assert.equal(rows[0].model, 'claude-opus-5-5');
-      assert.equal(Number(rows[0].order_id), 501);
+      assert.equal(Number(rows[0].order_id), orders[0]);
       assert.equal(buys[0].pickId, Number(rows[0].id));
     },
   );
@@ -184,7 +236,7 @@ test('the daily pick against the real database', { skip: !url }, async (t) => {
       const { value, buys } = deps(client, {
         buy: (pick) => {
           buys.push(pick);
-          return fail ? Promise.reject(new Error('not enough cash')) : Promise.resolve(77);
+          return fail ? Promise.reject(new Error('not enough cash')) : placeOrder(pick.securityId);
         },
       });
       const first = await runDailyPick(pool, value, now);
@@ -199,11 +251,11 @@ test('the daily pick against the real database', { skip: !url }, async (t) => {
       );
       fail = false;
       const again = await runDailyPick(pool, value, now);
-      assert.equal(again.status === 'already_picked' && again.orderId, 77);
+      assert.equal(again.status === 'already_picked' && again.orderId, orders[0]);
       assert.equal(prompts.length, 1);
       assert.equal(
         Number((await pool.query('SELECT order_id FROM daily_picks')).rows[0].order_id),
-        77,
+        orders[0],
       );
     },
   );
@@ -232,7 +284,7 @@ test('the daily pick against the real database', { skip: !url }, async (t) => {
             news: { title: string }[];
           };
           assert.equal(pick.storyTitle, '이야기');
-          assert.equal(pick.orderId, 501);
+          assert.equal(pick.orderId, orders[0]);
           assert.equal(pick.security.symbol, '005930');
           assert.deepEqual(
             pick.news.map((item) => item.title),
