@@ -1,4 +1,4 @@
-export { NEWS_QUEUE, newsQueue } from './jobs.js';
+export { newsQueue } from './jobs.js';
 export { newsRouter } from './router.js';
 export { type NewsSource, newsSourceFromEnv } from './source.js';
 export type { NewsLog } from './store.js';

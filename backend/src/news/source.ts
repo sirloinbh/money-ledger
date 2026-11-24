@@ -20,7 +20,7 @@ export type NewsSource = {
 export const newsQueries = ['경제', '증시', '금리', '환율', '반도체'] as const;
 
 /** A failed request. The message never holds the request URL or a key, so it can be logged as is. */
-export class NewsSourceError extends Error {
+class NewsSourceError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'NewsSourceError';
@@ -39,8 +39,13 @@ const entities: Record<string, string> = {
 
 /** Removes the HTML tags Naver puts in titles and descriptions (<b> around the query) and decodes its entities. */
 export function stripTags(text: string) {
-  return text
-    .replace(/<[^>]*>/g, '')
+  // Repeated until nothing changes, so "<<b>script>" cannot leave a tag behind after one pass.
+  let plain = text;
+  for (let previous = ''; previous !== plain;) {
+    previous = plain;
+    plain = plain.replace(/<[^>]*>/g, '');
+  }
+  return plain
     .replace(/&(?:quot|apos|#39|lt|gt|nbsp|amp);/g, (entity) => entities[entity])
     .replace(/\s+/g, ' ')
     .trim();

@@ -54,6 +54,9 @@ test('strips tags and decodes entities', () => {
   assert.equal(stripTags('<b>금리</b>  인하\n전망'), '금리 인하 전망');
   assert.equal(stripTags('A &amp;amp; B'), 'A &amp; B'); // decoded once, not twice
   assert.equal(stripTags('<script>x</script>'), 'x');
+  for (const nested of ['<<b>script>alert(1)<</b>/script>', '<scr<b></b>ipt>x', '<<<b>>b>x']) {
+    assert.ok(!/<[a-z/]/i.test(stripTags(nested)), `a tag is left in: ${nested}`);
+  }
 });
 
 test('the Naver source sends the keys as headers and never leaks them in an error', async (t) => {

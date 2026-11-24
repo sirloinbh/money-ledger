@@ -10,7 +10,7 @@ export type NewsLog = (event: Record<string, unknown>) => void;
 
 export type NewsFetchResult = { fetched: number; inserted: number; failedQueries: string[] };
 
-export async function saveNews(pool: Pool, query: string, items: NewsItem[], day: string) {
+async function saveNews(pool: Pool, query: string, items: NewsItem[], day: string) {
   let inserted = 0;
   for (const item of items) {
     const result = await pool.query(
