@@ -7,7 +7,9 @@ import { dailySavesQueue } from './daily-saves.js';
 import { kakaoConfigFromEnv } from './kakao/api.js';
 import { comparisonFor } from './kakao/comparison.js';
 import { kakaoDailySummaryQueue } from './kakao/daily-summary.js';
+import { notifyDayTradeSales } from './kakao/day-trade-events.js';
 import { createNotifier } from './kakao/notifier.js';
+import { notifyPickBought } from './kakao/pick-events.js';
 import { createKakaoService } from './kakao/service.js';
 import { skillConfigFromEnv } from './kakao/skill.js';
 import { dayTradeQueue } from './mock/day-trade.js';
@@ -41,11 +43,7 @@ const pool = createPool(new Pool({ connectionString: databaseUrl }));
 const prices = sourcesFromEnv();
 const news = newsSourceFromEnv();
 const kis = liveSourceFromEnv();
-// #308 The daily pick: Claude plus the all-in buy of #307. Without an Anthropic key there is none.
 const claude = claudeFromEnv();
-const pick: PickDeps | undefined = claude
-  ? { claude, ...pickBuyDeps(pool, kis, () => serviceDate()), log: logPickEvent }
-  : undefined;
 // PRICE_JOBS=off still works (the old switch); JOBS_MODE=off|send is the shared one (docs: price-source.md).
 const mode = process.env.PRICE_JOBS === 'off' ? 'off' : jobsModeFromEnv();
 const jobs = backgroundJobs(mode);
@@ -59,6 +57,15 @@ const kakao = {
 };
 // #313 Every event (pick, sale, question, daily summary) goes out through this one notifier.
 const notifier = createNotifier(kakao.service, { link: kakao.appUrl });
+// #308 The daily pick: Claude plus the all-in buy of #307. Without an Anthropic key there is none. #313 The buy goes to KakaoTalk once it is saved.
+const pick: PickDeps | undefined = claude
+  ? {
+      claude,
+      ...pickBuyDeps(pool, kis, () => serviceDate()),
+      onBought: (pickId) => notifyPickBought(pool, notifier, pickId, logPickEvent),
+      log: logPickEvent,
+    }
+  : undefined;
 const server = createApp(pool, {
   prices,
   kis,
@@ -85,7 +92,11 @@ void jobs.start(
         // #185 Fixed costs, finished reports and net worth once a day; the app's on-open calls stay as a fallback.
         dailySavesQueue(pool),
         // #309 Day trades are sold at +5% or -3% every minute during market hours.
-        dayTradeQueue(pool, kis, () => serviceDate(), { log: logPriceEvent }),
+        dayTradeQueue(pool, kis, () => serviceDate(), {
+          log: logPriceEvent,
+          // #313 Each sale goes to KakaoTalk once it is saved.
+          onSold: (sold) => notifyDayTradeSales(pool, notifier, sold, serviceDate(), logPriceEvent),
+        }),
         // #313 The account summary to KakaoTalk once a day after the close.
         kakaoDailySummaryQueue(pool, notifier, kakao.service, undefined, {
           // #294 The deposit, Buffett and Renaissance returns over the account's own period.
