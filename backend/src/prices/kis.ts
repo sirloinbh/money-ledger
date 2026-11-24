@@ -16,7 +16,12 @@ export type LiveQuote = {
   readAt: string;
 };
 
-/** The last traded price of a stock; outside market hours it is the last close. */
+/**
+ * The last traded price of a stock; outside market hours it is the last close. Exported for the code that calls
+ * `lastPrice` (#313, #309).
+ *
+ * @public
+ */
 export type LastPrice = { symbol: string; price: string; readAt: string };
 
 export type KisSource = {
