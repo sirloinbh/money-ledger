@@ -150,4 +150,37 @@ test('the long hold question message against the real database', { skip: !url },
     );
     assert.deepEqual(rows, [{ status: 'open' }]);
   });
+
+  await t.test('one position that cannot be read does not stop the next', async () => {
+    await reset();
+    await longHold();
+    await pool.query(
+      `INSERT INTO securities (market, symbol, name, kind, currency, active)
+       VALUES ('NASDAQ', 'AAPL', 'Apple Inc', 'stock', 'USD', true)`,
+    );
+    const usd = await pool.query<{ id: string }>("SELECT id FROM securities WHERE symbol = 'AAPL'");
+    const order = await pool.query<{ id: string }>(
+      `INSERT INTO mock_orders (account_id, security_id, request_key, side, quantity, price, currency, price_date,
+         fx_rate, fx_date, amount_krw, fee_krw, cash_after_krw, fill_source)
+       VALUES ($1, $2, $3, 'buy', 1, 100, 'USD', '2026-11-24', 1400, '2026-11-24', 140000, 21, 7000000, 'book')
+       RETURNING id`,
+      [accountId, usd.rows[0].id, randomUUID()],
+    );
+    const made = await pool.query<{ id: string }>(
+      `INSERT INTO mock_positions (account_id, security_id, buy_order_id, quantity, strategy, strategy_chosen_at,
+         strategy_source, opened_at)
+       VALUES ($1, $2, $3, 1, 'long_hold', now(), 'web', '2026-11-24T10:00:00+09:00') RETURNING id`,
+      [accountId, usd.rows[0].id, order.rows[0].id],
+    );
+    const messenger = fakeMessenger();
+    const lines: Record<string, unknown>[] = [];
+    // The dollar position is skipped (its price is not won); the Korean one is still asked.
+    await wire(messenger, '2026-11-25 08:30', undefined, lines).handler({}, {} as never);
+    assert.equal(messenger.sent.length, 1);
+    assert.match(String(messenger.sent[0].text), /Samsung Electronics/);
+    assert.deepEqual(
+      lines.map((line) => [line.event, line.positionId]),
+      [['kakao_long_hold_notify_skipped', Number(made.rows[0].id)]],
+    );
+  });
 });

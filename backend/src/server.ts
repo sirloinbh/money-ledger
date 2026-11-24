@@ -113,15 +113,18 @@ void jobs.start(
         benchmarkQueue(pool, baseRateSourceFromEnv(), logPriceEvent),
         // #310 The morning keep-or-sell question of each long hold.
         // #313 Each morning question also goes to KakaoTalk, with the live price when KIS answers.
-        longHoldQueue(pool, kis, undefined, (positionIds) =>
-          notifyLongHoldQuestions(
+        longHoldQueue(pool, kis, undefined, (positionIds) => {
+          // Not awaited: one live quote and one send per position can take many seconds each, and the next minute's
+          // tick (the 09:00 sales) must not wait for them. The notify function never throws.
+          void notifyLongHoldQuestions(
             pool,
             notifier,
             positionIds,
             kis ? async (symbol) => (await kis.lastPrice(symbol)).price : undefined,
             logPriceEvent,
-          ),
-        ),
+          );
+          return Promise.resolve();
+        }),
       ],
       { mode },
     ),
