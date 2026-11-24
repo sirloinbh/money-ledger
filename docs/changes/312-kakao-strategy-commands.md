@@ -22,7 +22,7 @@ After an all-in buy the position waits for the day trade or long hold choice (st
 
 ## Verification
 
-- `npm run check` with `TEST_DATABASE_URL` on a dedicated Postgres 17 container: passed (backend 575 tests, 0 skipped; the frontend step failed once on an unrelated timing flake and passed twice on rerun).
+- `npm run check` with `TEST_DATABASE_URL` on a dedicated Postgres 17 container: passed (backend 590 tests, 0 skipped; the frontend step failed once on an unrelated timing flake and passed twice on rerun).
 - `backend/test/kakao-skill.integration.test.ts` (real database, recorded Open Builder bodies): 포지션 shows "strategy not chosen" and the two buttons; 단타 stores `day_trade` with source `kakao`; the same word or the other one again changes nothing; 장투 stores `long_hold`; a sold position is not offered; recorded rows. `backend/test/kakao-skill.test.ts`: the new words match.
 
 ## Limits and follow-up

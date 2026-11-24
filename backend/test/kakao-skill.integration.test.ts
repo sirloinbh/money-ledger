@@ -175,12 +175,12 @@ test('KakaoTalk chatbot commands against the real database', { skip: !url }, asy
     assert.match(textOf(await ask('포지션')), /long hold, /);
   });
 
-  await t.test('a position sold meanwhile is skipped without an error', async () => {
+  await t.test('a sold position is not offered a choice', async () => {
     await pool.query(
       "UPDATE mock_positions SET strategy = 'undecided', strategy_chosen_at = NULL, strategy_source = NULL",
     );
-    // Closed between the list and the update cannot be staged here, so close it before and see that no
-    // position is offered: the guard for the race is the 409 branch, covered by the chooseStrategy tests (#307).
+    // A sale between the list and the update cannot be staged here; the guard for that race is the 409 branch,
+    // covered by the chooseStrategy tests (#307).
     const sell = await pool.query<{ id: string }>(
       `INSERT INTO mock_orders (account_id, security_id, request_key, side, quantity, price, currency,
          price_date, amount_krw, fee_krw, tax_krw, cash_after_krw, fill_source)
@@ -188,11 +188,14 @@ test('KakaoTalk chatbot commands against the real database', { skip: !url }, asy
        RETURNING id`,
       [account.rows[0]!.id, security.rows[0]!.id],
     );
-    await pool.query('UPDATE mock_positions SET sell_order_id = $1, closed_at = now()', [
-      sell.rows[0]!.id,
-    ]);
+    await pool.query(
+      "UPDATE mock_positions SET sell_order_id = $1, closed_at = now(), exit_reason = 'manual', net_gain_krw = 30000, net_gain_pct = 2.13",
+      [sell.rows[0]!.id],
+    );
     assert.match(textOf(await ask('단타')), /No position is waiting/);
-    await pool.query('UPDATE mock_positions SET sell_order_id = NULL, closed_at = NULL');
+    await pool.query(
+      'UPDATE mock_positions SET sell_order_id = NULL, closed_at = NULL, exit_reason = NULL, net_gain_krw = NULL, net_gain_pct = NULL',
+    );
     await pool.query('DELETE FROM mock_orders WHERE id = $1', [sell.rows[0]!.id]);
     await pool.query(
       "UPDATE mock_positions SET strategy = 'undecided', strategy_chosen_at = NULL, strategy_source = NULL",
