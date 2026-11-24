@@ -5,6 +5,7 @@ import { createApp } from './app.js';
 import { dailySavesQueue } from './daily-saves.js';
 import { kakaoConfigFromEnv } from './kakao/api.js';
 import { createKakaoService } from './kakao/service.js';
+import { skillConfigFromEnv } from './kakao/skill.js';
 import { snapshotOpenAccount } from './mock/snapshots.js';
 import { logPriceEvent, PRICE_QUEUE, priceQueue, sourcesFromEnv } from './prices/index.js';
 import { backgroundJobs, shutdownOnce } from './runtime.js';
@@ -36,6 +37,7 @@ const server = createApp(pool, {
   jobsStatus: jobs.status,
   toolsPublicKey: process.env.AI_TOOLS_PUBLIC_KEY,
   kakao,
+  kakaoSkill: { config: skillConfigFromEnv() },
 }).listen(port, listenHost(auth !== undefined), () => console.log(`API http://localhost:${port}`));
 // #178: jobs start after the API listens; a start-up failure is logged and the API keeps serving.
 // #235: a failed start is retried with a new PgBoss a few times (runtime.ts START_RETRY_DELAYS_MS).
