@@ -41,6 +41,19 @@ const minKey = 2;
 // A prefix match needs a longer key: "카페" would otherwise be the prefix of every café (#199).
 const minPrefix = 3;
 
+/**
+ * Whether two merchant names are the same merchant by the rules above: equal, the same key, or one key starting
+ * with the other. Used to tell a fixed cost from a merchant's entries (#291).
+ */
+export function sameMerchant(a: string, b: string) {
+  const [la, lb] = [a.toLowerCase(), b.toLowerCase()];
+  if (la === lb) return true;
+  const [ka, kb] = [merchantKey(a), merchantKey(b)];
+  if (ka.length < minKey || kb.length < minKey) return false;
+  if (ka === kb) return true;
+  return Math.min(ka.length, kb.length) >= minPrefix && (ka.startsWith(kb) || kb.startsWith(ka));
+}
+
 type Keyed = HistoryRow & { lower: string; key: string };
 
 /** 0: the same merchant, 1: the same key, 2: one key starts with the other, undefined: no match. */

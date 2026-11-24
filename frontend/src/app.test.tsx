@@ -35,6 +35,7 @@ const answered = new Set([
   'GET /api/ledger/entries/suggestions',
   'GET /api/ledger/fixed-costs',
   'POST /api/ledger/fixed-costs/generate',
+  'GET /api/ledger/recurring',
   'GET /api/ledger/rules',
   'GET /api/ledger/summary',
   'GET /api/ledger/trend',

@@ -10,6 +10,7 @@ import * as categories from './ledger/categories.js';
 import * as entries from './ledger/entries.js';
 import * as csv from './ledger/entry-csv.js';
 import * as fixedCosts from './ledger/fixed-costs.js';
+import * as recurring from './ledger/recurring.js';
 import * as rules from './ledger/rules.js';
 import * as summary from './ledger/summary.js';
 import * as trend from './ledger/trend.js';
@@ -135,6 +136,16 @@ const table: Record<string, Operation> = {
     summary: 'List the fixed costs with their status for a month',
     query: fixedCosts.monthQuery,
     status: [200, 400],
+  },
+  'GET /api/ledger/recurring': {
+    summary:
+      'List merchants that charge a similar amount every month and are not a fixed cost yet, as suggestions',
+    status: [200],
+  },
+  'POST /api/ledger/recurring/dismiss': {
+    summary: 'Dismiss a recurring payment suggestion so it does not come back',
+    body: ['RecurringDismissBody', recurring.dismissBody],
+    status: [204, 400],
   },
   'POST /api/ledger/fixed-costs': {
     summary: 'Create a fixed cost',
