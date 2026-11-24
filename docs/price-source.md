@@ -198,6 +198,7 @@ How the app uses it:
 
 - `backend/src/prices/kis.ts` keeps one access token in memory, renews it 5 minutes before it expires, and lets callers that arrive together wait for the same token request. An `EGW00123` answer drops the token and retries once. The app secret and token are never stored in the DB, logged or put in an error message.
 - One quote is two calls (current price and order book). Prices stay won decimal strings.
+- `lastPrice(symbol)` is one call to the current-price endpoint alone. It works when the market is closed (then it is the last close), unlike `quote`, which reports an empty order book as market closed. It returns when it was read, not when it was traded: the answer's own trade time field has not been checked against a real account (#304). Use it for after-hours values and for the per-minute day trade check (#309).
 - Errors map to `bad_key` (502), `rate_limit` (429), `market_closed` (409, both sides of the book are empty) and `unavailable` (502).
 - `KIS_APP_KEY` and `KIS_APP_SECRET` turn it on. `PRICE_SOURCE=fake` uses `prices/kis-fake.ts` instead (not in production). With neither, `GET /api/mock/quotes/:securityId` answers 503.
 - Korean securities only. KIS calls are made when a person or a job asks; nothing polls on its own in this issue.
