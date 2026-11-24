@@ -3,6 +3,7 @@
 // when the table and the registered routes differ.
 import { z } from 'zod/v4';
 
+import * as kakao from './kakao/router.js';
 import * as budgets from './ledger/budgets.js';
 import * as categories from './ledger/categories.js';
 import * as entries from './ledger/entries.js';
@@ -39,6 +40,21 @@ const table: Record<string, Operation> = {
     // 503 also when background jobs are off, still starting, or failed to start (#178).
     status: [200],
   },
+  'GET /api/kakao/status': { summary: 'Get whether KakaoTalk is connected', status: [200] },
+  'POST /api/kakao/connect': {
+    summary: 'Start the Kakao Login and get the URL to open',
+    status: [200, 503],
+  },
+  'GET /api/kakao/callback': {
+    summary: 'Finish the Kakao Login and send the browser back to Settings',
+    query: kakao.callbackQuery,
+    status: [302, 400],
+  },
+  'POST /api/kakao/test': {
+    summary: 'Send a test message to my KakaoTalk',
+    status: [200, 409, 502, 503],
+  },
+  'DELETE /api/kakao/connection': { summary: 'Disconnect KakaoTalk', status: [204] },
   'GET /api/ledger/entries/csv': {
     summary: 'Export the filtered entries as a CSV file',
     query: entries.listQuery,
