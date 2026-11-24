@@ -26,7 +26,7 @@ test('the pick message against the real database', { skip: !url }, async (t) => 
   const reset = async (withAccount = true) => {
     await pool.query(
       `DROP TABLE IF EXISTS daily_picks, news_items, portfolio_trades, portfolio_prepaid_usages, portfolio_assets,
-         mock_positions, mock_snapshots, mock_orders, mock_holdings, mock_accounts, security_prices, fx_rates,
+         mock_position_questions, mock_positions, mock_snapshots, mock_orders, mock_holdings, mock_accounts, security_prices, fx_rates,
          price_fetch_state, price_api_calls, krx_market_days, securities`,
     );
     for (const file of [

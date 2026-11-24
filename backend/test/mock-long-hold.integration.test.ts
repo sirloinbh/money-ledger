@@ -49,11 +49,11 @@ test('the morning keep-or-sell question against the real database', { skip: !url
       '018_mock_snapshots.sql',
       '041_mock_positions.sql',
       '042_mock_position_exit.sql',
-      '044_mock_position_questions.sql',
+      '046_mock_position_questions.sql',
     ]) {
       await runMigration(pool, file);
     }
-    await runMigration(pool, '044_mock_position_questions.sql'); // re-running is safe
+    await runMigration(pool, '046_mock_position_questions.sql'); // re-running is safe
     const security = await pool.query<{ id: string }>(
       `INSERT INTO securities (market, symbol, name, kind, currency, active)
        VALUES ('KOSPI', '005930', '삼성전자', 'stock', 'KRW', true) RETURNING id`,
