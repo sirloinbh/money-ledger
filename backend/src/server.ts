@@ -8,6 +8,7 @@ import { kakaoConfigFromEnv } from './kakao/api.js';
 import { comparisonFor } from './kakao/comparison.js';
 import { kakaoDailySummaryQueue } from './kakao/daily-summary.js';
 import { notifyDayTradeSales } from './kakao/day-trade-events.js';
+import { notifyLongHoldQuestions } from './kakao/long-hold-events.js';
 import { createNotifier } from './kakao/notifier.js';
 import { notifyPickBought } from './kakao/pick-events.js';
 import { createKakaoService } from './kakao/service.js';
@@ -112,7 +113,19 @@ void jobs.start(
         // #294 The Bank of Korea base rate for the deposit comparison.
         benchmarkQueue(pool, baseRateSourceFromEnv(), logPriceEvent),
         // #310 The morning keep-or-sell question of each long hold.
-        longHoldQueue(pool, kis),
+        // #313 Each morning question also goes to KakaoTalk, with the live price when KIS answers.
+        longHoldQueue(pool, kis, undefined, (positionIds) => {
+          // Not awaited: one live quote and one send per position can take many seconds each, and the next minute's
+          // tick (the 09:00 sales) must not wait for them. The notify function never throws.
+          void notifyLongHoldQuestions(
+            pool,
+            notifier,
+            positionIds,
+            kis ? async (symbol) => (await kis.lastPrice(symbol)).price : undefined,
+            logPriceEvent,
+          );
+          return Promise.resolve();
+        }),
         // #321 The KRX holiday calendar, read from KIS about monthly.
         holidayQueue(pool, kis, logPriceEvent),
       ],
