@@ -22,7 +22,7 @@ import { decrypt, encrypt } from './crypto.js';
 /** What other code (the chatbot replies, the event wiring) sends through; tests use fakeMessenger. */
 export type Messenger = { send(template: Template): Promise<void> };
 
-export type KakaoStatus = {
+type KakaoStatus = {
   configured: boolean;
   state: 'not-configured' | 'disconnected' | 'connected' | 'revoked';
   connectedAt: string | null;

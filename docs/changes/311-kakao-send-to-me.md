@@ -35,6 +35,8 @@ Fixed in a follow-up commit: a 10 s timeout on every Kakao call (a hung call no 
 
 Documented, not changed: the 60-day refresh expiry is not checked ahead of time (a failed send marks the connection `revoked`; #313 should surface a failed send); Kakao invalidates the old refresh token when it rotates it, so a crash between Kakao's answer and the commit loses the new one and needs a reconnect; Disconnect deletes the local tokens only and does not unlink on Kakao's side; the login state is not tied to the browser (the shared sign-in already guards `/connect`).
 
+CI's `npm run knip` flagged an unused exported type (`KakaoStatus`); it is no longer exported, and `npm run knip` shows no Kakao item. (`npm run check` does not include knip.)
+
 ## Limits and follow-up
 
 - Real-key check is waiting on #304 (Kakao REST API key, client secret, redirect URI registered in Kakao Developers). Until then the Kakao calls are only exercised against a fake `fetch`; the live token and memo endpoints are not verified.
