@@ -1,5 +1,7 @@
 import { fakeSources } from './fake.js';
 import type { PriceLog } from './fetch.js';
+import { kisFromEnv, type KisSource } from './kis.js';
+import { fakeKis } from './kis-fake.js';
 import { koreaEximSource } from './koreaexim.js';
 import { krxSource } from './krx.js';
 import type { PriceSources } from './sources.js';
@@ -46,4 +48,10 @@ export function sourcesFromEnv(
     tiingo: tiingo ? tiingoSource(tiingo) : undefined,
     fx: fx ? koreaEximSource(fx) : undefined,
   };
+}
+
+/** #305 The live price source: the fake with PRICE_SOURCE=fake (not in production), else KIS when its keys are set. */
+export function liveSourceFromEnv(env: NodeJS.ProcessEnv = process.env): KisSource | undefined {
+  if (env.PRICE_SOURCE?.trim() === 'fake' && env.NODE_ENV !== 'production') return fakeKis();
+  return kisFromEnv(env);
 }

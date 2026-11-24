@@ -9,7 +9,13 @@ import { createNotifier } from './kakao/notifier.js';
 import { createKakaoService } from './kakao/service.js';
 import { snapshotOpenAccount } from './mock/snapshots.js';
 import { logNewsEvent, newsQueue, newsSourceFromEnv } from './news/index.js';
-import { logPriceEvent, PRICE_QUEUE, priceQueue, sourcesFromEnv } from './prices/index.js';
+import {
+  liveSourceFromEnv,
+  logPriceEvent,
+  PRICE_QUEUE,
+  priceQueue,
+  sourcesFromEnv,
+} from './prices/index.js';
 import { backgroundJobs, shutdownOnce } from './runtime.js';
 import { listenHost, sharedAuth } from './standard/auth.js';
 import { createPool } from './standard/db.js';
@@ -21,6 +27,7 @@ if (!databaseUrl) throw new Error('DATABASE_URL is required');
 // createPool adds the 'error' listeners, so a lost idle connection is logged and does not end the process (#178).
 const pool = createPool(new Pool({ connectionString: databaseUrl }));
 const prices = sourcesFromEnv();
+const kis = liveSourceFromEnv();
 const news = newsSourceFromEnv();
 // PRICE_JOBS=off still works (the old switch); JOBS_MODE=off|send is the shared one (docs: price-source.md).
 const mode = process.env.PRICE_JOBS === 'off' ? 'off' : jobsModeFromEnv();
@@ -37,6 +44,7 @@ const kakao = {
 const notifier = createNotifier(kakao.service, { link: kakao.appUrl });
 const server = createApp(pool, {
   prices,
+  kis,
   priceLog: logPriceEvent,
   news,
   newsLog: logNewsEvent,
