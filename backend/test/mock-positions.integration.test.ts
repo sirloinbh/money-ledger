@@ -7,7 +7,7 @@ import { Pool } from 'pg';
 import { allInQuantity, sellPosition } from '../src/mock/positions.js';
 import type { KisSource } from '../src/prices/kis.js';
 import { fakeKis } from '../src/prices/kis-fake.js';
-import { runMigration, withApi } from './helpers.js';
+import { resetDatabase, withApi } from './helpers.js';
 import { testDatabase } from './test-database.js';
 
 // #307 All-in buy at the best ask, fees and tax on a sale, and the day trade or long hold strategy.
@@ -35,29 +35,7 @@ test('mock all-in positions against the real database', { skip: !url }, async (t
   const ids: Record<string, number> = {};
   let accountId = 0;
   const reset = async (cash: number, feeRate = '0.00015') => {
-    await pool.query(
-      `DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets, mock_position_questions, mock_positions,
-         mock_snapshots, mock_orders, mock_holdings, mock_accounts, security_prices, fx_rates,
-         price_fetch_state, price_api_calls, krx_market_days, securities`,
-    );
-    for (const file of [
-      '005_mock_accounts.sql',
-      '009_prices.sql',
-      '012_krx_listing.sql',
-      '024_price_fetch_not_found.sql',
-      '015_mock_orders.sql',
-      '004_portfolio_assets.sql',
-      '007_depreciable_assets.sql',
-      '010_prepaid_assets.sql',
-      '013_asset_trades.sql',
-      '016_asset_valuation.sql',
-      '018_mock_snapshots.sql',
-      '041_mock_positions.sql',
-      '042_mock_position_exit.sql',
-    ]) {
-      await runMigration(pool, file);
-    }
-    await runMigration(pool, '041_mock_positions.sql'); // re-running is safe
+    await resetDatabase(pool);
     const securities = await pool.query<{ id: string; symbol: string }>(
       `INSERT INTO securities (market, symbol, name, kind, currency, active) VALUES
          ('KOSPI', '005930', '삼성전자', 'stock', 'KRW', true),

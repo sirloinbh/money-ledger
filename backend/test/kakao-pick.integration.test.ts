@@ -10,7 +10,7 @@ import { pickBuyDeps } from '../src/picks/buy.js';
 import { fakeClaude } from '../src/picks/claude.js';
 import { type PickDeps, runDailyPick } from '../src/picks/run.js';
 import { fakeKis } from '../src/prices/kis-fake.js';
-import { runMigration } from './helpers.js';
+import { resetDatabase } from './helpers.js';
 import { testDatabase } from './test-database.js';
 
 // #313 The pick message, through the real pick run and the all-in buy. 08:00 on 2026-11-24 in Seoul.
@@ -24,30 +24,7 @@ test('the pick message against the real database', { skip: !url }, async (t) => 
   t.after(() => pool.end());
 
   const reset = async (withAccount = true) => {
-    await pool.query(
-      `DROP TABLE IF EXISTS daily_picks, news_items, portfolio_trades, portfolio_prepaid_usages, portfolio_assets,
-         mock_position_questions, mock_positions, mock_snapshots, mock_orders, mock_holdings, mock_accounts, security_prices, fx_rates,
-         price_fetch_state, price_api_calls, krx_market_days, securities`,
-    );
-    for (const file of [
-      '005_mock_accounts.sql',
-      '009_prices.sql',
-      '012_krx_listing.sql',
-      '024_price_fetch_not_found.sql',
-      '015_mock_orders.sql',
-      '004_portfolio_assets.sql',
-      '007_depreciable_assets.sql',
-      '010_prepaid_assets.sql',
-      '013_asset_trades.sql',
-      '016_asset_valuation.sql',
-      '018_mock_snapshots.sql',
-      '028_news_items.sql',
-      '043_daily_picks.sql',
-      '041_mock_positions.sql',
-      '042_mock_position_exit.sql',
-    ]) {
-      await runMigration(pool, file);
-    }
+    await resetDatabase(pool);
     await pool.query(
       `INSERT INTO securities (market, symbol, name, kind, currency, active)
        VALUES ('KOSPI', '005930', 'Samsung Electronics', 'stock', 'KRW', true)`,

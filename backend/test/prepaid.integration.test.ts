@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { Pool } from 'pg';
 
-import { runMigration, withApi } from './helpers.js';
+import { resetDatabase, runMigration, withApi } from './helpers.js';
 import { testDatabase } from './test-database.js';
 
 // #184 This file's own copy of the test DB (undefined without TEST_DATABASE_URL: the DB tests are skipped).
@@ -44,19 +44,7 @@ test('prepaid assets against the real database', { skip: !url }, async (t) => {
   t.after(() => pool.end());
 
   const reset = async () => {
-    await pool.query(
-      'DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets',
-    );
-    for (const file of ['004_portfolio_assets.sql', '007_depreciable_assets.sql']) {
-      await runMigration(pool, file);
-    }
-    await runMigration(pool, '010_prepaid_assets.sql');
-    await runMigration(pool, '013_asset_trades.sql');
-    await runMigration(pool, '010_prepaid_assets.sql'); // re-running is safe
-    await runMigration(pool, '009_prices.sql');
-    await runMigration(pool, '016_asset_valuation.sql');
-    await runMigration(pool, '025_prepaid_usage_balance.sql');
-    await runMigration(pool, '025_prepaid_usage_balance.sql'); // re-running is safe
+    await resetDatabase(pool);
   };
 
   await t.test(

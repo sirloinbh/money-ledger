@@ -10,7 +10,7 @@ import {
 } from '../src/kakao/daily-summary.js';
 import { fakeMessenger } from '../src/kakao/fake.js';
 import { createNotifier } from '../src/kakao/notifier.js';
-import { runMigration } from './helpers.js';
+import { resetDatabase } from './helpers.js';
 import { testDatabase } from './test-database.js';
 
 const url = await testDatabase();
@@ -19,14 +19,7 @@ test('the daily KakaoTalk summary against the real database', { skip: !url }, as
   const pool = new Pool({ connectionString: url });
   t.after(() => pool.end());
   const reset = async () => {
-    await pool.query(
-      'DROP TABLE IF EXISTS mock_snapshots, mock_position_questions, mock_positions, mock_orders, mock_holdings, mock_accounts',
-    );
-    await runMigration(pool, '005_mock_accounts.sql');
-    await runMigration(pool, '009_prices.sql');
-    await runMigration(pool, '015_mock_orders.sql');
-    // The migrated table (with its source column) stays; only its rows are cleared.
-    await pool.query('TRUNCATE krx_holidays');
+    await resetDatabase(pool);
   };
   const quiet = () => {
     const lines: Record<string, unknown>[] = [];

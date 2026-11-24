@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { Pool } from 'pg';
 
 import { serviceDate } from '../src/app.js';
-import { runMigration, withApi } from './helpers.js';
+import { resetDatabase, withApi } from './helpers.js';
 import { testDatabase } from './test-database.js';
 
 // #184 This file's own copy of the test DB (undefined without TEST_DATABASE_URL: the DB tests are skipped).
@@ -50,13 +50,7 @@ test('spending reports against the real database', { skip: !url }, async (t) => 
   /** `history`: an income entry long before every period, so each period counts as after the first entry. */
   const reset = async ({ history = true } = {}) => {
     await pool.query('TRUNCATE ledger_categories RESTART IDENTITY CASCADE');
-    await pool.query('DROP TABLE IF EXISTS spending_reports, spending_report_changes');
-    await runMigration(pool, '002_ledger_categories.sql');
-    await runMigration(pool, '017_ledger_budgets.sql');
-    await runMigration(pool, '021_spending_reports.sql');
-    await runMigration(pool, '021_spending_reports.sql'); // re-running is safe
-    await runMigration(pool, '026_spending_report_changes.sql');
-    await runMigration(pool, '026_spending_report_changes.sql'); // re-running is safe
+    await resetDatabase(pool);
     const { rows } = await pool.query<{ id: string; kind: string; name: string }>(
       'SELECT id, kind, name FROM ledger_categories',
     );
