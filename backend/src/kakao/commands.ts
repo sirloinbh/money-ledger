@@ -1,14 +1,16 @@
 import type { Pool } from 'pg';
 
+import { accountReturn, benchmarkReturns } from '../benchmark.js';
 import { accountValue } from '../mock/holdings.js';
 import { chooseStrategy } from '../mock/positions.js';
+import { pickOfDay } from '../picks/store.js';
 import { HttpError } from '../standard/http.js';
 import type { Template } from './api.js';
 import {
   accountSummaryMessage,
+  formatPct,
   formatWon,
   type NewsReason,
-  newsReasonMessage,
   type PositionLine,
   positionsMessage,
 } from './messages.js';
@@ -42,19 +44,58 @@ export function parseCommand(utterance: string): CommandName | undefined {
 /** The quick-reply buttons under every answer: the label and the text sent back when tapped. */
 export const quickReplies = ['상태', '포지션', '뉴스', '수익률'] as const;
 
-/** Return of the account next to each benchmark, in percent with 2 decimals, already rounded in SQL. */
+/** Return of the account next to each benchmark over the same days; a benchmark that is not known is null. */
 type ReturnComparison = {
+  startDate: string;
+  endDate: string;
   accountPct: string;
-  depositPct: string;
-  buffettPct: string;
-  renaissancePct: string;
+  depositPct: string | null;
+  buffettPct: string | null;
+  renaissancePct: string | null;
 };
 
-/** Sources that other features fill in. A missing one makes its command answer "not ready" instead of failing. */
+/**
+ * Where 뉴스 and 수익률 read from. The server uses the database (`databaseSources`); a test can replace either one.
+ */
 export type CommandSources = {
   news?: () => Promise<NewsReason | undefined>;
   returns?: () => Promise<ReturnComparison | undefined>;
 };
+
+/** Today's pick (#308) and the account return with its benchmarks (#294), read when the command runs. */
+function databaseSources(pool: Pool, today: string): Required<CommandSources> {
+  return {
+    async news() {
+      const pick = await pickOfDay(pool, today);
+      if (!pick) return undefined;
+      return {
+        headline: pick.story_title,
+        effect: pick.economic_effect,
+        stockName: pick.name ?? pick.symbol,
+        symbol: pick.symbol,
+        reason: pick.reasoning,
+      };
+    },
+    async returns() {
+      const id = await openAccountId(pool);
+      if (id === undefined) return undefined;
+      const account = await accountReturn(pool, id, today);
+      // No day after the start yet: there is no period to compare.
+      if (account.returnPct === null || account.startDate === null || account.endDate === null)
+        return undefined;
+      const benchmarks = await benchmarkReturns(pool, account.startDate, account.endDate);
+      const pct = (name: string) => benchmarks.find((item) => item.id === name)?.returnPct ?? null;
+      return {
+        startDate: account.startDate,
+        endDate: account.endDate,
+        accountPct: account.returnPct,
+        depositPct: pct('deposit'),
+        buffettPct: pct('buffett'),
+        renaissancePct: pct('renaissance'),
+      };
+    },
+  };
+}
 
 export type CommandReply = {
   text: string;
@@ -183,22 +224,35 @@ async function choose(pool: Pool, strategy: 'day_trade' | 'long_hold'): Promise<
   return reply(`${strategyName[strategy]}: ${chosen.join(', ')}\n${strategyRule[strategy]}`);
 }
 
-async function news(sources: CommandSources): Promise<CommandReply> {
-  const pick = await sources.news?.();
+/** Kakao shows up to 1,000 characters in one text bubble. */
+const bubbleLimit = 1000;
+
+async function news(sources: Required<CommandSources>): Promise<CommandReply> {
+  const pick = await sources.news();
   if (!pick) return unavailable('There is no news pick for today yet.');
-  return reply(textOf(newsReasonMessage(pick, link)));
+  // The shared builder cuts at 200 characters (a send-to-me limit); the chatbot has room for the whole reason.
+  const body = [
+    `News: ${pick.headline}`,
+    `Effect: ${pick.effect}`,
+    `Pick: ${pick.stockName} (${pick.symbol})`,
+    `Why: ${pick.reason}`,
+  ].join('\n');
+  return reply(body.length > bubbleLimit ? `${body.slice(0, bubbleLimit - 1)}…` : body);
 }
 
-async function returns(sources: CommandSources): Promise<CommandReply> {
-  const comparison = await sources.returns?.();
-  if (!comparison) return unavailable('The return comparison is not ready yet.');
+const pctOrNa = (pct: string | null) => (pct === null ? 'n/a' : formatPct(pct));
+
+async function returns(sources: Required<CommandSources>): Promise<CommandReply> {
+  const comparison = await sources.returns();
+  if (!comparison)
+    return unavailable('There is no return to compare yet: it needs a day after the start.');
   return reply(
     [
-      'Return vs benchmarks',
-      `Account: ${comparison.accountPct}%`,
-      `Deposit: ${comparison.depositPct}%`,
-      `Buffett (20% a year): ${comparison.buffettPct}%`,
-      `Renaissance (66% a year): ${comparison.renaissancePct}%`,
+      `Return vs benchmarks (${comparison.startDate} to ${comparison.endDate})`,
+      `Account: ${formatPct(comparison.accountPct)}`,
+      `Deposit: ${pctOrNa(comparison.depositPct)}`,
+      `Buffett (20% a year): ${pctOrNa(comparison.buffettPct)}`,
+      `Renaissance (66% a year): ${pctOrNa(comparison.renaissancePct)}`,
     ].join('\n'),
   );
 }
@@ -207,15 +261,16 @@ export function runCommand(
   name: CommandName,
   context: { pool: Pool; today: string; sources: CommandSources },
 ): Promise<CommandReply> {
+  const sources = { ...databaseSources(context.pool, context.today), ...context.sources };
   switch (name) {
     case 'status':
       return status(context.pool, context.today);
     case 'positions':
       return positions(context.pool, context.today);
     case 'news':
-      return news(context.sources);
+      return news(sources);
     case 'returns':
-      return returns(context.sources);
+      return returns(sources);
     case 'day_trade':
     case 'long_hold':
       return choose(context.pool, name);
