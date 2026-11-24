@@ -31,6 +31,7 @@ import {
   priceQueue,
   sourcesFromEnv,
 } from './prices/index.js';
+import { HOLIDAY_QUEUE, holidayQueue } from './prices/krx-calendar.js';
 import { backgroundJobs, shutdownOnce } from './runtime.js';
 import { listenHost, sharedAuth } from './standard/auth.js';
 import { createPool } from './standard/db.js';
@@ -125,12 +126,14 @@ void jobs.start(
           );
           return Promise.resolve();
         }),
+        // #321 The KRX holiday calendar, read from KIS about monthly.
+        holidayQueue(pool, kis, logPriceEvent),
       ],
       { mode },
     ),
   // A server that was off at 12:00 fetches once when it starts; the handler skips it when nothing is due.
   // No key: a `singleton` queue allows one running job per key, so a keyed job could overlap the cron's job.
-  (started) => started.send(PRICE_QUEUE, {}),
+  (started) => Promise.all([started.send(PRICE_QUEUE, {}), started.send(HOLIDAY_QUEUE, {})]),
 );
 const shutdown = shutdownOnce(server, jobs, pool);
 process.on('SIGTERM', () => void shutdown());
