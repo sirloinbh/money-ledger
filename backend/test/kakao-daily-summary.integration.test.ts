@@ -25,6 +25,10 @@ test('the daily KakaoTalk summary against the real database', { skip: !url }, as
     await runMigration(pool, '005_mock_accounts.sql');
     await runMigration(pool, '009_prices.sql');
     await runMigration(pool, '015_mock_orders.sql');
+    await pool.query('DROP TABLE IF EXISTS krx_holidays');
+    await pool.query(
+      'CREATE TABLE krx_holidays (holiday_date date PRIMARY KEY, name text NOT NULL)',
+    );
   };
   const quiet = () => {
     const lines: Record<string, unknown>[] = [];
@@ -172,4 +176,30 @@ test('the daily KakaoTalk summary against the real database', { skip: !url }, as
       assert.match(String(messenger.sent[1].text), /Prices: 2 last close, 1 at cost/);
     },
   );
+
+  await t.test('a KRX holiday or a weekend sends nothing', async () => {
+    await reset();
+    await pool.query(
+      'INSERT INTO mock_accounts (initial_cash_krw, cash_krw) VALUES (10000000, 10000000)',
+    );
+    await pool.query(
+      "INSERT INTO krx_holidays (holiday_date, name) VALUES ('2026-12-25', 'Christmas')",
+    );
+    const messenger = fakeMessenger();
+    const { lines, log } = quiet();
+    const notifier = createNotifier(messenger, { link: 'https://app', log, retryDelayMs: 0 });
+    for (const day of ['2026-12-25', '2026-11-28']) {
+      await sendDailySummary(pool, notifier, day, { connected: async () => true, log });
+    }
+    assert.equal(messenger.sent.length, 0);
+    assert.deepEqual(
+      lines.map((line) => [line.reason, line.day]),
+      [
+        ['not-business-day', '2026-12-25'],
+        ['not-business-day', '2026-11-28'],
+      ],
+    );
+    await sendDailySummary(pool, notifier, '2026-12-24', { connected: async () => true, log });
+    assert.equal(messenger.sent.length, 1, 'the day before is a business day');
+  });
 });
