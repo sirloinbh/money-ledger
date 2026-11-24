@@ -66,6 +66,10 @@ A pick is messaged at most once: `setPickOrder` now returns whether this run lin
 
 A question is messaged at most once: the insert's `RETURNING` lists only the rows this tick created, so a later or concurrent tick sends nothing; a crash between the insert and the send loses the message (the question stays open on the web screen and for the chatbot) and never doubles it. `server.ts` does not await the sends: one live quote and one send per position can take many seconds, and the next minute's tick (the 09:00 sales) must not wait. Only Korean stocks are messaged (the all-in buy refuses the rest; a dollar price must not be read as won), and a zero buy amount gives `0.00%` instead of an error. Review round 1 (separate read-only agent, no blocking findings): these four points. `npm run check` and `npm run knip` pass.
 
+## Step 5: the daily summary skips KRX holidays (#321 merged)
+
+`sendDailySummary` now asks the shared `isBusinessDay` (`backend/src/prices/krx-calendar.ts`) first and logs `kakao_daily_summary_skipped` with reason `not-business-day` on a holiday; the cron still skips weekends. `backend/test/kakao-daily-summary.integration.test.ts` covers a holiday (2026-12-25), a Saturday, and the business day before. A database error in `isBusinessDay` fails the job and pg-boss retries it, like the other reads. This closes the "weekday-only until #321" limit. Review round 1 (separate read-only agent, no blocking findings): the test now keeps the migrated `krx_holidays` table and only clears its rows. `npm run check` and `npm run knip` pass.
+
 ## Verification
 
 - Daily summary valuation (integration test): one holding priced live, one at the last close, one at cost gives the expected total and return (-3.35%) and the `Prices:` line; with no live source it falls back to close and cost.

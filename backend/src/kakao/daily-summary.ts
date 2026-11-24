@@ -2,6 +2,7 @@ import type { Pool } from 'pg';
 
 import { accountValue } from '../mock/holdings.js';
 import { won } from '../money.js';
+import { isBusinessDay } from '../prices/krx-calendar.js';
 import { serviceDate } from '../standard/http.js';
 import { type JobLog, type JobQueue, logJob } from '../standard/jobs.js';
 import type { Comparison, DailySummary } from './messages.js';
@@ -122,6 +123,11 @@ export async function sendDailySummary(
   },
 ) {
   const log = options.log ?? logJob;
+  // A market holiday has no new close to report (#321: the shared KRX calendar).
+  if (!(await isBusinessDay(pool, day))) {
+    log({ level: 'info', event: 'kakao_daily_summary_skipped', reason: 'not-business-day', day });
+    return;
+  }
   // Not connected (or revoked): nothing to send, and not an error the job should retry.
   if (!(await options.connected())) {
     log({ level: 'info', event: 'kakao_daily_summary_skipped', reason: 'not-connected', day });
@@ -155,7 +161,7 @@ export async function sendDailySummary(
 
 /**
  * The summary as a pg-boss queue. Cron in Asia/Seoul: 19:10 on weekdays, after the daily price fetch (12:00-18:00) and
- * the net worth save (19:05). Weekdays only for now; the shared KRX business day check replaces it when #321 lands.
+ * the net worth save (19:05). The cron skips weekends; the handler also skips the KRX holidays (`isBusinessDay`, #321).
  * `singleton`: one run at a time. A failed send is the notifier's to log; the job itself only fails when the database
  * does, and then pg-boss runs it again.
  */
