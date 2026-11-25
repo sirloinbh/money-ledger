@@ -26,6 +26,23 @@ else:
     print("fail")
 '
 }
+# GitHub deployment record (#1087): after a successful deploy, a deployment (environment production, ref = the deployed commit)
+# and a success status, so the compliance report can show the real deploy time. The fine-grained token (Deployments: write) is
+# read from SSM /sirloinbh/shared/github-ops-token with deploy/ssm-get.sh (ADR-0014); it goes to curl on standard input, never as
+# an argument, and is never printed. A missing token, an SSM error or a GitHub error only skips the record: the deploy has
+# already succeeded and stays succeeded.
+deploy_record() {
+  local full=$1 token resp id
+  [ -f deploy/ssm-get.sh ] || return 0
+  token=$(bash deploy/ssm-get.sh /sirloinbh/shared/github-ops-token 2> /dev/null) || return 0
+  [ -n "$token" ] || return 0
+  gh_post() { printf 'header = "Authorization: Bearer %s"\n' "$token" | curl -fsS -m 15 -K - -X POST -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' -H 'Content-Type: application/json' --data "$2" "https://api.github.com/repos/$repo/$1" 2> /dev/null; }
+  resp=$(gh_post deployments "{\"ref\":\"$full\",\"environment\":\"production\",\"auto_merge\":false,\"required_contexts\":[],\"description\":\"autodeploy\"}") || { echo "could not create the GitHub deployment record for ${full:0:12}"; return 0; }
+  id=$(printf '%s' "$resp" | grep -o '"id": *[0-9]*' | head -n 1 | grep -o '[0-9]*$')
+  [ -n "$id" ] || { echo "the GitHub deployment record for ${full:0:12} has no id"; return 0; }
+  gh_post "deployments/$id/statuses" '{"state":"success","environment":"production"}' > /dev/null || { echo "could not mark the GitHub deployment $id as success"; return 0; }
+  echo "GitHub deployment record written for ${full:0:12}"
+}
 if [ "${1:-}" = ci-state ]; then
   ci_state
   exit 0
@@ -130,6 +147,7 @@ git checkout --quiet --detach "$full"
 if APPS_DEPLOY_LOCKED=1 bash deploy/remote-deploy.sh deploy "$full" 2>&1 | tee .last-deploy.log; then
   rm -f .autodeploy-failed
   signal ok "deployed $sha"
+  deploy_record "$full" || true
 else
   echo "$sha" > .autodeploy-failed
   reason=$(tail -n 20 .last-deploy.log 2> /dev/null | sed -E 's/((TOKEN|SECRET|PASSWORD|KEY)[A-Za-z0-9_]*=)[^[:space:]]+/\1***/g' || true)

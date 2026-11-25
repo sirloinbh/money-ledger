@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@sirloinbh/auth-client": "1.0.0",
+    "@sirloinbh/auth-client": "1.1.0",
     "@sirloinbh/design-tokens": "1.1.0",
     "@tanstack/react-query": "5.104.1",
     "class-variance-authority": "0.7.1",

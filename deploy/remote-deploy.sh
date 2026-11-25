@@ -88,7 +88,8 @@ health() {
 }
 # Docker drops a replaced container's logs, so its error lines since the last report (.report-last-sent,
 # written by deploy/report.sh; 24 hours when missing) go to a file that deploy/report.sh counts with the
-# live logs and then empties (ADR-0021, #644). Nothing here may fail a deploy: no running api container,
+# live logs and then empties (ADR-0021, #644). Sign-in lines ("event":"sign_in", shared-auth) are kept too,
+# for the report's sign-in counts (#1089); they are info or warn, so the error count is unchanged. Nothing here may fail a deploy: no running api container,
 # or any docker error, is skipped quietly.
 save_api_errors() {
   local since=24h last_sent
@@ -98,7 +99,7 @@ save_api_errors() {
   fi
   [ -n "$(IMAGE_TAG="${IMAGE_TAG:-none}" docker compose ps -q api 2> /dev/null)" ] || return 0
   IMAGE_TAG="${IMAGE_TAG:-none}" docker compose logs --no-log-prefix --since "$since" api 2> /dev/null |
-    { grep -F '"level":"error"' || true; } >> .errors-before-deploy.log 2> /dev/null || true
+    { grep -F -e '"level":"error"' -e '"event":"sign_in"' || true; } >> .errors-before-deploy.log 2> /dev/null || true
   return 0
 }
 # Pulls the images CI pushed for a commit (ADR-0023, #755) and tags them with the local names compose.yaml uses, so

@@ -52,3 +52,9 @@ test('the close button and a DialogClose button both close it', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(screen.queryByRole('dialog')).toBeNull();
 });
+
+test('the close button is 44px square on touch screens (#1103)', () => {
+  render(<Confirm />);
+  fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+  expect(screen.getByRole('button', { name: 'Close' })).toHaveClass('size-8', 'pointer-coarse:size-11');
+});

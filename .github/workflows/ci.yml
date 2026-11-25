@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   ci:
-    uses: sirloinbh/project-standards/.github/workflows/reusable-app-ci.yml@9594400325f502e9bd144a0f9831bf7390cee544
+    uses: sirloinbh/project-standards/.github/workflows/reusable-app-ci.yml@6b60e39f29f0fb7f20565273f5bdc9d319b12d1d
     with:
       node-version: '24.21.0'
       npm-version: '11.19.0'
