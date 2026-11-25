@@ -2,8 +2,10 @@ import type { Pool } from 'pg';
 
 import { accountReturn, benchmarkReturns } from '../benchmark.js';
 import { accountValue } from '../mock/holdings.js';
+import { answerQuestion, seoulClock } from '../mock/long-hold.js';
 import { chooseStrategy } from '../mock/positions.js';
 import { pickOfDay } from '../picks/store.js';
+import type { KisSource } from '../prices/kis.js';
 import { HttpError } from '../standard/http.js';
 import type { Template } from './api.js';
 import {
@@ -19,7 +21,8 @@ import {
 // The reply text comes from the #311 message builders, so the chatbot and the messages the app sends on its own
 // read the same.
 
-export type CommandName = 'status' | 'positions' | 'news' | 'returns' | 'day_trade' | 'long_hold';
+export type CommandName =
+  'status' | 'positions' | 'news' | 'returns' | 'day_trade' | 'long_hold' | 'keep' | 'sell';
 
 /** The words a user can type or tap, in Korean and English. Anything else is an unknown command. */
 const aliases: Record<string, CommandName> = {
@@ -35,6 +38,10 @@ const aliases: Record<string, CommandName> = {
   'day trade': 'day_trade',
   장투: 'long_hold',
   'long hold': 'long_hold',
+  유지: 'keep',
+  keep: 'keep',
+  매도: 'sell',
+  sell: 'sell',
 };
 
 export function parseCommand(utterance: string): CommandName | undefined {
@@ -160,7 +167,7 @@ async function status(pool: Pool, today: string): Promise<CommandReply> {
 
 const strategyOf = { day_trade: 'day', long_hold: 'long', undecided: null } as const;
 
-async function positions(pool: Pool, today: string): Promise<CommandReply> {
+async function positions(pool: Pool, today: string, now: Date): Promise<CommandReply> {
   const id = await openAccountId(pool);
   const value = id === undefined ? undefined : await accountValue(pool, id, today);
   if (id === undefined || !value) return noAccount();
@@ -185,13 +192,16 @@ async function positions(pool: Pool, today: string): Promise<CommandReply> {
     returnPct: holding.returnPct ?? '0.00',
   }));
   const waiting = [...byStock.values()].includes('undecided');
+  const asked = (await openQuestions(pool, id, now)).length > 0;
+  const extraReplies = [...(waiting ? strategyReplies : []), ...(asked ? answerReplies : [])];
   return {
     ...reply(textOf(positionsMessage(lines, link))),
-    ...(waiting && { extraReplies: [...strategyReplies] }),
+    ...(extraReplies.length > 0 && { extraReplies }),
   };
 }
 
 const strategyReplies = ['단타', '장투'] as const;
+const answerReplies = ['유지', '매도'] as const;
 const strategyName = { day_trade: 'Day trade', long_hold: 'Long hold' } as const;
 const strategyRule = {
   day_trade: 'It sells by itself at +5% or -3% of the buy price.',
@@ -222,6 +232,51 @@ async function choose(pool: Pool, strategy: 'day_trade' | 'long_hold'): Promise<
   if (chosen.length === 0)
     return unavailable('That position was already sold or its strategy was already chosen.');
   return reply(`${strategyName[strategy]}: ${chosen.join(', ')}\n${strategyRule[strategy]}`);
+}
+
+/** Today's keep-or-sell questions of the account that nobody has answered yet (#310). */
+async function openQuestions(pool: Pool, accountId: number, now: Date) {
+  const { rows } = await pool.query<{ position_id: number; symbol: string; name: string | null }>(
+    `SELECT q.position_id, s.symbol, s.name
+     FROM mock_position_questions q
+     JOIN mock_positions p ON p.id = q.position_id
+     JOIN securities s ON s.id = p.security_id
+     WHERE p.account_id = $1 AND q.question_date = $2 AND q.status = 'open' ORDER BY q.id`,
+    [accountId, seoulClock(now).date],
+  );
+  return rows;
+}
+
+/** Answers every open keep-or-sell question of today (normally one: all-in buys hold one stock at a time). */
+async function answer(
+  pool: Pool,
+  kis: KisSource | undefined,
+  now: Date,
+  choice: 'keep' | 'sell',
+): Promise<CommandReply> {
+  const id = await openAccountId(pool);
+  if (id === undefined) return noAccount();
+  const open = await openQuestions(pool, id, now);
+  if (open.length === 0) return unavailable('There is no keep-or-sell question open right now.');
+  const lines: string[] = [];
+  for (const row of open) {
+    const stock = `${row.name ?? row.symbol} (${row.symbol})`;
+    try {
+      const { status } = await answerQuestion(pool, kis, now, row.position_id, choice, 'kakao');
+      if (choice === 'keep') lines.push(`Keep: ${stock} stays; I ask again tomorrow morning.`);
+      else if (status === 'sold') lines.push(`Sell: ${stock} sold at the best bid.`);
+      else lines.push(`Sell: ${stock} is queued; it sells when the market can fill it.`);
+    } catch (error) {
+      // Answered elsewhere, or past 15:00, between the list and the answer: skip it, the rest still apply.
+      if (!(error instanceof HttpError && (error.status === 409 || error.status === 404)))
+        throw error;
+    }
+  }
+  if (lines.length === 0)
+    return unavailable(
+      'That question was already answered or has closed (questions close at 15:00).',
+    );
+  return reply(lines.join('\n'));
 }
 
 /** Kakao shows up to 1,000 characters in one text bubble. */
@@ -259,14 +314,20 @@ async function returns(sources: Required<CommandSources>): Promise<CommandReply>
 
 export function runCommand(
   name: CommandName,
-  context: { pool: Pool; today: string; sources: CommandSources },
+  context: {
+    pool: Pool;
+    today: string;
+    now: Date;
+    kis: KisSource | undefined;
+    sources: CommandSources;
+  },
 ): Promise<CommandReply> {
   const sources = { ...databaseSources(context.pool, context.today), ...context.sources };
   switch (name) {
     case 'status':
       return status(context.pool, context.today);
     case 'positions':
-      return positions(context.pool, context.today);
+      return positions(context.pool, context.today, context.now);
     case 'news':
       return news(sources);
     case 'returns':
@@ -274,6 +335,9 @@ export function runCommand(
     case 'day_trade':
     case 'long_hold':
       return choose(context.pool, name);
+    case 'keep':
+    case 'sell':
+      return answer(context.pool, context.kis, context.now, name);
   }
 }
 
@@ -284,4 +348,5 @@ export const helpText = [
   '뉴스 - today’s pick and why',
   '수익률 - return vs deposit, Buffett, Renaissance',
   '단타 / 장투 - choose the strategy of the position that is waiting',
+  '유지 / 매도 - answer the morning keep-or-sell question',
 ].join('\n');

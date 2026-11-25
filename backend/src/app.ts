@@ -95,7 +95,15 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   app.use('/api/ledger/entries/csv', entryCsvRouter(pool, { today }));
   // #312 Public webhook: before the app-wide JSON parser, so nothing is parsed before the secret is checked.
   if (options.kakaoSkill)
-    app.use('/kakao/skill', ...skillHandlers(pool, { ...options.kakaoSkill, today }));
+    app.use(
+      '/kakao/skill',
+      ...skillHandlers(pool, {
+        ...options.kakaoSkill,
+        today,
+        kis: options.kakaoSkill.kis ?? options.kis,
+        now: options.kakaoSkill.now ?? now,
+      }),
+    );
   app.use(express.json({ limit: '256kb' }));
   app.use('/api/ledger/budgets', budgetsRouter(pool));
   app.use('/api/ledger/categories', categoriesRouter(pool));
