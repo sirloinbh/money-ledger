@@ -17,7 +17,7 @@ A merchant is recurring when, in each of the last **3 complete months**, it has 
 
 | File                                                                | Change                                                                                                                                                      |
 | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `database/migrations/041_recurring_dismissals.sql`                  | New table `ledger_recurring_dismissals`, keyed by the normalized merchant                                                                                   |
+| `database/migrations/049_recurring_dismissals.sql`                  | New table `ledger_recurring_dismissals`, keyed by the normalized merchant                                                                                   |
 | `backend/src/ledger/recurring.ts`                                   | `detectRecurring` (pure), `GET /api/ledger/recurring` and `POST /api/ledger/recurring/dismiss`                                                              |
 | `backend/src/ledger/suggestions.ts`                                 | New helper `sameMerchant`, built on the existing key rules (nothing else changed)                                                                           |
 | `backend/src/app.ts`, `backend/src/openapi.ts`, `docs/openapi.json` | Route registered and documented                                                                                                                             |
