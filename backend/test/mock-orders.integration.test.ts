@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { Pool } from 'pg';
 
 import { saveSnapshot, snapshotOpenAccount } from '../src/mock/snapshots.js';
-import { runMigration, withApi } from './helpers.js';
+import { resetDatabase, withApi } from './helpers.js';
 import { testDatabase } from './test-database.js';
 
 // #184 This file's own copy of the test DB (undefined without TEST_DATABASE_URL: the DB tests are skipped).
@@ -52,27 +52,7 @@ test('mock trading market orders against the real database', { skip: !url }, asy
   const ids: Record<string, number> = {};
   let accountId = 0;
   const reset = async (cash = 10_000_000) => {
-    await pool.query(
-      `DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets, mock_cash_flows, mock_snapshots, mock_orders, mock_holdings, mock_accounts, security_prices, fx_rates,
-         price_fetch_state, price_api_calls, krx_market_days, securities`,
-    );
-    for (const file of [
-      '005_mock_accounts.sql',
-      '009_prices.sql',
-      '012_krx_listing.sql',
-      '024_price_fetch_not_found.sql',
-      '015_mock_orders.sql',
-      '004_portfolio_assets.sql',
-      '007_depreciable_assets.sql',
-      '010_prepaid_assets.sql',
-      '013_asset_trades.sql',
-      '016_asset_valuation.sql',
-      '018_mock_snapshots.sql',
-    ]) {
-      await runMigration(pool, file);
-    }
-    await runMigration(pool, '015_mock_orders.sql'); // re-running is safe
-    await runMigration(pool, '018_mock_snapshots.sql');
+    await resetDatabase(pool);
     const securities = await pool.query<{ id: string; symbol: string }>(
       `INSERT INTO securities (market, symbol, name, kind, currency, active) VALUES
          ('KOSPI', '005930', '삼성전자', 'stock', 'KRW', true),

@@ -1,5 +1,8 @@
+import { DailyPick } from './daily-pick';
 import type { Health } from './health';
 import { MockAccount } from './mock-account';
+import { MockKeepOrSell } from './mock-keep-or-sell';
+import { MockPositions } from './mock-positions';
 import { Page } from './page';
 import { SecuritySearch } from './security-search';
 
@@ -11,7 +14,10 @@ export function MockTradingPage({ health }: { health: Health }) {
       description="Practice investing with virtual money kept apart from your real assets and see your returns"
       health={health}
     >
+      <DailyPick />
       <MockAccount />
+      <MockKeepOrSell />
+      <MockPositions />
       <SecuritySearch orders />
     </Page>
   );

@@ -10,7 +10,7 @@ import { parseKrxDaily } from '../src/prices/krx.js';
 import { runIfDue } from '../src/prices/scheduler.js';
 import { type PriceSources, SourceError } from '../src/prices/sources.js';
 import { saveKrxDay, trackedUsLimit, trackedUsSecurities } from '../src/prices/store.js';
-import { runMigration, withApi } from './helpers.js';
+import { resetDatabase, runMigration, withApi } from './helpers.js';
 import { testDatabase } from './test-database.js';
 
 // #184 This file's own copy of the test DB (undefined without TEST_DATABASE_URL: the DB tests are skipped).
@@ -86,12 +86,7 @@ test('shared price store against the real database', { skip: !url }, async (t) =
   t.after(() => pool.end());
 
   const reset = async () => {
-    await pool.query(
-      'DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets, mock_orders, mock_holdings, security_prices, fx_rates, price_fetch_state, price_api_calls, krx_market_days, securities',
-    );
-    await runMigration(pool, '009_prices.sql');
-    await runMigration(pool, '012_krx_listing.sql');
-    await runMigration(pool, '024_price_fetch_not_found.sql');
+    await resetDatabase(pool);
     // re-running is safe
     await runMigration(pool, '009_prices.sql');
     await runMigration(pool, '012_krx_listing.sql');

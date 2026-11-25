@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { Pool } from 'pg';
 
-import { runMigration, withApi } from './helpers.js';
+import { resetDatabase, withApi } from './helpers.js';
 import { testDatabase } from './test-database.js';
 
 // #184 This file's own copy of the test DB (undefined without TEST_DATABASE_URL: the DB tests are skipped).
@@ -23,17 +23,7 @@ test('mock trading accounts against the real database', { skip: !url }, async (t
   const pool = new Pool({ connectionString: url });
   t.after(() => pool.end());
 
-  const reset = async () => {
-    await pool.query(
-      // Orders and holdings (#52) point at accounts, so they go first.
-      'DROP TABLE IF EXISTS mock_cash_flows, mock_snapshots, mock_orders, mock_holdings, mock_accounts',
-    );
-    await runMigration(pool, '005_mock_accounts.sql');
-    await runMigration(pool, '005_mock_accounts.sql'); // re-running is safe
-    // 015 adds the fee rate that a reset carries over; it needs the securities table of 009.
-    await runMigration(pool, '009_prices.sql');
-    await runMigration(pool, '015_mock_orders.sql');
-  };
+  const reset = () => resetDatabase(pool);
 
   await t.test('an account starts with ₩10,000,000 unless another amount is given', async () => {
     await reset();
@@ -236,15 +226,6 @@ test('mock trading accounts against the real database', { skip: !url }, async (t
 
   await t.test('mock money is not counted in the portfolio totals', async () => {
     await reset();
-    await pool.query(
-      'DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets',
-    );
-    await runMigration(pool, '004_portfolio_assets.sql');
-    await runMigration(pool, '007_depreciable_assets.sql');
-    await runMigration(pool, '010_prepaid_assets.sql');
-    await runMigration(pool, '013_asset_trades.sql');
-    await runMigration(pool, '009_prices.sql');
-    await runMigration(pool, '016_asset_valuation.sql');
     await withApi(pool, async (call) => {
       await call('/api/portfolio/assets', {
         method: 'POST',

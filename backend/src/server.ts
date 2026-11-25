@@ -1,16 +1,29 @@
 import { Pool } from 'pg';
 import { PgBoss } from 'pg-boss';
 
-import { createApp } from './app.js';
+import { createApp, serviceDate } from './app.js';
 import { baseRateSourceFromEnv, benchmarkQueue } from './benchmark-fetch.js';
 import { dailySavesQueue } from './daily-saves.js';
 import { kakaoConfigFromEnv } from './kakao/api.js';
+import { comparisonFor } from './kakao/comparison.js';
 import { kakaoDailySummaryQueue } from './kakao/daily-summary.js';
+import { notifyDayTradeSales } from './kakao/day-trade-events.js';
+import { notifyLongHoldQuestions } from './kakao/long-hold-events.js';
 import { createNotifier } from './kakao/notifier.js';
+import { notifyPickBought } from './kakao/pick-events.js';
 import { createKakaoService } from './kakao/service.js';
 import { skillConfigFromEnv } from './kakao/skill.js';
+import { dayTradeQueue } from './mock/day-trade.js';
+import { longHoldQueue } from './mock/long-hold.js';
 import { snapshotOpenAccount } from './mock/snapshots.js';
 import { logNewsEvent, newsQueue, newsSourceFromEnv } from './news/index.js';
+import {
+  claudeFromEnv,
+  logPickEvent,
+  pickBuyDeps,
+  type PickDeps,
+  pickQueue,
+} from './picks/index.js';
 import {
   liveSourceFromEnv,
   logPriceEvent,
@@ -18,6 +31,7 @@ import {
   priceQueue,
   sourcesFromEnv,
 } from './prices/index.js';
+import { HOLIDAY_QUEUE, holidayQueue } from './prices/krx-calendar.js';
 import { backgroundJobs, shutdownOnce } from './runtime.js';
 import { listenHost, sharedAuth } from './standard/auth.js';
 import { createPool } from './standard/db.js';
@@ -29,8 +43,9 @@ if (!databaseUrl) throw new Error('DATABASE_URL is required');
 // createPool adds the 'error' listeners, so a lost idle connection is logged and does not end the process (#178).
 const pool = createPool(new Pool({ connectionString: databaseUrl }));
 const prices = sourcesFromEnv();
-const kis = liveSourceFromEnv();
 const news = newsSourceFromEnv();
+const kis = liveSourceFromEnv();
+const claude = claudeFromEnv();
 // PRICE_JOBS=off still works (the old switch); JOBS_MODE=off|send is the shared one (docs: price-source.md).
 const mode = process.env.PRICE_JOBS === 'off' ? 'off' : jobsModeFromEnv();
 const jobs = backgroundJobs(mode);
@@ -44,12 +59,22 @@ const kakao = {
 };
 // #313 Every event (pick, sale, question, daily summary) goes out through this one notifier.
 const notifier = createNotifier(kakao.service, { link: kakao.appUrl });
+// #308 The daily pick: Claude plus the all-in buy of #307. Without an Anthropic key there is none. #313 The buy goes to KakaoTalk once it is saved.
+const pick: PickDeps | undefined = claude
+  ? {
+      claude,
+      ...pickBuyDeps(pool, kis, () => serviceDate()),
+      onBought: (pickId) => notifyPickBought(pool, notifier, pickId, logPickEvent),
+      log: logPickEvent,
+    }
+  : undefined;
 const server = createApp(pool, {
   prices,
   kis,
   priceLog: logPriceEvent,
   news,
   newsLog: logNewsEvent,
+  pick,
   auth,
   jobsStatus: jobs.status,
   toolsPublicKey: process.env.AI_TOOLS_PUBLIC_KEY,
@@ -68,18 +93,47 @@ void jobs.start(
         priceQueue(pool, prices, logPriceEvent, (now) => snapshotOpenAccount(pool, now)),
         // #185 Fixed costs, finished reports and net worth once a day; the app's on-open calls stay as a fallback.
         dailySavesQueue(pool),
+        // #309 Day trades are sold at +5% or -3% every minute during market hours.
+        dayTradeQueue(pool, kis, () => serviceDate(), {
+          log: logPriceEvent,
+          // #313 Each sale goes to KakaoTalk once it is saved.
+          onSold: (sold) => notifyDayTradeSales(pool, notifier, sold, serviceDate(), logPriceEvent),
+        }),
         // #313 The account summary to KakaoTalk once a day after the close.
-        kakaoDailySummaryQueue(pool, notifier, kakao.service),
+        kakaoDailySummaryQueue(pool, notifier, kakao.service, undefined, {
+          // #294 The deposit, Buffett and Renaissance returns over the account's own period.
+          comparison: (accountId, day) => comparisonFor(pool, accountId, day),
+          // lastPrice works after the close too (it is the day's close then); when KIS cannot answer, the stored close is used.
+          livePrice: kis ? async (symbol) => (await kis.lastPrice(symbol)).price : undefined,
+        }),
         // #306 Economy headlines at 07:30 on weekdays, for the daily pick.
         newsQueue(pool, news, logNewsEvent),
+        // #308 Claude's pick and the all-in buy at 08:00 on weekdays, after the news fetch.
+        pickQueue(pool, pick),
         // #294 The Bank of Korea base rate for the deposit comparison.
         benchmarkQueue(pool, baseRateSourceFromEnv(), logPriceEvent),
+        // #310 The morning keep-or-sell question of each long hold.
+        // #313 Each morning question also goes to KakaoTalk, with the live price when KIS answers.
+        longHoldQueue(pool, kis, undefined, (positionIds) => {
+          // Not awaited: one live quote and one send per position can take many seconds each, and the next minute's
+          // tick (the 09:00 sales) must not wait for them. The notify function never throws.
+          void notifyLongHoldQuestions(
+            pool,
+            notifier,
+            positionIds,
+            kis ? async (symbol) => (await kis.lastPrice(symbol)).price : undefined,
+            logPriceEvent,
+          );
+          return Promise.resolve();
+        }),
+        // #321 The KRX holiday calendar, read from KIS about monthly.
+        holidayQueue(pool, kis, logPriceEvent),
       ],
       { mode },
     ),
   // A server that was off at 12:00 fetches once when it starts; the handler skips it when nothing is due.
   // No key: a `singleton` queue allows one running job per key, so a keyed job could overlap the cron's job.
-  (started) => started.send(PRICE_QUEUE, {}),
+  (started) => Promise.all([started.send(PRICE_QUEUE, {}), started.send(HOLIDAY_QUEUE, {})]),
 );
 const shutdown = shutdownOnce(server, jobs, pool);
 process.on('SIGTERM', () => void shutdown());

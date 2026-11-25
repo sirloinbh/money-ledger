@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { Pool } from 'pg';
 
-import { runMigration, withApi } from './helpers.js';
+import { resetDatabase, runMigration, withApi } from './helpers.js';
 import { testDatabase } from './test-database.js';
 
 // #184 This file's own copy of the test DB (undefined without TEST_DATABASE_URL: the DB tests are skipped).
@@ -39,21 +39,7 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
   t.after(() => pool.end());
 
   const reset = async () => {
-    await pool.query(
-      'DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets',
-    );
-    await runMigration(pool, '004_portfolio_assets.sql');
-    await runMigration(pool, '004_portfolio_assets.sql'); // re-running is safe
-    await runMigration(pool, '007_depreciable_assets.sql');
-    await runMigration(pool, '010_prepaid_assets.sql');
-    await runMigration(pool, '013_asset_trades.sql');
-    await runMigration(pool, '007_depreciable_assets.sql');
-    await runMigration(pool, '010_prepaid_assets.sql');
-    await runMigration(pool, '013_asset_trades.sql');
-    await runMigration(pool, '009_prices.sql');
-    await runMigration(pool, '012_krx_listing.sql');
-    await runMigration(pool, '016_asset_valuation.sql');
-    await runMigration(pool, '016_asset_valuation.sql'); // re-running is safe
+    await resetDatabase(pool);
     // Rates saved by other tests (or a local run) would convert the USD assets below.
     await pool.query('DELETE FROM fx_rates');
   };
@@ -330,10 +316,7 @@ test('portfolio assets against the real database', { skip: !url }, async (t) => 
   await t.test(
     'a #45 depreciable row with only a value still counts after migration 007',
     async () => {
-      await pool.query(
-        'DROP TABLE IF EXISTS portfolio_trades, portfolio_prepaid_usages, portfolio_assets',
-      );
-      await runMigration(pool, '004_portfolio_assets.sql');
+      await resetDatabase(pool);
       await pool.query(
         "INSERT INTO portfolio_assets (name, asset_type, value_krw) VALUES ('old', 'depreciable', 700000)",
       );

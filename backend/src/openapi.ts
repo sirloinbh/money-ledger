@@ -15,8 +15,11 @@ import * as rules from './ledger/rules.js';
 import * as summary from './ledger/summary.js';
 import * as trend from './ledger/trend.js';
 import * as accountsModule from './mock/accounts.js';
+import * as longHold from './mock/long-hold.js';
 import * as orders from './mock/orders.js';
+import * as positions from './mock/positions.js';
 import * as news from './news/router.js';
+import * as picks from './picks/router.js';
 import * as assetsModule from './portfolio/asset-schema.js';
 import * as netWorth from './portfolio/net-worth.js';
 import * as trades from './portfolio/trades.js';
@@ -280,6 +283,37 @@ const table: Record<string, Operation> = {
       'Get the live price and 10-level order book of an active Korean security (503 when live prices are not set up, 409 when the market is closed)',
     status: [200, 400, 404, 409, 429, 502, 503],
   },
+  [`GET ${accounts}/:accountId/positions`]: {
+    summary: 'List the open positions of a mock trading account and the latest closed ones',
+    status: [200, 400, 404],
+  },
+  [`GET ${accounts}/:accountId/positions/preview`]: {
+    summary:
+      'Preview an all-in buy at the best ask (503 when live prices are not set up, 409 when the market is closed)',
+    query: positions.previewQuery,
+    status: [200, 400, 404, 409, 429, 502, 503],
+  },
+  [`POST ${accounts}/:accountId/positions`]: {
+    summary:
+      'Buy all-in at the best ask; 201 for a new position, 200 when the same request key was already filled',
+    body: ['MockAllInBody', positions.buyBody],
+    status: [200, 201, 400, 404, 409, 429, 502, 503],
+  },
+  'POST /api/mock/positions/:id/strategy': {
+    summary: 'Choose day trade or long hold for an open position that is still undecided',
+    body: ['MockStrategyBody', positions.strategyBody],
+    status: [200, 400, 404, 409],
+  },
+  [`GET ${accounts}/:accountId/next-day-questions`]: {
+    summary: "List today's keep-or-sell questions of the long holds of a mock trading account",
+    status: [200, 400, 404],
+  },
+  'POST /api/mock/positions/:id/next-day': {
+    summary:
+      "Answer this morning's keep-or-sell question of a long hold (409 when already answered or closed at 15:00)",
+    body: ['MockNextDayBody', longHold.nextDayBody],
+    status: [200, 400, 404, 409],
+  },
   [`GET ${accounts}`]: { summary: 'List the mock trading accounts', status: [200] },
   [`POST ${accounts}`]: {
     summary: 'Open the mock trading account',
@@ -299,6 +333,16 @@ const table: Record<string, Operation> = {
   'POST /api/news/fetch': {
     summary: 'Fetch and store the economy news headlines now',
     // 503: no news source is configured.
+    status: [200, 503],
+  },
+  'GET /api/picks': {
+    summary: 'Get the Claude pick of a date (default today) with the news behind it',
+    query: picks.dateQuery,
+    status: [200, 400],
+  },
+  'POST /api/picks/run': {
+    summary: 'Run the daily pick now: ask Claude, store the pick and place the all-in buy',
+    // 503: no Claude client is configured.
     status: [200, 503],
   },
   'GET /api/prices/securities': {
