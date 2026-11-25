@@ -7,6 +7,7 @@ import type { Health } from './health';
 import { MonthlySummary } from './monthly-summary';
 import { MonthlyTrend } from './monthly-trend';
 import { Page } from './page';
+import { RecurringSuggestions } from './recurring-suggestions';
 
 /**
  * #213 Every section loads through the shared query layer under `ledgerKey`: a change in one section reloads the
@@ -24,6 +25,7 @@ export function LedgerPage({ health }: { health: Health }) {
         <BudgetProgress />
         <MonthlyTrend />
         <FixedCostManager />
+        <RecurringSuggestions />
         <EntryManager />
         <UncategorizedEntries />
         <RuleManager />

@@ -1659,6 +1659,46 @@
         }
       }
     },
+    "/api/ledger/recurring": {
+      "get": {
+        "summary": "List merchants that charge a similar amount every month and are not a fixed cost yet, as suggestions",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Sign-in service unavailable (on /api/jobs/status also: background jobs not running)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ledger/rules": {
       "get": {
         "summary": "List the keyword rules",
@@ -4675,6 +4715,76 @@
         }
       }
     },
+    "/api/ledger/recurring/dismiss": {
+      "post": {
+        "summary": "Dismiss a recurring payment suggestion so it does not come back",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecurringDismissBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign-in required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Sign-in service unavailable (on /api/jobs/status also: background jobs not running)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/mock/accounts/{id}/reset": {
       "post": {
         "summary": "Close a mock trading account and open a new one",
@@ -5698,6 +5808,19 @@
           "variable",
           "dayOfMonth",
           "startMonth"
+        ]
+      },
+      "RecurringDismissBody": {
+        "type": "object",
+        "properties": {
+          "merchantKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "merchantKey"
         ]
       },
       "RuleBody": {
