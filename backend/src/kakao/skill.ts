@@ -5,6 +5,7 @@ import { rateLimit } from 'express-rate-limit';
 import type { Pool } from 'pg';
 import { z } from 'zod/v4';
 
+import type { KisSource } from '../prices/kis.js';
 import {
   type CommandSources,
   helpText,
@@ -54,6 +55,9 @@ const logLine: SkillLog = (line) => console.log(JSON.stringify(line));
 export type SkillOptions = {
   config: SkillConfig | undefined;
   sources?: CommandSources;
+  /** For selling after a 매도 answer; the app passes its own. */
+  kis?: KisSource;
+  now?: () => Date;
   log?: SkillLog;
   timeoutMs?: number;
   /** Requests per client IP per minute, counted before the secret check. */
@@ -62,7 +66,11 @@ export type SkillOptions = {
 
 /** What kakao_commands stores: both strategy words are one command. */
 const recorded = (name: string | undefined) =>
-  name === 'day_trade' || name === 'long_hold' ? 'strategy' : (name ?? 'unknown');
+  name === 'day_trade' || name === 'long_hold'
+    ? 'strategy'
+    : name === 'keep' || name === 'sell'
+      ? 'answer'
+      : (name ?? 'unknown');
 
 type Result = 'ok' | 'unavailable' | 'error' | 'timeout';
 
@@ -137,7 +145,13 @@ export function skillHandlers(
       if (name) {
         try {
           const outcome = await Promise.race([
-            runCommand(name, { pool, today: options.today(), sources }),
+            runCommand(name, {
+              pool,
+              today: options.today(),
+              now: (options.now ?? (() => new Date()))(),
+              kis: options.kis,
+              sources,
+            }),
             timeout(limit),
           ]);
           if (outcome === 'timeout') {

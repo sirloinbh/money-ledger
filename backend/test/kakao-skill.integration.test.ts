@@ -5,6 +5,7 @@ import { Pool } from 'pg';
 
 import { createApp } from '../src/app.js';
 import type { SkillOptions } from '../src/kakao/skill.js';
+import { fakeKis } from '../src/prices/kis-fake.js';
 import { listen, resetDatabase, runMigration } from './helpers.js';
 import { testDatabase } from './test-database.js';
 
@@ -355,4 +356,75 @@ test('KakaoTalk chatbot commands against the real database', { skip: !url }, asy
       assert.match(textOf(await ask('수익률')), /\nDeposit: \+0\.04%\n/); // 3% a year over 5 days
     },
   );
+
+  await t.test('유지 and 매도 answer the morning question of a long hold', async () => {
+    const positionId = (await pool.query<{ id: number }>('SELECT id FROM mock_positions')).rows[0]!
+      .id;
+    const openQuestion = async () => {
+      await pool.query('DELETE FROM mock_position_questions');
+      await pool.query(
+        `UPDATE mock_positions SET strategy = 'long_hold', strategy_chosen_at = now(), strategy_source = 'kakao'`,
+      );
+      await pool.query(
+        "INSERT INTO mock_position_questions (position_id, question_date) VALUES ($1, '2026-11-06')",
+        [positionId],
+      );
+    };
+    const question = async () =>
+      (
+        await pool.query<{ status: string; answer_source: string | null }>(
+          'SELECT status, answer_source FROM mock_position_questions',
+        )
+      ).rows[0]!;
+    const open = { now: () => new Date('2026-11-06T00:30:00Z') }; // 09:30 KST on Friday: market open, before 15:00
+    const early = { now: () => new Date('2026-11-05T23:45:00Z') }; // 08:45 KST: asked, market not open yet
+    const kis = fakeKis(open.now);
+
+    // A long hold is already chosen, so the only extra buttons can be the answers.
+    await pool.query(
+      `UPDATE mock_positions SET strategy = 'long_hold', strategy_chosen_at = now(), strategy_source = 'kakao'`,
+    );
+    // No question yet: nothing to answer, and the buttons are not offered.
+    assert.match(textOf(await ask('유지', open)), /no keep-or-sell question open/);
+    assert.equal((await ask('포지션', open)).body.template.quickReplies.length, 4);
+
+    await openQuestion();
+    const withButtons = await ask('포지션', open);
+    assert.deepEqual(
+      withButtons.body.template.quickReplies.slice(0, 2).map((reply) => reply.messageText),
+      ['유지', '매도'],
+    );
+
+    const kept = await ask('유지', open);
+    assert.equal(
+      textOf(kept),
+      'Keep: Samsung Electronics (005930) stays; I ask again tomorrow morning.',
+    );
+    assert.deepEqual(await question(), { status: 'kept', answer_source: 'kakao' });
+    // Answered once: asking again changes nothing.
+    assert.match(textOf(await ask('매도', { ...open, kis })), /no keep-or-sell question open/);
+    assert.equal((await question()).status, 'kept');
+
+    // Before the market opens the sale waits for the next tick.
+    await openQuestion();
+    assert.match(textOf(await ask('sell', { ...early, kis })), /queued; it sells when the market/);
+    assert.equal((await question()).status, 'sell_queued');
+
+    // After the open it sells at the best bid and the position closes.
+    await openQuestion();
+    const sold = await ask('매도', { ...open, kis });
+    assert.equal(textOf(sold), 'Sell: Samsung Electronics (005930) sold at the best bid.');
+    assert.deepEqual(await question(), { status: 'sold', answer_source: 'kakao' });
+    const closed = await pool.query('SELECT 1 FROM mock_positions WHERE closed_at IS NOT NULL');
+    assert.equal(closed.rowCount, 1);
+  });
+
+  await t.test('after 15:00 the question has closed', async () => {
+    const late = { now: () => new Date('2026-11-06T06:30:00Z') }; // 15:30 KST
+    await pool.query(
+      "UPDATE mock_position_questions SET status = 'open', answered_at = NULL, answer_source = NULL",
+    );
+    const answer = await ask('유지', late);
+    assert.match(textOf(answer), /already answered or has closed/);
+  });
 });
