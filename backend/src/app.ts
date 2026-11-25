@@ -13,6 +13,7 @@ import { categoriesRouter } from './ledger/categories.js';
 import { entriesRouter } from './ledger/entries.js';
 import { entryCsvRouter } from './ledger/entry-csv.js';
 import { fixedCostsRouter } from './ledger/fixed-costs.js';
+import { recurringRouter } from './ledger/recurring.js';
 import { reportsRouter } from './ledger/reports.js';
 import { rulesRouter } from './ledger/rules.js';
 import { summaryRouter } from './ledger/summary.js';
@@ -101,6 +102,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   app.use('/api/ledger/categories', categoriesRouter(pool));
   app.use('/api/ledger/entries', entriesRouter(pool));
   app.use('/api/ledger/fixed-costs', fixedCostsRouter(pool, { today }));
+  app.use('/api/ledger/recurring', recurringRouter(pool, today));
   app.use('/api/ledger/rules', rulesRouter(pool));
   app.use('/api/ledger/summary', summaryRouter(pool));
   app.use('/api/reports', reportsRouter(pool, { today }));
