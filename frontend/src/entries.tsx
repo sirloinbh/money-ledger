@@ -3,6 +3,7 @@ import { type FormEvent, useEffect, useRef, useState } from 'react';
 
 import { MAX_WON_TEXT } from '../../shared/contract';
 import { Notice } from './components/ui/notice';
+import { CardImport } from './card-import';
 import { EntryCsv } from './entry-csv';
 import { EntryFilters } from './entry-filters';
 import { apiQuery, kindLabel, writeFilters } from './entry-filters-state';
@@ -243,6 +244,7 @@ export function EntryManager() {
       />
       {/* An import reloads every ledger read; a list that then fails to load says so like any load. */}
       <EntryCsv filters={filters} onImported={() => void refreshLedger(client)} />
+      <CardImport onImported={() => void refreshLedger(client)} />
       <EntryList
         entries={entries}
         loading={loading}
