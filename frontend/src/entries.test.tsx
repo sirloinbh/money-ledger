@@ -450,6 +450,29 @@ test('what is typed while a save runs is kept', async () => {
   expect(screen.getByLabelText('Amount (KRW)')).toHaveValue('2000');
 });
 
+// #361: the merchant is picked from the merchants already listed, and a new one can still be typed.
+test('the merchant field offers merchants used before and accepts a new one', async () => {
+  stored = [
+    {
+      id: 5,
+      date: '2026-11-02',
+      kind: 'expense',
+      amount: 3000,
+      categoryId: null,
+      categoryName: null,
+      merchant: 'Neighborhood bakery',
+      memo: '',
+    },
+  ];
+  await ready();
+  const merchant = screen.getByRole('combobox', { name: 'Merchant' });
+  fireEvent.change(merchant, { target: { value: 'Neigh' } });
+  const list = await screen.findByRole('listbox', { name: 'Merchants used before' });
+  expect(within(list).getAllByRole('option')).toHaveLength(1);
+  fireEvent.change(merchant, { target: { value: 'Brand new shop' } });
+  expect(merchant).toHaveValue('Brand new shop');
+});
+
 test('editing an uncategorized entry keeps Uncategorized and its merchant', async () => {
   stored = [
     {
