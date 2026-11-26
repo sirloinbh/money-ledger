@@ -186,5 +186,15 @@ export function skillHandlers(
     }
   };
 
-  return [limiter, checkSecret, express.json({ limit: '16kb' }), handle];
+  // The webhook is mounted with app.use, which also matches /kakao/skill/anything. Only the exact path is the
+  // webhook: a longer one is a 404 before the limiter, the secret or the body parser see it (#314).
+  const exactPath: RequestHandler = (req, res, next) => {
+    if (req.path !== '/') {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+    next();
+  };
+
+  return [exactPath, limiter, checkSecret, express.json({ limit: '16kb' }), handle];
 }
