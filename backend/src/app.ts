@@ -18,6 +18,7 @@ import { categoriesRouter } from './ledger/categories.js';
 import { entriesRouter } from './ledger/entries.js';
 import { entryCsvRouter } from './ledger/entry-csv.js';
 import { fixedCostsRouter } from './ledger/fixed-costs.js';
+import { deleteEntryPhotos, photosRouter } from './ledger/photos.js';
 import { recurringRouter } from './ledger/recurring.js';
 import { reportsRouter } from './ledger/reports.js';
 import { rulesRouter } from './ledger/rules.js';
@@ -41,6 +42,7 @@ import { setInt8Parser } from './standard/db.js';
 import { errorHandler, notFound, requestLog, serviceDate } from './standard/http.js';
 import { apiRateLimit } from './standard/rate-limit.js';
 import { registerToolRoutes } from './standard/tools.js';
+import type { ObjectStorage } from './storage.js';
 
 // DATE columns stay YYYY-MM-DD strings so the service time zone never shifts them.
 types.setTypeParser(1082, (value) => value);
@@ -49,6 +51,8 @@ setInt8Parser(types);
 export { serviceDate };
 
 type AppOptions = {
+  // #300 Where receipt photos are kept. Without it the photo routes answer 503 and nothing is stored.
+  photoStorage?: ObjectStorage;
   today?: () => string;
   now?: () => Date;
   requestsPerMinute?: number;
@@ -102,8 +106,11 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   app.use('/api/ledger/entries/csv', entryCsvRouter(pool, { today }));
   // #57 A card usage file is sent as raw bytes (up to 5 MB), so it is parsed by its own router.
   app.use('/api/ledger/entries/card-import', cardImportRouter(pool, { readSheet: readCardSheet }));
+  // #300 A photo is sent as raw bytes, so its router reads the body itself; deleting an entry also removes its files.
+  app.use('/api/ledger/entries/:id', deleteEntryPhotos(pool, options.photoStorage));
+  app.use('/api/ledger/entries/:entryId/photos', photosRouter(pool, options.photoStorage));
   // #298 A restore carries the whole database, so it has its own, larger body limit.
-  app.use('/api/backup', backupRouter(pool, { today }));
+  app.use('/api/backup', backupRouter(pool, { today, storage: options.photoStorage }));
   // #312 Public webhook: before the app-wide JSON parser, so nothing is parsed before the secret is checked.
   if (options.kakaoSkill)
     app.use(

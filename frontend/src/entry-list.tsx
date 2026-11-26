@@ -7,6 +7,7 @@ import { kindLabel } from './entry-filters-state';
 import { type Entry, entryLabel, pageSize, paymentMethodLabel } from './entry-model';
 import { formatWon } from './format';
 import { cn } from './lib/utils';
+import { ReceiptPhotos } from './receipt-photos';
 
 // #190 The entry list with its pages, its load failure, and each row's edit and delete.
 
@@ -163,6 +164,7 @@ export function EntryList({
                 }
               />
             </div>
+            <ReceiptPhotos entryId={entry.id} label={entryLabel(entry)} />
           </li>
         ))}
       </ul>
