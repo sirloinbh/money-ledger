@@ -16,9 +16,9 @@ import { HttpError, parseId } from '../standard/http.js';
 // The cost basis of a realized gain is the moving average (user decision, 2026-11-26, #295), the same as the
 // asset trades (#46); a dollar asset's gain is in won with the trades' own rates.
 
-export const overseasDeductionKrw = 2_500_000;
-export const overseasTaxPercent = 22;
-export const financialIncomeLineKrw = 20_000_000;
+const overseasDeductionKrw = 2_500_000;
+const overseasTaxPercent = 22;
+const financialIncomeLineKrw = 20_000_000;
 
 const wonCost = (label: string) =>
   z
