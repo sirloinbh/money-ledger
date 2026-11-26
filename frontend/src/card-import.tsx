@@ -158,8 +158,8 @@ export function CardImport({ onImported }: { onImported: () => void }) {
                 changed();
               }}
             >
-              <option value="domestic">Domestic use (국내 이용내역)</option>
-              <option value="foreign">Foreign use (해외 승인내용)</option>
+              <option value="domestic">Domestic use</option>
+              <option value="foreign">Foreign use</option>
             </select>
           </div>
           <div className="flex flex-col gap-1">

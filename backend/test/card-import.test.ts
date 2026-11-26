@@ -66,7 +66,7 @@ test('an installment is one payment at the full amount with the months in the me
   );
   assert.ok(!('error' in parsed));
   assert.equal(parsed.payments[0].amount, 600000);
-  assert.equal(parsed.payments[0].memo, '할부 6개월');
+  assert.equal(parsed.payments[0].memo, 'Installment 6 months');
 });
 
 test('foreign payments take two rows: the amount to pay is used and all-zero rows are authorizations', () => {
@@ -85,7 +85,7 @@ test('foreign payments take two rows: the amount to pay is used and all-zero row
   assert.equal(parsed.authorizations, 1);
   assert.deepEqual(
     parsed.payments.map((p) => [p.date, p.amount, p.approval, p.memo]),
-    [['2026-01-10', 17300, '445566', '해외 USD12.34']],
+    [['2026-01-10', 17300, '445566', 'Foreign USD12.34']],
   );
 });
 
