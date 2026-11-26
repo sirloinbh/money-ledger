@@ -11,9 +11,9 @@ import { HttpError } from '../standard/http.js';
 // classification list, merchant suggestions and rules that read it still see a category. Category totals read the
 // parts through the view ledger_entry_parts.
 
-export const maxParts = 10;
+const maxParts = 10;
 
-export const splitPart = z.object(
+const splitPart = z.object(
   {
     categoryId: z
       .number({ error: 'Choose a category for each part' })
@@ -60,7 +60,7 @@ export async function loadSplits(db: Db, ids: number[]) {
 }
 
 /** Checks the parts against the payment total and returns them with the category of the largest. */
-export function checkParts(parts: SplitPart[], total: number) {
+function checkParts(parts: SplitPart[], total: number) {
   if (parts.length < 2) throw new HttpError(400, 'Split a payment into at least 2 parts');
   if (new Set(parts.map((part) => part.categoryId)).size !== parts.length) {
     throw new HttpError(
