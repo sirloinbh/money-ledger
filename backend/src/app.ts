@@ -4,7 +4,9 @@ import type { Pool } from 'pg';
 import { types } from 'pg';
 
 import { tools } from './ai-tools.js';
+import { backupRouter } from './backup.js';
 import { benchmarkRouter } from './benchmark.js';
+import { goalsRouter } from './goals.js';
 import { kakaoRouter } from './kakao/router.js';
 import type { KakaoService } from './kakao/service.js';
 import { skillHandlers, type SkillOptions } from './kakao/skill.js';
@@ -94,6 +96,8 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   if (options.jobsStatus) app.get('/api/jobs/status', options.jobsStatus);
   // Mounted before the app-wide JSON parser: an import of up to 2,000 rows has its own, larger limit (#44).
   app.use('/api/ledger/entries/csv', entryCsvRouter(pool, { today }));
+  // #298 A restore carries the whole database, so it has its own, larger body limit.
+  app.use('/api/backup', backupRouter(pool, { today }));
   // #312 Public webhook: before the app-wide JSON parser, so nothing is parsed before the secret is checked.
   if (options.kakaoSkill)
     app.use(
@@ -110,6 +114,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   app.use('/api/ledger/categories', categoriesRouter(pool));
   app.use('/api/ledger/entries', entriesRouter(pool));
   app.use('/api/ledger/fixed-costs', fixedCostsRouter(pool, { today }));
+  app.use('/api/goals', goalsRouter(pool, { today }));
   app.use('/api/ledger/recurring', recurringRouter(pool, today));
   app.use('/api/ledger/rules', rulesRouter(pool));
   app.use('/api/ledger/summary', summaryRouter(pool));

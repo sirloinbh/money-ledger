@@ -10,7 +10,7 @@ Mock trading exists to practice investment decisions, but an order kept no reaso
 
 | Area     | Change                                                                                                                                                                                                                                                  |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Database | `050_mock_order_notes.sql`: `mock_orders.note` and `mock_orders.review_note` (nullable text, 1 to 1,000 characters when set). Safe to re-run.                                                                                                           |
+| Database | `051_mock_order_notes.sql`: `mock_orders.note` and `mock_orders.review_note` (nullable text, 1 to 1,000 characters when set). Safe to re-run.                                                                                                           |
 | Backend  | `POST .../orders` accepts an optional `note`. New `PATCH .../orders/:id/notes` (only the sent fields change; blank text clears). New `GET .../orders/journal` (50 per page, `before` to continue). Order responses now include `note` and `reviewNote`. |
 | Frontend | "Why this order (optional)" field in the order form; new "Trade journal" card on the Mock trading page with an inline "Edit notes" form (why + looking back).                                                                                           |
 | OpenAPI  | The two new routes and `MockOrderNotesBody`.                                                                                                                                                                                                            |
@@ -19,7 +19,7 @@ Mock trading exists to practice investment decisions, but an order kept no reaso
 
 - The result is computed on the server in SQL `numeric`, never on screen:
   - A buy whose position (#307) was sold shows that position's **realized** net gain; the sale shows the same number.
-  - Any other buy shows the gain **if sold at the latest saved close** (and latest rate for USD): `round(quantity × latest close × coalesce(fx, 1)) − amount − fee`.
+  - Any other buy shows the gain **if sold at the latest saved close** (and latest rate for USD): `round(quantity × latest close × coalesce(fx, 1)) ??amount ??fee`.
   - A close-price sale (#52) has no result yet: its cost basis is the open question of #295 (realized gain), so it shows "No result for this sale yet" instead of a guess.
 - Notes belong to the account in the URL; another account's order is a 404.
 
