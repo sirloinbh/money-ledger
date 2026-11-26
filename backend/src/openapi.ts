@@ -3,6 +3,7 @@
 // when the table and the registered routes differ.
 import { z } from 'zod/v4';
 
+import * as backup from './backup.js';
 import * as benchmark from './benchmark.js';
 import * as goals from './goals.js';
 import * as kakao from './kakao/router.js';
@@ -171,6 +172,16 @@ const table: Record<string, Operation> = {
     summary: 'Confirm the amount of a variable fixed cost for a month',
     body: ['FixedCostConfirmBody', fixedCosts.confirmBody],
     status: [200, 400, 404],
+  },
+  'GET /api/backup': {
+    summary: 'Download every user table as one versioned JSON backup file',
+    status: [200],
+  },
+  'POST /api/backup/restore': {
+    summary: 'Restore a backup file into an empty database',
+    body: ['BackupRestoreBody', backup.restoreBody],
+    // 409: the database has data, or the file is from a newer version. 422: the file does not fit.
+    status: [200, 400, 409, 422],
   },
   'GET /api/goals': {
     summary: 'List the savings goals with their progress',

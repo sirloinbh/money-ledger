@@ -11,6 +11,7 @@ import {
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 
+import { BackupSettings } from './backup';
 import { AppShell, type NavItem } from './components/layout/app-shell';
 import { Toaster } from './components/ui/sonner';
 import { DashboardPage } from './dashboard';
@@ -99,6 +100,7 @@ function Workspace() {
                 health={health}
               >
                 <KakaoSettings />
+                <BackupSettings />
               </Page>
             }
           />
