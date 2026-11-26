@@ -154,6 +154,7 @@ function updateRace(categories: { kind: string; hidden: boolean }[]) {
   return {
     query: async (text: string) => {
       // The UPDATE also says "WHERE e.id = $1", so it is matched first.
+      if (text.includes('ledger_entry_splits')) return { rows: [], rowCount: 0 };
       if (text.includes('UPDATE ledger_entries')) return { rows: [] };
       if (text.includes('WHERE e.id = $1')) return { rows: [entryRow] };
       if (text.includes('FROM ledger_categories WHERE id')) return { rows: [categories.shift()] };

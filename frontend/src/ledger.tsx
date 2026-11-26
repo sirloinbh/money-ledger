@@ -1,4 +1,5 @@
 import { BudgetProgress } from './budget-progress';
+import { CardDeductionEstimate } from './card-deduction';
 import { CategoryManager } from './categories';
 import { RuleManager, UncategorizedEntries } from './classification';
 import { EntryManager } from './entries';
@@ -26,6 +27,7 @@ export function LedgerPage({ health }: { health: Health }) {
         <MonthlyTrend />
         <FixedCostManager />
         <RecurringSuggestions />
+        <CardDeductionEstimate />
         <EntryManager />
         <UncategorizedEntries />
         <RuleManager />

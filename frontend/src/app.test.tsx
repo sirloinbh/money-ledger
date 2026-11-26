@@ -17,6 +17,7 @@ const empty = {
   suggestions: [],
   rules: [],
   fixedCosts: [],
+  goals: [],
   added: 0,
   assets: [],
   totals: { assetsKrw: 0, debtsKrw: 0, netKrw: 0, uncounted: 0, fixed: 0, other: 0 },
@@ -28,6 +29,7 @@ const empty = {
 
 // The requests the pages make, by method and path (the query depends on today's date).
 const answered = new Set([
+  'GET /api/goals',
   'GET /api/kakao/status',
   'GET /api/ledger/budgets',
   'GET /api/ledger/categories',
@@ -38,6 +40,7 @@ const answered = new Set([
   'GET /api/ledger/recurring',
   'GET /api/ledger/rules',
   'GET /api/ledger/summary',
+  'GET /api/ledger/tax/card-deduction',
   'GET /api/ledger/trend',
   'GET /api/mock/accounts',
   'GET /api/picks',
@@ -92,6 +95,7 @@ test('each page has its own address and is marked in the main menu', async () =>
 const areas = [
   { label: 'Ledger', path: '/ledger', content: 'Categories' },
   { label: 'Asset portfolio', path: '/portfolio', content: 'Assets and liabilities' },
+  { label: 'Goals', path: '/goals', content: 'Savings goals' },
   { label: 'Mock trading', path: '/mock-trading', content: 'Create a mock trading account' },
 ];
 

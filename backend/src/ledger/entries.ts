@@ -6,6 +6,7 @@ import { MAX_WON, MAX_WON_TEXT, serviceDate as date } from '../contract.js';
 import { inTransaction } from '../db.js';
 import { won } from '../money.js';
 import { HttpError, parseId } from '../standard/http.js';
+import { clearSplits, isSplit, loadSplits, splitsBody, writeSplitEntry } from './entry-splits.js';
 import { merchantText, ruleCategorySql } from './rules.js';
 import { loadHistory, suggester } from './suggestions.js';
 
@@ -25,6 +26,9 @@ const categoryId = z
   .int('Choose a category')
   .positive('Choose a category');
 
+const paymentMethods = ['credit_card', 'debit_card', 'cash'] as const;
+const paymentMethod = z.enum(paymentMethods, { error: 'Choose credit card, debit card or cash' });
+
 const objectBody = { error: 'The request body must be a JSON object' };
 
 export const entryBody = z.object(
@@ -35,6 +39,11 @@ export const entryBody = z.object(
     // null or left out: uncategorized unless a rule matches the merchant.
     categoryId: categoryId.nullable().default(null),
     merchant: merchantText('The merchant').default(''),
+    // #296 How an expense was paid. Left out: a new entry has none, and an edit keeps the one it has. null clears it.
+    paymentMethod: paymentMethod.nullable().optional(),
+    // #292 Parts of an expense, each with a category and an amount that add up to the amount. Left out: a new entry is
+    // not split, and an edit of a split entry is refused. null or []: undo the split (the entry keeps categoryId).
+    splits: splitsBody.nullable().optional(),
     memo: z
       .string({ error: 'The note must be text' })
       .trim()
@@ -99,7 +108,12 @@ export function listFilter(query: ListQuery) {
   if (query.to) add((n) => `e.entry_date <= ${n}::date`, query.to);
   if (query.kind) add((n) => `e.kind = ${n}::text`, query.kind);
   if (query.category === 'none') conditions.push('e.category_id IS NULL');
-  else if (query.category !== undefined) add((n) => `e.category_id = ${n}::bigint`, query.category);
+  else if (query.category !== undefined)
+    add(
+      (n) =>
+        `(e.category_id = ${n}::bigint OR EXISTS (SELECT 1 FROM ledger_entry_splits s WHERE s.entry_id = e.id AND s.category_id = ${n}::bigint))`,
+      query.category,
+    );
   if (query.q) add((n) => `(e.merchant ILIKE ${n} OR e.memo ILIKE ${n})`, likePattern(query.q));
   return { where: conditions.length ? `WHERE ${conditions.join(' AND ')}` : '', params };
 }
@@ -134,14 +148,15 @@ type Row = {
   category_name: string | null;
   merchant: string;
   memo: string;
+  payment_method: (typeof paymentMethods)[number] | null;
 };
 
 const select = `SELECT e.id, e.entry_date, e.kind, e.amount, e.category_id, c.name AS category_name,
-    e.merchant, e.memo
+    e.merchant, e.memo, e.payment_method
   FROM ledger_entries e LEFT JOIN ledger_categories c ON c.id = e.category_id`;
 
 // pg returns bigint as a string; amounts stay exact as long as they are safe integers.
-const toEntry = (row: Row) => ({
+const toEntry = (row: Row, splits: Splits = []) => ({
   id: row.id,
   date: row.entry_date,
   kind: row.kind,
@@ -150,7 +165,21 @@ const toEntry = (row: Row) => ({
   categoryName: row.category_name,
   merchant: row.merchant,
   memo: row.memo,
+  paymentMethod: row.payment_method,
+  // #292 Empty unless the payment is split; then the parts add up to the amount.
+  splits,
 });
+
+type Splits = { categoryId: number; categoryName: string; amount: number }[];
+
+/** Entries with their parts (one query for the page). */
+async function present(db: Pick<Pool, 'query'>, rows: Row[]) {
+  const parts = await loadSplits(
+    db,
+    rows.map((row) => row.id),
+  );
+  return rows.map((row) => toEntry(row, parts.get(row.id)));
+}
 
 /**
  * The category must exist and match the entry's kind. A hidden category is refused for a new choice, but an
@@ -214,7 +243,7 @@ export async function listEntries(db: Pick<Pool, 'query'>, query: ListQuery) {
     db.query<{ total: string }>(`SELECT count(*) AS total FROM ledger_entries e ${where}`, params),
   ]);
   return {
-    entries: list.rows.map(toEntry),
+    entries: await present(db, list.rows),
     total: Number(count.rows[0].total),
     page,
     pageSize,
@@ -231,7 +260,7 @@ export function entriesRouter(pool: Pool) {
       const { rows } = await pool.query<Row>(
         `${select} WHERE e.category_id IS NULL ORDER BY e.entry_date DESC, e.id DESC LIMIT ${maxClassify}`,
       );
-      res.json({ entries: rows.map(toEntry) });
+      res.json({ entries: await present(pool, rows) });
       return;
     }
     res.json(await listEntries(pool, query));
@@ -239,33 +268,49 @@ export function entriesRouter(pool: Pool) {
 
   router.post('/', async (req, res) => {
     const body = entryBody.parse(req.body);
+    if (body.splits && body.splits.length > 0) {
+      if (body.kind !== 'expense') throw new HttpError(400, 'Only an expense can be split');
+      const id = await writeSplitEntry(pool, null, body, body.splits);
+      res.status(201).json({ entry: (await present(pool, [await findEntry(pool, id)]))[0] });
+      return;
+    }
     if (!chosen(body)) {
       // Uncategorized unless a rule matches, decided in the same statement as the write.
       const { rows } = await pool.query<{ id: number }>(
-        `INSERT INTO ledger_entries (entry_date, kind, amount, category_id, merchant, memo)
-         VALUES ($1::date, $2::text, $3::bigint, ${ruleCategorySql('$2::text', '$4::text')}, $4::text, $5::text)
+        `INSERT INTO ledger_entries (entry_date, kind, amount, category_id, merchant, memo, payment_method)
+         VALUES ($1::date, $2::text, $3::bigint, ${ruleCategorySql('$2::text', '$4::text')}, $4::text, $5::text, $6::text)
          RETURNING id`,
-        [body.date, body.kind, body.amount, body.merchant, body.memo],
+        [body.date, body.kind, body.amount, body.merchant, body.memo, body.paymentMethod ?? null],
       );
-      res.status(201).json({ entry: toEntry(await findEntry(pool, rows[0].id)) });
+      res
+        .status(201)
+        .json({ entry: (await present(pool, [await findEntry(pool, rows[0].id)]))[0] });
       return;
     }
     await checkCategory(pool, body);
     // One statement: the row is written only if the category is still visible and of the same kind.
     const { rows } = await writing(() =>
       pool.query<{ id: number }>(
-        `INSERT INTO ledger_entries (entry_date, kind, amount, category_id, merchant, memo)
-         SELECT $1::date, $2, $3::bigint, c.id, $5::text, $6::text FROM ledger_categories c
+        `INSERT INTO ledger_entries (entry_date, kind, amount, category_id, merchant, memo, payment_method)
+         SELECT $1::date, $2, $3::bigint, c.id, $5::text, $6::text, $7::text FROM ledger_categories c
          WHERE c.id = $4 AND c.kind = $2 AND NOT c.hidden
          RETURNING id`,
-        [body.date, body.kind, body.amount, body.categoryId, body.merchant, body.memo],
+        [
+          body.date,
+          body.kind,
+          body.amount,
+          body.categoryId,
+          body.merchant,
+          body.memo,
+          body.paymentMethod ?? null,
+        ],
       ),
     );
     if (!rows[0]) {
       await checkCategory(pool, body); // names what changed, e.g. the category was just hidden
       throw new HttpError(409, changedMeanwhile);
     }
-    res.status(201).json({ entry: toEntry(await findEntry(pool, rows[0].id)) });
+    res.status(201).json({ entry: (await present(pool, [await findEntry(pool, rows[0].id)]))[0] });
   });
 
   // Bulk classification of uncategorized entries. Entries that got a category meanwhile are left alone.
@@ -395,17 +440,44 @@ export function entriesRouter(pool: Pool) {
   router.put('/:id', async (req, res) => {
     const id = parseId(req.params.id, 'entry');
     const body = entryBody.parse(req.body);
+    if (body.splits && body.splits.length > 0) {
+      if (body.kind !== 'expense') throw new HttpError(400, 'Only an expense can be split');
+      await writeSplitEntry(pool, id, body, body.splits);
+      res.json({ entry: (await present(pool, [await findEntry(pool, id)]))[0] });
+      return;
+    }
+    if (body.splits === undefined) {
+      // A split entry is edited with its parts, so its amount and category can never drift from them.
+      if (await isSplit(pool, id)) {
+        throw new HttpError(
+          400,
+          'This payment is split. Send its parts, or splits: null to undo the split',
+        );
+      }
+    } else {
+      await clearSplits(pool, id);
+    }
     if (!chosen(body)) {
       const { rows } = await pool.query<{ id: number }>(
         `UPDATE ledger_entries
          SET entry_date = $2::date, kind = $3::text, amount = $4::bigint,
              category_id = ${ruleCategorySql('$3::text', '$5::text')}, merchant = $5::text, memo = $6::text,
+             payment_method = CASE WHEN $7::boolean THEN $8::text ELSE payment_method END,
              updated_at = now()
          WHERE id = $1 RETURNING id`,
-        [id, body.date, body.kind, body.amount, body.merchant, body.memo],
+        [
+          id,
+          body.date,
+          body.kind,
+          body.amount,
+          body.merchant,
+          body.memo,
+          body.paymentMethod !== undefined,
+          body.paymentMethod ?? null,
+        ],
       );
       if (!rows[0]) throw new HttpError(404, 'Entry not found');
-      res.json({ entry: toEntry(await findEntry(pool, id)) });
+      res.json({ entry: (await present(pool, [await findEntry(pool, id)]))[0] });
       return;
     }
     const current = await findEntry(pool, id);
@@ -415,12 +487,23 @@ export function entriesRouter(pool: Pool) {
       pool.query<{ id: number }>(
         `UPDATE ledger_entries e
          SET entry_date = $2, kind = $3, amount = $4, category_id = $5, merchant = $6, memo = $7,
+             payment_method = CASE WHEN $8::boolean THEN $9::text ELSE e.payment_method END,
              updated_at = now()
          FROM ledger_categories c
          WHERE e.id = $1 AND c.id = $5 AND c.kind = $3
            AND (NOT c.hidden OR c.id = e.category_id)
          RETURNING e.id`,
-        [id, body.date, body.kind, body.amount, body.categoryId, body.merchant, body.memo],
+        [
+          id,
+          body.date,
+          body.kind,
+          body.amount,
+          body.categoryId,
+          body.merchant,
+          body.memo,
+          body.paymentMethod !== undefined,
+          body.paymentMethod ?? null,
+        ],
       ),
     );
     if (!rows[0]) {
@@ -428,7 +511,7 @@ export function entriesRouter(pool: Pool) {
       await checkCategory(pool, body, latest.category_id === null ? null : latest.category_id);
       throw new HttpError(409, changedMeanwhile);
     }
-    res.json({ entry: toEntry(await findEntry(pool, id)) });
+    res.json({ entry: (await present(pool, [await findEntry(pool, id)]))[0] });
   });
 
   router.delete('/:id', async (req, res) => {

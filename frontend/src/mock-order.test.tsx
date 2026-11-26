@@ -105,6 +105,22 @@ test('a buy shows which close it fills at, then fills once and reports the new c
   expect(screen.getByLabelText('Quantity (shares)')).toHaveValue('');
 });
 
+test('a note typed with the order is sent trimmed and cleared after the fill (#293)', async () => {
+  otherRead();
+  renderWithQuery(<MockOrder securityId={1} title="Samsung Electronics" />);
+  fireEvent.change(screen.getByLabelText('Why this order (optional)'), {
+    target: { value: '  Earnings look strong ' },
+  });
+  orderFor('10');
+  const dialog = await screen.findByRole('dialog', {
+    name: 'Buy 10 shares of Samsung Electronics',
+  });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Buy' }));
+  await screen.findByText(/Bought 10 shares/);
+  expect(posts()[0].body).toMatchObject({ note: 'Earnings look strong' });
+  expect(screen.getByLabelText('Why this order (optional)')).toHaveValue('');
+});
+
 test('a US sale shows the rate and a delayed close, and sends side sell', async () => {
   preview = {
     ...krwPreview,
