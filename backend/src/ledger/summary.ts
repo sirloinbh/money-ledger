@@ -29,7 +29,7 @@ type Row = {
 // month's expense with one decimal, 0 when that expense is 0. Amounts go out as text, exact.
 const summarySql = `
   WITH m AS (
-    SELECT e.kind, e.amount, e.category_id FROM ledger_entries e
+    SELECT e.kind, e.amount, e.category_id FROM ledger_entry_parts e
     WHERE e.entry_date >= $1::date AND e.entry_date < ($1::date + interval '1 month')
   ),
   totals AS (

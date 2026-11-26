@@ -47,7 +47,7 @@ export type BudgetRow = {
 // Uncategorized spending has no category to budget, so it is not here (the monthly summary shows it).
 export const budgetListSql = `
   WITH spent AS (
-    SELECT category_id, sum(amount) AS spent FROM ledger_entries
+    SELECT category_id, sum(amount) AS spent FROM ledger_entry_parts
     WHERE kind = 'expense' AND category_id IS NOT NULL
       AND entry_date >= $1::date AND entry_date < ($1::date + interval '1 month')
     GROUP BY category_id

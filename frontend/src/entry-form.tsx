@@ -8,14 +8,117 @@ import { kindLabel, selectClass } from './entry-filters-state';
 import {
   type Category,
   type Draft,
+  type DraftPart,
   type Entry,
+  parseAmount,
   type PaymentMethod,
   paymentMethodLabel,
 } from './entry-model';
+import { formatWon } from './format';
 
 // #190 The new and edit entry form. The draft, the wrong field, and saving stay with EntryManager.
 
 export type EntryField = 'amount' | 'category';
+
+/** #292 The parts of a split payment: a category and an amount each, with what is left to assign. */
+function SplitEditor({
+  draft,
+  choices,
+  onChange,
+}: {
+  draft: Draft;
+  choices: Category[];
+  onChange: (patch: Partial<Draft>) => void;
+}) {
+  const total = parseAmount(draft.amount);
+  const sum = draft.splits.reduce((acc, part) => acc + (parseAmount(part.amount) ?? 0), 0);
+  const left = total === undefined ? undefined : total - sum;
+  const set = (index: number, patch: Partial<DraftPart>) =>
+    onChange({
+      splits: draft.splits.map((part, at) => (at === index ? { ...part, ...patch } : part)),
+    });
+  return (
+    <fieldset className="flex flex-col gap-3 md:col-span-2">
+      <legend className="mb-2 text-body-sm font-medium">Split into parts</legend>
+      {draft.splits.map((part, index) => (
+        <div
+          key={index}
+          className="grid grid-cols-[1fr_auto] items-end gap-2 sm:grid-cols-[1fr_10rem_auto]"
+        >
+          <div className="col-span-2 flex flex-col gap-1 sm:col-span-1">
+            <Label htmlFor={`entry-part-category-${index}`}>Part {index + 1} category</Label>
+            <select
+              id={`entry-part-category-${index}`}
+              className={selectClass}
+              value={part.categoryId}
+              onChange={(event) => set(index, { categoryId: event.target.value })}
+            >
+              <option value="">Choose a category</option>
+              {choices.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.hidden ? `${category.name} (hidden)` : category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor={`entry-part-amount-${index}`}>Part {index + 1} amount</Label>
+            <Input
+              id={`entry-part-amount-${index}`}
+              inputMode="numeric"
+              autoComplete="off"
+              value={part.amount}
+              onChange={(event) => set(index, { amount: event.target.value })}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={draft.splits.length <= 2}
+            aria-label={`Remove part ${index + 1}`}
+            onClick={() => onChange({ splits: draft.splits.filter((_, at) => at !== index) })}
+          >
+            Remove
+          </Button>
+        </div>
+      ))}
+      <p aria-live="polite" className="text-body-sm text-muted-foreground">
+        {left === undefined
+          ? 'Enter the payment amount first.'
+          : left === 0
+            ? 'The parts add up to the payment.'
+            : left > 0
+              ? `${formatWon(left)} is left to assign.`
+              : `The parts are ${formatWon(-left)} over the payment.`}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={draft.splits.length >= 10}
+          onClick={() => onChange({ splits: [...draft.splits, { categoryId: '', amount: '' }] })}
+        >
+          Add a part
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() =>
+            onChange({
+              splits: [],
+              categoryId: draft.splits.find((part) => part.categoryId)?.categoryId ?? '',
+            })
+          }
+        >
+          Undo the split
+        </Button>
+      </div>
+    </fieldset>
+  );
+}
 
 export function EntryForm({
   draft,
@@ -102,39 +205,62 @@ export function EntryForm({
               }}
             />
           </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="entry-category">Category</Label>
-            <select
-              id="entry-category"
-              className={selectClass}
-              value={stale ? 'stale' : categoryId}
-              aria-invalid={(invalid === 'category' && stale) || undefined}
-              aria-describedby={
-                invalid === 'category'
-                  ? 'entries-notice entry-category-hint'
-                  : 'entry-category-hint'
-              }
-              onChange={(event) => {
-                onClearInvalid('category');
-                onChange({ categoryId: event.target.value });
-              }}
-            >
-              {stale ? (
-                <option value="stale" disabled>
-                  Choose again
-                </option>
+          {draft.splits.length === 0 ? (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="entry-category">Category</Label>
+              <select
+                id="entry-category"
+                className={selectClass}
+                value={stale ? 'stale' : categoryId}
+                aria-invalid={(invalid === 'category' && stale) || undefined}
+                aria-describedby={
+                  invalid === 'category'
+                    ? 'entries-notice entry-category-hint'
+                    : 'entry-category-hint'
+                }
+                onChange={(event) => {
+                  onClearInvalid('category');
+                  onChange({ categoryId: event.target.value });
+                }}
+              >
+                {stale ? (
+                  <option value="stale" disabled>
+                    Choose again
+                  </option>
+                ) : null}
+                <option value="">Uncategorized</option>
+                {choices.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.hidden ? `${category.name} (hidden)` : category.name}
+                  </option>
+                ))}
+              </select>
+              <p id="entry-category-hint" className="text-caption text-muted-foreground">
+                If left uncategorized, a matching classification rule sets the category
+                automatically.
+              </p>
+              {draft.kind === 'expense' ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="self-start"
+                  onClick={() =>
+                    onChange({
+                      splits: [
+                        { categoryId: stale ? '' : categoryId, amount: '' },
+                        { categoryId: '', amount: '' },
+                      ],
+                    })
+                  }
+                >
+                  Split this payment
+                </Button>
               ) : null}
-              <option value="">Uncategorized</option>
-              {choices.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.hidden ? `${category.name} (hidden)` : category.name}
-                </option>
-              ))}
-            </select>
-            <p id="entry-category-hint" className="text-caption text-muted-foreground">
-              If left uncategorized, a matching classification rule sets the category automatically.
-            </p>
-          </div>
+            </div>
+          ) : (
+            <SplitEditor draft={draft} choices={choices} onChange={onChange} />
+          )}
           {draft.kind === 'expense' ? (
             <div className="flex flex-col gap-2">
               <Label htmlFor="entry-payment-method">Paid with</Label>

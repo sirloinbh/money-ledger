@@ -182,6 +182,7 @@ test('recording sends whole won, keeps the date and kind, and lists the entry', 
       merchant: '',
       memo: 'Lunch',
       paymentMethod: null,
+      splits: null,
     },
   });
   expect(screen.getByLabelText('Amount (KRW)')).toHaveValue('');
@@ -228,6 +229,7 @@ test('an entry without a category is sent as Uncategorized with its merchant', a
       merchant: 'Starbucks Gangnam',
       memo: '',
       paymentMethod: null,
+      splits: null,
     },
   });
   expect(screen.getByLabelText('Merchant')).toHaveValue('');
@@ -273,6 +275,7 @@ test('editing fills the form, keeps the hidden category it has, and saves with P
       merchant: '',
       memo: 'Movie',
       paymentMethod: null,
+      splits: null,
     },
   });
   expect(screen.getByRole('heading', { name: 'New entry' })).toBeInTheDocument();
@@ -474,6 +477,7 @@ test('editing an uncategorized entry keeps Uncategorized and its merchant', asyn
     merchant: 'Neighborhood bakery',
     memo: '',
     paymentMethod: null,
+    splits: null,
   });
 });
 
