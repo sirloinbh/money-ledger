@@ -25,6 +25,9 @@ const categoryId = z
   .int('Choose a category')
   .positive('Choose a category');
 
+export const paymentMethods = ['credit_card', 'debit_card', 'cash'] as const;
+const paymentMethod = z.enum(paymentMethods, { error: 'Choose credit card, debit card or cash' });
+
 const objectBody = { error: 'The request body must be a JSON object' };
 
 export const entryBody = z.object(
@@ -35,6 +38,8 @@ export const entryBody = z.object(
     // null or left out: uncategorized unless a rule matches the merchant.
     categoryId: categoryId.nullable().default(null),
     merchant: merchantText('The merchant').default(''),
+    // #296 How an expense was paid. Left out: a new entry has none, and an edit keeps the one it has. null clears it.
+    paymentMethod: paymentMethod.nullable().optional(),
     memo: z
       .string({ error: 'The note must be text' })
       .trim()
@@ -134,10 +139,11 @@ type Row = {
   category_name: string | null;
   merchant: string;
   memo: string;
+  payment_method: (typeof paymentMethods)[number] | null;
 };
 
 const select = `SELECT e.id, e.entry_date, e.kind, e.amount, e.category_id, c.name AS category_name,
-    e.merchant, e.memo
+    e.merchant, e.memo, e.payment_method
   FROM ledger_entries e LEFT JOIN ledger_categories c ON c.id = e.category_id`;
 
 // pg returns bigint as a string; amounts stay exact as long as they are safe integers.
@@ -150,6 +156,7 @@ const toEntry = (row: Row) => ({
   categoryName: row.category_name,
   merchant: row.merchant,
   memo: row.memo,
+  paymentMethod: row.payment_method,
 });
 
 /**
@@ -242,10 +249,10 @@ export function entriesRouter(pool: Pool) {
     if (!chosen(body)) {
       // Uncategorized unless a rule matches, decided in the same statement as the write.
       const { rows } = await pool.query<{ id: number }>(
-        `INSERT INTO ledger_entries (entry_date, kind, amount, category_id, merchant, memo)
-         VALUES ($1::date, $2::text, $3::bigint, ${ruleCategorySql('$2::text', '$4::text')}, $4::text, $5::text)
+        `INSERT INTO ledger_entries (entry_date, kind, amount, category_id, merchant, memo, payment_method)
+         VALUES ($1::date, $2::text, $3::bigint, ${ruleCategorySql('$2::text', '$4::text')}, $4::text, $5::text, $6::text)
          RETURNING id`,
-        [body.date, body.kind, body.amount, body.merchant, body.memo],
+        [body.date, body.kind, body.amount, body.merchant, body.memo, body.paymentMethod ?? null],
       );
       res.status(201).json({ entry: toEntry(await findEntry(pool, rows[0].id)) });
       return;
@@ -254,11 +261,19 @@ export function entriesRouter(pool: Pool) {
     // One statement: the row is written only if the category is still visible and of the same kind.
     const { rows } = await writing(() =>
       pool.query<{ id: number }>(
-        `INSERT INTO ledger_entries (entry_date, kind, amount, category_id, merchant, memo)
-         SELECT $1::date, $2, $3::bigint, c.id, $5::text, $6::text FROM ledger_categories c
+        `INSERT INTO ledger_entries (entry_date, kind, amount, category_id, merchant, memo, payment_method)
+         SELECT $1::date, $2, $3::bigint, c.id, $5::text, $6::text, $7::text FROM ledger_categories c
          WHERE c.id = $4 AND c.kind = $2 AND NOT c.hidden
          RETURNING id`,
-        [body.date, body.kind, body.amount, body.categoryId, body.merchant, body.memo],
+        [
+          body.date,
+          body.kind,
+          body.amount,
+          body.categoryId,
+          body.merchant,
+          body.memo,
+          body.paymentMethod ?? null,
+        ],
       ),
     );
     if (!rows[0]) {
@@ -400,9 +415,19 @@ export function entriesRouter(pool: Pool) {
         `UPDATE ledger_entries
          SET entry_date = $2::date, kind = $3::text, amount = $4::bigint,
              category_id = ${ruleCategorySql('$3::text', '$5::text')}, merchant = $5::text, memo = $6::text,
+             payment_method = CASE WHEN $7::boolean THEN $8::text ELSE payment_method END,
              updated_at = now()
          WHERE id = $1 RETURNING id`,
-        [id, body.date, body.kind, body.amount, body.merchant, body.memo],
+        [
+          id,
+          body.date,
+          body.kind,
+          body.amount,
+          body.merchant,
+          body.memo,
+          body.paymentMethod !== undefined,
+          body.paymentMethod ?? null,
+        ],
       );
       if (!rows[0]) throw new HttpError(404, 'Entry not found');
       res.json({ entry: toEntry(await findEntry(pool, id)) });
@@ -415,12 +440,23 @@ export function entriesRouter(pool: Pool) {
       pool.query<{ id: number }>(
         `UPDATE ledger_entries e
          SET entry_date = $2, kind = $3, amount = $4, category_id = $5, merchant = $6, memo = $7,
+             payment_method = CASE WHEN $8::boolean THEN $9::text ELSE e.payment_method END,
              updated_at = now()
          FROM ledger_categories c
          WHERE e.id = $1 AND c.id = $5 AND c.kind = $3
            AND (NOT c.hidden OR c.id = e.category_id)
          RETURNING e.id`,
-        [id, body.date, body.kind, body.amount, body.categoryId, body.merchant, body.memo],
+        [
+          id,
+          body.date,
+          body.kind,
+          body.amount,
+          body.categoryId,
+          body.merchant,
+          body.memo,
+          body.paymentMethod !== undefined,
+          body.paymentMethod ?? null,
+        ],
       ),
     );
     if (!rows[0]) {

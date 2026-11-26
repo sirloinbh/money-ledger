@@ -30,6 +30,7 @@ const mounts: Record<string, string[]> = {
     '/api/ledger/entries',
     '/api/ledger/fixed-costs',
     '/api/ledger/recurring',
+    '/api/ledger/tax',
     '/api/ledger/rules',
     '/api/ledger/summary',
     '/api/reports',

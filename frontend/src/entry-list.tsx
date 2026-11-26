@@ -4,7 +4,7 @@ import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { ConfirmDialog } from './components/ui/confirm-dialog';
 import { kindLabel } from './entry-filters-state';
-import { type Entry, entryLabel, pageSize } from './entry-model';
+import { type Entry, entryLabel, pageSize, paymentMethodLabel } from './entry-model';
 import { formatWon } from './format';
 import { cn } from './lib/utils';
 
@@ -114,6 +114,7 @@ export function EntryList({
                   {kindLabel[entry.kind]}
                 </Badge>
                 {entry.categoryName ?? 'Uncategorized'}
+                {entry.paymentMethod ? ` · ${paymentMethodLabel[entry.paymentMethod]}` : ''}
               </span>
               {entry.merchant || entry.memo ? (
                 <span className="break-words">

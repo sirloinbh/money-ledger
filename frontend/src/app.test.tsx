@@ -38,6 +38,7 @@ const answered = new Set([
   'GET /api/ledger/recurring',
   'GET /api/ledger/rules',
   'GET /api/ledger/summary',
+  'GET /api/ledger/tax/card-deduction',
   'GET /api/ledger/trend',
   'GET /api/mock/accounts',
   'GET /api/picks',

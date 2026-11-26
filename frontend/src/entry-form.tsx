@@ -5,7 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { kindLabel, selectClass } from './entry-filters-state';
-import type { Category, Draft, Entry } from './entry-model';
+import {
+  type Category,
+  type Draft,
+  type Entry,
+  type PaymentMethod,
+  paymentMethodLabel,
+} from './entry-model';
 
 // #190 The new and edit entry form. The draft, the wrong field, and saving stay with EntryManager.
 
@@ -129,6 +135,26 @@ export function EntryForm({
               If left uncategorized, a matching classification rule sets the category automatically.
             </p>
           </div>
+          {draft.kind === 'expense' ? (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="entry-payment-method">Paid with</Label>
+              <select
+                id="entry-payment-method"
+                className={selectClass}
+                value={draft.paymentMethod}
+                onChange={(event) =>
+                  onChange({ paymentMethod: event.target.value as PaymentMethod | '' })
+                }
+              >
+                <option value="">Not set</option>
+                {(Object.keys(paymentMethodLabel) as PaymentMethod[]).map((method) => (
+                  <option key={method} value={method}>
+                    {paymentMethodLabel[method]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
           <div className="flex flex-col gap-2">
             <Label htmlFor="entry-merchant">Merchant</Label>
             <Input
