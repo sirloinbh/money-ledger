@@ -7,7 +7,7 @@ Upload the card's usage history file (.xls from the card website), see what impo
 - **Where the file is read.** The browser sends the file's bytes as they are; the server reads the first sheet (`card-import-xls.ts`, the only file that uses the `xlsx` package) and hands plain rows to `card-import-parse.ts`, which has no file or database access. The file is never stored (limit 5 MB, 2,000 payments).
 - **Domestic and foreign files.** Domestic: one row per payment. Foreign: two rows per payment (date and amounts, then time and approval number). The year comes from the period line `(2026.01.01 ~ 2026.01.31)`.
 - **Rules.** A cancellation is netted (amount minus cancelled); a fully cancelled payment is removed from expenses (or not added); an all-zero foreign row is a card-check authorization and is left out; an installment is one payment at the full amount with "할부 N개월" in the memo (#57 decision); a pending row is a normal payment that a newer file updates.
-- **No double save.** An entry keeps only `source`, the last 4 card digits and the approval number (migration `054_entry_card_source.sql`, unique together). The same or a newer file finds the entry and updates it. The full card number is never kept. One import runs at a time (advisory lock).
+- **No double save.** An entry keeps only `source`, the last 4 card digits and the approval number (migration `055_entry_card_source.sql`, unique together). The same or a newer file finds the entry and updates it. The full card number is never kept. One import runs at a time (advisory lock).
 - **Likely duplicates.** A payment with the same day and amount as an entry typed by hand is flagged; it is left out unless the person unticks the box (#56 decision).
 - **Nothing is saved when any row cannot be read.** The preview lists those rows; import answers 422.
 
@@ -15,7 +15,7 @@ Upload the card's usage history file (.xls from the card website), see what impo
 
 | File                                                        | Change                                                                     |
 | ----------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `database/migrations/054_entry_card_source.sql`             | `source`, `source_card`, `source_ref` and a unique index                   |
+| `database/migrations/055_entry_card_source.sql`             | `source`, `source_card`, `source_ref` and a unique index                   |
 | `backend/src/ledger/card-import-parse.ts`                   | Pure sheet reader (domestic and foreign)                                   |
 | `backend/src/ledger/card-import-xls.ts`                     | `.xls` / `.xlsx` bytes to rows                                             |
 | `backend/src/ledger/card-import.ts`                         | `POST /api/ledger/entries/card-import/preview` and `/import`               |
