@@ -58,6 +58,15 @@ const events: Record<KakaoEvent['type'], KakaoEvent> = {
     },
     comparison: { depositPct: '0.12', buffettPct: '0.50', renaissancePct: '1.20' },
   },
+  'budget-alert': {
+    type: 'budget-alert',
+    month: '2026-11',
+    categoryName: 'Food',
+    status: 'over',
+    spentKrw: 112_500,
+    budgetKrw: 100_000,
+    percent: '112.5',
+  },
 };
 
 const pick = events['pick-bought'] as Extract<KakaoEvent, { type: 'pick-bought' }>;
@@ -136,7 +145,7 @@ test('each event type is sent through the messenger', async () => {
     retryDelayMs: 0,
   });
   for (const event of Object.values(events)) await notifier.notify(event);
-  assert.equal(messenger.sent.length, 6, 'the pick is three messages');
+  assert.equal(messenger.sent.length, 7, 'the pick is three messages');
 });
 
 test('a failed send is retried once and then succeeds without a log line', async () => {

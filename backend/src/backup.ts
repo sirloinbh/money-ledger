@@ -19,6 +19,7 @@ export const backupFormat = 1;
  */
 const enteredTables = [
   'app_settings',
+  'budget_alerts_sent',
   'ledger_budgets',
   'ledger_category_rules',
   'ledger_entries',

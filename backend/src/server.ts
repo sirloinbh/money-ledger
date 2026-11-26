@@ -13,6 +13,7 @@ import { createNotifier } from './kakao/notifier.js';
 import { notifyPickBought } from './kakao/pick-events.js';
 import { createKakaoService } from './kakao/service.js';
 import { skillConfigFromEnv } from './kakao/skill.js';
+import { budgetAlertQueue } from './ledger/budget-alert.js';
 import { dayTradeQueue } from './mock/day-trade.js';
 import { longHoldQueue } from './mock/long-hold.js';
 import { snapshotOpenAccount } from './mock/snapshots.js';
@@ -106,6 +107,8 @@ void jobs.start(
           // lastPrice works after the close too (it is the day's close then); when KIS cannot answer, the stored close is used.
           livePrice: kis ? async (symbol) => (await kis.lastPrice(symbol)).price : undefined,
         }),
+        // #299 Budget overrun alerts to KakaoTalk, at most one per budget per month.
+        budgetAlertQueue(pool, notifier, kakao.service),
         // #306 Economy headlines at 07:30 on weekdays, for the daily pick.
         newsQueue(pool, news, logNewsEvent),
         // #308 Claude's pick and the all-in buy at 08:00 on weekdays, after the news fetch.
