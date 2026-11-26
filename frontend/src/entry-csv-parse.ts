@@ -1,3 +1,4 @@
+// korean-ok-file: recognizes Korean CSV and bank statement headers and kind words
 import { apiQuery, type Filters } from './entry-filters-state';
 import { withoutThousands } from './format';
 
