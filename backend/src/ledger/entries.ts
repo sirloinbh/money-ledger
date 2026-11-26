@@ -25,7 +25,7 @@ const categoryId = z
   .int('Choose a category')
   .positive('Choose a category');
 
-export const paymentMethods = ['credit_card', 'debit_card', 'cash'] as const;
+const paymentMethods = ['credit_card', 'debit_card', 'cash'] as const;
 const paymentMethod = z.enum(paymentMethods, { error: 'Choose credit card, debit card or cash' });
 
 const objectBody = { error: 'The request body must be a JSON object' };
