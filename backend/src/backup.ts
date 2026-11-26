@@ -24,6 +24,7 @@ const enteredTables = [
   'ledger_entries',
   'ledger_fixed_cost_runs',
   'ledger_fixed_costs',
+  'ledger_entry_splits',
   'ledger_recurring_dismissals',
   'ledger_tax_salaries',
   'mock_accounts',

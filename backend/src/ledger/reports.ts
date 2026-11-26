@@ -63,7 +63,7 @@ const overspendingSql: Record<Period, string> = {
 
 const contentSql = (period: Period) => `
   WITH cur AS (
-    SELECT amount, category_id FROM ledger_entries
+    SELECT amount, category_id FROM ledger_entry_parts
     WHERE kind = 'expense' AND entry_date BETWEEN $1::date AND $2::date
   ),
   totals AS (

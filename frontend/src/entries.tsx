@@ -23,6 +23,7 @@ import {
   type Entry,
   pageSize,
   parseAmount,
+  partsFromDraft,
 } from './entry-model';
 import { formatWon, serviceToday } from './format';
 import { ledgerKeys, refreshLedger, useLedgerReload } from './ledger-query';
@@ -128,7 +129,13 @@ export function EntryManager() {
       showError(`Enter the amount as a whole number of won, from 0 to ${MAX_WON_TEXT}`);
       return;
     }
-    if (stale) {
+    const split = draft.kind === 'expense' && draft.splits.length > 0;
+    const checked = split ? partsFromDraft(draft.splits, amount) : undefined;
+    if (checked && 'error' in checked) {
+      showError(checked.error);
+      return;
+    }
+    if (stale && !split) {
       setInvalid('category');
       showError('The chosen category cannot be used. Choose a category again');
       return;
@@ -146,6 +153,8 @@ export function EntryManager() {
       memo: draft.memo,
       // Only an expense has one; "not set" is sent as null so an edit can clear it.
       paymentMethod: draft.kind === 'expense' && draft.paymentMethod ? draft.paymentMethod : null,
+      // #292 The parts of a split payment; null undoes a split.
+      splits: checked && 'parts' in checked ? checked.parts : null,
     };
     try {
       try {
@@ -170,7 +179,7 @@ export function EntryManager() {
           current.amount === draft.amount &&
           current.memo === draft.memo &&
           current.merchant === draft.merchant
-            ? { ...current, amount: '', merchant: '', memo: '' }
+            ? { ...current, amount: '', merchant: '', memo: '', splits: [] }
             : current,
         );
       }
