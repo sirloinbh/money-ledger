@@ -39,6 +39,13 @@ services:
       AUTH_INTERNAL_URL: ${AUTH_INTERNAL_URL:-http://shared-auth-api:3110}
       # shared-ai's public key; /internal/tools is served only when it is set (project-standards#711).
       AI_TOOLS_PUBLIC_KEY: ${AI_TOOLS_PUBLIC_KEY:-}
+      # Kakao chatbot webhook (#312, #314). Both empty: POST /kakao/skill refuses every request (fail closed).
+      KAKAO_SKILL_SECRET: ${KAKAO_SKILL_SECRET:-}
+      KAKAO_ALLOWED_USER_IDS: ${KAKAO_ALLOWED_USER_IDS:-}
+    # Loopback only, never 0.0.0.0 (#314): the shared host nginx's Kakao origin block (port 8443) proxies
+    # POST /kakao/skill straight to this port, so that request never passes the web nginx. Everything under /api/
+    # still goes through web. The app's own exact-path, rate-limit, secret and allowlist checks apply.
+    ports: ['127.0.0.1:${API_PORT:-3105}:3105']
     networks:
       default: {}
       shared-auth: {}
