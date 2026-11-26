@@ -45,16 +45,22 @@ type FixedCosts = {
   totals: { fixed: number; other: number };
 };
 
+// korean-ok: the default category names are stored in Korean (migration 002); the presets match by that name
+const housing = '주거';
+// korean-ok: stored default category name (migration 002)
+const leisure = '여가';
+// korean-ok: stored default category name (migration 002)
+const telecom = '통신';
 /**
  * The five items the user keeps, as presets for the form. The category is matched by its default name; when that
  * category was renamed or hidden, the form asks the user to choose one.
  */
 const presets: { name: string; category: string; variable: boolean }[] = [
-  { name: 'Rent', category: '주거', variable: false },
-  { name: 'Date savings account', category: '여가', variable: false },
-  { name: 'Electricity', category: '주거', variable: true },
-  { name: 'Gas', category: '주거', variable: true },
-  { name: 'Phone', category: '통신', variable: true },
+  { name: 'Rent', category: housing, variable: false },
+  { name: 'Date savings account', category: leisure, variable: false },
+  { name: 'Electricity', category: housing, variable: true },
+  { name: 'Gas', category: housing, variable: true },
+  { name: 'Phone', category: telecom, variable: true },
 ];
 
 /** Digits with optional thousands commas → whole won; undefined when it is not one. */
