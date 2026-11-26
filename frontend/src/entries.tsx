@@ -98,6 +98,8 @@ export function EntryManager() {
     draft,
     editing?.categoryId,
   );
+  // #361: merchants of the listed entries, newest first, offered while typing a merchant.
+  const merchants = [...new Set((entries ?? []).map((entry) => entry.merchant).filter(Boolean))];
   const change = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
 
   // Opening an edit moves focus to the form above the list, so keyboard and screen reader users follow.
@@ -237,6 +239,7 @@ export function EntryManager() {
         choices={choices}
         stale={stale}
         categoryId={categoryId}
+        merchants={merchants}
         dateRef={dateInput}
         onChange={change}
         onClearInvalid={(field) => {
