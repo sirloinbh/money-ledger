@@ -9,6 +9,7 @@ import * as goals from './goals.js';
 import * as kakao from './kakao/router.js';
 import * as budgets from './ledger/budgets.js';
 import * as cardDeduction from './ledger/card-deduction.js';
+import * as cardImport from './ledger/card-import.js';
 import * as categories from './ledger/categories.js';
 import * as entries from './ledger/entries.js';
 import * as csv from './ledger/entry-csv.js';
@@ -78,6 +79,17 @@ const table: Record<string, Operation> = {
     summary: 'Save the rows of a CSV import in one transaction, or none when any row is invalid',
     body: ['CsvImportBody', csv.importBody],
     status: [200, 400, 422],
+  },
+  'POST /api/ledger/entries/card-import/preview': {
+    summary: 'Read a Woori Card usage file (the raw bytes) and show what importing it would do',
+    query: cardImport.importQuery,
+    status: [200, 413, 422],
+  },
+  'POST /api/ledger/entries/card-import/import': {
+    summary:
+      'Save the payments of a Woori Card usage file as expenses; the same file again changes nothing',
+    query: cardImport.importQuery,
+    status: [200, 413, 422],
   },
   'GET /api/ledger/budgets': {
     summary: 'List the budgets and the spending of each expense category for a month',

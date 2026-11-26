@@ -30,7 +30,13 @@ type Preview = {
   authorizations: number;
   problems: { line: number; message: string }[];
 };
-type Result = { added: number; updated: number; removed: number; unchanged: number; skipped: number };
+type Result = {
+  added: number;
+  updated: number;
+  removed: number;
+  unchanged: number;
+  skipped: number;
+};
 
 const actionText: Record<Row['action'], string> = {
   new: 'Add',
@@ -110,8 +116,10 @@ export function CardImport({ onImported }: { onImported: () => void }) {
     }
   };
 
-  const adding = preview?.rows.filter((r) => r.action === 'new' && !(skipCandidates && r.candidate)).length ?? 0;
-  const changing = preview?.rows.filter((r) => r.action === 'update' || r.action === 'remove').length ?? 0;
+  const adding =
+    preview?.rows.filter((r) => r.action === 'new' && !(skipCandidates && r.candidate)).length ?? 0;
+  const changing =
+    preview?.rows.filter((r) => r.action === 'update' || r.action === 'remove').length ?? 0;
   const candidates = preview?.rows.filter((r) => r.action === 'new' && r.candidate).length ?? 0;
   const problems = preview?.problems ?? [];
 
@@ -120,9 +128,9 @@ export function CardImport({ onImported }: { onImported: () => void }) {
       <CardHeader>
         <CardTitle asHeading="h3">Card usage file</CardTitle>
         <CardDescription>
-          Import the Woori Card usage history (.xls from the card website) as expenses. Importing the
-          same or a newer file again updates the same entries. The file and the full card number are
-          not stored.
+          Import the Woori Card usage history (.xls from the card website) as expenses. Importing
+          the same or a newer file again updates the same entries. The file and the full card number
+          are not stored.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -184,7 +192,8 @@ export function CardImport({ onImported }: { onImported: () => void }) {
               <>
                 {preview.authorizations > 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    {countOf(preview.authorizations, 'card-check authorization')} with no amount left out.
+                    {countOf(preview.authorizations, 'card-check authorization')} with no amount
+                    left out.
                   </p>
                 ) : null}
                 {candidates > 0 ? (
@@ -194,7 +203,8 @@ export function CardImport({ onImported }: { onImported: () => void }) {
                       checked={skipCandidates}
                       onChange={(event) => setSkipCandidates(event.target.checked)}
                     />
-                    Leave out {countOf(candidates, 'payment')} that match an entry you typed (same day and amount)
+                    Leave out {countOf(candidates, 'payment')} that match an entry you typed (same
+                    day and amount)
                   </label>
                 ) : null}
                 <ul aria-label="Payments in the file" className="flex flex-col gap-1 text-sm">
@@ -234,4 +244,3 @@ export function CardImport({ onImported }: { onImported: () => void }) {
     </Card>
   );
 }
-

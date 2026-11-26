@@ -2,8 +2,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 
 import { MAX_WON_TEXT } from '../../shared/contract';
-import { Notice } from './components/ui/notice';
 import { CardImport } from './card-import';
+import { Notice } from './components/ui/notice';
 import { EntryCsv } from './entry-csv';
 import { EntryFilters } from './entry-filters';
 import { apiQuery, kindLabel, writeFilters } from './entry-filters-state';

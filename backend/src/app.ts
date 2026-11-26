@@ -12,6 +12,8 @@ import type { KakaoService } from './kakao/service.js';
 import { skillHandlers, type SkillOptions } from './kakao/skill.js';
 import { budgetsRouter } from './ledger/budgets.js';
 import { cardDeductionRouter } from './ledger/card-deduction.js';
+import { cardImportRouter } from './ledger/card-import.js';
+import { readCardSheet } from './ledger/card-import-xls.js';
 import { categoriesRouter } from './ledger/categories.js';
 import { entriesRouter } from './ledger/entries.js';
 import { entryCsvRouter } from './ledger/entry-csv.js';
@@ -97,6 +99,8 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   if (options.jobsStatus) app.get('/api/jobs/status', options.jobsStatus);
   // Mounted before the app-wide JSON parser: an import of up to 2,000 rows has its own, larger limit (#44).
   app.use('/api/ledger/entries/csv', entryCsvRouter(pool, { today }));
+  // #57 A card usage file is sent as raw bytes (up to 5 MB), so it is parsed by its own router.
+  app.use('/api/ledger/entries/card-import', cardImportRouter(pool, { readSheet: readCardSheet }));
   // #298 A restore carries the whole database, so it has its own, larger body limit.
   app.use('/api/backup', backupRouter(pool, { today }));
   // #312 Public webhook: before the app-wide JSON parser, so nothing is parsed before the secret is checked.

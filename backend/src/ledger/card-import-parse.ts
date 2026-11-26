@@ -42,7 +42,12 @@ function findPeriod(rows: string[][]): Period | null {
   for (const row of rows.slice(0, 6)) {
     for (const cell of row) {
       const found = periodPattern.exec(cell ?? '');
-      if (found) return { startYear: Number(found[1]), startMonth: Number(found[2]), endYear: Number(found[4]) };
+      if (found)
+        return {
+          startYear: Number(found[1]),
+          startMonth: Number(found[2]),
+          endYear: Number(found[4]),
+        };
     }
   }
   return null;
@@ -63,7 +68,7 @@ function isoDate(period: Period, month: number, day: number) {
 }
 
 /** "1,234" -> 1234; empty -> 0; anything else is null. Whole won only. */
-export function wonText(value: string | undefined) {
+function wonText(value: string | undefined) {
   const text = (value ?? '').replaceAll(',', '').trim();
   if (text === '') return 0;
   if (!/^\d{1,15}$/.test(text)) return null;
@@ -91,11 +96,17 @@ function domesticRows(rows: string[][], period: Period): CardParse {
     const card = clean(row[2]).slice(-4);
     const amount = wonText(row[7]);
     const cancel = wonText(row[8]);
-    if (!date) return void out.problems.push({ line, message: `Date "${clean(row[0])}" is not a real day` });
-    if (!/^\d{4}$/.test(card)) return void out.problems.push({ line, message: 'The card needs its last 4 digits' });
-    if (!approval) return void out.problems.push({ line, message: 'The row has no approval number' });
+    if (!date)
+      return void out.problems.push({ line, message: `Date "${clean(row[0])}" is not a real day` });
+    if (!/^\d{4}$/.test(card))
+      return void out.problems.push({ line, message: 'The card needs its last 4 digits' });
+    if (!approval)
+      return void out.problems.push({ line, message: 'The row has no approval number' });
     if (amount === null || cancel === null)
-      return void out.problems.push({ line, message: `Amount "${clean(row[7])}" is not a whole number of won` });
+      return void out.problems.push({
+        line,
+        message: `Amount "${clean(row[7])}" is not a whole number of won`,
+      });
     if (amount === 0 && cancel === 0) {
       out.authorizations += 1;
       return;
@@ -127,7 +138,10 @@ function foreignRows(rows: string[][], period: Period): CardParse {
     const line = index + 1;
     const second = rows[index + 1];
     if (!second || !timeOnly.test(clean(second[0]))) {
-      out.problems.push({ line, message: 'A foreign payment needs a second row with the time and approval number' });
+      out.problems.push({
+        line,
+        message: 'A foreign payment needs a second row with the time and approval number',
+      });
       continue;
     }
     index += 1;
@@ -146,7 +160,10 @@ function foreignRows(rows: string[][], period: Period): CardParse {
       continue;
     }
     if (charged === null || pay === null || cancel === null) {
-      out.problems.push({ line, message: `Amount "${clean(first[6])}" is not a whole number of won` });
+      out.problems.push({
+        line,
+        message: `Amount "${clean(first[6])}" is not a whole number of won`,
+      });
       continue;
     }
     if (charged === 0 && pay === 0 && cancel === 0) {
@@ -175,6 +192,7 @@ function foreignRows(rows: string[][], period: Period): CardParse {
 /** Reads the sheet. `rows` is every row of the file's one sheet, each a list of cell text. */
 export function parseCardSheet(kind: CardKind, rows: string[][]): CardParse | { error: string } {
   const period = findPeriod(rows);
-  if (!period) return { error: 'The file has no period like (2026.01.01 ~ 2026.01.31) in its first rows' };
+  if (!period)
+    return { error: 'The file has no period like (2026.01.01 ~ 2026.01.31) in its first rows' };
   return kind === 'domestic' ? domesticRows(rows, period) : foreignRows(rows, period);
 }

@@ -27,8 +27,8 @@ export const importQuery = z.object(
   { error: 'The query is not valid' },
 );
 
-export type Action = 'new' | 'update' | 'remove' | 'unchanged' | 'skipped';
-export type PlanRow = CardPayment & {
+type Action = 'new' | 'update' | 'remove' | 'unchanged' | 'skipped';
+type PlanRow = CardPayment & {
   action: Action;
   /** A hand-entered expense with the same date and amount exists, so this may be a duplicate (decision of #56). */
   candidate: boolean;
@@ -38,7 +38,7 @@ export type PlanRow = CardPayment & {
 type Existing = { id: number; card: string; ref: string; amount: string; memo: string };
 
 /** What importing each payment would do, against the entries as they are now. */
-export async function plan(db: Pool | PoolClient, payments: CardPayment[], lock = false) {
+async function plan(db: Pool | PoolClient, payments: CardPayment[], lock = false) {
   const { rows: existing } = await db.query<Existing>(
     `SELECT id, source_card AS card, source_ref AS ref, amount::text, memo FROM ledger_entries
      WHERE source = $1 AND (source_card, source_ref) IN (SELECT * FROM unnest($2::text[], $3::text[]))
@@ -73,23 +73,36 @@ function read(
   query: unknown,
   body: unknown,
   readSheet: (file: Buffer) => string[][],
-): { error: string } | { payments: CardPayment[]; authorizations: number; problems: { line: number; message: string }[] } {
+):
+  | { error: string }
+  | {
+      payments: CardPayment[];
+      authorizations: number;
+      problems: { line: number; message: string }[];
+    } {
   const parsedQuery = importQuery.safeParse(query);
   if (!parsedQuery.success) return { error: parsedQuery.error.issues[0].message };
-  if (!Buffer.isBuffer(body) || body.length === 0) return { error: 'Choose the usage history file to import' };
+  if (!Buffer.isBuffer(body) || body.length === 0)
+    return { error: 'Choose the usage history file to import' };
   let sheet: string[][];
   try {
     sheet = readSheet(body);
   } catch {
-    return { error: 'The file could not be read. Use the .xls file downloaded from the Woori Card website' };
+    return {
+      error: 'The file could not be read. Use the .xls file downloaded from the Woori Card website',
+    };
   }
   const parsed = parseCardSheet(parsedQuery.data.kind, sheet);
   if ('error' in parsed) return parsed;
-  if (parsed.payments.length > maxPayments) return { error: `Import at most ${maxPayments} payments at a time` };
+  if (parsed.payments.length > maxPayments)
+    return { error: `Import at most ${maxPayments} payments at a time` };
   return parsed;
 }
 
-export function cardImportRouter(pool: Pool, { readSheet }: { readSheet: (file: Buffer) => string[][] }) {
+export function cardImportRouter(
+  pool: Pool,
+  { readSheet }: { readSheet: (file: Buffer) => string[][] },
+) {
   const router = Router();
   router.use(express.raw({ type: () => true, limit: maxFileBytes }));
 
@@ -120,15 +133,22 @@ export function cardImportRouter(pool: Pool, { readSheet }: { readSheet: (file: 
           await client.query(
             `INSERT INTO ledger_entries (entry_date, kind, amount, category_id, merchant, memo, source, source_card, source_ref)
              VALUES ($1, 'expense', $2, ${ruleCategorySql("'expense'", '$3::text')}, $3, $4, $5, $6, $7)`,
-            [row.date, row.amount, row.merchant.slice(0, 50), row.memo, source, row.card, row.approval],
+            [
+              row.date,
+              row.amount,
+              row.merchant.slice(0, 50),
+              row.memo,
+              source,
+              row.card,
+              row.approval,
+            ],
           );
           count.added += 1;
         } else if (row.action === 'update') {
-          await client.query('UPDATE ledger_entries SET amount = $1, memo = $2, updated_at = now() WHERE id = $3', [
-            row.amount,
-            row.memo,
-            row.entryId,
-          ]);
+          await client.query(
+            'UPDATE ledger_entries SET amount = $1, memo = $2, updated_at = now() WHERE id = $3',
+            [row.amount, row.memo, row.entryId],
+          );
           count.updated += 1;
         } else if (row.action === 'remove') {
           await client.query('DELETE FROM ledger_entries WHERE id = $1', [row.entryId]);
