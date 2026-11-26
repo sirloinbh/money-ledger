@@ -5,6 +5,7 @@ import { types } from 'pg';
 
 import { tools } from './ai-tools.js';
 import { benchmarkRouter } from './benchmark.js';
+import { goalsRouter } from './goals.js';
 import { kakaoRouter } from './kakao/router.js';
 import type { KakaoService } from './kakao/service.js';
 import { skillHandlers, type SkillOptions } from './kakao/skill.js';
@@ -110,6 +111,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   app.use('/api/ledger/categories', categoriesRouter(pool));
   app.use('/api/ledger/entries', entriesRouter(pool));
   app.use('/api/ledger/fixed-costs', fixedCostsRouter(pool, { today }));
+  app.use('/api/goals', goalsRouter(pool, { today }));
   app.use('/api/ledger/recurring', recurringRouter(pool, today));
   app.use('/api/ledger/rules', rulesRouter(pool));
   app.use('/api/ledger/summary', summaryRouter(pool));
