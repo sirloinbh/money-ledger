@@ -47,6 +47,7 @@ const answered = new Set([
   'GET /api/ledger/entries',
   'GET /api/ledger/entries/suggestions',
   'GET /api/ledger/fixed-costs',
+  'GET /api/ledger/periods',
   'POST /api/ledger/fixed-costs/generate',
   'GET /api/ledger/recurring',
   'GET /api/ledger/rules',
@@ -78,10 +79,11 @@ const health = (body: object, status = 200) =>
     }),
   );
 
-test('shows the server date from /api/health on the overview', async () => {
+test('shows the server date from /api/health on the day log, the start page (#359)', async () => {
   health({ today: '2026-10-26' });
+  window.history.replaceState(null, '', '/');
   render(<App queryClient={testQueryClient()} />);
-  expect(screen.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { level: 1, name: 'Day log' })).toBeInTheDocument();
   expect(await screen.findByText('Server connected · 2026-10-26')).toBeInTheDocument();
 });
 
@@ -105,6 +107,8 @@ test('each page has its own address and is marked in the main menu', async () =>
 });
 
 const areas = [
+  { label: 'Week', path: '/week', content: undefined },
+  { label: '12 weeks', path: '/12-weeks', content: undefined },
   { label: 'Ledger', path: '/ledger', content: 'Categories' },
   { label: 'Asset portfolio', path: '/portfolio', content: 'Assets and liabilities' },
   { label: 'Goals', path: '/goals', content: 'Savings goals' },
@@ -120,7 +124,9 @@ test.each(areas)('the main menu opens the $label page', async ({ label, path, co
   expect(window.location.pathname).toBe(path);
   expect(await screen.findByRole('heading', { level: 1, name: label })).toBeInTheDocument();
   expect(within(menu).getByRole('link', { name: label })).toHaveAttribute('aria-current', 'page');
-  expect(await screen.findByRole('heading', { level: 2, name: content })).toBeInTheDocument();
+  if (content) {
+    expect(await screen.findByRole('heading', { level: 2, name: content })).toBeInTheDocument();
+  }
 });
 
 test.each(areas)('opening $path directly shows the $label page', async ({ label, path }) => {
@@ -138,11 +144,42 @@ test('an area page reports a server error as an alert', async () => {
   expect(await findLive('alert')).toHaveTextContent('Cannot connect to the database');
 });
 
-test('an unknown address falls back to the overview', async () => {
+test('the main menu lists the pages in the shared order (#359)', () => {
+  health({ today: '2026-10-26' });
+  window.history.replaceState(null, '', '/');
+  render(<App queryClient={testQueryClient()} />);
+  const menu = screen.getByRole('navigation', { name: 'Main menu' });
+  expect(
+    within(menu)
+      .getAllByRole('link')
+      .map((link) => link.textContent),
+  ).toEqual([
+    'Day log',
+    'Week',
+    '12 weeks',
+    'Ledger',
+    'Asset portfolio',
+    'Goals',
+    'Mock trading',
+    'Reports',
+    'Dashboard',
+    'Settings',
+  ]);
+});
+
+test('the Dashboard is at /dashboard and is the last page before Settings (#359)', async () => {
+  health({ today: '2026-10-26' });
+  window.history.replaceState(null, '', '/dashboard');
+  render(<App queryClient={testQueryClient()} />);
+  expect(await screen.findByRole('heading', { level: 1, name: 'Dashboard' })).toBeInTheDocument();
+  expect(window.location.pathname).toBe('/dashboard');
+});
+
+test('an unknown address falls back to the day log', async () => {
   health({ today: '2026-10-26' });
   window.history.replaceState(null, '', '/no-such-page');
   render(<App queryClient={testQueryClient()} />);
-  expect(await screen.findByRole('heading', { level: 1, name: 'Dashboard' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { level: 1, name: 'Day log' })).toBeInTheDocument();
   expect(window.location.pathname).toBe('/');
 });
 

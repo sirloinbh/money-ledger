@@ -39,6 +39,7 @@ const mounts: Record<string, string[]> = {
     '/api/ledger/summary',
     '/api/reports',
     '/api/ledger/trend',
+    '/api/ledger/periods',
     assets,
     '/api/portfolio/net-worth',
     '/api/portfolio/income',

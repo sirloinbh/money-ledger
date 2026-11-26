@@ -1,8 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { type FormEvent, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { MAX_WON_TEXT } from '../../shared/contract';
 import { CardImport } from './card-import';
+import { Button } from './components/ui/button';
 import { Notice } from './components/ui/notice';
 import { EntryCsv } from './entry-csv';
 import { EntryFilters } from './entry-filters';
@@ -42,9 +43,15 @@ import { useLoadError } from './query-reads';
  * The list and the category choices reload with every ledger change (`ledgerKey`, #213): an entry classified or a
  * category renamed elsewhere on the page shows here, and a save here reloads the other sections.
  */
-export function EntryManager() {
+export function EntryManager({ day }: { day?: string } = {}) {
   const today = serviceToday();
-  const { filters, setSearchParams } = useAddressFilters(today);
+  const { filters: addressFilters, setSearchParams } = useAddressFilters(today);
+  // #359 On the day log the list is that one day (`day`); the period filters, import and export are not shown.
+  const filters = useMemo(
+    () => (day ? { ...addressFilters, from: day, to: day } : addressFilters),
+    [addressFilters, day],
+  );
+  const [adding, setAdding] = useState(false);
   const query = apiQuery(filters, pageSize);
   const { listing, loadFailed, error: loadError, retry } = useEntryListing(query);
   // While the list for new filters loads, the previous one stays (marked busy) so the page and focus hold.
@@ -117,7 +124,14 @@ export function EntryManager() {
     notice.clear();
   };
 
+  // On the day log a new entry starts on the shown day.
+  useEffect(() => {
+    if (day && !editing)
+      setDraft((current) => (current.date === day ? current : { ...current, date: day }));
+  }, [day, editing]);
+
   const stopEdit = () => {
+    setAdding(false);
     setInvalid(undefined);
     setEditing(undefined);
     setDraft(emptyDraft());
@@ -176,6 +190,8 @@ export function EntryManager() {
       if (editing) {
         stopEdit();
       } else {
+        // The day log closes the form after a save; "Add entry" opens it again.
+        if (day) setAdding(false);
         // Keep the date and kind for the next entry of the same day.
         // Clear only what was sent: anything typed while saving stays.
         setDraft((current) =>
@@ -228,37 +244,56 @@ export function EntryManager() {
     <section aria-labelledby="entries-title" className="flex flex-col gap-4">
       {/* Focus lands here after a delete: the deleted row held the dialog trigger. */}
       <h2 id="entries-title" ref={sectionTitle} tabIndex={-1} className="outline-none">
-        Income and expense entries
+        {day ? 'Entries' : 'Income and expense entries'}
       </h2>
       <Notice id="entries-notice" notice={notice.notice} />
-      <EntryForm
-        draft={draft}
-        editing={editing}
-        invalid={invalid}
-        busy={busy}
-        choices={choices}
-        stale={stale}
-        categoryId={categoryId}
-        merchants={merchants}
-        dateRef={dateInput}
-        onChange={change}
-        onClearInvalid={(field) => {
-          if (invalid === field) setInvalid(undefined);
-        }}
-        onSubmit={(event) => void submit(event)}
-        onCancel={() => {
-          if (!saving.current) stopEdit();
-        }}
-      />
-      <EntryFilters
-        filters={filters}
-        categories={categories}
-        today={today}
-        onApply={(next) => setSearchParams((prev) => writeFilters(next, prev))}
-      />
-      {/* An import reloads every ledger read; a list that then fails to load says so like any load. */}
-      <EntryCsv filters={filters} onImported={() => void refreshLedger(client)} />
-      <CardImport onImported={() => void refreshLedger(client)} />
+      {day && !adding && !editing ? (
+        <div>
+          <Button
+            type="button"
+            onClick={() => {
+              setAdding(true);
+              notice.clear();
+              setTimeout(() => dateInput.current?.focus(), 0);
+            }}
+          >
+            Add entry
+          </Button>
+        </div>
+      ) : (
+        <EntryForm
+          draft={draft}
+          editing={editing}
+          invalid={invalid}
+          busy={busy}
+          choices={choices}
+          stale={stale}
+          categoryId={categoryId}
+          merchants={merchants}
+          dateRef={dateInput}
+          onChange={change}
+          onClearInvalid={(field) => {
+            if (invalid === field) setInvalid(undefined);
+          }}
+          onSubmit={(event) => void submit(event)}
+          onCancel={() => {
+            if (!saving.current) stopEdit();
+          }}
+        />
+      )}
+      {day ? null : (
+        <>
+          <EntryFilters
+            filters={filters}
+            categories={categories}
+            today={today}
+            onApply={(next) => setSearchParams((prev) => writeFilters(next, prev))}
+          />
+          {/* An import reloads every ledger read; a list that then fails to load says so like any load. */}
+          <EntryCsv filters={filters} onImported={() => void refreshLedger(client)} />
+          <CardImport onImported={() => void refreshLedger(client)} />
+        </>
+      )}
       <EntryList
         entries={entries}
         loading={loading}

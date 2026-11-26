@@ -668,3 +668,22 @@ test('a failed reload after a CSV import says so', async () => {
   expect(await screen.findByText('Cannot connect to the database')).toBeInTheDocument();
   expect(screen.queryByText('Bakery')).toBeNull();
 });
+
+test('on the day log the list is one day, the form opens with "Add entry" and starts on that day (#359)', async () => {
+  renderWithQuery(<EntryManager day="2026-11-01" />, { wrapper: Router });
+  await screen.findByRole('list', { name: 'Entry list' });
+  const listRequest = requests.find((request) => request.url.startsWith('/api/ledger/entries?'));
+  expect(listRequest?.url).toContain('from=2026-11-01');
+  expect(listRequest?.url).toContain('to=2026-11-01');
+  // No period filter, import or export here: the day is the period.
+  expect(screen.queryByLabelText('Date')).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
+  expect(await screen.findByLabelText('Date')).toHaveValue('2026-11-01');
+  fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '3,000' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
+  expect(await findLive('status')).toHaveTextContent('Expense ₩3,000 recorded');
+  // The form closes after a save; the button opens it again.
+  expect(screen.queryByLabelText('Date')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Add entry' })).toBeInTheDocument();
+});

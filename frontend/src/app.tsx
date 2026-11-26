@@ -1,5 +1,8 @@
 import { type QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
+  CalendarDays,
+  CalendarRange,
+  ChartColumn,
   ChartPie,
   FileText,
   LayoutDashboard,
@@ -15,6 +18,7 @@ import { BackupSettings } from './backup';
 import { AppShell, type NavItem } from './components/layout/app-shell';
 import { Toaster } from './components/ui/sonner';
 import { DashboardPage } from './dashboard';
+import { DayLogPage } from './day-log';
 import { addDueOnce } from './fixed-costs-api';
 import { GoalsPage } from './goals';
 import type { Health } from './health';
@@ -28,10 +32,15 @@ import { PortfolioPage } from './portfolio';
 import { ReportPage, ReportsPage } from './reports';
 import { makeReportsOnce } from './reports-api';
 import { AccountActions, SignInGate } from './sign-in';
+import { TwelveWeeksPage } from './twelve-weeks';
+import { WeekPage } from './week';
 
 // Every page URL lives here (central docs/directory-rules.md).
 const pages = {
-  overview: '/',
+  dayLog: '/',
+  week: '/week',
+  twelveWeeks: '/12-weeks',
+  dashboard: '/dashboard',
   ledger: '/ledger',
   portfolio: '/portfolio',
   goals: '/goals',
@@ -42,12 +51,15 @@ const pages = {
 
 // Main menu (LNB) items, in display order.
 const nav: NavItem[] = [
-  { to: pages.overview, label: 'Dashboard', icon: LayoutDashboard },
+  { to: pages.dayLog, label: 'Day log', icon: CalendarDays },
+  { to: pages.week, label: 'Week', icon: CalendarRange },
+  { to: pages.twelveWeeks, label: '12 weeks', icon: ChartColumn },
   { to: pages.ledger, label: 'Ledger', icon: Wallet },
   { to: pages.portfolio, label: 'Asset portfolio', icon: ChartPie },
   { to: pages.goals, label: 'Goals', icon: PiggyBank },
   { to: pages.mockTrading, label: 'Mock trading', icon: TrendingUp },
   { to: pages.reports, label: 'Reports', icon: FileText },
+  { to: pages.dashboard, label: 'Dashboard', icon: LayoutDashboard },
   { to: pages.settings, label: 'Settings', icon: Settings2 },
 ];
 
@@ -84,7 +96,10 @@ function Workspace() {
     <>
       <AppShell appName="Ledger, Assets, Mock Trading" nav={nav} actions={<AccountActions />}>
         <Routes>
-          <Route path={pages.overview} element={<DashboardPage health={health} />} />
+          <Route path={pages.dayLog} element={<DayLogPage health={health} />} />
+          <Route path={pages.week} element={<WeekPage health={health} />} />
+          <Route path={pages.twelveWeeks} element={<TwelveWeeksPage health={health} />} />
+          <Route path={pages.dashboard} element={<DashboardPage health={health} />} />
           <Route path={pages.ledger} element={<LedgerPage health={health} />} />
           <Route path={pages.portfolio} element={<PortfolioPage health={health} />} />
           <Route path={pages.goals} element={<GoalsPage health={health} />} />
@@ -104,7 +119,7 @@ function Workspace() {
               </Page>
             }
           />
-          <Route path="*" element={<Navigate to={pages.overview} replace />} />
+          <Route path="*" element={<Navigate to={pages.dayLog} replace />} />
         </Routes>
       </AppShell>
       <Toaster />
