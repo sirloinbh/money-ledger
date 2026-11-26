@@ -99,7 +99,7 @@ test('savings goals against the real database', { skip: !url }, async (t) => {
       assert.equal(goal.saved, 1_800_000);
       assert.equal(goal.remaining, 4_200_000);
       assert.equal(goal.percent, 30);
-      // Nov 26 → Feb 15 counts Nov, Dec, Jan, Feb after this month: 3 months → 1,400,000 a month.
+      // Nov 26 to Feb 15 is 3 months (the month difference), so 4,200,000 / 3 = 1,400,000 a month.
       assert.equal(goal.monthsLeft, 3);
       assert.equal(goal.monthlyNeeded, 1_400_000);
     },
