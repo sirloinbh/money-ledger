@@ -1,6 +1,6 @@
 # Kakao skill webhook: public access design (#314)
 
-Status: design only. Nothing here is deployed. Choosing the hosting route and every real AWS or production change need the user's decision (see "Hosting route"), and the first real round trip needs the keys from #304.
+Status: design, code guards and a Terraform PR ([shared-aws-infrastructure#118](https://github.com/sirloinbh/shared-aws-infrastructure/pull/118)). Nothing here is deployed. The user chose the shared AWS infrastructure on 2026-11-26; `terraform apply` and every other real AWS or production change still need the user's separate OK, and the first real round trip needs the keys from #304.
 
 ## Why this exists
 
@@ -19,7 +19,8 @@ The public entry must forward only `POST /kakao/skill` to the API and refuse eve
 
 ## Checks, in order (implemented in #312, `backend/src/kakao/skill.ts`)
 
-1. **Edge rate limit** (hosting layer, see below) and the app's own limit of 60 requests a minute per client IP, counted before anything else, so a flood never reaches the secret comparison.
+0. **Exact path**: only `/kakao/skill` itself is the webhook. Any longer path (`/kakao/skill/x`) is a 404 before the limiter, the secret or the body parser run (#314, tested).
+1. **App rate limit**: 60 requests a minute per client IP, counted before the secret comparison, so a flood never reaches it. Behind CloudFront and the proxy the address the app sees is the last hop (the CloudFront edge), so the limit is really per edge location; it still caps a flood from one place, and a WAF rate rule (about $6 a month) is the option if more is ever needed.
 2. **Method**: only `POST`.
 3. **Shared secret**: the `x-kakao-skill-secret` request header must equal `KAKAO_SKILL_SECRET` (16+ characters, random). Both sides are hashed with SHA-256 and compared with `timingSafeEqual`, so response time does not reveal how much of a guess was right. The same value is entered once in Open Builder as the skill's request header.
 4. **Body shape**: a 16 kB JSON limit, parsed only after the secret check, and only `userRequest.utterance` and `userRequest.user.id` are read.
@@ -41,22 +42,28 @@ A failure at step 2, 3, 5 or 6 returns the same `403 {"error":"Not allowed"}` wi
 
 Retention follows the platform default for container logs; `kakao_commands` rows carry no personal data.
 
-## Hosting route (open decision)
+## Hosting route (decided 2026-11-26)
 
-Two routes fit; the choice is the user's (#314 task 2). Neither is applied by this document.
+The user chose the shared AWS infrastructure. The Terraform is in `sirloinbh/shared-aws-infrastructure` (`money-ledger.tf`, PR #118, operations doc section 15):
 
-| Route                                                                | How                                                                                                                               | For                                                                       | Against                                                                                 |
-| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| A. Shared AWS infrastructure (`sirloinbh/shared-aws-infrastructure`) | An HTTPS front (load balancer or API gateway style) forwards only `POST /kakao/skill` to the API and applies a request rate limit | A stable URL with a managed certificate; nothing runs on the home network | Real AWS changes (`terraform apply`, IAM), recurring cost, the user's OK                |
-| B. Tunnel from the home server                                       | A tunnel exposes one hostname and one path to the API port on `127.0.0.1`                                                         | No new cloud resources                                                    | Depends on the home machine being up; the tunnel's access rules must be set to one path |
+```
+Kakao -> https://<id>.cloudfront.net/kakao/skill
+      -> CloudFront viewer-request function: only POST /kakao/skill passes, everything else is a 404 at the edge
+      -> https://money-ledger.daysofme.com:8443 (one extra firewall port; 22, 80, 443 stay on the allowed IPs)
+      -> shared proxy server block: only POST /kakao/skill, forwarded to the API on 127.0.0.1
+      -> app checks above (exact path, rate limit, secret, user allowlist)
+```
 
-Recommendation: A if the API already runs on the shared AWS stack when this is exposed; otherwise B. Either way the edge rule is the same (one method, one path) and the app checks above stay on.
+- Three layers refuse other paths: the edge function, the proxy block, and the app's exact-path check. The origin port is open to everyone because CloudFront's addresses cannot be listed, which is acceptable only because of the last two layers.
+- The viewer URL is the default CloudFront name, so no certificate or DNS record is added. Cost is about $0.
+- The tunnel from the home server (route B) was not chosen.
+- Not done by agents, user steps: apply after reviewing a plan, the proxy server block on the server, `KAKAO_SKILL_SECRET` and `KAKAO_ALLOWED_USER_IDS` in the server `.env`, and entering the URL and header in Open Builder (needs #304).
 
 ## Rollout order
 
 1. #312 merged: the endpoint exists and refuses everything without settings.
 2. #304 done by the user: Kakao developer keys, channel and Open Builder bot.
-3. User picks the route above; any AWS or production change is applied only with the user's OK.
+3. Merge the Terraform PR, review a plan and apply it only with the user's OK; add the proxy block on the server.
 4. Set `KAKAO_SKILL_SECRET` and `KAKAO_ALLOWED_USER_IDS` on the server, register the skill URL and header in Open Builder.
 5. Verify: a real message from the user's KakaoTalk gets a reply; a request without the secret gets 403; a request to any other path from outside fails.
 

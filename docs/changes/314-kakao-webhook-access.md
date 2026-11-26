@@ -20,3 +20,9 @@ Kakao i Open Builder must reach `POST /kakao/skill` (#312) over public HTTPS, bu
 
 - Still open on #314 and user-only: choose the hosting route (shared AWS infrastructure or a tunnel), apply it (any AWS or production change needs the user's OK), set the skill URL and secret in Open Builder, and run a real KakaoTalk round trip. #314 stays open.
 - The edge rule "forward only `POST /kakao/skill`" and the real-request check from outside are not testable until a route is chosen.
+
+## Update: route chosen, code guard (2026-11-26)
+
+- The user chose the shared AWS infrastructure. The design doc now records the route (CloudFront function, one extra origin port, proxy block, app checks) and the cost, and links [shared-aws-infrastructure#118](https://github.com/sirloinbh/shared-aws-infrastructure/pull/118), which holds the Terraform (also the private photo bucket for #300). Nothing was applied.
+- Code guard: `skillHandlers` answers 404 for any path longer than `/kakao/skill` (`app.use` also matches `/kakao/skill/anything`), before the limiter, secret and body parser. Test: `a longer path under /kakao/skill is a 404, even with the right secret`.
+- Still user-only and open: apply after reviewing a plan, the proxy server block, the server `.env` values, Open Builder setup and the real round trip (#304 keys). #314 stays open.

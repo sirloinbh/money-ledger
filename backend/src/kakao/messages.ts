@@ -225,3 +225,29 @@ export function dailySummaryMessage({ summary, comparison, prices }: DailySummar
     link,
   );
 }
+
+// #299 A category spent up to or past its monthly budget.
+export type BudgetAlert = {
+  /** The month in `YYYY-MM`. */
+  month: string;
+  categoryName: string;
+  status: 'reached' | 'over';
+  spentKrw: number;
+  budgetKrw: number;
+  /** Spending as a percent of the budget with one decimal, already rounded in SQL. */
+  percent: string;
+};
+
+export const budgetAlertMessage = (alert: BudgetAlert, link: string) =>
+  text(
+    [
+      alert.status === 'over'
+        ? `Budget exceeded: ${alert.categoryName}`
+        : `Budget reached: ${alert.categoryName}`,
+      `${alert.month}: spent ${formatWon(alert.spentKrw)} of ${formatWon(alert.budgetKrw)} (${alert.percent}%)`,
+      ...(alert.status === 'over'
+        ? [`Over by ${formatWon(alert.spentKrw - alert.budgetKrw)}`]
+        : []),
+    ],
+    link,
+  );

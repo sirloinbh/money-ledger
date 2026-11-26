@@ -102,6 +102,22 @@ test('only POST is answered', async () => {
   }
 });
 
+test('a longer path under /kakao/skill is a 404, even with the right secret', async () => {
+  const { server, port } = await listen(createApp(stubPool, { kakaoSkill: { config } }));
+  try {
+    for (const path of ['/kakao/skill/x', '/kakao/skill/status/']) {
+      const response = await fetch(`http://127.0.0.1:${port}${path}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...signed },
+        body: JSON.stringify(body('상태')),
+      });
+      assert.equal(response.status, 404, path);
+    }
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
+
 test('with no settings the webhook refuses everyone, even a signed request', async () => {
   await withSkill({ config: undefined }, async (post) => {
     const result = await post(signed, body('상태'));

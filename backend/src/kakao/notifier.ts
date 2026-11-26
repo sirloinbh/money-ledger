@@ -1,6 +1,8 @@
 import { type JobLog, logJob } from '../standard/jobs.js';
 import { KakaoRevokedError, type Template } from './api.js';
 import {
+  type BudgetAlert,
+  budgetAlertMessage,
   type DailySummary,
   dailySummaryMessage,
   type DayTradeSold,
@@ -19,7 +21,8 @@ export type KakaoEvent =
   | ({ type: 'pick-bought' } & PickBought)
   | ({ type: 'day-trade-sold' } & DayTradeSold)
   | ({ type: 'long-hold-question' } & LongHoldQuestion)
-  | ({ type: 'daily-summary' } & DailySummary);
+  | ({ type: 'daily-summary' } & DailySummary)
+  | ({ type: 'budget-alert' } & BudgetAlert);
 
 export type Notifier = { notify(event: KakaoEvent): Promise<void> };
 
@@ -33,6 +36,8 @@ const messagesFor = (event: KakaoEvent, link: string): Template[] => {
       return [longHoldQuestionMessage(event, link)];
     case 'daily-summary':
       return [dailySummaryMessage(event, link)];
+    case 'budget-alert':
+      return [budgetAlertMessage(event, link)];
   }
 };
 
