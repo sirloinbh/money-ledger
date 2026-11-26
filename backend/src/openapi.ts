@@ -4,6 +4,7 @@
 import { z } from 'zod/v4';
 
 import * as benchmark from './benchmark.js';
+import * as goals from './goals.js';
 import * as kakao from './kakao/router.js';
 import * as budgets from './ledger/budgets.js';
 import * as categories from './ledger/categories.js';
@@ -171,6 +172,22 @@ const table: Record<string, Operation> = {
     body: ['FixedCostConfirmBody', fixedCosts.confirmBody],
     status: [200, 400, 404],
   },
+  'GET /api/goals': {
+    summary: 'List the savings goals with their progress',
+    status: [200],
+  },
+  'POST /api/goals': {
+    summary: 'Create a savings goal',
+    body: ['GoalCreateBody', goals.createBody],
+    // 422: the asset account is missing, a debt, or does not match the source.
+    status: [201, 400, 422],
+  },
+  'PATCH /api/goals/:id': {
+    summary: 'Change, finish or reopen a savings goal',
+    body: ['GoalUpdateBody', goals.updateBody],
+    status: [200, 400, 404, 422],
+  },
+  'DELETE /api/goals/:id': { summary: 'Delete a savings goal', status: [204, 400, 404] },
   'GET /api/ledger/rules': { summary: 'List the keyword rules', status: [200] },
   'POST /api/ledger/rules': {
     summary: 'Create a keyword rule that picks a category from a merchant',
