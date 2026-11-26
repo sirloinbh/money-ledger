@@ -8,6 +8,7 @@ import * as benchmark from './benchmark.js';
 import * as goals from './goals.js';
 import * as kakao from './kakao/router.js';
 import * as budgets from './ledger/budgets.js';
+import * as cardDeduction from './ledger/card-deduction.js';
 import * as categories from './ledger/categories.js';
 import * as entries from './ledger/entries.js';
 import * as csv from './ledger/entry-csv.js';
@@ -140,6 +141,16 @@ const table: Record<string, Operation> = {
   'GET /api/ledger/fixed-costs': {
     summary: 'List the fixed costs with their status for a month',
     query: fixedCosts.monthQuery,
+    status: [200, 400],
+  },
+  'GET /api/ledger/tax/card-deduction': {
+    summary: 'Estimate the year-end card deduction from a year of spending by payment method',
+    query: cardDeduction.yearQuery,
+    status: [200, 400],
+  },
+  'PUT /api/ledger/tax/salary': {
+    summary: 'Set the total salary of a year and return the new estimate',
+    body: ['TaxSalaryBody', cardDeduction.salaryBody],
     status: [200, 400],
   },
   'GET /api/ledger/recurring': {

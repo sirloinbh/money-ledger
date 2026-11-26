@@ -144,6 +144,8 @@ export function EntryManager() {
       categoryId: categoryId ? Number(categoryId) : null,
       merchant: draft.merchant,
       memo: draft.memo,
+      // Only an expense has one; "not set" is sent as null so an edit can clear it.
+      paymentMethod: draft.kind === 'expense' && draft.paymentMethod ? draft.paymentMethod : null,
     };
     try {
       try {

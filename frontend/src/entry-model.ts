@@ -4,6 +4,12 @@ import { formatWon, serviceToday, wonFromDigits } from './format';
 // #190 The entries screen's types and pure helpers, kept apart from the components so they can be unit-tested.
 
 export type Category = FilterCategory;
+export type PaymentMethod = 'credit_card' | 'debit_card' | 'cash';
+export const paymentMethodLabel: Record<PaymentMethod, string> = {
+  credit_card: 'Credit card',
+  debit_card: 'Debit card',
+  cash: 'Cash',
+};
 export type Entry = {
   id: number;
   date: string;
@@ -13,6 +19,8 @@ export type Entry = {
   categoryName: string | null;
   merchant: string;
   memo: string;
+  /** #296 Null: unknown. */
+  paymentMethod: PaymentMethod | null;
 };
 export type Draft = {
   date: string;
@@ -21,6 +29,8 @@ export type Draft = {
   categoryId: string;
   merchant: string;
   memo: string;
+  /** '' is unknown. */
+  paymentMethod: PaymentMethod | '';
 };
 
 export const entriesPath = '/api/ledger/entries';
@@ -35,6 +45,7 @@ export const emptyDraft = (): Draft => ({
   categoryId: '',
   merchant: '',
   memo: '',
+  paymentMethod: '',
 });
 
 /** The form draft for editing an entry. */
@@ -45,6 +56,7 @@ export const draftFromEntry = (entry: Entry): Draft => ({
   categoryId: entry.categoryId === null ? '' : String(entry.categoryId),
   merchant: entry.merchant,
   memo: entry.memo,
+  paymentMethod: entry.paymentMethod ?? '',
 });
 
 /** "12,500" or "12500" → 12500; anything else (sign, decimals, letters) → undefined. */
