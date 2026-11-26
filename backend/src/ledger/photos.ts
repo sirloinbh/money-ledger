@@ -62,8 +62,11 @@ export function photosRouter(pool: Pool, storage: ObjectStorage | undefined) {
     async (req, res) => {
       const store = need();
       const entryId = await entryOf(req.params);
-      const body: unknown = req.body;
-      if (!Buffer.isBuffer(body) || body.length === 0) throw new HttpError(400, 'Send a photo');
+      const sent: unknown = req.body;
+      if (!(sent instanceof Uint8Array) || sent.length === 0)
+        throw new HttpError(400, 'Send a photo');
+      // A fresh Buffer of known type: nothing below can see an array or a string.
+      const body = Buffer.from(sent);
       if (!sniffPhotoType(body)) throw new HttpError(400, 'Upload a JPEG or PNG photo');
       let clean;
       try {
