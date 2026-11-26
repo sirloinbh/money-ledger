@@ -1,5 +1,5 @@
 {
-  "centralSha": "ecf825fb15cb0a03c924f7f1a20a1b7754fe0f73",
+  "centralSha": "362f1bd3422eed75ca108b085412e549d73c1018",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -45,17 +45,17 @@
     },
     ".claude/skills/orca-lanes/SKILL.md": {
       "mode": "full",
-      "sha256": "c82722c8e36622482062325abb0761deb43b7d5b23bc33f5f93d27e973c2612c",
+      "sha256": "01f4a8420135ef970ac06f2fe9088a1235945c669412ada0b5609d82026f5dc6",
       "source": "templates/common/skills/orca-lanes/SKILL.md"
     },
     ".claude/skills/std-backlog/SKILL.md": {
       "mode": "full",
-      "sha256": "d78c85e0ab7e5cde745e013ab27d62b9cbcb8979012ee2dc5fc7b80f309fb6a4",
+      "sha256": "45ef839744ec4a1779da4c0b93137f34a0dbde11249f599529ff8d2f2b8785f5",
       "source": "templates/common/skills/std-backlog/SKILL.md"
     },
     ".claude/skills/std-code-review/SKILL.md": {
       "mode": "full",
-      "sha256": "618268c6357b19b80b1066664e1db03971dbb1ba896be5935fb906e26201d6f1",
+      "sha256": "1eac908e169abc985ac720f98069222895806860899447fec35234bd56157765",
       "source": "templates/common/skills/std-code-review/SKILL.md"
     },
     ".claude/skills/std-communication/SKILL.md": {
@@ -145,7 +145,7 @@
     },
     ".github/workflows/ci.yml": {
       "mode": "full",
-      "sha256": "36c1c20cd7906f579295c350d24ed2e174877017e6af6f06441bbe0490dd1441",
+      "sha256": "5b8cede1b6c3d1c8c9e8db5b151b9c9f1c028aa62bb4c0b4a400bd2d94f53bf7",
       "source": "templates/app/.github/workflows/ci.yml.tmpl"
     },
     ".gitignore": {
@@ -180,7 +180,7 @@
     },
     ".standards/check.mjs": {
       "mode": "full",
-      "sha256": "9189de77515827bb3fe6e4875c0808d9a3d58e87d134659058498aff7e8f4cd6",
+      "sha256": "e6631a5aa873e18716d82468846ce83bdd157bf867403778b411ceb3592dad32",
       "source": "scripts/standards-check.mjs"
     },
     ".standards/ci-migrate.sh": {
@@ -212,6 +212,11 @@
       "mode": "full",
       "sha256": "109f91dba8789a498bd342610e3ebda04662a74b420694efbf2beab8bdbd058d",
       "source": "scripts/lib/render.mjs"
+    },
+    ".standards/license-check.mjs": {
+      "mode": "full",
+      "sha256": "f7981069ea03e4bd0cd0babf366309fde2cc877521532cc18ebf2d3924c59230",
+      "source": "scripts/license-check.mjs"
     },
     ".standards/secret-scan.mjs": {
       "mode": "full",
@@ -249,7 +254,7 @@
         "packageManager": "npm@11.19.0",
         "engines.node": "24.21.0",
         "engines.npm": "11.19.0",
-        "dependencies.@sirloinbh/auth-client": "1.0.0",
+        "dependencies.@sirloinbh/auth-client": "1.1.0",
         "devDependencies.@sirloinbh/tsconfig": "1.0.0",
         "dependencies.express": "5.3.0",
         "dependencies.express-rate-limit": "8.7.2",
@@ -360,7 +365,7 @@
     },
     "deploy/autodeploy.sh": {
       "mode": "full",
-      "sha256": "ef9491c14395180ca824d2ab9cb33ef2043c1c0d67a09b21f78945b7f34ba1a4",
+      "sha256": "0db80b8304ad409614314d2adc6527726bff630838683d273f0c0479c5dd4ea5",
       "source": "templates/deploy/deploy/autodeploy.sh.tmpl"
     },
     "deploy/autodeploy.timer": {
@@ -410,12 +415,12 @@
     },
     "deploy/notify.sh": {
       "mode": "full",
-      "sha256": "40799dfd3fd8ca553d33046162f8b75b40c8a10863bc0e94a0292544200b5cf9",
+      "sha256": "38ef7608e2458a9d46effd4651d263e66ff8522d0bcaffb74077b6601f58ce4e",
       "source": "templates/deploy/deploy/notify.sh.tmpl"
     },
     "deploy/remote-deploy.sh": {
       "mode": "full",
-      "sha256": "7cb45f5dd3e2774548859b2f4a5124ba4d10af214033f6c7d9757a2c0b2f5242",
+      "sha256": "a0359a4d1e812be9c8f591d7090e385f8fdb23a9cf9224c7f3d9539add4cd3c3",
       "source": "templates/deploy/deploy/remote-deploy.sh.tmpl"
     },
     "deploy/report.service": {
@@ -425,7 +430,7 @@
     },
     "deploy/report.sh": {
       "mode": "full",
-      "sha256": "e8c0dd0c2c7717d126d323f4bb1862a3828b81dcb1839ab62564abae6f4d6bd5",
+      "sha256": "f12018b9b1e042447051c2c481a3b811be46ebf7e6f8b5d86fe7abf8e3c0a07d",
       "source": "templates/deploy/deploy/report.sh.tmpl"
     },
     "deploy/report.timer": {
@@ -489,7 +494,7 @@
         "packageManager": "npm@11.19.0",
         "engines.node": "24.21.0",
         "engines.npm": "11.19.0",
-        "dependencies.@sirloinbh/auth-client": "1.0.0",
+        "dependencies.@sirloinbh/auth-client": "1.1.0",
         "dependencies.@sirloinbh/design-tokens": "1.1.0",
         "devDependencies.@sirloinbh/tsconfig": "1.0.0",
         "dependencies.class-variance-authority": "0.7.1",
@@ -532,7 +537,7 @@
     },
     "frontend/public/sw.js": {
       "mode": "full",
-      "sha256": "11d02932a51d6a36fc3a0d7e1828af4e6dde030e5ec1d92df41611079a315ec3",
+      "sha256": "2f1fcd4cc1ff75fe95619ae5a9a86c2a91a4970119a41b4c56b2d8a30477fec7",
       "source": "templates/app/frontend/public/sw.js"
     },
     "frontend/public/theme-init.js": {
@@ -672,7 +677,7 @@
     },
     "frontend/src/components/ui/dialog.test.tsx": {
       "mode": "full",
-      "sha256": "a9372a86f998c695810fcfd64f33db99721d45a356a3032eb2c35287e4fc5409",
+      "sha256": "55f63af183726b48721282e0c4ef3b1fb2aeb595e75644ed211f5876119e21e3",
       "source": "templates/ui/frontend/src/components/ui/dialog.test.tsx"
     },
     "frontend/src/components/ui/dialog.tsx": {
@@ -682,7 +687,7 @@
     },
     "frontend/src/components/ui/drawer.test.tsx": {
       "mode": "full",
-      "sha256": "a502fe425c1eeb629392cc054147e9702e798ece6d3d9d86de05a8a69cb95f5e",
+      "sha256": "193cd2242b7fc41d383de36697bc81dfd8350e2408cf5e80d7393049715b0aa9",
       "source": "templates/ui/frontend/src/components/ui/drawer.test.tsx"
     },
     "frontend/src/components/ui/drawer.tsx": {
@@ -792,7 +797,7 @@
     },
     "frontend/src/components/ui/segmented-control.test.tsx": {
       "mode": "full",
-      "sha256": "53a3cd8c3a3fbea343198fd87d0673682997b24105fa2772e13fa7a20fbafa51",
+      "sha256": "ea504480f7b20c62833f4b1dc927c242414fb27fa7e8f89dea4dbb3abf8ae64f",
       "source": "templates/ui/frontend/src/components/ui/segmented-control.test.tsx"
     },
     "frontend/src/components/ui/segmented-control.tsx": {
@@ -812,7 +817,7 @@
     },
     "frontend/src/components/ui/sheet.test.tsx": {
       "mode": "full",
-      "sha256": "39e6add3358e7f1cb4e37933d6ce73e552ef13fa58cf719ff90274fddec2a334",
+      "sha256": "a18bb57b90a2d4bf292779f6ff843bc39ee6de95935138e73a6f55214ee876b9",
       "source": "templates/ui/frontend/src/components/ui/sheet.test.tsx"
     },
     "frontend/src/components/ui/sheet.tsx": {
@@ -862,7 +867,7 @@
     },
     "frontend/src/components/ui/switch.test.tsx": {
       "mode": "full",
-      "sha256": "cb5df74d3ab304cc2680494e83fb37704b735bf7316cd9cdcb7ab63223adf489",
+      "sha256": "15a58b145125328ca57dde45884a828594eab9f1f5192a24619e6c3446a0dd14",
       "source": "templates/ui/frontend/src/components/ui/switch.test.tsx"
     },
     "frontend/src/components/ui/switch.tsx": {
@@ -1116,17 +1121,17 @@
     },
     "skills/orca-lanes/SKILL.md": {
       "mode": "full",
-      "sha256": "c82722c8e36622482062325abb0761deb43b7d5b23bc33f5f93d27e973c2612c",
+      "sha256": "01f4a8420135ef970ac06f2fe9088a1235945c669412ada0b5609d82026f5dc6",
       "source": "templates/common/skills/orca-lanes/SKILL.md"
     },
     "skills/std-backlog/SKILL.md": {
       "mode": "full",
-      "sha256": "d78c85e0ab7e5cde745e013ab27d62b9cbcb8979012ee2dc5fc7b80f309fb6a4",
+      "sha256": "45ef839744ec4a1779da4c0b93137f34a0dbde11249f599529ff8d2f2b8785f5",
       "source": "templates/common/skills/std-backlog/SKILL.md"
     },
     "skills/std-code-review/SKILL.md": {
       "mode": "full",
-      "sha256": "618268c6357b19b80b1066664e1db03971dbb1ba896be5935fb906e26201d6f1",
+      "sha256": "1eac908e169abc985ac720f98069222895806860899447fec35234bd56157765",
       "source": "templates/common/skills/std-code-review/SKILL.md"
     },
     "skills/std-communication/SKILL.md": {
@@ -1175,7 +1180,7 @@
     "@sirloinbh/prettier-config": "1.0.0",
     "@sirloinbh/tsconfig": "1.0.0",
     "@sirloinbh/design-tokens": "1.1.0",
-    "@sirloinbh/auth-client": "1.0.0"
+    "@sirloinbh/auth-client": "1.1.0"
   },
   "registry": {
     "ports": {

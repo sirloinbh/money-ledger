@@ -94,7 +94,7 @@ The agent merges its own PRs in every repo after the review loop (std-code-revie
 4. Tell the user in one line which issue you chose and why (priority, prerequisite status), then start with the implementation skill's procedure.
 5. If there are no candidates, report what each remaining issue is blocked on and stop.
 
-Do not enable auto-merge or a merge queue in place of the review loop. A repo's `AGENTS.md` or `AGENTS.project.md` may add stricter rules, which win.
+Do not enable auto-merge or a merge queue in place of the review loop. The one exception is the sync PRs of the 4 repos with `autoMergeSync: true` in `sync.config.json` (`shared-auth`, `shared-aws-infrastructure`, `file-control`, `develop-skill`): `scripts/sync.mjs` merges them itself once CI is green ([ADR-0030](https://github.com/sirloinbh/project-standards/blob/main/docs/adr/0030-sync-prs-merge-themselves.md)). Every other repo and every other PR keeps the review loop. A repo's `AGENTS.md` or `AGENTS.project.md` may add stricter rules, which win.
 
 A big problem found during a review that is outside the PR's scope is registered as a new issue with sections 2 to 4 and 6 (labels, priority, parent epic link). Do not grow the PR.
 
@@ -117,6 +117,7 @@ Link work issues as GitHub sub-issues under a per-area parent issue. One parent 
   - Before closing, confirm with `sub_issues_summary` that no sub-issue is open, and comment the result of comparing against the goal in the body.
   - If part of the goal is left, do not close it. Register the remaining work as sub-issues and continue.
   - Do not close a parent whose body says "keep open even when all sub-issues are closed", such as an area that continues every working day.
+- **Automatic check and close (#1065)**: the daily compliance run (`scripts/compliance.mjs`) lists open work issues without a parent in the "Work issues without epic" column of `docs/compliance.md` and closes epics whose sub-issues are all closed, with a comment naming them. A body that says "keep open" or "do not close" keeps an epic open. The check does not replace linking at registration; fix every `✗` it reports.
 - **Multi-repo tracking issues** (section 1) are not parents. Keep the central repo's checkbox tracking as is, and link each repo's real issues to that repo's area parent.
 - **First adoption (once per repo)**: the first time you register issues or choose the next task in a repo after this rule is synced, group open work issues that have no parent by area.
   - Tell the user the grouping plan (area, parent, sub-issue numbers) once before proceeding.

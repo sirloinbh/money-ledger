@@ -28,3 +28,10 @@ test('a disabled switch does not toggle', () => {
   fireEvent.click(control);
   expect(control).not.toBeChecked();
 });
+
+test('touch screens get a tap area of at least 44px around the 20px track (#1103)', () => {
+  render(<Switch aria-label="Notifications" />);
+  // The ::after area is sized from the padding box inside the 1px border:
+  // height (20 - 2) + 14 × 2 = 46px, width (36 - 2) + 14 × 2 = 62px.
+  expect(screen.getByRole('switch', { name: 'Notifications' })).toHaveClass('h-5', 'w-9', 'border', 'pointer-coarse:after:-inset-3.5');
+});

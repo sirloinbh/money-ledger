@@ -80,3 +80,15 @@ test('the built-in close button closes the drawer, and showCloseButton={false} r
   expect(screen.getByRole('dialog', { name: 'Unit' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
 });
+
+test('the close button is 44px square on touch screens (#1103)', () => {
+  render(
+    <Drawer defaultOpen>
+      <DrawerContent>
+        <DrawerTitle>Unit</DrawerTitle>
+        <DrawerDescription>Choose a weight unit.</DrawerDescription>
+      </DrawerContent>
+    </Drawer>,
+  );
+  expect(screen.getByRole('button', { name: 'Close' })).toHaveClass('size-8', 'pointer-coarse:size-11');
+});

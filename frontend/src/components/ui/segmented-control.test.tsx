@@ -73,3 +73,10 @@ test('focus enters on the selected option and arrow keys move it', async () => {
   fireEvent.keyDown(current, { key: 'ArrowRight' });
   await waitFor(() => expect(screen.getByRole('radio', { name: '1 month' })).toHaveFocus());
 });
+
+test('touch screens get 44px tall segments (#1103)', () => {
+  render(<Period />);
+  for (const name of ['1 week', '1 month', '1 year']) {
+    expect(screen.getByRole('radio', { name })).toHaveClass('pointer-coarse:min-h-11');
+  }
+});
