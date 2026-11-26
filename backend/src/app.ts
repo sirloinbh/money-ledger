@@ -11,6 +11,7 @@ import { kakaoRouter } from './kakao/router.js';
 import type { KakaoService } from './kakao/service.js';
 import { skillHandlers, type SkillOptions } from './kakao/skill.js';
 import { budgetsRouter } from './ledger/budgets.js';
+import { cardDeductionRouter } from './ledger/card-deduction.js';
 import { categoriesRouter } from './ledger/categories.js';
 import { entriesRouter } from './ledger/entries.js';
 import { entryCsvRouter } from './ledger/entry-csv.js';
@@ -116,6 +117,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   app.use('/api/ledger/fixed-costs', fixedCostsRouter(pool, { today }));
   app.use('/api/goals', goalsRouter(pool, { today }));
   app.use('/api/ledger/recurring', recurringRouter(pool, today));
+  app.use('/api/ledger/tax', cardDeductionRouter(pool, { today }));
   app.use('/api/ledger/rules', rulesRouter(pool));
   app.use('/api/ledger/summary', summaryRouter(pool));
   app.use('/api/reports', reportsRouter(pool, { today }));
