@@ -10,14 +10,14 @@ import { HttpError } from './standard/http.js';
 // one of the three groups below: a table a later change adds fails the backup (and its test) until it is classified,
 // so it can never be left out silently.
 
-export const backupApp = 'money-ledger';
+const backupApp = 'money-ledger';
 export const backupFormat = 1;
 
 /**
  * Data a person entered, plus what grows from it. A restore only goes into a database where all of these are empty
  * (decision pending with the user, #298: the recommendation is "empty database only"; see docs/changes/298).
  */
-export const enteredTables = [
+const enteredTables = [
   'app_settings',
   'ledger_budgets',
   'ledger_category_rules',
@@ -44,7 +44,7 @@ export const enteredTables = [
  * database already holds some rows (the default categories, the market calendar) and opening the app once saves
  * today's net worth and the finished reports: an app that was only opened is still an empty database.
  */
-export const replaceableTables = [
+const replaceableTables = [
   'audit_log',
   'base_rates',
   'daily_picks',
@@ -248,7 +248,7 @@ export type RestoreResult = { restored: Record<string, number>; total: number };
  * file's rows. Refuses (409) a database that has data and a file from a newer schema, and (422) a file with an
  * unknown or secret table, an unknown column, or rows the database rejects.
  */
-export async function restoreBackup(
+async function restoreBackup(
   pool: Pool,
   input: z.infer<typeof restoreBody>,
 ): Promise<RestoreResult> {
