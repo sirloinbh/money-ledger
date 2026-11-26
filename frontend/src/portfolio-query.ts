@@ -13,6 +13,9 @@ export const portfolioKeys = {
   assets: () => apiKey(portfolioPath, 'assets'),
   trades: (assetId: number) => apiKey(portfolioPath, 'assets', assetId, 'trades'),
   usages: (assetId: number) => apiKey(portfolioPath, 'assets', assetId, 'usages'),
+  /** #295 Dividends, interest, realized gains and the tax estimate of one year (none: the current year). */
+  income: (year?: number) => apiKey(portfolioPath, 'income', year ?? 'current'),
+  incomeAll: () => apiKey(portfolioPath, 'income'),
   /** Every net worth read: the trend and the dashboard card. */
   netWorthAll: () => apiKey(portfolioPath, 'net-worth'),
   /** The saved days of a period; `from` is its first day, or none for the whole history. */

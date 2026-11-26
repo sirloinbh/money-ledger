@@ -24,6 +24,7 @@ import * as positions from './mock/positions.js';
 import * as news from './news/router.js';
 import * as picks from './picks/router.js';
 import * as assetsModule from './portfolio/asset-schema.js';
+import * as income from './portfolio/income.js';
 import * as netWorth from './portfolio/net-worth.js';
 import * as trades from './portfolio/trades.js';
 import * as prices from './prices/router.js';
@@ -193,6 +194,20 @@ const table: Record<string, Operation> = {
     body: ['BackupRestoreBody', backup.restoreBody],
     // 409: the database has data, or the file is from a newer version. 422: the file does not fit.
     status: [200, 400, 409, 422],
+  },
+  'GET /api/portfolio/income': {
+    summary:
+      'Dividends and interest, realized gains and the overseas gains tax estimate of one year',
+    status: [200, 400],
+  },
+  'POST /api/portfolio/income': {
+    summary: 'Record a dividend or interest received from a holding',
+    body: ['PortfolioIncomeBody', income.incomeBody],
+    status: [201, 400, 404],
+  },
+  'DELETE /api/portfolio/income/:id': {
+    summary: 'Delete a dividend or interest record',
+    status: [204, 400, 404],
   },
   'GET /api/goals': {
     summary: 'List the savings goals with their progress',
