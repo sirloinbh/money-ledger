@@ -33,6 +33,7 @@ import { mockSnapshotsRouter } from './mock/snapshots.js';
 import { type NewsLog, newsRouter, type NewsSource } from './news/index.js';
 import { type PickDeps, picksRouter } from './picks/index.js';
 import { assetsRouter } from './portfolio/assets.js';
+import { incomeRouter } from './portfolio/income.js';
 import { netWorthRouter } from './portfolio/net-worth.js';
 import { type PriceLog, type PriceSources, pricesRouter } from './prices/index.js';
 import type { KisSource } from './prices/kis.js';
@@ -137,6 +138,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
     }),
   );
   app.use('/api/portfolio/net-worth', netWorthRouter(pool, { today }));
+  app.use('/api/portfolio/income', incomeRouter(pool, today));
   if (options.kakao)
     app.use('/api/kakao', kakaoRouter(options.kakao.service, { appUrl: options.kakao.appUrl }));
   app.use('/api/mock/accounts/:accountId/orders', mockOrdersRouter(pool, today));
