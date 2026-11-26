@@ -25,6 +25,7 @@ type Layer = {
 const mounts: Record<string, string[]> = {
   '': [
     '/api/ledger/entries/csv',
+    '/api/backup',
     '/api/ledger/budgets',
     '/api/ledger/categories',
     '/api/ledger/entries',
