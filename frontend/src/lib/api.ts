@@ -156,16 +156,3 @@ export function requestForm<T>(
 ): Promise<T> {
   return send<T>(path, { method: init.method ?? 'POST', headers: init.headers, body: form }, init);
 }
-
-/** Sends a file's bytes as they are (no JSON, no multipart). The server reads the file itself (#57). */
-export function requestBytes<T>(path: string, file: Blob, init: RequestOptions = {}): Promise<T> {
-  return send<T>(
-    path,
-    {
-      method: init.method ?? 'POST',
-      headers: { 'content-type': 'application/octet-stream', ...init.headers },
-      body: file,
-    },
-    init,
-  );
-}

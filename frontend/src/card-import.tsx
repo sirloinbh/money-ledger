@@ -6,10 +6,21 @@ import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
 import { selectClass } from './entry-filters-state';
 import { countOf, formatWon } from './format';
-import { requestBytes } from './lib/api';
+import { requestForm, type RequestOptions } from './lib/api';
 import { useNotice } from './lib/use-notice';
 
 // #57 Import a Woori Card usage-history file (.xls). The server reads the file, so the browser only sends its bytes.
+
+/**
+ * Sends the file's bytes as they are (the server reads the file itself). The shared request helper (a centrally
+ * managed file) only has a multipart variant, which passes its body to fetch unchanged, so a Blob goes through it
+ * with an explicit content type.
+ */
+const requestBytes = <T,>(path: string, file: Blob, init: RequestOptions = {}) =>
+  requestForm<T>(path, file as unknown as FormData, {
+    ...init,
+    headers: { 'content-type': 'application/octet-stream', ...init.headers },
+  });
 
 const cardImportPath = '/api/ledger/entries/card-import';
 const maxBytes = 5_000_000;
