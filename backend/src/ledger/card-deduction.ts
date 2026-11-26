@@ -15,7 +15,7 @@ import { won } from '../money.js';
 // the extra limit for children, and spending that does not count (tax, insurance, tuition, rent, ...).
 // Entries without a payment method are shown apart and are left out of the estimate.
 
-export const cardRules = {
+const cardRules = {
   thresholdPercent: 25n,
   creditPercent: 15n,
   debitCashPercent: 30n,
@@ -109,7 +109,7 @@ export const salaryBody = z.object(
 
 type Methods = Record<'credit_card' | 'debit_card' | 'cash' | 'unknown', number>;
 
-export async function cardDeductionFor(db: Pick<Pool, 'query'>, year: number) {
+async function cardDeductionFor(db: Pick<Pool, 'query'>, year: number) {
   const [spent, salary] = await Promise.all([
     db.query<{ payment_method: string | null; total: string }>(
       `SELECT payment_method, sum(amount)::text AS total FROM ledger_entries
