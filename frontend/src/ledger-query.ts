@@ -18,6 +18,9 @@ export const ledgerKeys = {
   budgets: (month?: string) =>
     month === undefined ? apiKey(ledgerPath, 'budgets') : apiKey(ledgerPath, 'budgets', month),
   trend: (from: string, to: string) => apiKey(ledgerPath, 'trend', from, to),
+  /** #359 Day or week totals of a range. */
+  periods: (from: string, unit: 'day' | 'week', count: number) =>
+    apiKey(ledgerPath, 'periods', from, unit, count),
   /** All categories, hidden ones too; with `'visible'` only the ones in use. */
   categories: (visible?: 'visible') =>
     visible ? apiKey(ledgerPath, 'categories', visible) : apiKey(ledgerPath, 'categories'),
