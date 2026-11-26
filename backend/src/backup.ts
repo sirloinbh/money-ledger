@@ -35,6 +35,7 @@ const enteredTables = [
   'mock_positions',
   'mock_snapshots',
   'portfolio_assets',
+  'portfolio_income',
   'portfolio_prepaid_usages',
   'portfolio_trades',
   'savings_goals',
