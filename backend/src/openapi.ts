@@ -253,6 +253,16 @@ const table: Record<string, Operation> = {
     query: orders.historyQuery,
     status: [200, 400, 404],
   },
+  [`GET ${accounts}/:accountId/orders/journal`]: {
+    summary: 'List mock orders with their notes and the result so far, newest first (#293)',
+    query: orders.journalQuery,
+    status: [200, 400, 404],
+  },
+  [`PATCH ${accounts}/:accountId/orders/:id/notes`]: {
+    summary: 'Write or change the note and the review note of a mock order (#293)',
+    body: ['MockOrderNotesBody', orders.noteBody],
+    status: [200, 400, 404],
+  },
   [`GET ${accounts}/:accountId/orders/preview`]: {
     summary: 'Preview the fill of a mock order',
     query: orders.previewQuery,

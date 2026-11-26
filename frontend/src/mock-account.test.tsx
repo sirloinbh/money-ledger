@@ -46,6 +46,10 @@ function fakeApi() {
       // An account's own pages (holdings, history, returns) and its reset. The tests change `open` to stand for
       // the server moving on, so any account id is accepted here; the method and the path are not.
       const [, page] = /^\/api\/mock\/accounts\/\d+\/(\w+)$/.exec(url.split('?')[0]) ?? [];
+      // #293 The trade journal reads the same orders.
+      if (method === 'GET' && /^\/api\/mock\/accounts\/\d+\/orders\/journal$/.test(url)) {
+        return json({ entries: [], hasMore: false });
+      }
       if (method === 'GET' && page === 'holdings') {
         const cash = open?.cashKrw ?? 0;
         return json({
