@@ -6,10 +6,12 @@ import { ConfirmDialog } from './components/ui/confirm-dialog';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
+import { Textarea } from './components/ui/textarea';
 import { formatDecimal, formatWon, sharesOf } from './format';
 import { RequestError, requestJson } from './lib/api';
 import { useNotice } from './lib/use-notice';
 import { MockAllIn } from './mock-all-in';
+import { noteLimit } from './mock-journal';
 import { MockOrderBook } from './mock-order-book';
 import { mockKey } from './mock-query';
 import { refreshReads } from './query-reads';
@@ -103,6 +105,7 @@ export function MockOrder({
   const ordered = () => void refreshReads(client, mockKey);
   const [side, setSide] = useState<Side>('buy');
   const [quantity, setQuantity] = useState('');
+  const [note, setNote] = useState('');
   const [invalid, setInvalid] = useState(false);
   const [preview, setPreview] = useState<{
     accountId: number;
@@ -127,6 +130,10 @@ export function MockOrder({
     if ('message' in parsed) {
       setInvalid(true);
       showError(parsed.message);
+      return;
+    }
+    if (note.length > noteLimit) {
+      showError(`Keep the note to ${noteLimit.toLocaleString('en-US')} characters or fewer`);
       return;
     }
     setInvalid(false);
@@ -183,11 +190,14 @@ export function MockOrder({
           expectedPrice: preview.data.price,
           expectedPriceDate: preview.data.priceDate,
           expectedFxRate: preview.data.fxRate,
+          // #293 The reason for the order, kept in the journal; blank means none.
+          ...(note.trim() ? { note: note.trim() } : {}),
         },
       });
       requestKey.current = undefined;
       setPreview(undefined);
       setQuantity('');
+      setNote('');
       showStatus(
         `${preview.side === 'buy' ? 'Bought' : 'Sold'} ${sharesOf(preview.quantity)} of ${title} at the ${formatMonthDay(placed.order.priceDate)} close. Cash ${formatWon(placed.cashKrw)}`,
       );
@@ -282,6 +292,15 @@ export function MockOrder({
               if (invalid) setInvalid(false);
               setQuantity(event.target.value);
             }}
+          />
+        </div>
+        <div className="flex flex-col gap-2 sm:min-w-64 sm:flex-1">
+          <Label htmlFor={`${id}-note`}>Why this order (optional)</Label>
+          <Textarea
+            id={`${id}-note`}
+            value={note}
+            limit={noteLimit}
+            onChange={(event) => setNote(event.target.value)}
           />
         </div>
         {/* Stays enabled while checking so focus is kept; `busy` ignores a second press. */}
