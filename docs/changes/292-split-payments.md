@@ -16,7 +16,7 @@ An expense can be split into 2 to 10 parts, each with its own category and whole
 
 | File                                                                             | Change                                                                                               |
 | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `database/migrations/052_entry_splits.sql`                                       | Table, view, sum trigger                                                                             |
+| `database/migrations/053_entry_splits.sql`                                       | Table, view, sum trigger                                                                             |
 | `backend/src/ledger/entry-splits.ts`                                             | Body rules, `checkParts`, `writeSplitEntry` (one transaction), `loadSplits`                          |
 | `backend/src/ledger/entries.ts`                                                  | `splits` in the body and the answer, create and replace, the category filter                         |
 | `summary.ts`, `budgets.ts`, `reports.ts`, `entry-csv.ts`, `fixed-costs.ts`       | Read the parts; CSV export per part; the fixed cost guard                                            |
