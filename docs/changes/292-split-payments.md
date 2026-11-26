@@ -25,8 +25,12 @@ An expense can be split into 2 to 10 parts, each with its own category and whole
 
 ## Verification
 
-See the PR.
+See the PR and the browser check below.
 
 ## Limits
 
 Parts are per payment, not per item: item names from Coupang or KakaoPay (#58, #59) can fill parts later. Only expenses are split. A part's amount is at least ₩1.
+
+## Browser check (2026-11-26)
+
+Real browser on the lane ports (API 3191, Vite 5291) with a seeded split entry (50,000 = 30,000 food + 20,000 living): at 390x844 and 1440x900 there is no horizontal scroll, the list shows the parts, and "Split this payment" opens the editor with Part 1 and Part 2.
