@@ -1,5 +1,5 @@
 {
-  "centralSha": "362f1bd3422eed75ca108b085412e549d73c1018",
+  "centralSha": "0c81491b447afc9f285662a0a49e08c6a07fdb6a",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -1058,10 +1058,10 @@
         "engines.npm": "11.19.0",
         "scripts.standards:check": "node .standards/check.mjs",
         "scripts.knip": "knip",
-        "devDependencies.@sirloinbh/eslint-config": "1.1.0",
+        "devDependencies.@sirloinbh/eslint-config": "1.2.0",
         "devDependencies.@sirloinbh/prettier-config": "1.0.0",
         "devDependencies.@eslint/js": "10.0.1",
-        "devDependencies.eslint": "10.12.0",
+        "devDependencies.eslint": "10.15.0",
         "devDependencies.eslint-config-prettier": "10.1.8",
         "devDependencies.eslint-plugin-react-hooks": "7.1.1",
         "devDependencies.eslint-plugin-jsx-a11y-x": "0.2.0",
@@ -1071,7 +1071,7 @@
         "devDependencies.knip": "6.41.0",
         "devDependencies.prettier": "3.9.10",
         "devDependencies.prettier-plugin-tailwindcss": "0.8.1",
-        "devDependencies.typescript-eslint": "8.71.2",
+        "devDependencies.typescript-eslint": "8.73.0",
         "devDependencies.@playwright/test": "1.63.0",
         "devDependencies.@axe-core/playwright": "4.13.0",
         "devDependencies.@lhci/cli": "0.16.1",
@@ -1176,7 +1176,7 @@
     }
   },
   "packages": {
-    "@sirloinbh/eslint-config": "1.1.0",
+    "@sirloinbh/eslint-config": "1.2.0",
     "@sirloinbh/prettier-config": "1.0.0",
     "@sirloinbh/tsconfig": "1.0.0",
     "@sirloinbh/design-tokens": "1.1.0",
