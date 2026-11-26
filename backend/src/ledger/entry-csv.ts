@@ -174,9 +174,11 @@ export function entryCsvRouter(pool: Pool, { today }: { today: () => string }) {
       merchant: string;
       memo: string;
     }>(
-      `SELECT e.entry_date, e.kind, e.amount::text, c.name AS category_name, e.merchant, e.memo
-       FROM ledger_entries e LEFT JOIN ledger_categories c ON c.id = e.category_id
-       ${where} ORDER BY e.entry_date, e.id`,
+      // #292 A split payment is exported as one row per part (its category and amount), so category totals match.
+      `SELECT e.entry_date, e.kind, p.amount::text AS amount, c.name AS category_name, e.merchant, e.memo
+       FROM ledger_entries e JOIN ledger_entry_parts p ON p.entry_id = e.id
+       LEFT JOIN ledger_categories c ON c.id = p.category_id
+       ${where} ORDER BY e.entry_date, e.id, p.amount DESC, p.category_id`,
       params,
     );
     const lines = [

@@ -113,9 +113,16 @@ export function EntryList({
                 <Badge variant={entry.kind === 'income' ? 'success' : 'secondary'}>
                   {kindLabel[entry.kind]}
                 </Badge>
-                {entry.categoryName ?? 'Uncategorized'}
+                {entry.splits?.length ? 'Split' : (entry.categoryName ?? 'Uncategorized')}
                 {entry.paymentMethod ? ` · ${paymentMethodLabel[entry.paymentMethod]}` : ''}
               </span>
+              {entry.splits?.length ? (
+                <span className="text-body-sm text-muted-foreground">
+                  {entry.splits
+                    .map((part) => `${part.categoryName} ${formatWon(part.amount)}`)
+                    .join(' · ')}
+                </span>
+              ) : null}
               {entry.merchant || entry.memo ? (
                 <span className="break-words">
                   {[entry.merchant, entry.memo].filter(Boolean).join(' · ')}

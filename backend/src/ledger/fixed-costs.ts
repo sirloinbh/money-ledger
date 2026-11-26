@@ -338,6 +338,17 @@ export function fixedCostsRouter(pool: Pool, { today }: { today: () => string })
       const entryId = run.rows[0]?.entry_id;
       const missing = 'There is no entry to confirm for that month';
       if (!entryId) throw new HttpError(404, missing);
+      // A payment split in the entry list has parts that add up to its amount (#292): undo the split first.
+      const split = await client.query(
+        'SELECT 1 FROM ledger_entry_splits WHERE entry_id = $1 LIMIT 1',
+        [entryId],
+      );
+      if (split.rowCount) {
+        throw new HttpError(
+          409,
+          'This entry was split in the entry list. Undo the split to confirm its amount',
+        );
+      }
       // An entry changed to income in the entry list is no longer this fixed cost's expense.
       const changed = await client.query(
         `UPDATE ledger_entries SET amount = $2, updated_at = now() WHERE id = $1 AND kind = 'expense'`,
