@@ -80,8 +80,8 @@ const clean = (value: string | undefined) => (value ?? '').normalize('NFC').trim
 function installmentMemo(type: string, months: string) {
   const count = /\d+/.exec(months)?.[0];
   const n = count === undefined ? 0 : Number(count);
-  if (n > 1) return `할부 ${n}개월`;
-  if (type.includes('할부') && n === 0) return '할부';
+  if (n > 1) return `Installment ${n} months`;
+  if (type.includes('할부') && n === 0) return 'Installment';
   return '';
 }
 
@@ -183,7 +183,7 @@ function foreignRows(rows: string[][], period: Period): CardParse {
       merchant: clean(first[2]),
       amount: Math.max(pay - cancel, 0),
       cancelled: cancel > 0,
-      memo: local ? `해외 ${local}` : '해외',
+      memo: local ? `Foreign ${local}` : 'Foreign',
     });
   }
   return out;
