@@ -2,7 +2,9 @@ import express, { Router } from 'express';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod/v4';
 
+import { sniffPhotoType } from './ledger/photo-strip.js';
 import { HttpError } from './standard/http.js';
+import type { ObjectStorage } from './storage.js';
 
 // #298 Back up and restore all data. One versioned JSON file holds every user table; it is built in one read-only
 // REPEATABLE READ transaction (one consistent snapshot), and restore runs in one transaction that either restores
@@ -24,6 +26,7 @@ const enteredTables = [
   'ledger_entries',
   'ledger_fixed_cost_runs',
   'ledger_fixed_costs',
+  'ledger_entry_photos',
   'ledger_entry_splits',
   'ledger_recurring_dismissals',
   'ledger_tax_salaries',
@@ -86,7 +89,7 @@ const quote = (name: string) => `"${name.replaceAll('"', '""')}"`;
 /** Rows per INSERT when restoring. */
 const chunk = 1000;
 /** The restore body limit: a personal ledger is a few megabytes; this leaves room for years of data. */
-const restoreLimit = '100mb';
+const restoreLimit = '400mb';
 
 type Column = { name: string; type: string; identity: boolean };
 
@@ -178,6 +181,8 @@ export type Backup = {
   /** The newest migration of the database the file came from: a restore refuses a file from a newer schema. */
   schemaMigration: string | null;
   tables: Record<string, Record<string, unknown>[]>;
+  /** #300 The receipt photo files, by storage key (base64), so the backup holds the images and not only their rows. */
+  photos?: Record<string, { contentType: string; data: string }>;
 };
 
 /**
@@ -187,6 +192,7 @@ export type Backup = {
 export async function exportBackup(
   pool: Pool,
   now: () => Date = () => new Date(),
+  storage?: ObjectStorage,
 ): Promise<Backup> {
   const client = await pool.connect();
   try {
@@ -211,13 +217,31 @@ export async function exportBackup(
     }
     const schemaMigration = await latestMigration(client);
     await client.query('COMMIT');
-    return {
+    const photoRows = tables.ledger_entry_photos ?? [];
+    const backup: Backup = {
       app: backupApp,
       format: backupFormat,
       createdAt: now().toISOString(),
       schemaMigration,
       tables,
     };
+    if (photoRows.length > 0) {
+      // A backup that silently lacked its photos would look complete: refuse instead.
+      if (!storage)
+        throw new HttpError(503, 'Photo storage is not set up, so the photos cannot be backed up');
+      backup.photos = {};
+      for (const row of photoRows) {
+        const key = String(row.storage_key);
+        const found = await storage.get(key);
+        if (!found)
+          throw new HttpError(500, `A stored photo is missing (${key}); the backup was not made`);
+        backup.photos[key] = {
+          contentType: found.contentType,
+          data: found.bytes.toString('base64'),
+        };
+      }
+    }
+    return backup;
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
     throw error;
@@ -232,6 +256,9 @@ export const restoreBody = z.object(
     format: z.number({ error: 'The backup file has no version' }),
     createdAt: z.string({ error: 'The backup file has no creation time' }),
     schemaMigration: z.string().nullable(),
+    photos: z
+      .record(z.string(), z.object({ contentType: z.string(), data: z.string() }))
+      .optional(),
     tables: z.record(
       z.string(),
       z.array(z.record(z.string(), z.unknown()), { error: 'Each table must be a list of rows' }),
@@ -254,6 +281,7 @@ export type RestoreResult = { restored: Record<string, number>; total: number };
 async function restoreBackup(
   pool: Pool,
   input: z.infer<typeof restoreBody>,
+  storage?: ObjectStorage,
 ): Promise<RestoreResult> {
   if (input.format !== backupFormat) {
     throw new HttpError(
@@ -267,6 +295,20 @@ async function restoreBackup(
     if (!backedUp(name))
       throw new HttpError(422, `The backup has a table this app does not know: ${name}`);
   }
+  const photoRows = input.tables.ledger_entry_photos ?? [];
+  const photoFiles = new Map<string, Buffer>();
+  for (const row of photoRows) {
+    const key = String(row.storage_key);
+    const file = input.photos?.[key];
+    if (!file) throw new HttpError(422, `The backup has a photo row without its file (${key})`);
+    const bytes = Buffer.from(file.data, 'base64');
+    if (sniffPhotoType(bytes) !== file.contentType)
+      throw new HttpError(422, `The photo file ${key} is not a JPEG or PNG image`);
+    photoFiles.set(key, bytes);
+  }
+  if (photoFiles.size > 0 && !storage)
+    throw new HttpError(503, 'Photo storage is not set up, so the photos cannot be restored');
+  const written: string[] = [];
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -355,23 +397,33 @@ async function restoreBackup(
     }
     for (const name of ordered)
       await client.query(`ALTER TABLE public.${quote(name)} ENABLE TRIGGER USER`);
+    // Files go in before the commit: if one fails the rows roll back; a file left over by a failed commit is an
+    // unreferenced object (its key is never reused) that the catch below removes.
+    for (const [key, bytes] of photoFiles) {
+      await storage!.put(key, bytes, sniffPhotoType(bytes)!);
+      written.push(key);
+    }
     await client.query('COMMIT');
     return { restored, total: Object.values(restored).reduce((sum, count) => sum + count, 0) };
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
+    for (const key of written) await storage?.delete(key).catch(() => undefined);
     throw error;
   } finally {
     client.release();
   }
 }
 
-export function backupRouter(pool: Pool, { today }: { today: () => string }) {
+export function backupRouter(
+  pool: Pool,
+  { today, storage }: { today: () => string; storage?: ObjectStorage },
+) {
   const router = Router();
   // Its own, larger limit: a restore carries the whole database (the app-wide 256kb default is for forms).
   router.use(express.json({ limit: restoreLimit }));
 
   router.get('/', async (_req, res) => {
-    const backup = await exportBackup(pool);
+    const backup = await exportBackup(pool, undefined, storage);
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader(
       'Content-Disposition',
@@ -382,7 +434,7 @@ export function backupRouter(pool: Pool, { today }: { today: () => string }) {
 
   router.post('/restore', async (req, res) => {
     const body = restoreBody.parse(req.body);
-    res.json(await restoreBackup(pool, body));
+    res.json(await restoreBackup(pool, body, storage));
   });
 
   return router;

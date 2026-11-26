@@ -151,6 +151,24 @@ const table: Record<string, Operation> = {
     status: [200, 400, 404, 409],
   },
   'DELETE /api/ledger/entries/:id': { summary: 'Delete an entry', status: [204, 400, 404] },
+  'GET /api/ledger/entries/:entryId/photos': {
+    summary: 'List the receipt photos of an entry',
+    status: [200, 400, 404],
+  },
+  'POST /api/ledger/entries/:entryId/photos': {
+    summary:
+      'Attach a receipt photo (the raw JPEG or PNG bytes); location and other metadata are removed',
+    status: [201, 400, 404, 409, 413, 503],
+  },
+  'GET /api/ledger/entries/:entryId/photos/:photoId': {
+    summary: 'View a receipt photo',
+    status: [200, 400, 404, 503],
+    produces: 'image/jpeg',
+  },
+  'DELETE /api/ledger/entries/:entryId/photos/:photoId': {
+    summary: 'Delete a receipt photo',
+    status: [204, 400, 404, 503],
+  },
   'GET /api/ledger/fixed-costs': {
     summary: 'List the fixed costs with their status for a month',
     query: fixedCosts.monthQuery,

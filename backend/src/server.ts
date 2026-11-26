@@ -36,6 +36,7 @@ import { backgroundJobs, shutdownOnce } from './runtime.js';
 import { listenHost, sharedAuth } from './standard/auth.js';
 import { createPool } from './standard/db.js';
 import { jobBossOptions, jobsModeFromEnv, startJobs } from './standard/jobs.js';
+import { storageFromEnv } from './storage-s3.js';
 
 const port = Number(process.env.PORT ?? 3105);
 const databaseUrl = process.env.DATABASE_URL;
@@ -68,7 +69,9 @@ const pick: PickDeps | undefined = claude
       log: logPickEvent,
     }
   : undefined;
+// #300 Receipt photos go to the private bucket named by PHOTO_BUCKET; without it photos are off.
 const server = createApp(pool, {
+  photoStorage: storageFromEnv(),
   prices,
   kis,
   priceLog: logPriceEvent,

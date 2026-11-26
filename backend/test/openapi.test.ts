@@ -26,6 +26,7 @@ const mounts: Record<string, string[]> = {
   '': [
     '/api/ledger/entries/csv',
     '/api/ledger/entries/card-import',
+    '/api/ledger/entries/:entryId/photos',
     '/api/backup',
     '/api/ledger/budgets',
     '/api/ledger/categories',
