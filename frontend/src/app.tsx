@@ -1,12 +1,22 @@
 import { type QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ChartPie, FileText, LayoutDashboard, Settings2, TrendingUp, Wallet } from 'lucide-react';
+import {
+  ChartPie,
+  FileText,
+  LayoutDashboard,
+  PiggyBank,
+  Settings2,
+  TrendingUp,
+  Wallet,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 
+import { BackupSettings } from './backup';
 import { AppShell, type NavItem } from './components/layout/app-shell';
 import { Toaster } from './components/ui/sonner';
 import { DashboardPage } from './dashboard';
 import { addDueOnce } from './fixed-costs-api';
+import { GoalsPage } from './goals';
 import type { Health } from './health';
 import { KakaoSettings } from './kakao-settings';
 import { LedgerPage } from './ledger';
@@ -24,6 +34,7 @@ const pages = {
   overview: '/',
   ledger: '/ledger',
   portfolio: '/portfolio',
+  goals: '/goals',
   mockTrading: '/mock-trading',
   reports: '/reports',
   settings: '/settings',
@@ -34,6 +45,7 @@ const nav: NavItem[] = [
   { to: pages.overview, label: 'Dashboard', icon: LayoutDashboard },
   { to: pages.ledger, label: 'Ledger', icon: Wallet },
   { to: pages.portfolio, label: 'Asset portfolio', icon: ChartPie },
+  { to: pages.goals, label: 'Goals', icon: PiggyBank },
   { to: pages.mockTrading, label: 'Mock trading', icon: TrendingUp },
   { to: pages.reports, label: 'Reports', icon: FileText },
   { to: pages.settings, label: 'Settings', icon: Settings2 },
@@ -75,6 +87,7 @@ function Workspace() {
           <Route path={pages.overview} element={<DashboardPage health={health} />} />
           <Route path={pages.ledger} element={<LedgerPage health={health} />} />
           <Route path={pages.portfolio} element={<PortfolioPage health={health} />} />
+          <Route path={pages.goals} element={<GoalsPage health={health} />} />
           <Route path={pages.mockTrading} element={<MockTradingPage health={health} />} />
           <Route path={pages.reports} element={<ReportsPage health={health} />} />
           <Route path={`${pages.reports}/:id`} element={<ReportPage health={health} />} />
@@ -87,6 +100,7 @@ function Workspace() {
                 health={health}
               >
                 <KakaoSettings />
+                <BackupSettings />
               </Page>
             }
           />

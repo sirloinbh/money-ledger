@@ -3,9 +3,13 @@
 // when the table and the registered routes differ.
 import { z } from 'zod/v4';
 
+import * as backup from './backup.js';
 import * as benchmark from './benchmark.js';
+import * as goals from './goals.js';
 import * as kakao from './kakao/router.js';
 import * as budgets from './ledger/budgets.js';
+import * as cardDeduction from './ledger/card-deduction.js';
+import * as cardImport from './ledger/card-import.js';
 import * as categories from './ledger/categories.js';
 import * as entries from './ledger/entries.js';
 import * as csv from './ledger/entry-csv.js';
@@ -21,6 +25,7 @@ import * as positions from './mock/positions.js';
 import * as news from './news/router.js';
 import * as picks from './picks/router.js';
 import * as assetsModule from './portfolio/asset-schema.js';
+import * as income from './portfolio/income.js';
 import * as netWorth from './portfolio/net-worth.js';
 import * as trades from './portfolio/trades.js';
 import * as prices from './prices/router.js';
@@ -75,6 +80,17 @@ const table: Record<string, Operation> = {
     summary: 'Save the rows of a CSV import in one transaction, or none when any row is invalid',
     body: ['CsvImportBody', csv.importBody],
     status: [200, 400, 422],
+  },
+  'POST /api/ledger/entries/card-import/preview': {
+    summary: 'Read a Woori Card usage file (the raw bytes) and show what importing it would do',
+    query: cardImport.importQuery,
+    status: [200, 413, 422],
+  },
+  'POST /api/ledger/entries/card-import/import': {
+    summary:
+      'Save the payments of a Woori Card usage file as expenses; the same file again changes nothing',
+    query: cardImport.importQuery,
+    status: [200, 413, 422],
   },
   'GET /api/ledger/budgets': {
     summary: 'List the budgets and the spending of each expense category for a month',
@@ -140,6 +156,16 @@ const table: Record<string, Operation> = {
     query: fixedCosts.monthQuery,
     status: [200, 400],
   },
+  'GET /api/ledger/tax/card-deduction': {
+    summary: 'Estimate the year-end card deduction from a year of spending by payment method',
+    query: cardDeduction.yearQuery,
+    status: [200, 400],
+  },
+  'PUT /api/ledger/tax/salary': {
+    summary: 'Set the total salary of a year and return the new estimate',
+    body: ['TaxSalaryBody', cardDeduction.salaryBody],
+    status: [200, 400],
+  },
   'GET /api/ledger/recurring': {
     summary:
       'List merchants that charge a similar amount every month and are not a fixed cost yet, as suggestions',
@@ -171,6 +197,46 @@ const table: Record<string, Operation> = {
     body: ['FixedCostConfirmBody', fixedCosts.confirmBody],
     status: [200, 400, 404],
   },
+  'GET /api/backup': {
+    summary: 'Download every user table as one versioned JSON backup file',
+    status: [200],
+  },
+  'POST /api/backup/restore': {
+    summary: 'Restore a backup file into an empty database',
+    body: ['BackupRestoreBody', backup.restoreBody],
+    // 409: the database has data, or the file is from a newer version. 422: the file does not fit.
+    status: [200, 400, 409, 422],
+  },
+  'GET /api/portfolio/income': {
+    summary:
+      'Dividends and interest, realized gains and the overseas gains tax estimate of one year',
+    status: [200, 400],
+  },
+  'POST /api/portfolio/income': {
+    summary: 'Record a dividend or interest received from a holding',
+    body: ['PortfolioIncomeBody', income.incomeBody],
+    status: [201, 400, 404],
+  },
+  'DELETE /api/portfolio/income/:id': {
+    summary: 'Delete a dividend or interest record',
+    status: [204, 400, 404],
+  },
+  'GET /api/goals': {
+    summary: 'List the savings goals with their progress',
+    status: [200],
+  },
+  'POST /api/goals': {
+    summary: 'Create a savings goal',
+    body: ['GoalCreateBody', goals.createBody],
+    // 422: the asset account is missing, a debt, or does not match the source.
+    status: [201, 400, 422],
+  },
+  'PATCH /api/goals/:id': {
+    summary: 'Change, finish or reopen a savings goal',
+    body: ['GoalUpdateBody', goals.updateBody],
+    status: [200, 400, 404, 422],
+  },
+  'DELETE /api/goals/:id': { summary: 'Delete a savings goal', status: [204, 400, 404] },
   'GET /api/ledger/rules': { summary: 'List the keyword rules', status: [200] },
   'POST /api/ledger/rules': {
     summary: 'Create a keyword rule that picks a category from a merchant',
@@ -251,6 +317,16 @@ const table: Record<string, Operation> = {
   [`GET ${accounts}/:accountId/orders`]: {
     summary: 'List the orders of a mock trading account, newest first, a page at a time',
     query: orders.historyQuery,
+    status: [200, 400, 404],
+  },
+  [`GET ${accounts}/:accountId/orders/journal`]: {
+    summary: 'List mock orders with their notes and the result so far, newest first (#293)',
+    query: orders.journalQuery,
+    status: [200, 400, 404],
+  },
+  [`PATCH ${accounts}/:accountId/orders/:id/notes`]: {
+    summary: 'Write or change the note and the review note of a mock order (#293)',
+    body: ['MockOrderNotesBody', orders.noteBody],
     status: [200, 400, 404],
   },
   [`GET ${accounts}/:accountId/orders/preview`]: {

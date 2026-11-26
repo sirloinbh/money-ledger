@@ -33,6 +33,8 @@ test('draftFromEntry and entryLabel show an uncategorized entry as such', () => 
     categoryName: null,
     merchant: 'Cafe',
     memo: '',
+    paymentMethod: 'cash' as const,
+    splits: [],
   };
   expect(draftFromEntry(entry)).toEqual({
     date: '2026-11-05',
@@ -41,6 +43,8 @@ test('draftFromEntry and entryLabel show an uncategorized entry as such', () => 
     categoryId: '',
     merchant: 'Cafe',
     memo: '',
+    paymentMethod: 'cash',
+    splits: [],
   });
   expect(entryLabel(entry)).toBe('2026-11-05 Uncategorized ₩12,500');
 });

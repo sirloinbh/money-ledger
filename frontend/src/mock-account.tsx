@@ -12,6 +12,7 @@ import { type ApiRequest, useApiMutation, useApiQuery } from './lib/query';
 import { useNotice } from './lib/use-notice';
 import { MockHistory } from './mock-history';
 import { MockHoldings } from './mock-holdings';
+import { MockJournal } from './mock-journal';
 import { mockKey, mockKeys } from './mock-query';
 import { MockReturns } from './mock-returns';
 import { useLoadError, useReadsReload } from './query-reads';
@@ -298,6 +299,7 @@ export function MockAccount() {
         <>
           <MockReturns key={`returns-${account.id}`} accountId={account.id} />
           <ReturnComparison key={`comparison-${account.id}`} accountId={account.id} />
+          <MockJournal key={`journal-${account.id}`} accountId={account.id} />
           <MockHistory key={`history-${account.id}`} accountId={account.id} />
         </>
       ) : null}

@@ -15,6 +15,8 @@ export const mockKeys = {
   holdings: (accountId: number) => apiKey(mockPath, 'accounts', accountId, 'holdings'),
   snapshots: (accountId: number) => apiKey(mockPath, 'accounts', accountId, 'snapshots'),
   /** The first page of the trade history; `path` is its request path with the filters. */
+  /** #293 The first page of the trade journal. */
+  journal: (accountId: number) => apiKey(mockPath, 'accounts', accountId, 'journal'),
   orders: (accountId: number, path: string) =>
     apiKey(mockPath, 'accounts', accountId, 'orders', path),
 };

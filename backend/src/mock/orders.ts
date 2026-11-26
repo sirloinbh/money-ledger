@@ -30,6 +30,35 @@ const securityField = z
   .string({ error: 'Choose a security' })
   .regex(/^[1-9]\d{0,14}$/, 'The security ID is not valid');
 
+// #293 A journal note: trimmed, and empty text means "no note" (stored as NULL).
+const noteField = z
+  .string({ error: 'The note must be text' })
+  .max(1000, 'Keep the note to 1,000 characters or fewer')
+  .transform((text) => text.trim() || null)
+  .nullable();
+
+export const noteBody = z
+  .object(
+    {
+      note: noteField.optional().describe('Why the order was placed; null or empty clears it.'),
+      reviewNote: noteField
+        .optional()
+        .describe('A later look back at the order; null or empty clears it.'),
+    },
+    { error: 'The request body must be a JSON object' },
+  )
+  .refine((body) => body.note !== undefined || body.reviewNote !== undefined, {
+    error: 'Send a note or a review note',
+    path: ['note'],
+  });
+
+export const journalQuery = z.object({
+  before: z
+    .string({ error: 'The continuation position is not valid' })
+    .regex(/^[1-9]\d{0,14}$/, 'The continuation position is not valid')
+    .optional(),
+});
+
 export const orderBody = z.object(
   {
     securityId: z
@@ -54,6 +83,9 @@ export const orderBody = z.object(
       .max(10, 'The confirmed quote is not valid')
       .nullable()
       .describe('The trade date of that close, YYYY-MM-DD.'),
+    note: noteField
+      .optional()
+      .describe('Why the order is placed (#293); optional, up to 1,000 characters.'),
     expectedFxRate: z
       .string({ error: 'No confirmed quote. Review the order again' })
       .max(30, 'The confirmed quote is not valid')
@@ -220,13 +252,18 @@ type OrderRow = {
   fee_krw: string;
   tax_krw: string;
   cash_after_krw: string;
+  note: string | null;
+  review_note: string | null;
   created_at: Date;
   symbol: string;
   name: string | null;
 };
 
+type JournalRow = OrderRow & { realized_krw: string | null; current_krw: string | null };
+
 const orderColumns = `o.id, o.account_id, o.security_id, o.request_key, o.side, o.quantity, o.price, o.currency,
-  o.price_date, o.fx_rate, o.fx_date, o.amount_krw, o.fee_krw, o.tax_krw, o.cash_after_krw, o.created_at, s.symbol, s.name`;
+  o.price_date, o.fx_rate, o.fx_date, o.amount_krw, o.fee_krw, o.tax_krw, o.cash_after_krw, o.note, o.review_note,
+  o.created_at, s.symbol, s.name`;
 
 // Won amounts stay within MAX_WON (and the 10^15 CHECK of 015), so they are exact as JSON numbers.
 const toOrder = (row: OrderRow) => ({
@@ -244,6 +281,8 @@ const toOrder = (row: OrderRow) => ({
   feeKrw: won(row.fee_krw),
   taxKrw: won(row.tax_krw),
   cashAfterKrw: won(row.cash_after_krw),
+  note: row.note,
+  reviewNote: row.review_note,
   createdAt: row.created_at.toISOString(),
 });
 
@@ -301,6 +340,82 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
         name: row.name,
       })),
     });
+  });
+
+  // #293 The journal: every order with its notes and the result so far, newest first, a page at a time.
+  // - A buy that became a position (#307) and was sold shows that position's realized net gain.
+  // - Any other buy shows the gain if its shares were sold at the latest saved close (and rate), in SQL numeric.
+  // - A sale shows the realized gain of its position; a close-price sale (#52) has no cost basis of its own yet
+  //   (#295), so its result is null rather than a guess.
+  router.get('/journal', async (req, res) => {
+    const accountId = parseId((req.params as { accountId?: string }).accountId, 'mock account');
+    const query = journalQuery.parse(req.query);
+    const exists = await pool.query('SELECT 1 FROM mock_accounts WHERE id = $1', [accountId]);
+    if (!exists.rowCount) throw new HttpError(404, 'Mock trading account not found');
+    const values: unknown[] = [accountId];
+    let before = '';
+    if (query.before) {
+      values.push(query.before);
+      before = 'AND o.id < $2';
+    }
+    const { rows } = await pool.query<JournalRow>(
+      `SELECT ${orderColumns}, pos.net_gain_krw AS realized_krw,
+              CASE WHEN o.side = 'buy' AND pos.closed_at IS NULL AND p.close IS NOT NULL
+                        AND (o.currency = 'KRW' OR fx.fx_rate IS NOT NULL)
+                   THEN round(o.quantity * p.close * coalesce(fx.fx_rate, 1)) - o.amount_krw - o.fee_krw
+              END AS current_krw
+       FROM mock_orders o
+       JOIN securities s ON s.id = o.security_id
+       LEFT JOIN mock_positions pos ON pos.buy_order_id = o.id OR pos.sell_order_id = o.id
+       LEFT JOIN LATERAL (
+         SELECT close FROM security_prices WHERE security_id = o.security_id ORDER BY trade_date DESC LIMIT 1
+       ) p ON true
+       LEFT JOIN LATERAL (
+         SELECT fx_rate FROM fx_rates WHERE currency = 'USD' AND o.currency = 'USD'
+         ORDER BY rate_date DESC LIMIT 1
+       ) fx ON true
+       WHERE o.account_id = $1 ${before} ORDER BY o.id DESC LIMIT ${historyPage + 1}`,
+      values,
+    );
+    res.json({
+      entries: rows.slice(0, historyPage).map((row) => ({
+        ...toOrder(row),
+        result:
+          row.realized_krw !== null
+            ? { kind: 'realized' as const, gainKrw: won(row.realized_krw) }
+            : row.current_krw !== null
+              ? { kind: 'current' as const, gainKrw: won(row.current_krw) }
+              : null,
+      })),
+      hasMore: rows.length > historyPage,
+    });
+  });
+
+  // #293 Write or change the note and the review note of one order. Only the sent fields change.
+  router.patch('/:id/notes', async (req, res) => {
+    const accountId = parseId((req.params as { accountId?: string }).accountId, 'mock account');
+    const id = parseId(req.params.id, 'order');
+    const body = noteBody.parse(req.body);
+    const sets: string[] = [];
+    const values: unknown[] = [id, accountId];
+    if (body.note !== undefined) {
+      values.push(body.note);
+      sets.push(`note = $${values.length}`);
+    }
+    if (body.reviewNote !== undefined) {
+      values.push(body.reviewNote);
+      sets.push(`review_note = $${values.length}`);
+    }
+    const updated = await pool.query(
+      `UPDATE mock_orders SET ${sets.join(', ')} WHERE id = $1 AND account_id = $2`,
+      values,
+    );
+    if (!updated.rowCount) throw new HttpError(404, 'Order not found');
+    const { rows } = await pool.query<OrderRow>(
+      `SELECT ${orderColumns} FROM mock_orders o JOIN securities s ON s.id = o.security_id WHERE o.id = $1`,
+      [id],
+    );
+    res.json({ order: toOrder(rows[0]) });
   });
 
   // What the order would do now, for the confirmation step. Nothing is saved.
@@ -395,8 +510,8 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
       }
       const inserted = await client.query<{ id: number }>(
         `INSERT INTO mock_orders (account_id, security_id, request_key, side, quantity, price, currency,
-           price_date, fx_rate, fx_date, amount_krw, fee_krw, cash_after_krw)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+           price_date, fx_rate, fx_date, amount_krw, fee_krw, cash_after_krw, note)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
         [
           accountId,
           body.securityId,
@@ -411,6 +526,7 @@ export function mockOrdersRouter(pool: Pool, today: () => string) {
           row.amount_krw,
           row.fee_krw,
           cash.rows[0].cash_krw,
+          body.note ?? null,
         ],
       );
       // The day's value for the return chart (#54), in the same transaction as the order.

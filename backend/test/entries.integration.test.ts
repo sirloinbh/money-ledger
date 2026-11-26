@@ -77,6 +77,8 @@ test('ledger entries against the real database', { skip: !url }, async (t) => {
           categoryName: '식비',
           merchant: '',
           memo: '점심',
+          paymentMethod: null,
+          splits: [],
         },
       );
       assert.equal((older.data.entry as Entry).memo, '');
