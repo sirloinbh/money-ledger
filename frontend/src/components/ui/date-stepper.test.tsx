@@ -36,7 +36,18 @@ test('a picked date is passed on, a cleared input keeps the current date', () =>
   fireEvent.change(input, { target: { value: '' } });
   expect(onValueChange.mock.calls).toEqual([['2026-10-01']]);
   // Without onMove there are no step buttons.
-  expect(screen.queryByRole('button')).toBeNull();
+  expect(screen.queryByRole('button', { name: /Previous period|Next period/ })).toBeNull();
+});
+
+test('a half-typed date does not move the anchor and the current date returns on blur', () => {
+  const onValueChange = vi.fn();
+  render(<DateStepper label="Reference date" value="2026-10-15" onValueChange={onValueChange} />);
+  const input = screen.getByLabelText('Reference date');
+  fireEvent.change(input, { target: { value: '2026-1' } });
+  expect(input).toHaveValue('2026-1');
+  expect(onValueChange).not.toHaveBeenCalled();
+  fireEvent.blur(input);
+  expect(input).toHaveValue('2026-10-15');
 });
 
 test('the range summary reads the first and last day before its note', () => {

@@ -23,15 +23,15 @@ test('a disabled button ignores clicks', () => {
   expect(onClick).not.toHaveBeenCalled();
 });
 
-test('variants and sizes change the classes, and touch screens get 44px', () => {
+test('variants and sizes change the classes, and touch screens get 48px (#1125)', () => {
   render(
     <>
       <Button variant="destructive">Delete</Button>
       <Button variant="outline" size="icon" aria-label="Close" />
     </>,
   );
-  expect(screen.getByRole('button', { name: 'Delete' })).toHaveClass('bg-destructive', 'pointer-coarse:min-h-11');
-  expect(screen.getByRole('button', { name: 'Close' })).toHaveClass('border', 'pointer-coarse:size-11');
+  expect(screen.getByRole('button', { name: 'Delete' })).toHaveClass('bg-destructive', 'h-10', 'pointer-coarse:min-h-12');
+  expect(screen.getByRole('button', { name: 'Close' })).toHaveClass('border', 'size-10', 'pointer-coarse:size-12');
 });
 
 test('asChild renders the child element, e.g. a link', () => {
@@ -65,4 +65,9 @@ test('asChild leaves the child without a type', () => {
     </Button>,
   );
   expect(screen.getByRole('link', { name: 'Journal' })).not.toHaveAttribute('type');
+});
+
+test('a button shows a pointer cursor, and a disabled one shows not-allowed (#1126)', () => {
+  render(<Button>Save</Button>);
+  expect(screen.getByRole('button', { name: 'Save' })).toHaveClass('cursor-pointer', 'disabled:cursor-not-allowed');
 });

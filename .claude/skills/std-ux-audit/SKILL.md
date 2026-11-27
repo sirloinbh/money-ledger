@@ -30,7 +30,8 @@ Measure every page at 390×844, and measure the first screen at 1440×900 too.
 | Horizontal overflow | None | `document.documentElement.scrollWidth > innerWidth` |
 | Touch target size | Pressable elements are 44×44px or more | `getBoundingClientRect()` of buttons, links, and inputs |
 | Input font size | 16px or more (to prevent iOS auto-zoom) | Computed `font-size` of `input`, `select`, `textarea` |
-| Small text | No body text under 13px | Count of text elements by computed `font-size` |
+| Small text | No text under 12px (meta included, SVG labels too); body text at least 13px | Count of text elements by computed `font-size` |
+| Typed instead of picked | No free-text input whose values come from a known set (a category, unit, weekday, status, or a list of earlier entries); those use a select, `SegmentedControl`, or `Combobox` (`docs/ui-components.md`, "Pick a value instead of typing it") | List every `input[type=text]` and `textarea`; for each, note whether its values are open (names, notes) or a known set |
 | Vertical length | Record the length of pages and modals, and check whether the main action is within the first screen | `scrollHeight`, the `y` coordinate of the main button |
 | Automated accessibility check | No axe violations | `@axe-core/playwright` or another tool the app already has |
 | Keyboard | Menus, modals, and drawers open and close with the keyboard alone. `Escape` closes them. The focus indicator is visible | Manual operation |
