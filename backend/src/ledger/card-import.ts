@@ -27,7 +27,8 @@ export const importQuery = z.object(
   { error: 'The query is not valid' },
 );
 
-type Action = 'new' | 'update' | 'remove' | 'unchanged' | 'skipped';
+// 'split': the entry was split into parts by hand (#292). Its amount is tied to the parts, so the import leaves it alone.
+type Action = 'new' | 'update' | 'remove' | 'unchanged' | 'skipped' | 'split';
 type PlanRow = CardPayment & {
   action: Action;
   /** A hand-entered expense with the same date and amount exists, so this may be a duplicate (decision of #56). */
@@ -35,12 +36,21 @@ type PlanRow = CardPayment & {
   entryId: number | null;
 };
 
-type Existing = { id: number; card: string; ref: string; amount: string; memo: string };
+type Existing = {
+  id: number;
+  card: string;
+  ref: string;
+  amount: string;
+  memo: string;
+  split: boolean;
+};
 
 /** What importing each payment would do, against the entries as they are now. */
 async function plan(db: Pool | PoolClient, payments: CardPayment[], lock = false) {
   const { rows: existing } = await db.query<Existing>(
-    `SELECT id, source_card AS card, source_ref AS ref, amount::text, memo FROM ledger_entries
+    `SELECT id, source_card AS card, source_ref AS ref, amount::text, memo,
+            EXISTS (SELECT 1 FROM ledger_entry_splits s WHERE s.entry_id = ledger_entries.id) AS split
+     FROM ledger_entries
      WHERE source = $1 AND (source_card, source_ref) IN (SELECT * FROM unnest($2::text[], $3::text[]))
      ${lock ? 'FOR UPDATE' : ''}`,
     [source, payments.map((p) => p.card), payments.map((p) => p.approval)],
@@ -56,6 +66,7 @@ async function plan(db: Pool | PoolClient, payments: CardPayment[], lock = false
     const found = known.get(`${payment.card}/${payment.approval}`);
     const base = { ...payment, candidate: false, entryId: found?.id ?? null };
     if (found) {
+      if (found.split) return { ...base, action: 'split' };
       if (payment.amount === 0) return { ...base, action: 'remove' };
       const same = Number(found.amount) === payment.amount && found.memo === payment.memo;
       return { ...base, action: same ? 'unchanged' : 'update' };
@@ -94,6 +105,18 @@ function read(
   }
   const parsed = parseCardSheet(parsedQuery.data.kind, sheet);
   if ('error' in parsed) return parsed;
+  // The same card and approval number twice cannot both be saved (unique per entry): refuse the file by line.
+  const seen = new Map<string, number>();
+  for (const payment of parsed.payments) {
+    const key = `${payment.card}/${payment.approval}`;
+    const first = seen.get(key);
+    if (first === undefined) seen.set(key, payment.line);
+    else
+      parsed.problems.push({
+        line: payment.line,
+        message: `Approval number ${payment.approval} of card ${payment.card} is already on line ${first}`,
+      });
+  }
   if (parsed.payments.length > maxPayments)
     return { error: `Import at most ${maxPayments} payments at a time` };
   return parsed;
