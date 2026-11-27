@@ -62,13 +62,13 @@ test('checks the file, flags a likely duplicate, and imports without it by defau
   expect(screen.getByText(/maybe a duplicate/)).toBeTruthy();
   expect(screen.getByText(/1 card-check authorization with no amount left out/)).toBeTruthy();
   expect(calls[0].url).toBe(
-    '/api/ledger/entries/card-import/preview?kind=domestic&skipCandidates=true',
+    '/api/ledger/entries/card-import/preview?kind=domestic&paymentMethod=credit_card&skipCandidates=true',
   );
 
   fireEvent.click(screen.getByRole('button', { name: 'Import' }));
   await waitFor(() => expect(onImported).toHaveBeenCalled());
   expect(calls[1].url).toBe(
-    '/api/ledger/entries/card-import/import?kind=domestic&skipCandidates=true',
+    '/api/ledger/entries/card-import/import?kind=domestic&paymentMethod=credit_card&skipCandidates=true',
   );
   expect(screen.getByText('Imported: added 1 entry, left out 1')).toBeTruthy();
 });
