@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
+import { categoryLabel } from './category-label';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Notice } from './components/ui/notice';
@@ -121,7 +122,7 @@ export function RecurringSuggestions() {
                     </p>
                   </div>
                   <p className="text-body-sm text-muted-foreground">
-                    {item.categoryName}:{' '}
+                    {categoryLabel(item.categoryName)}:{' '}
                     {item.entries
                       .map((entry) => `${entry.date} ${formatWon(entry.amount)}`)
                       .join(', ')}

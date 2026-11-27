@@ -4,6 +4,7 @@ import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { MAX_WON_TEXT } from '../../shared/contract';
+import { categoryLabel } from './category-label';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
 import { Input } from './components/ui/input';
@@ -127,8 +128,8 @@ export function BudgetProgress() {
       await refreshLedger(client, ledgerKeys.budgets());
       showStatus(
         amount === 0
-          ? `${budget.name} budget changed to not set from ${monthLabel(month)}`
-          : `${budget.name} budget set to ${formatWon(amount)} from ${monthLabel(month)}`,
+          ? `${categoryLabel(budget.name)} budget changed to not set from ${monthLabel(month)}`
+          : `${categoryLabel(budget.name)} budget set to ${formatWon(amount)} from ${monthLabel(month)}`,
       );
       // The month shown has reloaded by now, so the focus goes to the row as it is listed after the save. Only
       // this save's own form closes and takes the focus back: if the user meanwhile opened another row or moved
@@ -215,7 +216,7 @@ export function BudgetProgress() {
                           onSubmit={(event) => void save(event, budget)}
                         >
                           <Label htmlFor={`budget-${budget.categoryId}`}>
-                            {budget.name} budget (KRW)
+                            {categoryLabel(budget.name)} budget (KRW)
                           </Label>
                           <div className="flex flex-wrap gap-2">
                             <Input
@@ -300,7 +301,7 @@ function BudgetRow({
             type="button"
             size="sm"
             variant="ghost"
-            aria-label={`Edit ${budget.name} budget`}
+            aria-label={`Edit ${categoryLabel(budget.name)} budget`}
             disabled={disabled}
             onClick={onEdit}
           >
@@ -349,7 +350,8 @@ function BudgetRow({
   );
 }
 
-const shownName = (budget: Budget) => (budget.hidden ? `${budget.name} (hidden)` : budget.name);
+const shownName = (budget: Budget) =>
+  budget.hidden ? `${categoryLabel(budget.name)} (hidden)` : categoryLabel(budget.name);
 const overspent = (budget: Budget) => budget.status === 'reached' || budget.status === 'over';
 
 /** #61 The categories that reached or passed their budget this month, each with the reason in words. */

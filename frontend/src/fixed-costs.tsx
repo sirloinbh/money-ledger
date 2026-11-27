@@ -3,6 +3,7 @@ import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
 import { MAX_WON_TEXT } from '../../shared/contract';
+import { categoryLabel } from './category-label';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
@@ -45,16 +46,22 @@ type FixedCosts = {
   totals: { fixed: number; other: number };
 };
 
+// korean-ok: the default category names are stored in Korean (migration 002); the presets match by that name
+const housing = '주거';
+// korean-ok: stored default category name (migration 002)
+const leisure = '여가';
+// korean-ok: stored default category name (migration 002)
+const telecom = '통신';
 /**
  * The five items the user keeps, as presets for the form. The category is matched by its default name; when that
  * category was renamed or hidden, the form asks the user to choose one.
  */
 const presets: { name: string; category: string; variable: boolean }[] = [
-  { name: 'Rent', category: '주거', variable: false },
-  { name: 'Date savings account', category: '여가', variable: false },
-  { name: 'Electricity', category: '주거', variable: true },
-  { name: 'Gas', category: '주거', variable: true },
-  { name: 'Phone', category: '통신', variable: true },
+  { name: 'Rent', category: housing, variable: false },
+  { name: 'Date savings account', category: leisure, variable: false },
+  { name: 'Electricity', category: housing, variable: true },
+  { name: 'Gas', category: housing, variable: true },
+  { name: 'Phone', category: telecom, variable: true },
 ];
 
 /** Digits with optional thousands commas → whole won; undefined when it is not one. */
@@ -352,14 +359,14 @@ function FixedCostRow({
             {item.categoryHidden ? <Badge variant="secondary">Category hidden</Badge> : null}
           </p>
           <p className="text-body-sm text-muted-foreground">
-            {item.categoryName} · {dayText(item.dayOfMonth)} ·{' '}
+            {categoryLabel(item.categoryName)} · {dayText(item.dayOfMonth)} ·{' '}
             <span className="tabular-nums">{formatWon(item.amount)}</span>
             {item.variable ? ' first estimate' : ''}
           </p>
           {item.categoryHidden && item.active ? (
             <p className="text-body-sm text-muted-foreground">
-              No entries are added while {item.categoryName} is hidden. Choose another category or
-              show it again.
+              No entries are added while {categoryLabel(item.categoryName)} is hidden. Choose
+              another category or show it again.
             </p>
           ) : null}
           <p className="text-body-sm">
@@ -599,7 +606,9 @@ function FixedCostForm({
             <option value="">Choose</option>
             {choices.map((category) => (
               <option key={category.id} value={category.id}>
-                {category.hidden ? `${category.name} (hidden)` : category.name}
+                {category.hidden
+                  ? `${categoryLabel(category.name)} (hidden)`
+                  : categoryLabel(category.name)}
               </option>
             ))}
           </select>

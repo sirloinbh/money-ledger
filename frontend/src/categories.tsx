@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useRef, useState } from 'react';
 import type { z } from 'zod/v4';
 
 import { categoryKind, categoryName } from '../../shared/contract';
+import { categoryLabel } from './category-label';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
@@ -214,8 +215,8 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
     save(
       () => ({ path, method: 'PATCH', body: { hidden: !category.hidden } }),
       category.hidden
-        ? `${category.name} category is visible again`
-        : `${category.name} category hidden`,
+        ? `${categoryLabel(category.name)} category is visible again`
+        : `${categoryLabel(category.name)} category hidden`,
     );
 
   if (editing) {
@@ -224,7 +225,7 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
       <li className="py-2">
         <form onSubmit={(event) => void rename(event)} className="flex flex-col gap-2">
           <Label htmlFor={inputId} className="sr-only">
-            {category.name} new name
+            {categoryLabel(category.name)} new name
           </Label>
           <div className="flex flex-wrap gap-2">
             <Input
@@ -269,7 +270,7 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
             : 'flex items-center gap-2'
         }
       >
-        {category.name}
+        {categoryLabel(category.name)}
         {category.hidden ? <Badge variant="outline">Hidden</Badge> : null}
       </span>
       <span className="flex gap-1">
@@ -278,7 +279,7 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
           type="button"
           variant="ghost"
           size="sm"
-          aria-label={`Rename ${category.name}`}
+          aria-label={`Rename ${categoryLabel(category.name)}`}
           onClick={startRename}
         >
           Rename
@@ -287,7 +288,11 @@ function CategoryRow({ category, save }: { category: Category; save: Save }) {
           type="button"
           variant="outline"
           size="sm"
-          aria-label={category.hidden ? `Show ${category.name} again` : `Hide ${category.name}`}
+          aria-label={
+            category.hidden
+              ? `Show ${categoryLabel(category.name)} again`
+              : `Hide ${categoryLabel(category.name)}`
+          }
           onClick={() => void toggleHidden()}
         >
           {category.hidden ? 'Show again' : 'Hide'}
