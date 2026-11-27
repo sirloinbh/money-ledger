@@ -214,6 +214,40 @@ test(
   },
 );
 
+test(
+  'new entries carry the chosen card type and an update keeps an edited one',
+  { skip: !url },
+  async (t) => {
+    const pool = new Pool({ connectionString: url });
+    t.after(() => pool.end());
+    await pool.query('TRUNCATE ledger_entries RESTART IDENTITY CASCADE');
+    const send = await start(pool, t);
+    const first = JSON.stringify(sheet(row('01.05 10:00:00', '111', '마트', '10,000')));
+    assert.equal((await send('import', first)).data.added, 1);
+    const second = JSON.stringify(sheet(row('01.06 10:00:00', '222', '식당', '20,000')));
+    assert.equal(
+      (await send('import', second, 'kind=domestic&paymentMethod=debit_card')).data.added,
+      1,
+    );
+    const methods = () =>
+      pool
+        .query<{ source_ref: string; payment_method: string | null }>(
+          'SELECT source_ref, payment_method FROM ledger_entries ORDER BY id',
+        )
+        .then((r) => r.rows);
+    assert.deepEqual(await methods(), [
+      { source_ref: '111', payment_method: 'credit_card' },
+      { source_ref: '222', payment_method: 'debit_card' },
+    ]);
+    // The person changes 111 to cash; a newer file that changes its amount keeps that.
+    await pool.query("UPDATE ledger_entries SET payment_method = 'cash' WHERE source_ref = '111'");
+    const newer = JSON.stringify(sheet(row('01.05 10:00:00', '111', '마트', '10,000', '1,000')));
+    assert.equal((await send('import', newer)).data.updated, 1);
+    assert.equal((await methods())[0].payment_method, 'cash');
+    assert.equal((await send('import', first, 'kind=domestic&paymentMethod=cash')).status, 422);
+  },
+);
+
 test('bad requests are refused with a message', { skip: !url }, async (t) => {
   const pool = new Pool({ connectionString: url });
   t.after(() => pool.end());

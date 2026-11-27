@@ -18,6 +18,10 @@ const maxPayments = 2000;
 export const importQuery = z.object(
   {
     kind: z.enum(['domestic', 'foreign'], { error: 'Choose domestic or foreign use' }),
+    // The card kind of new entries, so the year-end card deduction estimate counts them (#373).
+    paymentMethod: z
+      .enum(['credit_card', 'debit_card'], { error: 'Choose credit card or debit card' })
+      .default('credit_card'),
     // Payments that match a hand-entered expense on date and amount are left out when true.
     skipCandidates: z
       .enum(['true', 'false'])
@@ -145,7 +149,7 @@ export function cardImportRouter(
         problems: read1.problems,
       });
     }
-    const skipCandidates = importQuery.parse(req.query).skipCandidates;
+    const { skipCandidates, paymentMethod } = importQuery.parse(req.query);
     const result = await inTransaction(pool, async (client) => {
       // One import at a time, so two uploads of the same file cannot both add the same payment.
       await client.query("SELECT pg_advisory_xact_lock(hashtext('ledger_entries_import'))");
@@ -154,8 +158,8 @@ export function cardImportRouter(
       for (const row of rows) {
         if (row.action === 'new' && !(skipCandidates && row.candidate)) {
           await client.query(
-            `INSERT INTO ledger_entries (entry_date, kind, amount, category_id, merchant, memo, source, source_card, source_ref)
-             VALUES ($1, 'expense', $2, ${ruleCategorySql("'expense'", '$3::text')}, $3, $4, $5, $6, $7)`,
+            `INSERT INTO ledger_entries (entry_date, kind, amount, category_id, merchant, memo, source, source_card, source_ref, payment_method)
+             VALUES ($1, 'expense', $2, ${ruleCategorySql("'expense'", '$3::text')}, $3, $4, $5, $6, $7, $8)`,
             [
               row.date,
               row.amount,
@@ -164,6 +168,7 @@ export function cardImportRouter(
               source,
               row.card,
               row.approval,
+              paymentMethod,
             ],
           );
           count.added += 1;

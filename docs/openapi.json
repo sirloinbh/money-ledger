@@ -5737,6 +5737,19 @@
             }
           },
           {
+            "name": "paymentMethod",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "credit_card",
+              "type": "string",
+              "enum": [
+                "credit_card",
+                "debit_card"
+              ]
+            }
+          },
+          {
             "name": "skipCandidates",
             "in": "query",
             "required": false,
@@ -5820,6 +5833,19 @@
               "enum": [
                 "domestic",
                 "foreign"
+              ]
+            }
+          },
+          {
+            "name": "paymentMethod",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": "credit_card",
+              "type": "string",
+              "enum": [
+                "credit_card",
+                "debit_card"
               ]
             }
           },
