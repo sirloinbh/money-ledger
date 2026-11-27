@@ -3,6 +3,7 @@ import { CircleAlert } from 'lucide-react';
 import { type ReactNode, useEffect } from 'react';
 import { Link, useParams } from 'react-router';
 
+import { categoryLabel } from './category-label';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
@@ -58,7 +59,7 @@ function Failed({ what, onRetry }: { what: string; onRetry: () => void }) {
 }
 
 const shownName = (item: { name: string; hidden: boolean }) =>
-  item.hidden ? `${item.name} (hidden)` : item.name;
+  item.hidden ? `${categoryLabel(item.name)} (hidden)` : categoryLabel(item.name);
 
 export function ReportsPage({ health }: { health: Health }) {
   const { data, failed, retry } = useReportList();

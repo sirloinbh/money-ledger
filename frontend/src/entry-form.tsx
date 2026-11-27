@@ -1,5 +1,6 @@
 import type { FormEvent, RefObject } from 'react';
 
+import { categoryLabel } from './category-label';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
 import { Combobox } from './components/ui/combobox';
@@ -57,7 +58,9 @@ function SplitEditor({
               <option value="">Choose a category</option>
               {choices.map((category) => (
                 <option key={category.id} value={category.id}>
-                  {category.hidden ? `${category.name} (hidden)` : category.name}
+                  {category.hidden
+                    ? `${categoryLabel(category.name)} (hidden)`
+                    : categoryLabel(category.name)}
                 </option>
               ))}
             </select>
@@ -235,7 +238,9 @@ export function EntryForm({
                 <option value="">Uncategorized</option>
                 {choices.map((category) => (
                   <option key={category.id} value={category.id}>
-                    {category.hidden ? `${category.name} (hidden)` : category.name}
+                    {category.hidden
+                      ? `${categoryLabel(category.name)} (hidden)`
+                      : categoryLabel(category.name)}
                   </option>
                 ))}
               </select>

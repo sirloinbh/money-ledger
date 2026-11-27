@@ -1,3 +1,4 @@
+import { categoryLabel } from './category-label';
 import type { FilterCategory, Kind } from './entry-filters-state';
 import { formatWon, serviceToday, wonFromDigits } from './format';
 
@@ -126,4 +127,4 @@ export function categoryChoice(
 
 /** "2026-11-05 Food ₩12,500": names a row in button labels and the delete dialog. */
 export const entryLabel = (entry: Entry) =>
-  `${entry.date} ${entry.categoryName ?? 'Uncategorized'} ${formatWon(entry.amount)}`;
+  `${entry.date} ${entry.categoryName ? categoryLabel(entry.categoryName) : 'Uncategorized'} ${formatWon(entry.amount)}`;
