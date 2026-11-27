@@ -184,3 +184,9 @@ test('the time field takes typed text and picks the hour then the minute', () =>
   expect(onChange.mock.calls.map(([v]) => v)).toEqual(['09:3', '', '14:00', '14:35']);
   expect(screen.queryByRole('group', { name: 'Hour' })).toBeNull();
 });
+
+test('the text input is 16px on a touch screen at every width (no iOS zoom on focus)', () => {
+  render(<Date_ />);
+  // Below md the shared field is text-base; from md up it is text-body-sm unless the pointer is coarse.
+  expect(field()).toHaveClass('text-base', 'md:pointer-coarse:text-base');
+});
