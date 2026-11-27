@@ -1,5 +1,5 @@
 {
-  "centralSha": "8e6e13d1d7928612b77d2df133464629d989db02",
+  "centralSha": "5fde9f5d08468f52e8a5ec678d5e23b8ed865446",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -180,7 +180,7 @@
     },
     ".standards/check.mjs": {
       "mode": "full",
-      "sha256": "c310b3b3a04436f60ae20be94a08db1d77ad0625290b4a6e60b8c8699d32bfd6",
+      "sha256": "20784e05a5d7a620f489d0eed0311dd9ee57d52051ef36710f0f8d70fb4d6d4b",
       "source": "scripts/standards-check.mjs"
     },
     ".standards/ci-migrate.sh": {
@@ -667,12 +667,12 @@
     },
     "frontend/src/components/ui/date-field.test.tsx": {
       "mode": "full",
-      "sha256": "953df8f9bf788797d826c952e0e87bc26046a75533f50281d04a9ef1db398040",
+      "sha256": "fec05de7738c93e2fcf7e1d9ed9f66448fff4ed7d889a8c16a92bf1d73841e43",
       "source": "templates/ui/frontend/src/components/ui/date-field.test.tsx"
     },
     "frontend/src/components/ui/date-field.tsx": {
       "mode": "full",
-      "sha256": "b3640a84d19295d4d10594b4211b53981501385bce1cc0e54f07dacd802f9b7d",
+      "sha256": "3ba03e1d4282899ad51376746872fa53c7f3cc77d8d70e1181a64b967713d247",
       "source": "templates/ui/frontend/src/components/ui/date-field.tsx"
     },
     "frontend/src/components/ui/date-fields.ts": {
