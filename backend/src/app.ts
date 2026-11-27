@@ -106,7 +106,10 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   // Mounted before the app-wide JSON parser: an import of up to 2,000 rows has its own, larger limit (#44).
   app.use('/api/ledger/entries/csv', entryCsvRouter(pool, { today }));
   // #57 A card usage file is sent as raw bytes (up to 5 MB), so it is parsed by its own router.
-  app.use('/api/ledger/entries/card-import', cardImportRouter(pool, { readSheet: readCardSheet }));
+  app.use(
+    '/api/ledger/entries/card-import',
+    cardImportRouter(pool, { readSheet: readCardSheet, storage: options.photoStorage }),
+  );
   // #300 A photo is sent as raw bytes, so its router reads the body itself; deleting an entry also removes its files.
   app.use('/api/ledger/entries/:id', deleteEntryPhotos(pool, options.photoStorage));
   app.use('/api/ledger/entries/:entryId/photos', photosRouter(pool, options.photoStorage));

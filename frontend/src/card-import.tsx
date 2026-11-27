@@ -64,6 +64,7 @@ export function CardImport({ onImported }: { onImported: () => void }) {
   const { error: showError, status: showStatus, clear } = notice;
   const [file, setFile] = useState<File>();
   const [kind, setKind] = useState<Kind>('domestic');
+  const [method, setMethod] = useState<'credit_card' | 'debit_card'>('credit_card');
   const [preview, setPreview] = useState<Preview>();
   const [skipCandidates, setSkipCandidates] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -74,7 +75,8 @@ export function CardImport({ onImported }: { onImported: () => void }) {
     choice.current++;
     setPreview(undefined);
   };
-  const query = (skip = skipCandidates) => `kind=${kind}&skipCandidates=${skip}`;
+  const query = (skip = skipCandidates) =>
+    `kind=${kind}&paymentMethod=${method}&skipCandidates=${skip}`;
 
   const choose = (event: ChangeEvent<HTMLInputElement>) => {
     const chosen = event.target.files?.[0];
@@ -161,6 +163,18 @@ export function CardImport({ onImported }: { onImported: () => void }) {
             >
               <option value="domestic">Domestic use</option>
               <option value="foreign">Foreign use</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="card-import-method">Card type</Label>
+            <select
+              id="card-import-method"
+              className={selectClass}
+              value={method}
+              onChange={(event) => setMethod(event.target.value as 'credit_card' | 'debit_card')}
+            >
+              <option value="credit_card">Credit card</option>
+              <option value="debit_card">Debit card</option>
             </select>
           </div>
           <div className="flex flex-col gap-1">
