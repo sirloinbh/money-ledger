@@ -33,7 +33,7 @@ type Row = {
   merchant: string;
   amount: number;
   memo: string;
-  action: 'new' | 'update' | 'remove' | 'unchanged' | 'skipped';
+  action: 'new' | 'update' | 'remove' | 'unchanged' | 'skipped' | 'split';
   candidate: boolean;
 };
 type Preview = {
@@ -55,6 +55,7 @@ const actionText: Record<Row['action'], string> = {
   remove: 'Remove (cancelled)',
   unchanged: 'Already imported',
   skipped: 'Cancelled, not added',
+  split: 'Split by hand, left as it is',
 };
 
 /** Upload, preview and save a card usage file as expenses. */

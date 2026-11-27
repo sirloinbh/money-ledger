@@ -133,6 +133,87 @@ test(
   },
 );
 
+test(
+  'a split entry is left alone by an update or a removal and the rest still saves',
+  { skip: !url },
+  async (t) => {
+    const pool = new Pool({ connectionString: url });
+    t.after(() => pool.end());
+    await pool.query('TRUNCATE ledger_entries RESTART IDENTITY CASCADE');
+    const send = await start(pool, t);
+    const first = JSON.stringify(
+      sheet(
+        row('01.05 10:00:00', '111', '마트', '10,000'),
+        row('01.06 10:00:00', '222', '식당', '20,000'),
+        row('01.07 10:00:00', '333', '카페', '3,000'),
+      ),
+    );
+    assert.equal((await send('import', first)).data.added, 3);
+    const { rows: categories } = await pool.query<{ id: number }>(
+      "SELECT id FROM ledger_categories WHERE kind = 'expense' ORDER BY id LIMIT 2",
+    );
+    const { rows: split } = await pool.query<{ id: number }>(
+      "SELECT id FROM ledger_entries WHERE source_ref = '111'",
+    );
+    await pool.query(
+      'INSERT INTO ledger_entry_splits (entry_id, position, category_id, amount) VALUES ($1, 1, $2, 6000), ($1, 2, $3, 4000)',
+      [split[0].id, categories[0].id, categories[1].id],
+    );
+    // 111 is partly cancelled (split entry: left alone), 222 fully cancelled (removed), 333 changes (updated).
+    const second = JSON.stringify(
+      sheet(
+        row('01.05 10:00:00', '111', '마트', '10,000', '1,000'),
+        row('01.06 10:00:00', '222', '식당', '20,000', '20,000'),
+        row('01.07 10:00:00', '333', '카페', '3,000', '500'),
+      ),
+    );
+    const preview = await send('preview', second);
+    assert.deepEqual(
+      (preview.data.rows as { action: string }[]).map((r) => r.action),
+      ['split', 'remove', 'update'],
+    );
+    const result = await send('import', second);
+    assert.equal(result.status, 200);
+    assert.deepEqual(result.data, {
+      added: 0,
+      updated: 1,
+      removed: 1,
+      unchanged: 0,
+      skipped: 1,
+    });
+    const { rows } = await pool.query<{ source_ref: string; amount: string }>(
+      'SELECT source_ref, amount::text FROM ledger_entries ORDER BY id',
+    );
+    assert.deepEqual(rows, [
+      { source_ref: '111', amount: '10000' },
+      { source_ref: '333', amount: '2500' },
+    ]);
+  },
+);
+
+test(
+  'a file that repeats a card and approval number is refused by line',
+  { skip: !url },
+  async (t) => {
+    const pool = new Pool({ connectionString: url });
+    t.after(() => pool.end());
+    await pool.query('TRUNCATE ledger_entries RESTART IDENTITY CASCADE');
+    const send = await start(pool, t);
+    const file = JSON.stringify(
+      sheet(
+        row('01.05 10:00:00', '111', '마트', '10,000'),
+        row('01.06 10:00:00', '111', '식당', '20,000'),
+      ),
+    );
+    const preview = await send('preview', file);
+    assert.equal(preview.status, 200);
+    assert.equal((preview.data.problems as { line: number }[])[0].line, 4);
+    const result = await send('import', file);
+    assert.equal(result.status, 422);
+    assert.equal((await pool.query('SELECT 1 FROM ledger_entries')).rowCount, 0);
+  },
+);
+
 test('bad requests are refused with a message', { skip: !url }, async (t) => {
   const pool = new Pool({ connectionString: url });
   t.after(() => pool.end());
