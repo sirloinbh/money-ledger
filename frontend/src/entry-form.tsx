@@ -1,7 +1,9 @@
 import type { FormEvent, RefObject } from 'react';
 
+import { categoryLabel } from './category-label';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
+import { Combobox } from './components/ui/combobox';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { kindLabel, selectClass } from './entry-filters-state';
@@ -56,7 +58,9 @@ function SplitEditor({
               <option value="">Choose a category</option>
               {choices.map((category) => (
                 <option key={category.id} value={category.id}>
-                  {category.hidden ? `${category.name} (hidden)` : category.name}
+                  {category.hidden
+                    ? `${categoryLabel(category.name)} (hidden)`
+                    : categoryLabel(category.name)}
                 </option>
               ))}
             </select>
@@ -128,6 +132,7 @@ export function EntryForm({
   choices,
   stale,
   categoryId,
+  merchants,
   dateRef,
   onChange,
   onClearInvalid,
@@ -143,6 +148,8 @@ export function EntryForm({
   /** The chosen category is no longer offered and must be chosen again. */
   stale: boolean;
   categoryId: string;
+  /** Merchants of the entries already listed, offered as suggestions (#361). */
+  merchants: readonly string[];
   dateRef: RefObject<HTMLInputElement | null>;
   onChange: (patch: Partial<Draft>) => void;
   onClearInvalid: (field: EntryField) => void;
@@ -231,7 +238,9 @@ export function EntryForm({
                 <option value="">Uncategorized</option>
                 {choices.map((category) => (
                   <option key={category.id} value={category.id}>
-                    {category.hidden ? `${category.name} (hidden)` : category.name}
+                    {category.hidden
+                      ? `${categoryLabel(category.name)} (hidden)`
+                      : categoryLabel(category.name)}
                   </option>
                 ))}
               </select>
@@ -283,13 +292,15 @@ export function EntryForm({
           ) : null}
           <div className="flex flex-col gap-2">
             <Label htmlFor="entry-merchant">Merchant</Label>
-            <Input
+            <Combobox
               id="entry-merchant"
               maxLength={50}
               autoComplete="off"
               placeholder="e.g. Starbucks Gangnam"
               value={draft.merchant}
-              onChange={(event) => onChange({ merchant: event.target.value })}
+              options={merchants}
+              listLabel="Merchants used before"
+              onValueChange={(merchant) => onChange({ merchant })}
             />
           </div>
           <div className="flex flex-col gap-2">

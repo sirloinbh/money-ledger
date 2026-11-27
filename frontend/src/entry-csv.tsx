@@ -287,8 +287,8 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
               ) : null}
             </div>
             <p className="text-sm text-muted-foreground">
-              Kind takes income or expense (수입, 지출 too). An empty category is filled by your
-              keyword rules.
+              Kind takes income or expense (the Korean words work too). An empty category is filled
+              by your keyword rules.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button

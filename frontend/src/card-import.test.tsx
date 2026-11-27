@@ -25,7 +25,7 @@ beforeEach(() => {
         date: '2026-01-11',
         merchant: 'Cafe',
         amount: 3000,
-        memo: '할부 3개월',
+        memo: 'Installment 3 months',
         action: 'new',
         candidate: false,
       },

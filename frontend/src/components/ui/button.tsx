@@ -7,9 +7,9 @@ import { cn } from '../../lib/utils';
 
 // A button is type="button" unless the screen says type="submit"; a disabled look also comes from
 // aria-disabled, which keeps keyboard focus on the button.
-// Touch screens get at least 44×44px (--touch-target) through the pointer-coarse variant.
+// Touch screens get at least 48×48px for Button (the other controls keep 44px, --touch-target) through the pointer-coarse variant.
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-body-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md text-body-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
@@ -22,10 +22,10 @@ const buttonVariants = cva(
         link: 'text-primary underline-offset-4 hover:underline',
       },
       size: {
-        default: 'h-9 px-4 py-2 pointer-coarse:min-h-11 has-[>svg]:px-3',
-        sm: 'h-8 gap-1.5 px-3 pointer-coarse:min-h-11 has-[>svg]:px-2.5',
-        lg: 'h-11 px-6 has-[>svg]:px-4',
-        icon: 'size-9 pointer-coarse:size-11',
+        default: 'h-10 px-4 py-2 pointer-coarse:min-h-12 has-[>svg]:px-3',
+        sm: 'h-9 gap-1.5 px-3 pointer-coarse:min-h-12 has-[>svg]:px-2.5',
+        lg: 'h-12 px-6 has-[>svg]:px-4',
+        icon: 'size-10 pointer-coarse:size-12',
       },
     },
     defaultVariants: { variant: 'default', size: 'default' },

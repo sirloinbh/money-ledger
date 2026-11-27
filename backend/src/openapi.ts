@@ -14,6 +14,7 @@ import * as categories from './ledger/categories.js';
 import * as entries from './ledger/entries.js';
 import * as csv from './ledger/entry-csv.js';
 import * as fixedCosts from './ledger/fixed-costs.js';
+import * as periods from './ledger/periods.js';
 import * as recurring from './ledger/recurring.js';
 import * as rules from './ledger/rules.js';
 import * as summary from './ledger/summary.js';
@@ -274,6 +275,11 @@ const table: Record<string, Operation> = {
   'GET /api/ledger/trend': {
     summary: 'Get the monthly income, expense and balance over a period',
     query: trend.trendQuery,
+    status: [200, 400],
+  },
+  'GET /api/ledger/periods': {
+    summary: 'Get the income, expense and balance of each day or week of a range',
+    query: periods.periodsQuery,
     status: [200, 400],
   },
   [`GET ${assets}`]: {

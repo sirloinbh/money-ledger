@@ -450,6 +450,29 @@ test('what is typed while a save runs is kept', async () => {
   expect(screen.getByLabelText('Amount (KRW)')).toHaveValue('2000');
 });
 
+// #361: the merchant is picked from the merchants already listed, and a new one can still be typed.
+test('the merchant field offers merchants used before and accepts a new one', async () => {
+  stored = [
+    {
+      id: 5,
+      date: '2026-11-02',
+      kind: 'expense',
+      amount: 3000,
+      categoryId: null,
+      categoryName: null,
+      merchant: 'Neighborhood bakery',
+      memo: '',
+    },
+  ];
+  await ready();
+  const merchant = screen.getByRole('combobox', { name: 'Merchant' });
+  fireEvent.change(merchant, { target: { value: 'Neigh' } });
+  const list = await screen.findByRole('listbox', { name: 'Merchants used before' });
+  expect(within(list).getAllByRole('option')).toHaveLength(1);
+  fireEvent.change(merchant, { target: { value: 'Brand new shop' } });
+  expect(merchant).toHaveValue('Brand new shop');
+});
+
 test('editing an uncategorized entry keeps Uncategorized and its merchant', async () => {
   stored = [
     {
@@ -644,4 +667,23 @@ test('a failed reload after a CSV import says so', async () => {
   await importOneRow();
   expect(await screen.findByText('Cannot connect to the database')).toBeInTheDocument();
   expect(screen.queryByText('Bakery')).toBeNull();
+});
+
+test('on the day log the list is one day, the form opens with "Add entry" and starts on that day (#359)', async () => {
+  renderWithQuery(<EntryManager day="2026-11-01" />, { wrapper: Router });
+  await screen.findByRole('list', { name: 'Entry list' });
+  const listRequest = requests.find((request) => request.url.startsWith('/api/ledger/entries?'));
+  expect(listRequest?.url).toContain('from=2026-11-01');
+  expect(listRequest?.url).toContain('to=2026-11-01');
+  // No period filter, import or export here: the day is the period.
+  expect(screen.queryByLabelText('Date')).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
+  expect(await screen.findByLabelText('Date')).toHaveValue('2026-11-01');
+  fireEvent.change(screen.getByLabelText('Amount (KRW)'), { target: { value: '3,000' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add entry' }));
+  expect(await findLive('status')).toHaveTextContent('Expense ₩3,000 recorded');
+  // The form closes after a save; the button opens it again.
+  expect(screen.queryByLabelText('Date')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Add entry' })).toBeInTheDocument();
 });

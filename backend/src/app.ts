@@ -18,6 +18,7 @@ import { categoriesRouter } from './ledger/categories.js';
 import { entriesRouter } from './ledger/entries.js';
 import { entryCsvRouter } from './ledger/entry-csv.js';
 import { fixedCostsRouter } from './ledger/fixed-costs.js';
+import { periodsRouter } from './ledger/periods.js';
 import { deleteEntryPhotos, photosRouter } from './ledger/photos.js';
 import { recurringRouter } from './ledger/recurring.js';
 import { reportsRouter } from './ledger/reports.js';
@@ -134,6 +135,7 @@ export function createApp(pool: Pool, options: AppOptions = {}) {
   app.use('/api/ledger/summary', summaryRouter(pool));
   app.use('/api/reports', reportsRouter(pool, { today }));
   app.use('/api/ledger/trend', trendRouter(pool));
+  app.use('/api/ledger/periods', periodsRouter(pool));
   app.use(
     '/api/portfolio/assets',
     assetsRouter(pool, {

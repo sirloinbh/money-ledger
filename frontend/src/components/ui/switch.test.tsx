@@ -35,3 +35,8 @@ test('touch screens get a tap area of at least 44px around the 20px track (#1103
   // height (20 - 2) + 14 × 2 = 46px, width (36 - 2) + 14 × 2 = 62px.
   expect(screen.getByRole('switch', { name: 'Notifications' })).toHaveClass('h-5', 'w-9', 'border', 'pointer-coarse:after:-inset-3.5');
 });
+
+test('a switch shows a pointer cursor (#1126)', () => {
+  render(<Switch aria-label="Auto" />);
+  expect(screen.getByRole('switch', { name: 'Auto' })).toHaveClass('cursor-pointer', 'disabled:cursor-not-allowed');
+});

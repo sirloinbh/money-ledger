@@ -1,5 +1,5 @@
 {
-  "centralSha": "362f1bd3422eed75ca108b085412e549d73c1018",
+  "centralSha": "8e6e13d1d7928612b77d2df133464629d989db02",
   "profile": "app",
   "project": "money-ledger",
   "files": {
@@ -95,7 +95,7 @@
     },
     ".claude/skills/std-ux-audit/SKILL.md": {
       "mode": "full",
-      "sha256": "a129d31b2b20afef58cc0613fecf33b2227b793154d069d24340af9171aac7f7",
+      "sha256": "b96fad1942d7f1ab7516d170f6609616d33594cb8a772fe5d63b3646ec212f29",
       "source": "templates/app/skills/std-ux-audit/SKILL.md"
     },
     ".codex/hooks.json": {
@@ -180,7 +180,7 @@
     },
     ".standards/check.mjs": {
       "mode": "full",
-      "sha256": "e6631a5aa873e18716d82468846ce83bdd157bf867403778b411ceb3592dad32",
+      "sha256": "c310b3b3a04436f60ae20be94a08db1d77ad0625290b4a6e60b8c8699d32bfd6",
       "source": "scripts/standards-check.mjs"
     },
     ".standards/ci-migrate.sh": {
@@ -612,12 +612,12 @@
     },
     "frontend/src/components/ui/button.test.tsx": {
       "mode": "full",
-      "sha256": "edae93aec14ea4c8fd18233589cccf5f106e124c0b533a337727b01f48a28b4e",
+      "sha256": "bb81da80c68f0a8f0165c7866fb036b073d8f7fe708145b240450ae29472856a",
       "source": "templates/ui/frontend/src/components/ui/button.test.tsx"
     },
     "frontend/src/components/ui/button.tsx": {
       "mode": "full",
-      "sha256": "f965b4c651fae28288483f8e766aa197ed03b13ac563f934a24c98a6883c5d75",
+      "sha256": "a42e85e60f27eafeff892fd5c13ff78abda161ce44ce297eb6769cf70cffdba1",
       "source": "templates/ui/frontend/src/components/ui/button.tsx"
     },
     "frontend/src/components/ui/card.test.tsx": {
@@ -637,7 +637,7 @@
     },
     "frontend/src/components/ui/checkbox.tsx": {
       "mode": "full",
-      "sha256": "ff03a10e45b8d4c79a8719c6e8325dca7f5743edb110246a125376bece4afcec",
+      "sha256": "22fdf5fe34c5833e382f25cf36922ca857988dcc674496a79125a26b0787eeb5",
       "source": "templates/ui/frontend/src/components/ui/checkbox.tsx"
     },
     "frontend/src/components/ui/combobox-filter.ts": {
@@ -665,14 +665,29 @@
       "sha256": "11f64bbf65c1b92531878af751c9142868dba0285a4a4223625f80f67c347452",
       "source": "templates/ui/frontend/src/components/ui/confirm-dialog.tsx"
     },
+    "frontend/src/components/ui/date-field.test.tsx": {
+      "mode": "full",
+      "sha256": "953df8f9bf788797d826c952e0e87bc26046a75533f50281d04a9ef1db398040",
+      "source": "templates/ui/frontend/src/components/ui/date-field.test.tsx"
+    },
+    "frontend/src/components/ui/date-field.tsx": {
+      "mode": "full",
+      "sha256": "b3640a84d19295d4d10594b4211b53981501385bce1cc0e54f07dacd802f9b7d",
+      "source": "templates/ui/frontend/src/components/ui/date-field.tsx"
+    },
+    "frontend/src/components/ui/date-fields.ts": {
+      "mode": "full",
+      "sha256": "a113b61a01fd389129d622644eda7a06bccd71ff947956171ea68c3d9b2f4250",
+      "source": "templates/ui/frontend/src/components/ui/date-fields.ts"
+    },
     "frontend/src/components/ui/date-stepper.test.tsx": {
       "mode": "full",
-      "sha256": "3db47721855ac2513acf5e3094e5be407cd1c8cedb47685bd4577562e6a4c0a4",
+      "sha256": "e0095c0f877ccb15aa00b2278cc33db078e2f5b15b4cf653a8d1fe6ab4088b02",
       "source": "templates/ui/frontend/src/components/ui/date-stepper.test.tsx"
     },
     "frontend/src/components/ui/date-stepper.tsx": {
       "mode": "full",
-      "sha256": "ccce4ea3d1f0c78653fbf0ef734be1b6649bdb33775cd88da27548b5c3858d53",
+      "sha256": "0b22c0a79092c18a6593c5b388f967559f98814526723001af10d5689c099074",
       "source": "templates/ui/frontend/src/components/ui/date-stepper.tsx"
     },
     "frontend/src/components/ui/dialog.test.tsx": {
@@ -702,7 +717,7 @@
     },
     "frontend/src/components/ui/dropdown-menu.tsx": {
       "mode": "full",
-      "sha256": "43cc61dcd73f9aec837c814712c09e7bab75532f76eb516ee6f789c4991e4154",
+      "sha256": "d97d6ab6cf77b72b7f3896e3f9a292c2d75bfc083d8bed7d4d530574a4b2176f",
       "source": "templates/ui/frontend/src/components/ui/dropdown-menu.tsx"
     },
     "frontend/src/components/ui/empty-state.test.tsx": {
@@ -737,12 +752,12 @@
     },
     "frontend/src/components/ui/input.test.tsx": {
       "mode": "full",
-      "sha256": "470e918b1e9a78eb82421b72631b07f13e507391959135516adb67875783452a",
+      "sha256": "98234d31f25b5cd8d4a3e3be0df875934d7df50f5799fbeb84b8694a1020d558",
       "source": "templates/ui/frontend/src/components/ui/input.test.tsx"
     },
     "frontend/src/components/ui/input.tsx": {
       "mode": "full",
-      "sha256": "9537ffd604c48ce9a47a0dd29292816a712a468c06290ffedd286c32cc363c8d",
+      "sha256": "4c914a11d4540a0b4e2db9455e67409ba16ca862266b4fecc1b79d274672b5ea",
       "source": "templates/ui/frontend/src/components/ui/input.tsx"
     },
     "frontend/src/components/ui/label.tsx": {
@@ -752,12 +767,12 @@
     },
     "frontend/src/components/ui/native-select.test.tsx": {
       "mode": "full",
-      "sha256": "21a371cf93814a3b6bbd735a32799d50aa9e46e09b0791e085d29bee4da3d32e",
+      "sha256": "dfd0eaebb7e707a486a09ce3ba5b3240ce8a58d3d430b0a873201f2aab9ba47b",
       "source": "templates/ui/frontend/src/components/ui/native-select.test.tsx"
     },
     "frontend/src/components/ui/native-select.tsx": {
       "mode": "full",
-      "sha256": "4baa2f3946a533276bb2d4cad8c8fd8d0fb0bbb17dcbc81205d6c0f1d9a71767",
+      "sha256": "063f59c0fd38d93949bf14b2888880a28545fd2706675ce9c6cceaa363e760c3",
       "source": "templates/ui/frontend/src/components/ui/native-select.tsx"
     },
     "frontend/src/components/ui/notice.test.tsx": {
@@ -802,17 +817,17 @@
     },
     "frontend/src/components/ui/segmented-control.tsx": {
       "mode": "full",
-      "sha256": "2ebf3721afde0cea1a0a2cf5b0c6542b633bf46339a6a51d470796b99cdb1f84",
+      "sha256": "cc1d4a8b05550ef81bb0a08a35bc1b8f353697d0c1a37b86de29f39f3dcf6a22",
       "source": "templates/ui/frontend/src/components/ui/segmented-control.tsx"
     },
     "frontend/src/components/ui/select.test.tsx": {
       "mode": "full",
-      "sha256": "2732af942979e4384ba057d6042d943953b62cd0230170233fb69ca20ed386f0",
+      "sha256": "76963a4271de5c32273e34e0779e7b62b392186f853a3497a624c24417ed0497",
       "source": "templates/ui/frontend/src/components/ui/select.test.tsx"
     },
     "frontend/src/components/ui/select.tsx": {
       "mode": "full",
-      "sha256": "064e344e6faca121243b6cbb4a72a69d9198e5f3ace05646f6800b096df82005",
+      "sha256": "3dad088697a2082615b059e361593bc572f51db0e860fcf0c525336ad348e60b",
       "source": "templates/ui/frontend/src/components/ui/select.tsx"
     },
     "frontend/src/components/ui/sheet.test.tsx": {
@@ -867,12 +882,12 @@
     },
     "frontend/src/components/ui/switch.test.tsx": {
       "mode": "full",
-      "sha256": "15a58b145125328ca57dde45884a828594eab9f1f5192a24619e6c3446a0dd14",
+      "sha256": "f0389619ed84421c156f6050779dbfd6cde0245a669fdae8423e578369d56c3e",
       "source": "templates/ui/frontend/src/components/ui/switch.test.tsx"
     },
     "frontend/src/components/ui/switch.tsx": {
       "mode": "full",
-      "sha256": "0f19a3463c5e1914a26eff3c539a62966815a60cf4619b38cdb4b73e8ca744c6",
+      "sha256": "10446dcd0aed935b658463f2cf9121746568cdab0da8ac0c63e3899163481521",
       "source": "templates/ui/frontend/src/components/ui/switch.tsx"
     },
     "frontend/src/components/ui/textarea.test.tsx": {
@@ -1058,10 +1073,10 @@
         "engines.npm": "11.19.0",
         "scripts.standards:check": "node .standards/check.mjs",
         "scripts.knip": "knip",
-        "devDependencies.@sirloinbh/eslint-config": "1.1.0",
+        "devDependencies.@sirloinbh/eslint-config": "1.2.0",
         "devDependencies.@sirloinbh/prettier-config": "1.0.0",
         "devDependencies.@eslint/js": "10.0.1",
-        "devDependencies.eslint": "10.12.0",
+        "devDependencies.eslint": "10.15.0",
         "devDependencies.eslint-config-prettier": "10.1.8",
         "devDependencies.eslint-plugin-react-hooks": "7.1.1",
         "devDependencies.eslint-plugin-jsx-a11y-x": "0.2.0",
@@ -1071,7 +1086,7 @@
         "devDependencies.knip": "6.41.0",
         "devDependencies.prettier": "3.9.10",
         "devDependencies.prettier-plugin-tailwindcss": "0.8.1",
-        "devDependencies.typescript-eslint": "8.71.2",
+        "devDependencies.typescript-eslint": "8.73.0",
         "devDependencies.@playwright/test": "1.63.0",
         "devDependencies.@axe-core/playwright": "4.13.0",
         "devDependencies.@lhci/cli": "0.16.1",
@@ -1171,12 +1186,12 @@
     },
     "skills/std-ux-audit/SKILL.md": {
       "mode": "full",
-      "sha256": "a129d31b2b20afef58cc0613fecf33b2227b793154d069d24340af9171aac7f7",
+      "sha256": "b96fad1942d7f1ab7516d170f6609616d33594cb8a772fe5d63b3646ec212f29",
       "source": "templates/app/skills/std-ux-audit/SKILL.md"
     }
   },
   "packages": {
-    "@sirloinbh/eslint-config": "1.1.0",
+    "@sirloinbh/eslint-config": "1.2.0",
     "@sirloinbh/prettier-config": "1.0.0",
     "@sirloinbh/tsconfig": "1.0.0",
     "@sirloinbh/design-tokens": "1.1.0",

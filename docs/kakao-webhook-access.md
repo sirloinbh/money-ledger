@@ -1,6 +1,6 @@
 # Kakao skill webhook: public access design (#314)
 
-Status: design, code guards and a Terraform PR ([shared-aws-infrastructure#118](https://github.com/sirloinbh/shared-aws-infrastructure/pull/118)). Nothing here is deployed. The user chose the shared AWS infrastructure on 2026-11-26; `terraform apply` and every other real AWS or production change still need the user's separate OK, and the first real round trip needs the keys from #304.
+Status: design, code guards, the compose wiring (#314: `KAKAO_SKILL_SECRET` and `KAKAO_ALLOWED_USER_IDS` reach the `api` container, and the API is published on `127.0.0.1:3105` only) and a Terraform PR ([shared-aws-infrastructure#118](https://github.com/sirloinbh/shared-aws-infrastructure/pull/118)). The shared host nginx block lives in project-standards. Nothing here is applied in AWS. The user chose the shared AWS infrastructure on 2026-11-26; `terraform apply` and every other real AWS or production change still need the user's separate OK, and the first real round trip needs the keys from #304.
 
 ## Why this exists
 
@@ -50,7 +50,8 @@ The user chose the shared AWS infrastructure. The Terraform is in `sirloinbh/sha
 Kakao -> https://<id>.cloudfront.net/kakao/skill
       -> CloudFront viewer-request function: only POST /kakao/skill passes, everything else is a 404 at the edge
       -> https://money-ledger.daysofme.com:8443 (one extra firewall port; 22, 80, 443 stay on the allowed IPs)
-      -> shared proxy server block: only POST /kakao/skill, forwarded to the API on 127.0.0.1
+      -> shared host nginx server block: only POST /kakao/skill, forwarded straight to the API on 127.0.0.1:3105
+         (compose.yaml publishes the api service on loopback only; the web container's nginx is not involved)
       -> app checks above (exact path, rate limit, secret, user allowlist)
 ```
 
