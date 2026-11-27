@@ -1,5 +1,6 @@
 import type { RefObject } from 'react';
 
+import { categoryLabel } from './category-label';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { ConfirmDialog } from './components/ui/confirm-dialog';
@@ -114,13 +115,17 @@ export function EntryList({
                 <Badge variant={entry.kind === 'income' ? 'success' : 'secondary'}>
                   {kindLabel[entry.kind]}
                 </Badge>
-                {entry.splits?.length ? 'Split' : (entry.categoryName ?? 'Uncategorized')}
+                {entry.splits?.length
+                  ? 'Split'
+                  : entry.categoryName
+                    ? categoryLabel(entry.categoryName)
+                    : 'Uncategorized'}
                 {entry.paymentMethod ? ` · ${paymentMethodLabel[entry.paymentMethod]}` : ''}
               </span>
               {entry.splits?.length ? (
                 <span className="text-body-sm text-muted-foreground">
                   {entry.splits
-                    .map((part) => `${part.categoryName} ${formatWon(part.amount)}`)
+                    .map((part) => `${categoryLabel(part.categoryName)} ${formatWon(part.amount)}`)
                     .join(' · ')}
                 </span>
               ) : null}

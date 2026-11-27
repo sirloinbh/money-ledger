@@ -1,5 +1,6 @@
 import { type FormEvent, useMemo, useRef, useState } from 'react';
 
+import { categoryLabel } from './category-label';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
@@ -49,7 +50,7 @@ function CategoryOptions({ categories }: { categories: Category[] }) {
         .filter((category) => category.kind === kind && !category.hidden)
         .map((category) => (
           <option key={category.id} value={category.id}>
-            {category.name}
+            {categoryLabel(category.name)}
           </option>
         ))}
     </optgroup>
@@ -167,7 +168,7 @@ export function UncategorizedEntries() {
         return;
       }
       const parts = [
-        `${result.classified} ${result.classified === 1 ? 'entry' : 'entries'} classified as ${category.name}`,
+        `${result.classified} ${result.classified === 1 ? 'entry' : 'entries'} classified as ${categoryLabel(category.name)}`,
       ];
       if (result.skipped > 0) {
         parts.push(
@@ -180,7 +181,7 @@ export function UncategorizedEntries() {
         );
       if (result.rulesUpdated > 0) {
         parts.push(
-          `${result.rulesUpdated} existing ${result.rulesUpdated === 1 ? 'rule' : 'rules'} changed to ${category.name}`,
+          `${result.rulesUpdated} existing ${result.rulesUpdated === 1 ? 'rule' : 'rules'} changed to ${categoryLabel(category.name)}`,
         );
       }
       setSelected(new Set());
@@ -308,7 +309,7 @@ export function UncategorizedEntries() {
                       <span className="min-w-0 break-words text-muted-foreground">
                         Suggested:{' '}
                         <span className="font-medium text-foreground">
-                          {suggestion.categoryName}
+                          {categoryLabel(suggestion.categoryName)}
                         </span>{' '}
                         (from {suggestion.from})
                       </span>
@@ -316,7 +317,7 @@ export function UncategorizedEntries() {
                         type="button"
                         size="sm"
                         variant="outline"
-                        aria-label={`Use ${suggestion.categoryName} for ${entry.merchant}, ${formatWon(entry.amount)} on ${entry.date}`}
+                        aria-label={`Use ${categoryLabel(suggestion.categoryName)} for ${entry.merchant}, ${formatWon(entry.amount)} on ${entry.date}`}
                         onClick={() => void applySuggestions([entry.id])}
                       >
                         Use
@@ -540,7 +541,7 @@ export function RuleManager() {
                 <Badge variant={rule.kind === 'income' ? 'success' : 'secondary'}>
                   {kindLabel[rule.kind]}
                 </Badge>
-                {rule.categoryName}
+                {categoryLabel(rule.categoryName)}
                 {rule.categoryHidden ? (
                   <span className="text-caption text-muted-foreground">
                     (not applied because the category is hidden)
@@ -549,7 +550,7 @@ export function RuleManager() {
               </span>
               <ConfirmDialog
                 title="Delete this rule?"
-                description={`'${rule.keyword}' → ${rule.categoryName}. Entries already classified stay as they are.`}
+                description={`'${rule.keyword}' → ${categoryLabel(rule.categoryName)}. Entries already classified stay as they are.`}
                 onConfirm={() => remove(rule)}
                 returnFocusRef={afterDelete}
                 onOpenChange={(open) => {

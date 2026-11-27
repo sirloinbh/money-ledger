@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts';
 
+import { categoryLabel } from './category-label';
 import { EmptyChart } from './chart-boundary';
 import { formatWon } from './format';
 import { axisName } from './lazy-chart';
@@ -35,7 +36,11 @@ function ShareTooltip({ active, payload }: TooltipContentProps) {
   if (!category) return null;
   return (
     <div className="rounded-md border bg-popover px-3 py-2 text-body-sm text-popover-foreground shadow-sm">
-      <p className="font-medium">{category.hidden ? `${category.name} (hidden)` : category.name}</p>
+      <p className="font-medium">
+        {category.hidden
+          ? `${categoryLabel(category.name)} (hidden)`
+          : categoryLabel(category.name)}
+      </p>
       <p className="tabular-nums">
         {formatWon(category.amount)} · {category.share}%
       </p>
@@ -50,7 +55,7 @@ export function CategoryShareChart({ categories }: { categories: CategoryShare[]
   return (
     <div
       role="img"
-      aria-label={`Expense by category horizontal bar chart. The largest item is ${largest.name} ${formatWon(largest.amount)} (${largest.share}%). All values are in the table below.`}
+      aria-label={`Expense by category horizontal bar chart. The largest item is ${categoryLabel(largest.name)} ${formatWon(largest.amount)} (${largest.share}%). All values are in the table below.`}
       className="w-full"
       style={{ height }}
     >
@@ -76,7 +81,7 @@ export function CategoryShareChart({ categories }: { categories: CategoryShare[]
             type="category"
             dataKey="name"
             width={88}
-            tickFormatter={(name: string) => axisName(name)}
+            tickFormatter={(name: string) => axisName(categoryLabel(name))}
             tick={{ fill: 'var(--foreground)', fontSize: 12 }}
             axisLine={{ stroke: 'var(--border)' }}
             tickLine={false}

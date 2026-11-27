@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
+import { categoryLabel } from './category-label';
 import { ChartBoundary } from './chart-boundary';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
@@ -192,7 +193,9 @@ function ShareTable({ categories, total }: { categories: CategoryShare[]; total:
         {categories.map((category) => (
           <tr key={category.categoryId ?? 'none'} className="border-b last:border-b-0">
             <th scope="row" className="py-2 text-left font-normal break-words">
-              {category.hidden ? `${category.name} (hidden)` : category.name}
+              {category.hidden
+                ? `${categoryLabel(category.name)} (hidden)`
+                : categoryLabel(category.name)}
             </th>
             <td className="py-2 text-right tabular-nums">{formatWon(category.amount)}</td>
             <td className="py-2 text-right tabular-nums">{category.share}%</td>

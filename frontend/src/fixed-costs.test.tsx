@@ -356,6 +356,6 @@ test('an item in a hidden category says no entries are added', async () => {
   const [item] = within(await list()).getAllByRole('listitem');
   expect(item).toHaveTextContent('Category hidden');
   expect(item).toHaveTextContent(
-    'No entries are added while 주거 is hidden. Choose another category or show it again.',
+    'No entries are added while Housing is hidden. Choose another category or show it again.',
   );
 });
