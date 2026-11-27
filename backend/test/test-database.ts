@@ -64,18 +64,39 @@ export async function testDatabase(): Promise<string | undefined> {
   }
   // Registered on the file's root, so it runs after every test and its own t.after hooks (which end the pools).
   after(async () => {
-    const dropper = new Client({ connectionString: adminUrl.toString() });
-    await dropper.connect();
-    try {
-      // FORCE: a pool a failed test left open must not keep the copy alive.
-      await dropper.query(`DROP DATABASE IF EXISTS ${quoted(name)} WITH (FORCE)`);
-    } finally {
-      await dropper.end();
-    }
+    await dropCopy(adminUrl.toString(), name);
   });
   const url = new URL(source);
   url.pathname = `/${name}`;
   return url.toString();
+}
+
+/**
+ * Drops one copy. `pool.end()` returns once the pool has asked its clients to end, not once the server has closed
+ * their backends, so right after a file's last test a backend can still be shutting down. DROP DATABASE ... WITH
+ * (FORCE) would terminate it mid-shutdown and its client would get a fatal 57P01 error that nothing listens to (an
+ * uncaught exception in the test runner, #379). So a plain DROP goes first: PostgreSQL itself waits up to about 5 s
+ * for the other sessions to go away before it answers 55006 ("in use"). Only then FORCE, so a pool a failed test left
+ * open still cannot keep the copy alive; it logs one line when it falls back. Returns 'clean' or 'forced'.
+ */
+export async function dropCopy(adminUrl: string, name: string) {
+  const dropper = new Client({ connectionString: adminUrl });
+  await dropper.connect();
+  try {
+    try {
+      await dropper.query(`DROP DATABASE IF EXISTS ${quoted(name)}`);
+      return 'clean' as const;
+    } catch (error) {
+      if ((error as { code?: string }).code !== '55006') throw error;
+    }
+    console.error(
+      `test-database: ${name} still had connections after the wait, dropping it with FORCE`,
+    );
+    await dropper.query(`DROP DATABASE IF EXISTS ${quoted(name)} WITH (FORCE)`);
+    return 'forced' as const;
+  } finally {
+    await dropper.end();
+  }
 }
 
 /** Drops copies whose test process is gone (a run killed before its after hooks). */
