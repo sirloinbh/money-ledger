@@ -15,7 +15,7 @@ test('a label names its input and typing updates the value', () => {
   const input = screen.getByLabelText('Weight');
   fireEvent.change(input, { target: { value: '42.5' } });
   expect(input).toHaveValue('42.5');
-  expect(input).toHaveClass('pointer-coarse:min-h-11');
+  expect(input).toHaveClass('h-10', 'pointer-coarse:min-h-12');
 });
 
 test('aria-invalid marks the input as invalid', () => {

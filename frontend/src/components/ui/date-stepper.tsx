@@ -1,10 +1,11 @@
 // Managed file. Edit it in sirloinbh/project-standards templates/ui/frontend/src/components/ui/
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 
 import { cn } from '../../lib/utils';
 import { Button } from './button';
-import { Input } from './input';
+import { DateField } from './date-field';
+import { isDate } from './date-fields';
 
 // #224: the anchor date of a period, with optional previous/next buttons around it.
 // Without onMove only the date input is shown (e.g. a page that only picks a date).
@@ -25,6 +26,9 @@ export function DateStepper({
   nextLabel?: string;
   className?: string;
 }) {
+  // What is typed so far. Only a whole valid date moves the anchor; a half-typed or cleared field
+  // keeps the current date, and leaving the field shows the current date again.
+  const [draft, setDraft] = useState<string | null>(null);
   return (
     <div data-slot="date-stepper" className={cn('flex items-center gap-1', className)}>
       {onMove && (
@@ -39,13 +43,20 @@ export function DateStepper({
           <ChevronLeft />
         </Button>
       )}
-      <Input
-        aria-label={label}
-        type="date"
-        className="w-36 md:pointer-coarse:text-base"
-        value={value}
-        // Clearing the input keeps the current date: a period always needs an anchor.
-        onChange={(e) => e.target.value && onValueChange(e.target.value)}
+      <DateField
+        label={label}
+        required
+        className="w-52"
+        value={draft ?? value}
+        onValueChange={(next) => {
+          if (isDate(next)) {
+            setDraft(null);
+            onValueChange(next);
+          } else {
+            setDraft(next);
+          }
+        }}
+        onBlur={() => setDraft(null)}
       />
       {onMove && (
         <Button

@@ -23,14 +23,19 @@ test('a label names the select and choosing an option reports it', () => {
   expect(onChange).toHaveBeenCalledOnce();
 });
 
-test('it shares the Input look, reaches 44px on touch screens and can be invalid or disabled', () => {
+test('it shares the Input look, reaches 48px on touch screens and can be invalid or disabled', () => {
   render(
     <NativeSelect aria-label="Period" aria-invalid disabled>
       <option>Week</option>
     </NativeSelect>,
   );
   const select = screen.getByRole('combobox', { name: 'Period' });
-  expect(select).toHaveClass('border-input', 'pointer-coarse:min-h-11');
+  expect(select).toHaveClass('border-input', 'h-10', 'pointer-coarse:min-h-12');
   expect(select).toBeInvalid();
   expect(select).toBeDisabled();
+});
+
+test('a native select shows a pointer cursor (#1126)', () => {
+  render(<NativeSelect aria-label="Sort"><option>a</option></NativeSelect>);
+  expect(screen.getByRole('combobox', { name: 'Sort' })).toHaveClass('cursor-pointer');
 });
