@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import express, { type NextFunction, Router } from 'express';
 import type { Pool } from 'pg';
 
+import { inTransaction } from '../db.js';
 import { HttpError, parseId } from '../standard/http.js';
 import type { ObjectStorage } from '../storage.js';
 import { PhotoFormatError, sniffPhotoType, stripPhotoMetadata } from './photo-strip.js';
@@ -30,6 +31,37 @@ const present = (row: PhotoRow) => ({
   byteSize: row.byte_size,
   createdAt: row.created_at.toISOString(),
 });
+
+/**
+ * Removes stored files whose rows are already gone. A failed removal is logged, never thrown: the row is gone, so the
+ * orphan is never shown, and the person's request has already done what they asked.
+ */
+export async function removeStoredFiles(storage: ObjectStorage, keys: string[]) {
+  await Promise.all(
+    keys.map((key) =>
+      storage.delete(key).catch((error: unknown) => {
+        console.error(
+          JSON.stringify({
+            level: 'error',
+            event: 'photo_delete_failed',
+            key,
+            message: String(error),
+          }),
+        );
+      }),
+    ),
+  );
+}
+
+/** The stored keys of the photos of these entries. Read before the entries are deleted: the rows go with them. */
+export async function photoKeysOf(db: Pick<Pool, 'query'>, entryIds: number[]) {
+  if (entryIds.length === 0) return [];
+  const { rows } = await db.query<{ storage_key: string }>(
+    'SELECT storage_key FROM ledger_entry_photos WHERE entry_id = ANY($1::bigint[])',
+    [entryIds],
+  );
+  return rows.map((row) => row.storage_key);
+}
 
 const notSetUp = 'Photo storage is not set up on this server';
 
@@ -85,16 +117,30 @@ export function photosRouter(pool: Pool, storage: ObjectStorage | undefined) {
       const key = `receipts/${entryId}/${randomUUID()}${clean.contentType === 'image/png' ? '.png' : '.jpg'}`;
       await store.put(key, clean.bytes, clean.contentType);
       try {
-        const { rows } = await pool.query<PhotoRow>(
-          `INSERT INTO ledger_entry_photos (entry_id, storage_key, content_type, byte_size)
-           VALUES ($1, $2, $3, $4) RETURNING *`,
-          [entryId, key, clean.contentType, clean.bytes.length],
-        );
-        res.status(201).json({ photo: present(rows[0]) });
+        // The entry row is locked for the count and the insert, so two uploads at once cannot both pass the limit.
+        const photo = await inTransaction(pool, async (client) => {
+          const locked = await client.query(
+            'SELECT 1 FROM ledger_entries WHERE id = $1 FOR UPDATE',
+            [entryId],
+          );
+          if (!locked.rowCount) throw new HttpError(404, 'Entry not found');
+          const { rows: held } = await client.query<{ n: number }>(
+            'SELECT count(*)::int AS n FROM ledger_entry_photos WHERE entry_id = $1',
+            [entryId],
+          );
+          if (held[0].n >= maxPhotosPerEntry) {
+            throw new HttpError(409, `An entry holds up to ${maxPhotosPerEntry} photos`);
+          }
+          const { rows } = await client.query<PhotoRow>(
+            `INSERT INTO ledger_entry_photos (entry_id, storage_key, content_type, byte_size)
+             VALUES ($1, $2, $3, $4) RETURNING *`,
+            [entryId, key, clean.contentType, clean.bytes.length],
+          );
+          return rows[0];
+        });
+        res.status(201).json({ photo: present(photo) });
       } catch (error) {
-        await store.delete(key).catch(() => undefined); // the entry was deleted meanwhile, or the insert failed
-        if ((error as { code?: string }).code === '23503')
-          throw new HttpError(404, 'Entry not found');
+        await store.delete(key).catch(() => undefined); // refused, or the entry was deleted meanwhile
         throw error;
       }
     },
@@ -125,7 +171,7 @@ export function photosRouter(pool: Pool, storage: ObjectStorage | undefined) {
       [photoId, entryId],
     );
     if (!rows[0]) throw new HttpError(404, 'Photo not found');
-    await store.delete(rows[0].storage_key);
+    await removeStoredFiles(store, [rows[0].storage_key]);
     res.status(204).end();
   });
 
@@ -142,25 +188,10 @@ export function deleteEntryPhotos(pool: Pool, storage: ObjectStorage | undefined
     if (!storage || req.method !== 'DELETE' || req.path !== '/') return next();
     const id = Number(req.params.id);
     if (!Number.isSafeInteger(id)) return next();
-    const { rows } = await pool.query<{ storage_key: string }>(
-      'SELECT storage_key FROM ledger_entry_photos WHERE entry_id = $1',
-      [id],
-    );
-    if (rows.length > 0) {
+    const keys = await photoKeysOf(pool, [id]);
+    if (keys.length > 0) {
       res.on('finish', () => {
-        if (res.statusCode !== 204) return;
-        for (const { storage_key: key } of rows) {
-          storage.delete(key).catch((error: unknown) => {
-            console.error(
-              JSON.stringify({
-                level: 'error',
-                event: 'photo_delete_failed',
-                key,
-                message: String(error),
-              }),
-            );
-          });
-        }
+        if (res.statusCode === 204) void removeStoredFiles(storage, keys);
       });
     }
     next();
