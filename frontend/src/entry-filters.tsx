@@ -185,7 +185,6 @@ export function EntryFilters({
             id="filter-q"
             type="search"
             maxLength={50}
-            placeholder="Merchant or note"
             value={draft.q}
             onChange={(event) => change({ q: event.target.value })}
           />

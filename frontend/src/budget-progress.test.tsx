@@ -222,9 +222,6 @@ test('Edit saves the budget from this month on, with thousands commas, then relo
   const input = screen.getByLabelText('Food budget (KRW)');
   expect(input).toHaveValue('300000');
   await vi.waitFor(() => expect(input).toHaveFocus());
-  expect(
-    screen.getByText('Applies from November 2026. Leave empty or 0 for not set.'),
-  ).toBeInTheDocument();
 
   fireEvent.change(input, { target: { value: '350,000' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));

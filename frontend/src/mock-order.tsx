@@ -254,9 +254,6 @@ export function MockOrder({
       {currency === 'KRW' ? <MockOrderBook securityId={securityId} title={title} /> : null}
       {currency === 'KRW' ? <MockAllIn securityId={securityId} title={title} /> : null}
       <h3 className="text-body font-semibold">Mock order</h3>
-      <p id={`${id}-hint`} className="text-caption text-muted-foreground">
-        Fills right away at the latest saved close. You can order in whole shares.
-      </p>
       <form
         aria-label={`${title} mock order`}
         onSubmit={(event) => void check(event)}
@@ -287,7 +284,7 @@ export function MockOrder({
             autoComplete="off"
             value={quantity}
             aria-invalid={invalid || undefined}
-            aria-describedby={invalid ? `${id}-notice` : `${id}-hint`}
+            aria-describedby={invalid ? `${id}-notice` : undefined}
             onChange={(event) => {
               if (invalid) setInvalid(false);
               setQuantity(event.target.value);

@@ -130,9 +130,6 @@ export function SecuritySearch({ orders = false }: { orders?: boolean } = {}) {
       <Card>
         <CardHeader>
           <CardTitle asHeading="h2">Find a security</CardTitle>
-          <CardDescription id="security-search-hint">
-            Find Korean securities by name or code. Search US securities by ticker (e.g. AAPL).
-          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <form
@@ -150,7 +147,7 @@ export function SecuritySearch({ orders = false }: { orders?: boolean } = {}) {
                 maxLength={40}
                 value={query}
                 aria-invalid={invalid || undefined}
-                aria-describedby={invalid ? 'security-search-notice' : 'security-search-hint'}
+                aria-describedby={invalid ? 'security-search-notice' : undefined}
                 onChange={(event) => {
                   if (invalid) setInvalid(false);
                   setQuery(event.target.value);

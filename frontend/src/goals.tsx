@@ -86,7 +86,7 @@ export function GoalsPage({ health }: { health: Health }) {
 
   const list = goals.data?.goals;
   return (
-    <Page title="Goals" description="Set a savings target and see how far you are" health={health}>
+    <Page title="Goals" health={health}>
       <section aria-labelledby="goals-title" className="flex flex-col gap-4">
         <h2 id="goals-title">Savings goals</h2>
         <Notice id="goals-notice" notice={notice.notice} />
@@ -379,7 +379,6 @@ function GoalForm({
             id={`${prefix}-name`}
             value={draft.name}
             maxLength={30}
-            placeholder="e.g. Emergency fund"
             onChange={(event) => change({ name: event.target.value })}
           />
         </div>
@@ -389,7 +388,6 @@ function GoalForm({
             id={`${prefix}-target`}
             inputMode="numeric"
             autoComplete="off"
-            placeholder="e.g. 6000000"
             value={draft.target}
             onChange={(event) => change({ target: event.target.value })}
           />
@@ -398,7 +396,6 @@ function GoalForm({
           <Label htmlFor={`${prefix}-date`}>Target date (optional)</Label>
           <Input
             id={`${prefix}-date`}
-            placeholder="YYYY-MM-DD"
             autoComplete="off"
             value={draft.date}
             onChange={(event) => change({ date: event.target.value })}

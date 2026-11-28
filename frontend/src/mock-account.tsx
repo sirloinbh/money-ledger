@@ -174,7 +174,7 @@ export function MockAccount() {
 
   const fieldProps = (field: 'create' | 'reset') => ({
     'aria-invalid': invalid === field || undefined,
-    'aria-describedby': invalid === field ? 'mock-account-notice' : 'mock-account-amount-hint',
+    'aria-describedby': invalid === field ? 'mock-account-notice' : undefined,
   });
 
   const account = state?.account;
@@ -183,10 +183,6 @@ export function MockAccount() {
   return (
     <div className="flex flex-col gap-6">
       <Notice id="mock-account-notice" notice={notice.notice} />
-      <p id="mock-account-amount-hint" className="text-caption text-muted-foreground">
-        Mock trading money is virtual, so it is not part of the ledger or asset portfolio totals.
-        The starting amount can be set from ₩10,000 to ₩10 billion.
-      </p>
       {state === undefined ? (
         notice.notice?.kind === 'error' ? null : (
           <p className="text-body-sm text-muted-foreground">Loading the mock trading account</p>
@@ -218,10 +214,6 @@ export function MockAccount() {
               <h3 id="mock-reset-title" className="text-body font-semibold">
                 Start over
               </h3>
-              <p className="text-body-sm text-muted-foreground">
-                Resetting keeps the current account as a previous account and starts a new one with
-                the amount you enter.
-              </p>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                 <div className="flex flex-col gap-2 sm:w-64">
                   <Label htmlFor="mock-reset-amount">New starting amount (KRW)</Label>

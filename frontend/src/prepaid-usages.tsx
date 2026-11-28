@@ -179,7 +179,6 @@ export function PrepaidUsages({ assetId, assetName }: { assetId: number; assetNa
             id={`${prefix}-amount`}
             inputMode="numeric"
             autoComplete="off"
-            placeholder="e.g. 30000"
             value={amount}
             {...fieldProps('amount')}
             onChange={(event) => {
@@ -193,7 +192,6 @@ export function PrepaidUsages({ assetId, assetName }: { assetId: number; assetNa
           <Input
             id={`${prefix}-memo`}
             maxLength={100}
-            placeholder="e.g. Haircut"
             value={memo}
             onChange={(event) => setMemo(event.target.value)}
           />

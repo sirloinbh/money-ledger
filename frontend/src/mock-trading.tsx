@@ -9,11 +9,7 @@ import { SecuritySearch } from './security-search';
 /** #213 Both sections read under `mockKey`: an order placed in either one reloads the account and its cards. */
 export function MockTradingPage({ health }: { health: Health }) {
   return (
-    <Page
-      title="Mock trading"
-      description="Practice investing with virtual money kept apart from your real assets and see your returns"
-      health={health}
-    >
+    <Page title="Mock trading" health={health}>
       <DailyPick />
       <MockAccount />
       <MockKeepOrSell />

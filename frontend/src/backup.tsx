@@ -68,10 +68,6 @@ export function BackupSettings() {
           <label htmlFor="backup-file" className="text-body-sm font-medium">
             Restore from a backup file
           </label>
-          <p className="text-caption text-muted-foreground">
-            A restore only works in an empty database: if there is already data, nothing is changed
-            and you are told so.
-          </p>
           <input
             id="backup-file"
             ref={input}

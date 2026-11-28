@@ -491,7 +491,6 @@ export function RuleManager() {
                 id="rule-keyword"
                 maxLength={50}
                 autoComplete="off"
-                placeholder="e.g. Starbucks"
                 value={keyword}
                 {...fieldProps('keyword')}
                 onChange={(event) => {

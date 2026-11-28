@@ -117,7 +117,6 @@ export function CardDeductionEstimate() {
                 id="card-deduction-salary"
                 inputMode="numeric"
                 autoComplete="off"
-                placeholder="e.g. 40,000,000"
                 value={salary}
                 onChange={(event) => setSalary(event.target.value)}
               />

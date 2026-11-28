@@ -11,7 +11,7 @@ export function Page({
   children,
 }: {
   title: string;
-  description: string;
+  description?: string;
   health: Health;
   emptyDescription?: string;
   children?: ReactNode;
@@ -20,7 +20,7 @@ export function Page({
     <section aria-labelledby="page-title" className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
         <h1 id="page-title">{title}</h1>
-        <p className="text-body text-muted-foreground">{description}</p>
+        {description ? <p className="text-body text-muted-foreground">{description}</p> : null}
         {health.state === 'error' ? (
           <p role="alert" className="text-body-sm text-destructive">
             {healthText(health)}

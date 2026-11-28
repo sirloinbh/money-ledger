@@ -374,7 +374,6 @@ function IncomeForm({
           <Label htmlFor="income-receivedOn">Date received</Label>
           <Input
             id="income-receivedOn"
-            placeholder="YYYY-MM-DD"
             autoComplete="off"
             value={draft.receivedOn}
             onChange={(event) => change({ receivedOn: event.target.value })}

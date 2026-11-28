@@ -93,11 +93,7 @@ export function DashboardPage({ health }: { health: Health }) {
   const choose = (next: View) =>
     setParams(next === 'summary' ? {} : { view: next }, { replace: true });
   return (
-    <Page
-      title="Dashboard"
-      description="This month's income and spending, your net worth, and mock trading at a glance"
-      health={health}
-    >
+    <Page title="Dashboard" health={health}>
       <SegmentedControl
         label="Dashboard view"
         options={views}
@@ -161,7 +157,7 @@ function SummaryCard({
 }: {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   to: string;
   linkText: string;
   failed: boolean;
@@ -174,7 +170,7 @@ function SummaryCard({
         <CardTitle id={`${id}-title`} asHeading="h2">
           {title}
         </CardTitle>
-        <CardDescription>{description}</CardDescription>
+        {description ? <CardDescription>{description}</CardDescription> : null}
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-4">
         {failed ? (
@@ -266,7 +262,7 @@ function NetWorthCard() {
     <SummaryCard
       id="dashboard-net-worth"
       title="Net worth"
-      description={latest ? `Saved on ${dayLabel(latest.date)}` : 'Real assets minus liabilities'}
+      description={latest ? `Saved on ${dayLabel(latest.date)}` : undefined}
       to="/portfolio"
       linkText="Open the portfolio"
       failed={failed}
@@ -304,7 +300,6 @@ function MockCard() {
     <SummaryCard
       id="dashboard-mock"
       title="Mock trading"
-      description="Practice money, not part of your net worth"
       to="/mock-trading"
       linkText="Open mock trading"
       failed={failed}

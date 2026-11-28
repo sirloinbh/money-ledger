@@ -64,11 +64,7 @@ const shownName = (item: { name: string; hidden: boolean }) =>
 export function ReportsPage({ health }: { health: Health }) {
   const { data, failed, retry } = useReportList();
   return (
-    <Page
-      title="Reports"
-      description="Your spending each week (Sunday to Saturday) and each month, saved when the period ends"
-      health={health}
-    >
+    <Page title="Reports" health={health}>
       {failed ? (
         <Failed what="the reports" onRetry={retry} />
       ) : data === undefined ? (
