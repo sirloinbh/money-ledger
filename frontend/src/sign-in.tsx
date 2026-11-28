@@ -1,5 +1,6 @@
 // Managed file. Edit it in sirloinbh/project-standards templates/ui/frontend/src/
 import { createUseUser, signInUrl, signOutUrl, type User } from '@sirloinbh/auth-client';
+import { LogOutIcon } from 'lucide-react';
 import type * as React from 'react';
 import { createContext, useContext, useEffect, useLayoutEffect, useState } from 'react';
 
@@ -70,7 +71,7 @@ function Gate({ origin, children }: { origin: string; children: React.ReactNode 
   );
 }
 
-/** The signed-in account and a sign-out link for the top bar; nothing when there is no sign-in. */
+/** The signed-in account and a sign-out icon link for the top bar; nothing when there is no sign-in. */
 export function AccountActions() {
   const user = useContext(SignedInUser);
   const origin = authOrigin(window.location, ROOT_DOMAIN);
@@ -80,8 +81,10 @@ export function AccountActions() {
       <span className="hidden max-w-48 truncate text-body-sm text-muted-foreground sm:inline">
         {user.name ?? user.email}
       </span>
-      <Button asChild variant="ghost" size="sm">
-        <a href={signOutUrl(origin, window.location.origin)}>Sign out</a>
+      <Button asChild variant="ghost" size="icon">
+        <a href={signOutUrl(origin, window.location.origin)} aria-label="Sign out" title="Sign out">
+          <LogOutIcon aria-hidden />
+        </a>
       </Button>
     </div>
   );
