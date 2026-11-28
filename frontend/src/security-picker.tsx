@@ -3,8 +3,8 @@ import { type KeyboardEvent, useRef, useState } from 'react';
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
-import { countOf } from './format';
 import { requestJson } from './lib/api';
+import { plural } from './lib/format';
 import { errorText } from './lib/use-notice';
 import { formatClose, type Quote, quoteBasis, securityText } from './quote-format';
 
@@ -136,7 +136,7 @@ export function SecurityPicker({
           : search.state === 'message'
             ? search.text
             : search.state === 'done'
-              ? `Found ${countOf(search.securities.length, 'security', 'securities')}`
+              ? `Found ${plural(search.securities.length, 'security', 'securities')}`
               : ''}
       </div>
       {search.state === 'done' ? (

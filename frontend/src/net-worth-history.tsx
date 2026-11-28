@@ -5,9 +5,10 @@ import { ChartBoundary } from './chart-boundary';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
 import { Notice } from './components/ui/notice';
-import { countOf, formatWon, serviceToday } from './format';
+import { formatWon } from './format';
 import { lazyChart } from './lazy-chart';
 import { type RequestError, requestJson } from './lib/api';
+import { plural, serviceToday } from './lib/format';
 import { useNotice } from './lib/use-notice';
 import { cn } from './lib/utils';
 import {
@@ -163,7 +164,7 @@ export function NetWorthHistory() {
                 </ChartBoundary>
                 <details>
                   <summary className="cursor-pointer text-body-sm font-medium">
-                    Show as a table ({countOf(shown.snapshots.length, 'day')})
+                    Show as a table ({plural(shown.snapshots.length, 'day')})
                   </summary>
                   <SnapshotTable snapshots={shown.snapshots} />
                 </details>
@@ -204,7 +205,7 @@ function SnapshotTable({ snapshots }: { snapshots: Snapshot[] }) {
               {dayLabel(snapshot.date)}
               {snapshot.uncounted > 0 ? (
                 <span className="block text-caption text-muted-foreground">
-                  {countOf(snapshot.uncounted, 'item')} left out
+                  {plural(snapshot.uncounted, 'item')} left out
                 </span>
               ) : null}
             </th>

@@ -27,8 +27,9 @@ import {
   parseAmount,
   partsFromDraft,
 } from './entry-model';
-import { formatWon, serviceToday } from './format';
+import { formatWon } from './format';
 import { ledgerKeys, refreshLedger, useLedgerReload } from './ledger-query';
+import { serviceToday } from './lib/format';
 import { type ApiRequest, useApiMutation } from './lib/query';
 import { useNotice } from './lib/use-notice';
 import { useLoadError } from './query-reads';

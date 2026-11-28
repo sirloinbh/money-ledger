@@ -4,10 +4,11 @@ import { Link } from 'react-router';
 
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
-import { formatWon, serviceToday, signedPercent } from './format';
+import { formatWon, signedPercent } from './format';
 import type { Health } from './health';
 import { ledgerKeys } from './ledger-query';
 import { type RequestError, requestJson } from './lib/api';
+import { serviceToday } from './lib/format';
 import { mockKeys } from './mock-query';
 import { dayLabel, netWorthPath, saveTodayOnce, type Snapshot } from './net-worth';
 import { Page } from './page';

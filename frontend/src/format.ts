@@ -1,16 +1,6 @@
 // Shared display and date helpers for the ledger screens.
 import { MAX_WON, serviceDate } from '../../shared/contract';
 
-// "Today" in the service time zone (Asia/Seoul), not the browser's zone or UTC.
-export function serviceToday(now = new Date()) {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(now);
-}
-
 /** A real YYYY-MM-DD date between 1900 and 2100, the range the server accepts ("2026-02-30" is not one). */
 export function realDate(text: string) {
   // The same rule as the server (#186): shared/contract.ts.
@@ -40,11 +30,6 @@ export function formatDecimal(text: string) {
   const trimmed = fraction.replace(/0+$/, '');
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   return trimmed ? `${grouped}.${trimmed}` : grouped;
-}
-
-/** "1 row", "2 rows", "1,234 entries": a count and its noun in the right number (#203). */
-export function countOf(count: number, one: string, many = `${one}s`) {
-  return `${count.toLocaleString('en-US')} ${count === 1 ? one : many}`;
 }
 
 /** "1 share", "1.5 shares", "1,200 shares": a decimal quantity string from the API with its noun (#203). */

@@ -3,8 +3,9 @@ import { type KeyboardEvent, useId, useRef, useState } from 'react';
 import type { AllocationBar } from './asset-allocation-chart';
 import { ChartBoundary } from './chart-boundary';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
-import { countOf, formatWon } from './format';
+import { formatWon } from './format';
 import { lazyChart } from './lazy-chart';
+import { plural } from './lib/format';
 
 // #48 How the asset total is spread, by type and by asset (decisions 2026-11-10, server: allocation.ts).
 // Debts and assets without a won value are left out; the shares add up to exactly 100.0%. The chart shows the
@@ -96,7 +97,7 @@ export function AssetAllocation({
         <CardDescription>
           Share of the asset total by type and by asset. Liabilities are not included.
           {allocation.excluded > 0
-            ? ` ${countOf(allocation.excluded, 'asset')} without a quote, exchange rate, or valuation, or with an amount too large to calculate, ${allocation.excluded === 1 ? 'is' : 'are'} left out.`
+            ? ` ${plural(allocation.excluded, 'asset')} without a quote, exchange rate, or valuation, or with an amount too large to calculate, ${allocation.excluded === 1 ? 'is' : 'are'} left out.`
             : ''}
         </CardDescription>
       </CardHeader>

@@ -1,11 +1,13 @@
 import { useSearchParams } from 'react-router';
 
+import { addDays, dayLabel } from './components/period-nav/periods';
 import { Button } from './components/ui/button';
 import { DateStepper } from './components/ui/date-stepper';
-import { dayLabel, readDay, shiftDays } from './day-nav';
+import { readDay } from './day-nav';
 import { EntryManager } from './entries';
-import { formatWon, serviceToday } from './format';
+import { formatWon } from './format';
 import type { Health } from './health';
+import { serviceToday } from './lib/format';
 import { Page } from './page';
 import { usePeriods } from './period-data';
 import { PeriodFailure } from './period-totals';
@@ -35,7 +37,7 @@ export function DayLogPage({ health }: { health: Health }) {
             label="Day"
             value={day}
             onValueChange={go}
-            onMove={(direction) => go(shiftDays(day, direction))}
+            onMove={(direction) => go(addDays(day, direction))}
             previousLabel="Previous day"
             nextLabel="Next day"
           />
