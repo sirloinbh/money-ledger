@@ -3,11 +3,11 @@ name: std-ux-audit
 description: Audit an app's screens for usability and accessibility by using them in task order, measuring set metrics at 390x844 and 1440x900, and recording improvements as issues. Use before or after a major screen structure change, when the main screens of a new app are first in place, or when the user asks for a UX or accessibility audit.
 ---
 
-<!-- Managed file. Edit it in sirloinbh/project-standards templates/app/skills/std-ux-audit/ -->
+<!-- Managed file. Edit it in sirloinbh/project-standards templates/ui/skills/std-ux-audit/ -->
 
 # Money Ledger UX and Accessibility Audit
 
-This is the procedure for using an app's screens yourself in the order of the user's tasks, measuring set metrics, and leaving improvements as issues. The screen rules themselves are in the [design system](https://github.com/sirloinbh/project-standards/blob/main/docs/design-system.md); this skill defines **how to audit against those rules and where to record it**.
+This is the procedure for using an app's screens yourself in the order of the user's tasks, measuring set metrics, and leaving improvements as issues. The screen rules themselves are in the [design guidelines](https://github.com/sirloinbh/design-system/blob/main/docs/guidelines.md); this skill defines **how to audit against those rules and where to record it**.
 
 Basis: workout-memo `docs/ux-audit/2026-10-21.md` (workout-memo #112). This method applies to all 8 apps.
 
@@ -31,7 +31,7 @@ Measure every page at 390×844, and measure the first screen at 1440×900 too.
 | Touch target size | Pressable elements are 44×44px or more | `getBoundingClientRect()` of buttons, links, and inputs |
 | Input font size | 16px or more (to prevent iOS auto-zoom) | Computed `font-size` of `input`, `select`, `textarea` |
 | Small text | No text under 12px (meta included, SVG labels too); body text at least 13px | Count of text elements by computed `font-size` |
-| Typed instead of picked | No free-text input whose values come from a known set (a category, unit, weekday, status, or a list of earlier entries); those use a select, `SegmentedControl`, or `Combobox` (`docs/ui-components.md`, "Pick a value instead of typing it") | List every `input[type=text]` and `textarea`; for each, note whether its values are open (names, notes) or a known set |
+| Typed instead of picked | No free-text input whose values come from a known set (a category, unit, weekday, status, or a list of earlier entries); those use a select, `SegmentedControl`, or `Combobox` ([design-system `docs/ui-components.md`](https://github.com/sirloinbh/design-system/blob/main/docs/ui-components.md#pick-a-value-instead-of-typing-it)) | List every `input[type=text]` and `textarea`; for each, note whether its values are open (names, notes) or a known set |
 | Vertical length | Record the length of pages and modals, and check whether the main action is within the first screen | `scrollHeight`, the `y` coordinate of the main button |
 | Automated accessibility check | No axe violations | `@axe-core/playwright` or another tool the app already has |
 | Keyboard | Menus, modals, and drawers open and close with the keyboard alone. `Escape` closes them. The focus indicator is visible | Manual operation |
@@ -52,7 +52,7 @@ For each task, record the following.
 ### Evaluation criteria
 
 - Nielsen's 10 usability heuristics
-- The responsive, accessibility, and loading indicator rules of the [design system](https://github.com/sirloinbh/project-standards/blob/main/docs/design-system.md)
+- The responsive, accessibility, and loading indicator rules of the [design guidelines](https://github.com/sirloinbh/design-system/blob/main/docs/guidelines.md)
 - Mobile first: the apps are mainly used on phones
 
 ## Method
