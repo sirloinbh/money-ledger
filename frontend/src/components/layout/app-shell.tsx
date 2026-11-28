@@ -1,11 +1,14 @@
 // Managed file. Edit it in sirloinbh/project-standards templates/ui/frontend/src/components/layout/
-import { type LucideIcon, MenuIcon } from 'lucide-react';
+import { type LucideIcon, MenuIcon, SearchIcon } from 'lucide-react';
 import type * as React from 'react';
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Link, NavLink } from 'react-router';
 
 import { DARK_ONLY } from '../../lib/theme-config';
 import { cn } from '../../lib/utils';
+import { type SearchContent,SearchDialog } from '../search/search-dialog';
+import type { SearchPage } from '../search/search-match';
+import { useSearchShortcut } from '../search/use-search-shortcut';
 import { Button } from '../ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
 import { AiShell } from './ai-shell';
@@ -47,17 +50,33 @@ function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => v
 function AppShell({
   appName,
   nav,
+  pages,
+  searchContent,
   actions,
   footer,
   children,
 }: {
   appName: string;
   nav: NavItem[];
+  /** Pages that are not in the menu, found by the top bar search (title, path, keywords). */
+  pages?: SearchPage[];
+  /** The app's own content search for the top bar search; it must stop when `signal` aborts. */
+  searchContent?: SearchContent;
   actions?: React.ReactNode;
   footer?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchButton = useRef<HTMLButtonElement>(null);
+  const searchOpener = useRef<HTMLElement | null>(null);
+  // The search has no trigger of its own (it also opens by keyboard), so it hands focus back to whatever opened it.
+  const openSearch = useCallback(() => {
+    const active = document.activeElement;
+    searchOpener.current = active instanceof HTMLElement && active !== document.body ? active : searchButton.current;
+    setSearchOpen(true);
+  }, []);
+  useSearchShortcut(openSearch);
   return (
     <div data-slot="app-shell" className="min-h-dvh bg-background text-foreground">
       <a
@@ -91,6 +110,10 @@ function AppShell({
             {appName}
           </Link>
           <div className="ml-auto flex items-center gap-1">
+            <Button variant="ghost" size="icon" ref={searchButton}
+              aria-label="Search this app" aria-keyshortcuts="Control+K Meta+K /" onClick={openSearch}>
+              <SearchIcon aria-hidden />
+            </Button>
             {actions}
             <AiShell />
             <AppSwitcher />
@@ -99,6 +122,12 @@ function AppShell({
           </div>
         </div>
       </header>
+      <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} nav={nav} pages={pages} searchContent={searchContent}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          searchOpener.current?.focus();
+        }}
+      />
       <div className="md:grid md:grid-cols-[15rem_minmax(0,1fr)]">
         <aside className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] hidden h-[calc(100dvh-3.5rem-env(safe-area-inset-top))] overflow-y-auto border-r bg-sidebar text-sidebar-foreground md:block">
           <nav aria-label="Main menu">

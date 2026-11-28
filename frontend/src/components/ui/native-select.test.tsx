@@ -39,3 +39,10 @@ test('a native select shows a pointer cursor (#1126)', () => {
   render(<NativeSelect aria-label="Sort"><option>a</option></NativeSelect>);
   expect(screen.getByRole('combobox', { name: 'Sort' })).toHaveClass('cursor-pointer');
 });
+
+test('the open list has solid popover colors so dark mode stays readable (#60)', () => {
+  render(<NativeSelect aria-label="Sort"><option>a</option></NativeSelect>);
+  const select = screen.getByRole('combobox', { name: 'Sort' });
+  expect(select).toHaveClass('[&_option]:bg-popover', '[&_option]:text-popover-foreground', '[&_optgroup]:bg-popover');
+  expect(select).toHaveClass('bg-transparent');
+});

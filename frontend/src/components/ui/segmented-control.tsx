@@ -37,7 +37,7 @@ export function SegmentedControl<T extends string>({
         <ToggleGroup.Item
           key={option.value}
           value={option.value}
-          className="min-h-8 cursor-pointer rounded-sm px-3 text-body-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring data-[state=on]:bg-card data-[state=on]:font-medium data-[state=on]:text-foreground pointer-coarse:min-h-11"
+          className="min-h-8 cursor-pointer rounded-sm px-3 text-body-sm text-foreground/70 outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring data-[state=on]:bg-card data-[state=on]:font-medium data-[state=on]:text-foreground pointer-coarse:min-h-11"
         >
           {option.label}
         </ToggleGroup.Item>
