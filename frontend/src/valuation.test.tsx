@@ -2,7 +2,7 @@ import { fireEvent, screen, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 import { AssetManager } from './assets';
-import { serviceToday } from './format';
+import { serviceToday } from './lib/format';
 import { findLive, getLive } from './test/live';
 import { renderWithQuery } from './test/query';
 import { unexpectedRequest } from './test/unexpected';

@@ -15,7 +15,8 @@ import {
 import { AssetTrades } from './asset-trades';
 import { Button } from './components/ui/button';
 import { ConfirmDialog } from './components/ui/confirm-dialog';
-import { countOf, formatDecimal } from './format';
+import { formatDecimal } from './format';
+import { plural } from './lib/format';
 import { PrepaidUsages } from './prepaid-usages';
 import { securityText } from './quote-format';
 
@@ -43,7 +44,7 @@ export function Summary({ totals }: { totals: Totals }) {
       <p className="text-caption text-muted-foreground">
         Liabilities are not added to the asset total; they are only subtracted from net worth.
         {totals.uncounted > 0
-          ? ` ${countOf(totals.uncounted, 'item')} without a quote, exchange rate, or valuation ${totals.uncounted === 1 ? 'is' : 'are'} left out of the totals.`
+          ? ` ${plural(totals.uncounted, 'item')} without a quote, exchange rate, or valuation ${totals.uncounted === 1 ? 'is' : 'are'} left out of the totals.`
           : ''}
       </p>
     </section>

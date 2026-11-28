@@ -1,8 +1,9 @@
 import { useSearchParams } from 'react-router';
 
+import { addDays, weekStart } from './components/period-nav/periods';
 import { DateStepper, RangeSummary } from './components/ui/date-stepper';
-import { readDay, shiftDays, weekdayName, weekStart } from './day-nav';
-import { serviceToday } from './format';
+import { readDay, weekdayName } from './day-nav';
+import { serviceToday } from './lib/format';
 import { usePeriods } from './period-data';
 import { PeriodFailure, PeriodTable } from './period-totals';
 
@@ -14,7 +15,7 @@ export function WeekView() {
   const [searchParams, setSearchParams] = useSearchParams();
   const anchor = readDay(searchParams, today);
   const first = weekStart(anchor);
-  const last = shiftDays(first, 6);
+  const last = addDays(first, 6);
   const { query, rows, failed } = usePeriods(first, 'day', 7);
   const go = (date: string) =>
     setSearchParams((prev) => {
@@ -31,7 +32,7 @@ export function WeekView() {
           label="Day in the week"
           value={anchor}
           onValueChange={go}
-          onMove={(direction) => go(shiftDays(anchor, direction * 7))}
+          onMove={(direction) => go(addDays(anchor, direction * 7))}
           previousLabel="Previous week"
           nextLabel="Next week"
         />

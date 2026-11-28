@@ -1,5 +1,5 @@
-import { serviceToday } from './format';
 import { requestJson } from './lib/api';
+import { serviceToday } from './lib/format';
 
 // #49 Net worth by day (decisions 2026-11-10). The app saves today's values once when it opens; the card on the
 // asset screen lists the saved days for a period and can save again by hand. A day keeps its latest save.

@@ -1,13 +1,11 @@
 import { expect, test } from 'vitest';
 
 import {
-  countOf,
   formatDateTime,
   formatDecimal,
   formatUsd,
   formatWon,
   realDate,
-  serviceToday,
   sharesOf,
   signedPercent,
   withoutThousands,
@@ -26,11 +24,6 @@ test('API times are shown in Asia/Seoul', () => {
   const text = formatDateTime('2026-11-04T15:30:00.000Z');
   expect(text).toContain('Nov 5, 2026');
   expect(text).toContain('12:30');
-});
-
-test('today follows Asia/Seoul across the UTC day boundary', () => {
-  expect(serviceToday(new Date('2026-11-02T14:59:59Z'))).toBe('2026-11-02');
-  expect(serviceToday(new Date('2026-11-02T15:00:00Z'))).toBe('2026-11-03');
 });
 
 test('won amounts get a currency symbol and thousands separators', () => {
@@ -56,11 +49,7 @@ test('signedPercent shows the sign of a percentage from the API without trailing
   expect(signedPercent('-0.00')).toBe('0%');
 });
 
-test('counts take the singular for exactly one (#203)', () => {
-  expect(countOf(1, 'row')).toBe('1 row');
-  expect(countOf(2, 'row')).toBe('2 rows');
-  expect(countOf(0, 'entry', 'entries')).toBe('0 entries');
-  expect(countOf(1234, 'entry', 'entries')).toBe('1,234 entries');
+test('shares take the singular for exactly one (#203)', () => {
   expect(sharesOf('1.00000000')).toBe('1 share');
   expect(sharesOf('1')).toBe('1 share');
   expect(sharesOf('1.50000000')).toBe('1.5 shares');

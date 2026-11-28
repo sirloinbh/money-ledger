@@ -1,5 +1,5 @@
-import { shiftDays, weekStart } from './day-nav';
-import { serviceToday } from './format';
+import { addDays, weekStart } from './components/period-nav/periods';
+import { serviceToday } from './lib/format';
 import { usePeriods } from './period-data';
 import { PeriodFailure, PeriodTable } from './period-totals';
 
@@ -9,7 +9,7 @@ import { PeriodFailure, PeriodTable } from './period-totals';
 const weeks = 12;
 
 export function TwelveWeeksView() {
-  const first = shiftDays(weekStart(serviceToday()), -7 * (weeks - 1));
+  const first = addDays(weekStart(serviceToday()), -7 * (weeks - 1));
   const { query, rows, failed } = usePeriods(first, 'week', weeks);
   return (
     <>

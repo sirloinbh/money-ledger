@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './com
 import { Label } from './components/ui/label';
 import { Notice } from './components/ui/notice';
 import { selectClass } from './entry-filters-state';
-import { countOf, formatWon } from './format';
+import { formatWon } from './format';
 import { requestForm, type RequestOptions } from './lib/api';
+import { plural } from './lib/format';
 import { useNotice } from './lib/use-notice';
 
 // #57 Import a Woori Card usage-history file (.xls). The server reads the file, so the browser only sends its bytes.
@@ -116,7 +117,7 @@ export function CardImport({ onImported }: { onImported: () => void }) {
       setFile(undefined);
       if (fileInput.current) fileInput.current.value = '';
       const parts = [
-        `added ${countOf(result.added, 'entry', 'entries')}`,
+        `added ${plural(result.added, 'entry', 'entries')}`,
         ...(result.updated > 0 ? [`updated ${result.updated}`] : []),
         ...(result.removed > 0 ? [`removed ${result.removed} cancelled`] : []),
         ...(result.skipped > 0 ? [`left out ${result.skipped}`] : []),
@@ -203,8 +204,8 @@ export function CardImport({ onImported }: { onImported: () => void }) {
           <section aria-labelledby="card-import-preview" className="flex flex-col gap-3">
             <h4 id="card-import-preview" className="font-medium">
               {problems.length > 0
-                ? `${countOf(problems.length, 'row')} cannot be read`
-                : `${countOf(adding, 'payment')} to add, ${changing} to change`}
+                ? `${plural(problems.length, 'row')} cannot be read`
+                : `${plural(adding, 'payment')} to add, ${changing} to change`}
             </h4>
             {problems.length > 0 ? (
               <ul aria-label="Rows that cannot be read" className="flex flex-col gap-1 text-sm">
@@ -218,8 +219,8 @@ export function CardImport({ onImported }: { onImported: () => void }) {
               <>
                 {preview.authorizations > 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    {countOf(preview.authorizations, 'card-check authorization')} with no amount
-                    left out.
+                    {plural(preview.authorizations, 'card-check authorization')} with no amount left
+                    out.
                   </p>
                 ) : null}
                 {candidates > 0 ? (
@@ -229,7 +230,7 @@ export function CardImport({ onImported }: { onImported: () => void }) {
                       checked={skipCandidates}
                       onChange={(event) => setSkipCandidates(event.target.checked)}
                     />
-                    Leave out {countOf(candidates, 'payment')} that match an entry you typed (same
+                    Leave out {plural(candidates, 'payment')} that match an entry you typed (same
                     day and amount)
                   </label>
                 ) : null}
@@ -249,7 +250,7 @@ export function CardImport({ onImported }: { onImported: () => void }) {
                 </ul>
                 {preview.rows.length > shownRows ? (
                   <p className="text-sm text-muted-foreground">
-                    And {countOf(preview.rows.length - shownRows, 'more payment')}.
+                    And {plural(preview.rows.length - shownRows, 'more payment')}.
                   </p>
                 ) : null}
                 <div className="flex flex-wrap gap-2">
