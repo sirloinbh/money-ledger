@@ -14,4 +14,6 @@ export const APPS: AppLink[] = [
   { name: 'cert-manager', label: 'Cert Manager', href: 'https://cert-manager.daysofme.com/' },
   { name: 'plan-routine', label: 'Plan · Practice · Routine · Feedback', href: 'https://plan-routine.daysofme.com/' },
   { name: 'dev-career-portfolio', label: 'Dev Career Portfolio', href: 'https://dev-career-portfolio.daysofme.com/' },
+  { name: 'file-control', label: 'file-control', href: 'https://github.com/sirloinbh/file-control' },
+  { name: 'develop-skill', label: 'develop-skill', href: 'https://wiki.daysofme.com/' },
 ];
