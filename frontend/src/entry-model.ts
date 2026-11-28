@@ -1,6 +1,7 @@
 import { categoryLabel } from './category-label';
 import type { FilterCategory, Kind } from './entry-filters-state';
-import { formatWon, serviceToday, wonFromDigits } from './format';
+import { formatWon, wonFromDigits } from './format';
+import { serviceToday } from './lib/format';
 
 // #190 The entries screen's types and pure helpers, kept apart from the components so they can be unit-tested.
 

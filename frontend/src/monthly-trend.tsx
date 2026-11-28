@@ -5,9 +5,9 @@ import { ChartBoundary } from './chart-boundary';
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
 import { shiftMonth } from './entry-filters-state';
-import { serviceToday } from './format';
 import { lazyChart } from './lazy-chart';
 import { ledgerKeys, usePagedRead } from './ledger-query';
+import { serviceToday } from './lib/format';
 import { cn } from './lib/utils';
 import {
   defaultTrendPeriod,

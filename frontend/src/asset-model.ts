@@ -1,14 +1,13 @@
 import { MAX_WON, MAX_WON_TEXT } from '../../shared/contract';
 import {
-  countOf,
   formatDecimal,
   formatUsd,
   formatWon,
   realDate,
-  serviceToday,
   withoutThousands as digits,
   wonFromDigits,
 } from './format';
+import { plural, serviceToday } from './lib/format';
 import { formatMonthDay, formatPrice, quoteBasis } from './quote-format';
 import type { LinkedSecurity } from './security-picker';
 
@@ -443,7 +442,7 @@ export function depreciationText(depreciation: Depreciation) {
     depreciation.salvageValueKrw > 0
       ? ` · salvage value ${formatWon(depreciation.salvageValueKrw)}`
       : '';
-  return `Purchase price ${formatWon(depreciation.purchasePriceKrw)} · purchased ${depreciation.purchasedOn} · useful life ${countOf(depreciation.usefulLifeMonths, 'month')}${salvage}`;
+  return `Purchase price ${formatWon(depreciation.purchasePriceKrw)} · purchased ${depreciation.purchasedOn} · useful life ${plural(depreciation.usefulLifeMonths, 'month')}${salvage}`;
 }
 
 /** "Voucher · loaded ₩300,000 · used ₩50,000 · expires 2026-12-31" or "Pass · paid … · 2026-01-01~2026-03-31". */

@@ -24,8 +24,8 @@ import {
   toImportRows,
 } from './entry-csv-parse';
 import { type Filters, selectClass } from './entry-filters-state';
-import { countOf } from './format';
 import { requestJson } from './lib/api';
+import { plural } from './lib/format';
 import { useNotice } from './lib/use-notice';
 
 type Preview = {
@@ -134,7 +134,7 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
     }
     if (count > maxImportRows) {
       reset();
-      showError(`The file has ${countOf(count, 'row')}. Import at most ${maxImportRows} at a time`);
+      showError(`The file has ${plural(count, 'row')}. Import at most ${maxImportRows} at a time`);
       return;
     }
     setFile({ name: chosen.name, rows });
@@ -189,8 +189,8 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
       if (current) reset();
       showStatus(
         result.skipped > 0
-          ? `Imported ${countOf(result.imported, 'entry', 'entries')} and skipped ${countOf(result.skipped, 'likely duplicate')}`
-          : `Imported ${countOf(result.imported, 'entry', 'entries')}`,
+          ? `Imported ${plural(result.imported, 'entry', 'entries')} and skipped ${plural(result.skipped, 'likely duplicate')}`
+          : `Imported ${plural(result.imported, 'entry', 'entries')}`,
       );
       onImported();
       if (current) fileInput.current?.focus();
@@ -240,7 +240,7 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
         {file && mapping ? (
           <fieldset className="flex flex-col gap-3">
             <legend className="mb-2 text-sm font-medium">
-              Columns of {file.name} ({countOf(dataRowCount(file.rows), 'row')})
+              Columns of {file.name} ({plural(dataRowCount(file.rows), 'row')})
             </legend>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {fields.map((field: Field) => (
@@ -314,7 +314,7 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
               className="font-medium outline-none"
             >
               {preview.problems.length > 0
-                ? `${preview.problems.length} of ${countOf(preview.rows, 'row')} cannot be imported`
+                ? `${preview.problems.length} of ${plural(preview.rows, 'row')} cannot be imported`
                 : preview.rows === 1
                   ? 'The 1 row can be imported'
                   : `All ${preview.rows} rows can be imported`}
@@ -333,7 +333,7 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
                 </ul>
                 {preview.problems.length > shownProblems ? (
                   <p className="text-sm text-muted-foreground">
-                    And {countOf(preview.problems.length - shownProblems, 'more row')}.
+                    And {plural(preview.problems.length - shownProblems, 'more row')}.
                   </p>
                 ) : null}
                 <p className="text-sm">
@@ -371,7 +371,7 @@ export function EntryCsv({ filters, onImported }: { filters: Filters; onImported
                   onClick={() => void save()}
                 >
                   {importing > 0
-                    ? `Import ${countOf(importing, 'entry', 'entries')}`
+                    ? `Import ${plural(importing, 'entry', 'entries')}`
                     : 'Nothing to import'}
                 </Button>
               </div>
