@@ -1,6 +1,7 @@
 // Managed file. Edit it in sirloinbh/project-standards templates/ui/frontend/src/components/ui/
 import { render, screen } from '@testing-library/react';
 import { createRef } from 'react';
+import { MemoryRouter } from 'react-router';
 import { expect, test } from 'vitest';
 
 import { PageHeader } from './page-header';
@@ -35,4 +36,20 @@ test('headingRef makes the h1 focusable by script, and id renames it', () => {
   expect(heading).toHaveAttribute('id', 'goals-title');
   rerender(<PageHeader title="Goals" />);
   expect(screen.getByRole('heading', { level: 1 })).not.toHaveAttribute('tabindex');
+});
+
+test('backTo adds a link to the parent page above the title, and nothing is added without it', () => {
+  const { container, rerender } = render(<PageHeader title="Goals" />);
+  expect(screen.queryByRole('link')).toBeNull();
+  rerender(
+    <MemoryRouter>
+      <PageHeader title="Goals" backTo={{ to: '/items', label: 'All items' }} />
+    </MemoryRouter>,
+  );
+  const link = screen.getByRole('link', { name: 'All items' });
+  expect(link).toHaveAttribute('href', '/items');
+  expect(link).toHaveClass('min-h-11', 'pointer-coarse:min-h-12', 'cursor-pointer');
+  expect(link.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+  // The link comes before the h1 in reading order.
+  expect(container.querySelector('[data-slot="page-header-back"]')?.nextElementSibling).toBe(screen.getByRole('heading', { level: 1 }));
 });

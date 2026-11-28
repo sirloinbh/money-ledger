@@ -4,8 +4,18 @@ import { Dialog as DialogPrimitive } from 'radix-ui';
 import type * as React from 'react';
 
 import { cn } from '../../lib/utils';
+import { useKeyboardInset } from './keyboard-inset';
 
 // Modal dialog. Focus stays inside while open; Escape and the close button close it.
+// `layout` says what the dialog looks like below 640px (from 640px up it is always the centered box): 'center' (the
+// default) keeps the box, 'sheet' sticks it to the bottom edge, 'full' fills the screen. In 'sheet' and 'full' the
+// dialog stays above the on-screen keyboard (see useKeyboardInset).
+const mobileLayout = {
+  center: '',
+  sheet:
+    'max-sm:top-auto max-sm:bottom-[var(--keyboard-inset,0px)] max-sm:left-0 max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none',
+  full: 'max-sm:inset-0 max-sm:h-[calc(100dvh-var(--keyboard-inset,0px))] max-sm:max-h-none max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0',
+} as const;
 
 function Dialog(props: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
@@ -36,8 +46,14 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  layout = 'center',
+  style,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content> & { showCloseButton?: boolean }) {
+}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  showCloseButton?: boolean;
+  layout?: keyof typeof mobileLayout;
+}) {
+  const keyboardInset = useKeyboardInset(layout !== 'center');
   return (
     <DialogPrimitive.Portal data-slot="dialog-portal">
       <DialogOverlay />
@@ -45,8 +61,10 @@ function DialogContent({
         data-slot="dialog-content"
         className={cn(
           'fixed top-1/2 left-1/2 z-[var(--z-modal)] grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-lg border bg-background p-6 shadow-lg duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg motion-reduce:animate-none',
+          mobileLayout[layout],
           className,
         )}
+        style={keyboardInset > 0 ? { ...style, ['--keyboard-inset' as string]: `${keyboardInset}px` } : style}
         {...props}
       >
         {children}

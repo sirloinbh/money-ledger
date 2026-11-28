@@ -8,10 +8,16 @@ const plainNumber = /^-?(\d+(\.\d*)?|\.\d+)$/;
 // The one reader for typed number text in forms and in the − / + stepper (#972).
 // Empty stays null (not recorded, never 0); anything that is not a plain decimal becomes NaN, so
 // the form's schema reports "Enter ... as a number" on that field instead of saving a guess.
+// More than 15 significant digits is NaN too (health-log's `parseAmount`, #20): a double cannot hold
+// them, so "12345678901234567" would be saved as a different number than the one typed.
+const maxSignificantDigits = 15;
+
 export const optionalNumber = (value: string) => {
   const text = value.trim();
   if (text === '') return null;
-  return plainNumber.test(text) ? Number(text) : Number.NaN;
+  if (!plainNumber.test(text)) return Number.NaN;
+  const significant = text.replace(/[-.]/g, '').replace(/^0+/, '');
+  return significant.length > maxSignificantDigits ? Number.NaN : Number(text);
 };
 
 const decimals = (value: number) => (String(value).split('.')[1] ?? '').length;
