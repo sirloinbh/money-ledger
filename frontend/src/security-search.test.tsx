@@ -74,7 +74,6 @@ test('results show the latest close with its date; a US ticker says the close co
     body: { securities: [samsung, apple] },
   };
   renderWithQuery(<SecuritySearch />);
-  expect(screen.getByText(/Search US securities by ticker/)).toBeInTheDocument();
   searchFor(' Samsung ');
 
   const list = await screen.findByRole('list', { name: 'Search results' });

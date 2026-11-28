@@ -110,11 +110,7 @@ function Workspace() {
           <Route
             path={pages.settings}
             element={
-              <Page
-                title="Settings"
-                description="App preferences and data management"
-                health={health}
-              >
+              <Page title="Settings" health={health}>
                 <KakaoSettings />
                 <BackupSettings />
               </Page>

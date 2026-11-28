@@ -391,7 +391,6 @@ export function AssetTrades({
             id={`${prefix}-quantity`}
             inputMode="decimal"
             autoComplete="off"
-            placeholder="e.g. 10 or 0.5"
             value={draft.quantity}
             {...fieldProps('quantity')}
             onChange={(event) => change({ quantity: event.target.value })}
@@ -403,7 +402,6 @@ export function AssetTrades({
             id={`${prefix}-price`}
             inputMode={formCurrency === 'USD' ? 'decimal' : 'numeric'}
             autoComplete="off"
-            placeholder={formCurrency === 'USD' ? 'e.g. 123.45' : 'e.g. 71000'}
             value={draft.price}
             {...fieldProps('price')}
             onChange={(event) => change({ price: event.target.value })}
@@ -416,7 +414,6 @@ export function AssetTrades({
               id={`${prefix}-fx`}
               inputMode="decimal"
               autoComplete="off"
-              placeholder="e.g. 1385.25"
               value={draft.fxRate}
               {...fieldProps('fxRate')}
               aria-describedby={

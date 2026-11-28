@@ -86,13 +86,7 @@ export function AssetForm({
         >
           <div className="flex flex-col gap-2">
             <Label htmlFor="asset-name">Name</Label>
-            <Input
-              id="asset-name"
-              ref={nameRef}
-              maxLength={50}
-              placeholder="e.g. Emergency fund account"
-              {...bind('name')}
-            />
+            <Input id="asset-name" ref={nameRef} maxLength={50} {...bind('name')} />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="asset-type">Type</Label>
@@ -183,7 +177,6 @@ function PrepaidFields({ draft, bind, onChange }: FieldsProps) {
           id="asset-prepaid-amount"
           inputMode="numeric"
           autoComplete="off"
-          placeholder="e.g. 300000"
           {...bind('prepaidAmount')}
         />
       </div>
@@ -232,7 +225,6 @@ function DepreciationFields({
           id="asset-purchase-price"
           inputMode="numeric"
           autoComplete="off"
-          placeholder="e.g. 1200000"
           {...bind('purchasePrice')}
         />
       </div>
@@ -274,7 +266,6 @@ function DepreciationFields({
           id="asset-life-months"
           inputMode="numeric"
           autoComplete="off"
-          placeholder="e.g. 60"
           {...bind('lifeMonths')}
         />
       </div>
@@ -339,7 +330,6 @@ function ValueFields({
             id="asset-quantity"
             inputMode="decimal"
             autoComplete="off"
-            placeholder={tradeManaged ? '0' : 'e.g. 10 or 0.5'}
             // #46 Decision: an asset with trades takes its quantity from them.
             readOnly={tradeManaged}
             {...bind('quantity')}
@@ -364,7 +354,6 @@ function ValueFields({
             id="asset-value"
             inputMode={draft.currency === 'KRW' ? 'numeric' : 'decimal'}
             autoComplete="off"
-            placeholder={draft.currency === 'KRW' ? 'e.g. 5000000' : 'e.g. 1234.56'}
             {...bind('value')}
           />
         </div>
@@ -379,15 +368,8 @@ function ValueFields({
               id="asset-manual-price"
               inputMode={draft.currency === 'KRW' ? 'numeric' : 'decimal'}
               autoComplete="off"
-              placeholder={draft.currency === 'KRW' ? 'e.g. 95000000' : 'e.g. 12.34'}
               {...bind('manualPrice')}
-              aria-describedby={
-                bind('manualPrice')['aria-describedby'] ?? 'asset-manual-price-hint'
-              }
             />
-            <p id="asset-manual-price-hint" className="text-caption text-muted-foreground">
-              An asset without a quote feed is valued at quantity × current price.
-            </p>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="asset-manual-priced-on">Current-price date (today if empty)</Label>

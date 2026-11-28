@@ -134,13 +134,11 @@ export function MockHoldings({ accountId }: { accountId: number }) {
               </div>
             ))}
           </dl>
-          <p className="text-caption text-muted-foreground">
-            Total assets are the cash balance plus the valuation, and the return is measured against
-            the starting amount. The valuation uses the latest saved close and exchange rate.
-            {loaded.summary.totalKrw === null
-              ? ' Some holdings have no quote or exchange rate, so total assets could not be calculated.'
-              : ''}
-          </p>
+          {loaded.summary.totalKrw === null ? (
+            <p className="text-caption text-muted-foreground">
+              Some holdings have no quote or exchange rate, so total assets could not be calculated.
+            </p>
+          ) : null}
           {loaded.holdings.length === 0 ? (
             <p className="text-body-sm text-muted-foreground">
               No holdings. Find a security below and place a mock order.

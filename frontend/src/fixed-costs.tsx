@@ -167,10 +167,6 @@ export function FixedCostManager() {
         </h2>
         <p className="text-body-sm text-muted-foreground">As of {monthLabel(month)}</p>
       </div>
-      <p className="text-body-sm text-muted-foreground">
-        Each fixed cost is added as an expense entry every month on its day. Amounts that change
-        every month are added as an estimate for you to confirm.
-      </p>
       <Notice id="fixed-costs-notice" notice={notice.notice} />
       {failed ? (
         <div className="flex flex-wrap items-center gap-2">
@@ -581,7 +577,6 @@ function FixedCostForm({
             id={`${prefix}-name`}
             value={draft.name}
             maxLength={30}
-            placeholder="e.g. Rent"
             aria-invalid={invalid === 'name' || undefined}
             aria-describedby={described('name')}
             onChange={(event) => change({ name: event.target.value })}
@@ -622,7 +617,6 @@ function FixedCostForm({
             id={`${prefix}-amount`}
             inputMode="numeric"
             autoComplete="off"
-            placeholder="e.g. 500000"
             value={draft.amount}
             aria-invalid={invalid === 'amount' || undefined}
             aria-describedby={described('amount')}
@@ -635,31 +629,23 @@ function FixedCostForm({
             id={`${prefix}-dayOfMonth`}
             inputMode="numeric"
             autoComplete="off"
-            placeholder="1 to 31"
             value={draft.dayOfMonth}
             aria-invalid={invalid === 'dayOfMonth' || undefined}
-            aria-describedby={`${prefix}-day-hint${invalid === 'dayOfMonth' ? ' fixed-costs-notice' : ''}`}
+            aria-describedby={described('dayOfMonth')}
             onChange={(event) => change({ dayOfMonth: event.target.value })}
           />
-          <p id={`${prefix}-day-hint`} className="text-caption text-muted-foreground">
-            A day past the month&apos;s end uses the last day.
-          </p>
         </div>
         {item ? null : (
           <div className="flex flex-col gap-2">
             <Label htmlFor={`${prefix}-startMonth`}>Start month</Label>
             <Input
               id={`${prefix}-startMonth`}
-              placeholder="YYYY-MM"
               autoComplete="off"
               value={draft.startMonth}
               aria-invalid={invalid === 'startMonth' || undefined}
-              aria-describedby={`${prefix}-start-hint${invalid === 'startMonth' ? ' fixed-costs-notice' : ''}`}
+              aria-describedby={described('startMonth')}
               onChange={(event) => change({ startMonth: event.target.value })}
             />
-            <p id={`${prefix}-start-hint`} className="text-caption text-muted-foreground">
-              Months from here up to today are added when you save (at most 24 months back).
-            </p>
           </div>
         )}
       </div>

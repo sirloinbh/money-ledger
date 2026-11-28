@@ -137,9 +137,6 @@ export function MockAllIn({ securityId, title }: { securityId: number; title: st
   return (
     <section aria-label={`${title} all-in buy`} className="flex flex-col gap-2">
       <h3 className="text-body font-semibold">All-in buy</h3>
-      <p className="text-caption text-muted-foreground">
-        Buys the most whole shares your cash covers at the best ask, fee included.
-      </p>
       <div>
         <Button
           ref={button}

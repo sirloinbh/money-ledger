@@ -202,7 +202,6 @@ export function EntryForm({
               id="entry-amount"
               inputMode="numeric"
               autoComplete="off"
-              placeholder="e.g. 12500"
               value={draft.amount}
               aria-invalid={invalid === 'amount' || undefined}
               aria-describedby={invalid === 'amount' ? 'entries-notice' : undefined}
@@ -220,11 +219,7 @@ export function EntryForm({
                 className={selectClass}
                 value={stale ? 'stale' : categoryId}
                 aria-invalid={(invalid === 'category' && stale) || undefined}
-                aria-describedby={
-                  invalid === 'category'
-                    ? 'entries-notice entry-category-hint'
-                    : 'entry-category-hint'
-                }
+                aria-describedby={invalid === 'category' ? 'entries-notice' : undefined}
                 onChange={(event) => {
                   onClearInvalid('category');
                   onChange({ categoryId: event.target.value });
@@ -244,10 +239,6 @@ export function EntryForm({
                   </option>
                 ))}
               </select>
-              <p id="entry-category-hint" className="text-caption text-muted-foreground">
-                If left uncategorized, a matching classification rule sets the category
-                automatically.
-              </p>
               {draft.kind === 'expense' ? (
                 <Button
                   type="button"
@@ -296,7 +287,6 @@ export function EntryForm({
               id="entry-merchant"
               maxLength={50}
               autoComplete="off"
-              placeholder="e.g. Starbucks Gangnam"
               value={draft.merchant}
               options={merchants}
               listLabel="Merchants used before"

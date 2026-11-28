@@ -160,7 +160,6 @@ test('without an account the form suggests ₩10,000,000 and creates it', async 
   renderWithQuery(<MockAccount />);
   const amount = await screen.findByLabelText('Starting amount (KRW)');
   expect(amount).toHaveValue('10,000,000');
-  expect(screen.getByText(/not part of the ledger or asset portfolio totals/)).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
 

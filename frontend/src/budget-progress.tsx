@@ -224,11 +224,10 @@ export function BudgetProgress() {
                               id={`budget-${budget.categoryId}`}
                               inputMode="numeric"
                               autoComplete="off"
-                              placeholder="e.g. 300000"
                               className="w-40"
                               value={draft}
                               aria-invalid={invalid || undefined}
-                              aria-describedby={`budget-${budget.categoryId}-hint${invalid ? ' budget-notice' : ''}`}
+                              aria-describedby={invalid ? 'budget-notice' : undefined}
                               onChange={(event) => {
                                 setInvalid(false);
                                 setDraft(event.target.value);
@@ -246,12 +245,6 @@ export function BudgetProgress() {
                               Cancel
                             </Button>
                           </div>
-                          <p
-                            id={`budget-${budget.categoryId}-hint`}
-                            className="text-body-sm text-muted-foreground"
-                          >
-                            Applies from {monthLabel(month)}. Leave empty or 0 for not set.
-                          </p>
                         </form>
                       ) : null}
                     </li>
@@ -402,9 +395,6 @@ function SpendingReview({
               : 'Set a budget for a category below to review its spending.'}
           </p>
         )}
-        <p className="text-caption text-muted-foreground">
-          Spending equal to the budget counts as overspending. Fixed costs are included.
-        </p>
       </CardContent>
     </Card>
   );

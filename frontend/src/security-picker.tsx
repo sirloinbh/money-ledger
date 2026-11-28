@@ -116,9 +116,7 @@ export function SecurityPicker({
           id="asset-security-query"
           ref={input}
           autoComplete="off"
-          placeholder="Name or code; ticker for US"
           value={query}
-          aria-describedby="asset-security-hint"
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={onKeyDown}
         />
@@ -126,10 +124,6 @@ export function SecurityPicker({
           Find
         </Button>
       </div>
-      <p id="asset-security-hint" className="text-caption text-muted-foreground">
-        Linking a security values the asset at the received close. Without one you can enter the
-        current price yourself.
-      </p>
       <div aria-live="polite" className="text-body-sm text-muted-foreground">
         {search.state === 'loading'
           ? 'Searching'

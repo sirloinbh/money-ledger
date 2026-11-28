@@ -115,9 +115,8 @@ test('each card shows its area, the same values as its page, and a link to it', 
   ).toBeInTheDocument();
   expect(within(netWorth).getByRole('link')).toHaveAttribute('href', '/portfolio');
 
-  // Mock money stays in its own card and says it is not part of the net worth.
+  // Mock money stays in its own card.
   const mock = card('Mock trading');
-  expect(within(mock).getByText('Practice money, not part of your net worth')).toBeInTheDocument();
   expect(await within(mock).findByText('₩10,500,000')).toBeInTheDocument();
   expect(value(mock, 'Gain/loss')).toBe('+₩500,000');
   expect(value(mock, 'Return')).toBe('+5%');

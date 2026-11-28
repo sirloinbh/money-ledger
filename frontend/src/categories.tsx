@@ -83,10 +83,6 @@ export function CategoryManager() {
     <section aria-labelledby="categories-title" className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <h2 id="categories-title">Categories</h2>
-        <p className="text-body-sm text-muted-foreground">
-          Hiding a category you no longer use removes it from the new-entry list. Past entries stay
-          as they are.
-        </p>
       </div>
       <Notice notice={notice.notice} />
       {categories === undefined ? (
@@ -151,7 +147,6 @@ function KindCard({
               id={inputId}
               value={name}
               maxLength={nameMax}
-              placeholder="e.g. Pets"
               onChange={(event) => setName(event.target.value)}
             />
             <Button type="submit" disabled={!name.trim()}>

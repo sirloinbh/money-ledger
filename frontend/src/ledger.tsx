@@ -16,11 +16,7 @@ import { RecurringSuggestions } from './recurring-suggestions';
  */
 export function LedgerPage({ health }: { health: Health }) {
   return (
-    <Page
-      title="Ledger"
-      description="Record income, expenses, and fixed costs, and see how you spend"
-      health={health}
-    >
+    <Page title="Ledger" health={health}>
       <div className="flex flex-col gap-10">
         <MonthlySummary />
         <BudgetProgress />

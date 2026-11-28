@@ -38,7 +38,6 @@ test('offers the download as a link to the backup file', () => {
     'href',
     '/api/backup',
   );
-  expect(screen.getByText(/only works in an empty database/)).toBeInTheDocument();
 });
 
 test('sends the chosen file to the restore route and reports the rows restored', async () => {
