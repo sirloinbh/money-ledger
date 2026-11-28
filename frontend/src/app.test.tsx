@@ -107,8 +107,6 @@ test('each page has its own address and is marked in the main menu', async () =>
 });
 
 const areas = [
-  { label: 'Week', path: '/week', content: undefined },
-  { label: '12 weeks', path: '/12-weeks', content: undefined },
   { label: 'Ledger', path: '/ledger', content: 'Categories' },
   { label: 'Asset portfolio', path: '/portfolio', content: 'Assets and liabilities' },
   { label: 'Goals', path: '/goals', content: 'Savings goals' },
@@ -155,8 +153,6 @@ test('the main menu lists the pages in the shared order (#359)', () => {
       .map((link) => link.textContent),
   ).toEqual([
     'Day log',
-    'Week',
-    '12 weeks',
     'Ledger',
     'Asset portfolio',
     'Goals',
@@ -235,4 +231,17 @@ test('the main menu opens the Reports page (#62)', async () => {
       'No reports yet. A report is saved once a week (Sunday to Saturday) or month with entries has ended.',
     ),
   ).toBeInTheDocument();
+});
+
+test.each([
+  ['/week', '/dashboard?view=week', 'Week'],
+  ['/week?date=2026-10-20', '/dashboard?date=2026-10-20&view=week', 'Week'],
+  ['/12-weeks', '/dashboard?view=12weeks', '12 weeks'],
+])('the old address %s opens the Dashboard on that view (#398)', async (from, to, view) => {
+  health({ today: '2026-10-26' });
+  window.history.replaceState(null, '', from);
+  render(<App queryClient={testQueryClient()} />);
+  expect(await screen.findByRole('heading', { level: 1, name: 'Dashboard' })).toBeInTheDocument();
+  expect(window.location.pathname + window.location.search).toBe(to);
+  expect(screen.getByRole('radio', { name: view })).toBeChecked();
 });

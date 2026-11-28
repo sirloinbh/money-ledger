@@ -3,16 +3,14 @@ import { useSearchParams } from 'react-router';
 import { addDays, weekStart } from './components/period-nav/periods';
 import { DateStepper, RangeSummary } from './components/ui/date-stepper';
 import { readDay, weekdayName } from './day-nav';
-import type { Health } from './health';
 import { serviceToday } from './lib/format';
-import { Page } from './page';
 import { usePeriods } from './period-data';
 import { PeriodFailure, PeriodTable } from './period-totals';
 
 // #359 Seven days (Sunday to Saturday) with the totals of each day. `?date=` is any day of the week shown
-// (default this week); a day links to the day log.
+// (default this week); a day links to the day log. A view of the Dashboard since #398.
 
-export function WeekPage({ health }: { health: Health }) {
+export function WeekView() {
   const today = serviceToday();
   const [searchParams, setSearchParams] = useSearchParams();
   const anchor = readDay(searchParams, today);
@@ -28,7 +26,7 @@ export function WeekPage({ health }: { health: Health }) {
     });
   const loading = rows !== undefined && rows[0]?.start !== first;
   return (
-    <Page title="Week" description="Income and expenses of each day of the week" health={health}>
+    <>
       <div className="flex flex-col gap-4">
         <DateStepper
           label="Day in the week"
@@ -54,6 +52,6 @@ export function WeekPage({ health }: { health: Health }) {
           <p className="text-body-sm text-muted-foreground">Loading totals</p>
         )}
       </div>
-    </Page>
+    </>
   );
 }

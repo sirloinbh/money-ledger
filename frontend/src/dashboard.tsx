@@ -1,9 +1,10 @@
 import { type QueryKey, useQuery } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 import { Button } from './components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card';
+import { SegmentedControl } from './components/ui/segmented-control';
 import { formatWon, signedPercent } from './format';
 import type { Health } from './health';
 import { ledgerKeys } from './ledger-query';
@@ -21,6 +22,8 @@ import {
   reportsPath,
 } from './reports-api';
 import { monthLabel } from './trend-series';
+import { TwelveWeeksView } from './twelve-weeks';
+import { WeekView } from './week';
 
 // #55 The first screen: this month's ledger, the latest net worth, and the mock account at a glance. Each card
 // asks the same API as its own page, so the values match it, and loads on its own, so one failure leaves the
@@ -75,19 +78,46 @@ const loadMock = async (signal: AbortSignal): Promise<MockState> => {
   return { open: true, summary: data.summary };
 };
 
+const views = [
+  { value: 'summary', label: 'Summary' },
+  { value: 'week', label: 'Week' },
+  { value: '12weeks', label: '12 weeks' },
+] as const;
+type View = (typeof views)[number]['value'];
+
+// #398 Week and 12 weeks are views of the Dashboard, chosen with `?view=week` or `?view=12weeks`.
 export function DashboardPage({ health }: { health: Health }) {
+  const [params, setParams] = useSearchParams();
+  const asked = params.get('view');
+  const view: View = views.some((v) => v.value === asked) ? (asked as View) : 'summary';
+  const choose = (next: View) =>
+    setParams(next === 'summary' ? {} : { view: next }, { replace: true });
   return (
     <Page
       title="Dashboard"
       description="This month's income and spending, your net worth, and mock trading at a glance"
       health={health}
     >
-      <NewReports />
-      <div className="grid gap-4 lg:grid-cols-3">
-        <LedgerCard />
-        <NetWorthCard />
-        <MockCard />
-      </div>
+      <SegmentedControl
+        label="Dashboard view"
+        options={views}
+        value={view}
+        onValueChange={choose}
+      />
+      {view === 'week' ? (
+        <WeekView />
+      ) : view === '12weeks' ? (
+        <TwelveWeeksView />
+      ) : (
+        <>
+          <NewReports />
+          <div className="grid gap-4 lg:grid-cols-3">
+            <LedgerCard />
+            <NetWorthCard />
+            <MockCard />
+          </div>
+        </>
+      )}
     </Page>
   );
 }
