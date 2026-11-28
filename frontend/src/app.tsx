@@ -1,8 +1,6 @@
 import { type QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   CalendarDays,
-  CalendarRange,
-  ChartColumn,
   ChartPie,
   FileText,
   LayoutDashboard,
@@ -12,7 +10,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
 
 import { BackupSettings } from './backup';
 import { AppShell, type NavItem } from './components/layout/app-shell';
@@ -32,14 +30,10 @@ import { PortfolioPage } from './portfolio';
 import { ReportPage, ReportsPage } from './reports';
 import { makeReportsOnce } from './reports-api';
 import { AccountActions, SignInGate } from './sign-in';
-import { TwelveWeeksPage } from './twelve-weeks';
-import { WeekPage } from './week';
 
 // Every page URL lives here (central docs/directory-rules.md).
 const pages = {
   dayLog: '/',
-  week: '/week',
-  twelveWeeks: '/12-weeks',
   dashboard: '/dashboard',
   ledger: '/ledger',
   portfolio: '/portfolio',
@@ -52,8 +46,6 @@ const pages = {
 // Main menu (LNB) items, in display order.
 const nav: NavItem[] = [
   { to: pages.dayLog, label: 'Day log', icon: CalendarDays },
-  { to: pages.week, label: 'Week', icon: CalendarRange },
-  { to: pages.twelveWeeks, label: '12 weeks', icon: ChartColumn },
   { to: pages.ledger, label: 'Ledger', icon: Wallet },
   { to: pages.portfolio, label: 'Asset portfolio', icon: ChartPie },
   { to: pages.goals, label: 'Goals', icon: PiggyBank },
@@ -62,6 +54,14 @@ const nav: NavItem[] = [
   { to: pages.dashboard, label: 'Dashboard', icon: LayoutDashboard },
   { to: pages.settings, label: 'Settings', icon: Settings2 },
 ];
+
+/** An old address opens the Dashboard on that view and keeps the other parameters (?date=). */
+function MovedTo({ view }: { view: string }) {
+  const { search } = useLocation();
+  const params = new URLSearchParams(search);
+  params.set('view', view);
+  return <Navigate to={`${pages.dashboard}?${params.toString()}`} replace />;
+}
 
 function useHealth() {
   const [health, setHealth] = useState<Health>({ state: 'loading' });
@@ -97,8 +97,9 @@ function Workspace() {
       <AppShell appName="Ledger, Assets, Mock Trading" nav={nav} actions={<AccountActions />}>
         <Routes>
           <Route path={pages.dayLog} element={<DayLogPage health={health} />} />
-          <Route path={pages.week} element={<WeekPage health={health} />} />
-          <Route path={pages.twelveWeeks} element={<TwelveWeeksPage health={health} />} />
+          {/* #398 The Week and 12 weeks pages are views of the Dashboard. */}
+          <Route path="/week" element={<MovedTo view="week" />} />
+          <Route path="/12-weeks" element={<MovedTo view="12weeks" />} />
           <Route path={pages.dashboard} element={<DashboardPage health={health} />} />
           <Route path={pages.ledger} element={<LedgerPage health={health} />} />
           <Route path={pages.portfolio} element={<PortfolioPage health={health} />} />

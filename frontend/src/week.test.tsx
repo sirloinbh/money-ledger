@@ -4,10 +4,9 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { renderWithQuery } from './test/query';
 import { unexpectedRequest } from './test/unexpected';
-import { TwelveWeeksPage } from './twelve-weeks';
-import { WeekPage } from './week';
+import { TwelveWeeksView } from './twelve-weeks';
+import { WeekView } from './week';
 
-const ok = { state: 'ok', today: '2026-11-27' } as const;
 let requests: string[];
 
 const plus = (date: string, days: number) =>
@@ -46,10 +45,10 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-test('the Week page shows the 7 days of this week (Sunday to Saturday) with a total', async () => {
+test('the Week view shows the 7 days of this week (Sunday to Saturday) with a total', async () => {
   renderWithQuery(
     <MemoryRouter initialEntries={['/week']}>
-      <WeekPage health={ok} />
+      <WeekView />
     </MemoryRouter>,
   );
   const table = await screen.findByRole('table');
@@ -68,7 +67,7 @@ test('the Week page shows the 7 days of this week (Sunday to Saturday) with a to
 test('the Week stepper moves a whole week', async () => {
   renderWithQuery(
     <MemoryRouter initialEntries={['/week']}>
-      <WeekPage health={ok} />
+      <WeekView />
     </MemoryRouter>,
   );
   await screen.findByRole('table');
@@ -77,10 +76,10 @@ test('the Week stepper moves a whole week', async () => {
   expect(requests).toContain('/api/ledger/periods?from=2026-11-15&unit=day&count=7');
 });
 
-test('the 12 weeks page shows 12 weekly rows ending this week, each linking to the Week page', async () => {
+test('the 12 weeks view shows 12 weekly rows ending this week, each linking to the Week view', async () => {
   renderWithQuery(
     <MemoryRouter initialEntries={['/12-weeks']}>
-      <TwelveWeeksPage health={ok} />
+      <TwelveWeeksView />
     </MemoryRouter>,
   );
   const table = await screen.findByRole('table');
@@ -88,5 +87,5 @@ test('the 12 weeks page shows 12 weekly rows ending this week, each linking to t
   const links = within(table).getAllByRole('link');
   expect(links).toHaveLength(12);
   expect(links[11]).toHaveTextContent('2026-11-22 – 2026-11-28');
-  expect(links[0]).toHaveAttribute('href', '/week?date=2026-09-06');
+  expect(links[0]).toHaveAttribute('href', '/dashboard?view=week&date=2026-09-06');
 });
